@@ -1,0 +1,4 @@
+flask
+jinja2
+peewee
+git+https://github.com/crashka/ckautils

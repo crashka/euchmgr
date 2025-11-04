@@ -3,6 +3,7 @@
 import re
 
 from peewee import SqliteDatabase, Model
+from playhouse.sqlite_ext import SqliteExtDatabase
 
 from core import DataFile
 
@@ -18,7 +19,7 @@ pragmas = {'journal_mode'            : 'wal',
            'ignore_check_constraints': 0,
            'synchronous'             : 0}
 
-db = SqliteDatabase(None, pragmas)
+db = SqliteExtDatabase(None, pragmas=pragmas)
 
 def db_init(db_name: str) -> None:
     """Initialize database for specified name.

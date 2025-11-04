@@ -6,6 +6,7 @@ import re
 
 from peewee import (TextField, IntegerField, BooleanField, ForeignKeyField, FloatField,
                     OperationalError)
+from playhouse.sqlite_ext import JSONField
 
 from database import BaseModel
 
@@ -52,9 +53,12 @@ class Player(BaseModel):
     # seeding round
     seed_wins      = IntegerField(null=True)
     seed_losses    = IntegerField(null=True)
+    seed_win_pct   = FloatField(null=True)
     seed_pts_for   = IntegerField(null=True)
     seed_pts_against = IntegerField(null=True)
-    player_seed    = IntegerField(null=True)  # 1-based
+    seed_pts_diff  = IntegerField(null=True)
+    seed_pts_pct   = FloatField(null=True)
+    player_seed    = IntegerField(unique=True, null=True)  # 1-based
     # partner picks
     partner        = ForeignKeyField('self', field='player_num', column_name='partner',
                                      object_id_name='partner_num', null=True)
@@ -64,7 +68,7 @@ class Player(BaseModel):
                                      object_id_name='picked_by_num', null=True)
 
     # class variables
-    by_num: ClassVar[dict[int, 'Player']] = None
+    player_map: ClassVar[dict[int, 'Player']] = None
 
     class Meta:
         indexes = (
@@ -72,18 +76,21 @@ class Player(BaseModel):
         )
 
     @classmethod
-    def dict_by_num(cls, requery: bool = False) -> dict[int, 'Player']:
+    def get_player_map(cls, requery: bool = False) -> dict[int, 'Player']:
         """Return dict of all players, indexed by player_num
         """
-        if cls.by_num and not requery:
-            return cls.by_num
+        if cls.player_map and not requery:
+            return cls.player_map
 
-        cls.by_num = {}
+        cls.player_map = {}
         for p in cls.select():
-            cls.by_num[p.player_num] = p
-        return cls.by_num
+            cls.player_map[p.player_num] = p
+        return cls.player_map
 
     def save(self, *args, **kwargs):
+        """Ensure that nick_name is not null, since it is used as the display name in
+        brackets (defaults to last_name if not otherwise specified)
+        """
         if not self.nick_name:
             self.nick_name = self.last_name
         return super().save(*args, **kwargs)
@@ -138,7 +145,7 @@ class Team(BaseModel):
     is_bye         = BooleanField(default=False)
     team_name      = TextField(unique=True)
     avg_player_seed = FloatField()
-    team_seed      = IntegerField()  # 1-based, based on avg_player_seed
+    team_seed      = IntegerField(unique=True)  # 1-based, based on avg_player_seed
     div_num        = IntegerField()
     div_seed       = IntegerField()
     # tournament play
@@ -176,11 +183,39 @@ class TournGame(BaseModel):
             (('div_num', 'round_num', 'table_num'), True),
         )
 
+##############
+# PlayerGame #
+##############
+
+class PlayerGame(BaseModel):
+    """Denormalization of SeedGame and TournGame data, for use in computing stats,
+    determining head-to-head match-ups, etc.
+    """
+    bracket        = TextField()             # "seed", "rr", or "final"
+    round_num      = IntegerField()
+    game_label     = TextField(unique=True)  # seed-rnd-tbl or rr-div-rnd-tbl
+    player         = ForeignKeyField(Player, field='player_num', column_name='player',
+                                     object_id_name='player_num')
+    partners       = JSONField(null=True)    # array of partner player_num(s)
+    opponents      = JSONField(null=True)    # array of opposing player_nums
+    player_team    = TextField(null=True)
+    opp_team       = TextField(null=True)    # or "bye"(?)
+    is_bye         = BooleanField(null=True)
+    # results
+    team_pts       = IntegerField(null=True)
+    opp_pts        = IntegerField(null=True)
+    is_winner      = BooleanField(null=True)
+
+    class Meta:
+        indexes = (
+            (('bracket', 'round_num', 'player'), True),
+        )
+
 ##########
 # create #
 ##########
 
-ALL_MODELS = [TournInfo, Player, SeedGame, Team, TournGame]
+ALL_MODELS = [TournInfo, Player, SeedGame, Team, TournGame, PlayerGame]
 
 def schema_create(models: list[BaseModel | str] | str = None, force = False) -> None:
     """Create tables for specified models (list of objects or comma-separated list of
@@ -201,6 +236,12 @@ def schema_create(models: list[BaseModel | str] | str = None, force = False) -> 
                 raise RuntimeError(f"Model {model} must be subclass of `BaseModel`")
             models_new.append(model_obj)
         models = models_new
+
+    # TEMP: just drop all tables, so we don't have to worry about integrity, cascading
+    # deletes, legacy data, etc.
+    if force:
+        for model in reversed(models):
+            model.drop_table()
 
     for model in models:
         try:

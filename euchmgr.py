@@ -2,13 +2,15 @@
 # -*- coding: utf-8 -*-
 
 import random
+from itertools import islice
 import csv
 import os
 
+from core import DataFile
 from database import db_init
-from schema import schema_create, TournInfo, Player
+from schema import schema_create, TournInfo, Player, SeedGame
 
-def tourn_create(name: str, date_info: str = None, venue: str = None, **kwargs) -> None:
+def tourn_create(name: str, timeframe: str = None, venue: str = None, **kwargs) -> None:
     """Create a tournament with specified name (must be unique).
 
     additional `kwargs` passed on to `schema_create`
@@ -17,9 +19,9 @@ def tourn_create(name: str, date_info: str = None, venue: str = None, **kwargs) 
     schema_create(**kwargs)
 
     info = {'name'     : name,
-            'date_info': date_info,
+            'timeframe': timeframe,
             'venue'    : venue}
-    tourn_info = TournInfo.create(**info)
+    tourn = TournInfo.create(**info)
 
 def upload_roster(name: str, path: str) -> None:
     """Create all Player records based on specified roster file (csv).  The header row
@@ -46,6 +48,7 @@ def upload_roster(name: str, path: str) -> None:
         if player.reigning_champ:
             nchamps += 1
 
+    # update tournament info (players, teams, etc.)
     thm_teams = int(nchamps == 3)
     non_champs = nplayers - nchamps
     if non_champs & 0x01:
@@ -53,17 +56,53 @@ def upload_roster(name: str, path: str) -> None:
     nteams = non_champs // 2 + 1
     assert nteams == (nplayers - thm_teams) // 2
 
-    tourn_info = TournInfo.get(TournInfo.name == name)
-    tourn_info.players = nplayers
-    tourn_info.teams = nteams
-    tourn_info.thm_teams = thm_teams
-    tourn_info.save()
+    tourn = TournInfo.get_by_name(name)
+    tourn.players = nplayers
+    tourn.teams = nteams
+    tourn.thm_teams = thm_teams
+    tourn.save()
 
-def build_seed_backet(name: str) -> None:
+def build_seed_bracket(name: str) -> None:
     """
     """
-    pass
+    db_init(name)
+    tourn = TournInfo.get_by_name(name)
+    bracket_file = f'seed-{tourn.players}-{tourn.seed_rounds}.csv'
+    players = Player.dict_by_num()
 
+    games = []
+    with open(DataFile(bracket_file), newline='') as f:
+        reader = csv.reader(f)
+        for i, row in enumerate(reader):
+            seats = (int(x) for x in row)
+            j = 0
+            while table := list(islice(seats, 0, 4)):
+                if len(table) < 4:
+                    byes = [players[p].nick_name for p in table]
+                    table += [None] * (4 - len(table))
+                    p1, p2, p3, p4 = table
+                    label = f'seed-r{i+1}-byes'
+                    team1_name = team2_name = None
+                    bye_names = ' / '.join(byes)
+                else:
+                    p1, p2, p3, p4 = table
+                    label = f'seed-r{i+1}-t{j+1}'
+                    team1_name = f'{players[p1].nick_name} / {players[p2].nick_name}'
+                    team2_name = f'{players[p3].nick_name} / {players[p4].nick_name}'
+                    bye_names = None
+                info = {'round_num'  : i + 1,
+                        'table_num'  : j + 1,
+                        'label'      : label,
+                        'player1_num': p1,
+                        'player2_num': p2,
+                        'player3_num': p3,
+                        'player4_num': p4,
+                        'team1_name' : team1_name,
+                        'team2_name' : team2_name,
+                        'byes'       : bye_names}
+                game = SeedGame.create(**info)
+                games.append(game)
+                j += 1
 
 ########
 # main #
@@ -79,7 +118,7 @@ def main() -> int:
     Usage: python -m euchmgr <func> [<args> ...]
 
     Functions/usage:
-      - tourn_create <name> [date_info=<date_info>] [venue=<venue>]
+      - tourn_create <name> [timeframe=<timeframe>] [venue=<venue>]
       - upload_roster <name> <file>
     """
     if len(sys.argv) < 2:

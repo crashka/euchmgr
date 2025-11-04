@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from typing import ClassVar
 import re
 
 from peewee import (TextField, IntegerField, BooleanField, ForeignKeyField, FloatField,
@@ -20,7 +21,7 @@ class TournInfo(BaseModel):
     """
     """
     name           = TextField(unique=True)
-    date_info      = TextField(null=True)
+    timeframe      = TextField(null=True)
     venue          = TextField(null=True)
     players        = IntegerField(null=True)
     teams          = IntegerField(null=True)
@@ -28,6 +29,12 @@ class TournInfo(BaseModel):
     seed_rounds    = IntegerField(default=DFLT_SEED_ROUNDS)
     tourn_rounds   = IntegerField(default=DFLT_TOURN_ROUNDS)
     divisions      = IntegerField(default=DFLT_DIVISIONS)
+
+    @classmethod
+    def get_by_name(cls, name: str) -> 'TournInfo':
+        """Convenience query method
+        """
+        return cls.get(cls.name == name)
 
 ##########
 # Player #
@@ -56,10 +63,25 @@ class Player(BaseModel):
     picked_by      = ForeignKeyField('self', field='player_num', column_name='picked_by',
                                      object_id_name='picked_by_num', null=True)
 
+    # class variables
+    by_num: ClassVar[dict[int, 'Player']] = None
+
     class Meta:
         indexes = (
             (('last_name', 'first_name'), True),
         )
+
+    @classmethod
+    def dict_by_num(cls, requery: bool = False) -> dict[int, 'Player']:
+        """Return dict of all players, indexed by player_num
+        """
+        if cls.by_num and not requery:
+            return cls.by_num
+
+        cls.by_num = {}
+        for p in cls.select():
+            cls.by_num[p.player_num] = p
+        return cls.by_num
 
     def save(self, *args, **kwargs):
         if not self.nick_name:
@@ -80,13 +102,14 @@ class SeedGame(BaseModel):
     player1        = ForeignKeyField(Player, field='player_num', column_name='player1',
                                      object_id_name='player1_num')
     player2        = ForeignKeyField(Player, field='player_num', column_name='player2',
-                                     object_id_name='player2_num')
+                                     object_id_name='player2_num', null=True)
     player3        = ForeignKeyField(Player, field='player_num', column_name='player3',
-                                     object_id_name='player3_num')
+                                     object_id_name='player3_num', null=True)
     player4        = ForeignKeyField(Player, field='player_num', column_name='player4',
-                                     object_id_name='player4_num')
-    team1_name     = TextField()  # player1_name/player2_name
-    team2_name     = TextField()  # player3_name/player4_name
+                                     object_id_name='player4_num', null=True)
+    team1_name     = TextField(null=True)  # player1_name / player2_name
+    team2_name     = TextField(null=True)  # player3_name / player4_name
+    byes           = TextField(null=True)  # player1 / ...
     # results
     team1_pts      = IntegerField(null=True)
     team2_pts      = IntegerField(null=True)

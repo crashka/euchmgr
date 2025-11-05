@@ -69,12 +69,12 @@ class Player(BaseModel):
     seed_pts_pct   = FloatField(null=True)
     player_seed    = IntegerField(unique=True, null=True)  # 1-based
     # partner picks
-    partner        = ForeignKeyField('self', field='player_num', column_name='partner',
-                                     object_id_name='partner_num', null=True)
-    partner2       = ForeignKeyField('self', field='player_num', column_name='partner2',
-                                     object_id_name='partner2_num', null=True)
-    picked_by      = ForeignKeyField('self', field='player_num', column_name='picked_by',
-                                     object_id_name='picked_by_num', null=True)
+    partner        = ForeignKeyField('self', field='player_num', column_name='partner_num',
+                                     null=True)
+    partner2       = ForeignKeyField('self', field='player_num', column_name='partner2_num',
+                                     null=True)
+    picked_by      = ForeignKeyField('self', field='player_num', column_name='picked_by_num',
+                                     null=True)
 
     # class variables
     player_map: ClassVar[dict[int, 'Player']] = None
@@ -142,14 +142,13 @@ class SeedGame(BaseModel):
     round_num      = IntegerField()
     table_num      = IntegerField()
     label          = TextField(unique=True)  # rnd-tbl
-    player1        = ForeignKeyField(Player, field='player_num', column_name='player1',
-                                     object_id_name='player1_num')
-    player2        = ForeignKeyField(Player, field='player_num', column_name='player2',
-                                     object_id_name='player2_num', null=True)
-    player3        = ForeignKeyField(Player, field='player_num', column_name='player3',
-                                     object_id_name='player3_num', null=True)
-    player4        = ForeignKeyField(Player, field='player_num', column_name='player4',
-                                     object_id_name='player4_num', null=True)
+    player1        = ForeignKeyField(Player, field='player_num', column_name='player1_num')
+    player2        = ForeignKeyField(Player, field='player_num', column_name='player2_num',
+                                     null=True)
+    player3        = ForeignKeyField(Player, field='player_num', column_name='player3_num',
+                                     null=True)
+    player4        = ForeignKeyField(Player, field='player_num', column_name='player4_num',
+                                     null=True)
     team1_name     = TextField(null=True)  # player1_name / player2_name
     team2_name     = TextField(null=True)  # player3_name / player4_name
     byes           = TextField(null=True)  # player1 / ...
@@ -193,12 +192,10 @@ class Team(BaseModel):
     """
     """
     # required info
-    player1        = ForeignKeyField(Player, field='player_num', column_name='player1',
-                                     object_id_name='player1_num')
-    player2        = ForeignKeyField(Player, field='player_num', column_name='player2',
-                                     object_id_name='player2_num')
-    player3        = ForeignKeyField(Player, field='player_num', column_name='player3',
-                                     object_id_name='player3_num', null=True)
+    player1        = ForeignKeyField(Player, field='player_num', column_name='player1_num')
+    player2        = ForeignKeyField(Player, field='player_num', column_name='player2_num')
+    player3        = ForeignKeyField(Player, field='player_num', column_name='player3_num',
+                                     null=True)
     is_thm         = BooleanField(default=False)
     is_bye         = BooleanField(default=False)
     team_name      = TextField(unique=True)
@@ -253,8 +250,7 @@ class PlayerGame(BaseModel):
     bracket        = TextField()             # "seed", "rr", or "final"
     round_num      = IntegerField()
     game_label     = TextField(unique=True)  # seed-rnd-tbl or rr-div-rnd-tbl
-    player         = ForeignKeyField(Player, field='player_num', column_name='player',
-                                     object_id_name='player_num')
+    player         = ForeignKeyField(Player, field='player_num', column_name='player_num')
     partners       = JSONField(null=True)    # array of partner player_num(s)
     opponents      = JSONField(null=True)    # array of opposing player_nums
     player_team    = TextField(null=True)

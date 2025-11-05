@@ -8,7 +8,7 @@ import os
 
 from core import DataFile
 from database import db_init, db_name
-from schema import schema_create, TournInfo, Player, SeedGame
+from schema import schema_create, TournInfo, Player, SeedGame, Team
 
 def tourn_create(timeframe: str = None, venue: str = None, **kwargs) -> None:
     """Create a tournament with specified name (must be unique).
@@ -60,7 +60,7 @@ def upload_roster(csv_path: str) -> None:
     tourn.thm_teams = thm_teams
     tourn.save()
 
-def team_name(player_nums: list[int]) -> str:
+def build_team_name(player_nums: list[int]) -> str:
     """
     """
     pl_map = Player.get_player_map()
@@ -83,7 +83,7 @@ def build_seed_bracket() -> None:
             tbl_j = 0
             while table := list(islice(seats, 0, 4)):
                 if len(table) < 4:
-                    byes = team_name(table)
+                    byes = build_team_name(table)
                     table += [None] * (4 - len(table))
                     p1, p2, p3, p4 = table
                     label = f'seed-r{rnd_i+1}-byes'
@@ -91,8 +91,8 @@ def build_seed_bracket() -> None:
                 else:
                     p1, p2, p3, p4 = table
                     label = f'seed-r{rnd_i+1}-t{tbl_j+1}'
-                    team1_name = team_name([p1, p2])
-                    team2_name = team_name([p3, p4])
+                    team1_name = build_team_name([p1, p2])
+                    team2_name = build_team_name([p3, p4])
                     byes = None
                 info = {'round_num'  : rnd_i + 1,
                         'table_num'  : tbl_j + 1,
@@ -176,8 +176,7 @@ def compute_player_seeds() -> None:
 
     # TODO: break ties with points ratio, head-to-head, etc.!!!
     sort_key = lambda x: (-x.seed_win_pct, -x.seed_pts_diff, -x.seed_pts_pct)
-    by_record = sorted(pl_list, key=sort_key)
-    for i, player in enumerate(by_record):
+    for i, player in enumerate(sorted(pl_list, key=sort_key)):
         player.player_seed = i + 1
         player.save()
 
@@ -215,8 +214,48 @@ def fake_partner_picks() -> None:
 def build_tourn_teams() -> None:
     """
     """
-    pl_list = Player.get_player_map().values()
-    by_seed = sorted(pl_list, key=lambda x: x.player_seed)
+    pl_map = Player.get_player_map()
+    by_seed = sorted(pl_map.values(), key=lambda x: x.player_seed)
+
+    teams = []
+    for p in by_seed:
+        if not p.partner_num:
+            continue
+        partner = pl_map[p.partner_num]
+        seed_sum = p.player_seed + partner.player_seed
+        min_seed = min(p.player_seed, partner.player_seed)
+        if not p.partner2_num:
+            is_thm = False
+            team_name = build_team_name([p.player_num, p.partner_num])
+            avg_seed = seed_sum / 2.0
+        else:
+            partner2 = pl_map[p.partner2_num]
+            is_thm = True
+            team_name = build_team_name([p.player_num, p.partner_num, p.partner2_num])
+            seed_sum += partner2.player_seed
+            min_seed = min(min_seed, partner2.player_seed)
+            avg_seed = seed_sum / 3.0
+
+        info = {'player1_num'    : p.player_num,
+                'player2_num'    : p.partner_num,
+                'player3_num'    : p.partner2_num,
+                'is_thm'         : is_thm,
+                'is_bye'         : False,
+                'team_name'      : team_name,
+                'avg_player_seed': avg_seed,
+                'top_player_seed': min_seed}
+        team = Team(**info)
+        teams.append(team)
+
+    tourn = TournInfo.get()
+    ndivs = tourn.divisions
+
+    sort_key = lambda x: (x.avg_player_seed, x.top_player_seed)
+    for i, team in enumerate(sorted(teams, key=sort_key)):
+        team.team_seed = i + 1
+        team.div_num = i % ndivs + 1
+        team.div_seed = i // ndivs + 1
+        team.save()
 
 def build_tourn_bracket() -> None:
     """

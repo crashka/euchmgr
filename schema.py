@@ -199,9 +199,10 @@ class Team(BaseModel):
     is_thm         = BooleanField(default=False)
     is_bye         = BooleanField(default=False)
     team_name      = TextField(unique=True)
+    avg_player_seed = FloatField()
+    top_player_seed = IntegerField()
+    team_seed      = IntegerField(unique=True)  # 1-based, based on avg_player_seed
     # tournament bracket
-    avg_player_seed = FloatField(null=True)
-    team_seed      = IntegerField(unique=True, null=True)  # 1-based, based on avg_player_seed
     div_num        = IntegerField(null=True)
     div_seed       = IntegerField(null=True)
     # tournament play

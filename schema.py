@@ -32,7 +32,7 @@ class TournInfo(BaseModel):
     divisions      = IntegerField(default=DFLT_DIVISIONS)
 
     # class variables
-    inst: 'TournInfo' = None  # singleton instance
+    inst: ClassVar['TournInfo'] = None  # singleton instance
 
     @classmethod
     def get(cls, requery: bool = False) -> 'TournInfo':

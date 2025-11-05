@@ -22,12 +22,12 @@ def tourn_create(timeframe: str = None, venue: str = None, **kwargs) -> None:
             'venue'    : venue}
     tourn = TournInfo.create(**info)
 
-def upload_roster(path: str) -> None:
+def upload_roster(csv_path: str) -> None:
     """Create all Player records based on specified roster file (csv).  The header row
     must specify the required info field names for the model object.
     """
     players = []
-    with open(path, newline='') as f:
+    with open(csv_path, newline='') as f:
         reader = csv.reader(f)
         header = next(reader)
         for row in reader:
@@ -60,6 +60,13 @@ def upload_roster(path: str) -> None:
     tourn.thm_teams = thm_teams
     tourn.save()
 
+def team_name(player_nums: list[int]) -> str:
+    """
+    """
+    pl_map = Player.get_player_map()
+    nick_names = [pl_map[p].nick_name for p in player_nums]
+    return ' / '.join(nick_names)
+
 def build_seed_bracket() -> None:
     """Populate seed round matchups and byes (in `seed_round` table) based on tournament
     parameters and uploaded roster.
@@ -67,7 +74,6 @@ def build_seed_bracket() -> None:
     """
     tourn = TournInfo.get()
     bracket_file = f'seed-{tourn.players}-{tourn.seed_rounds}.csv'
-    pl_map = Player.get_player_map()
 
     games = []
     with open(DataFile(bracket_file), newline='') as f:
@@ -77,17 +83,16 @@ def build_seed_bracket() -> None:
             tbl_j = 0
             while table := list(islice(seats, 0, 4)):
                 if len(table) < 4:
-                    bye_names = [pl_map[p].nick_name for p in table]
+                    byes = team_name(table)
                     table += [None] * (4 - len(table))
                     p1, p2, p3, p4 = table
                     label = f'seed-r{rnd_i+1}-byes'
                     team1_name = team2_name = None
-                    byes = ' / '.join(bye_names)
                 else:
                     p1, p2, p3, p4 = table
                     label = f'seed-r{rnd_i+1}-t{tbl_j+1}'
-                    team1_name = f'{pl_map[p1].nick_name} / {pl_map[p2].nick_name}'
-                    team2_name = f'{pl_map[p3].nick_name} / {pl_map[p4].nick_name}'
+                    team1_name = team_name([p1, p2])
+                    team2_name = team_name([p3, p4])
                     byes = None
                 info = {'round_num'  : rnd_i + 1,
                         'table_num'  : tbl_j + 1,

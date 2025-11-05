@@ -7,27 +7,25 @@ import csv
 import os
 
 from core import DataFile
-from database import db_init
+from database import db_init, db_name
 from schema import schema_create, TournInfo, Player, SeedGame
 
-def tourn_create(name: str, timeframe: str = None, venue: str = None, **kwargs) -> None:
+def tourn_create(timeframe: str = None, venue: str = None, **kwargs) -> None:
     """Create a tournament with specified name (must be unique).
 
-    additional `kwargs` passed on to `schema_create`
+    Additional `kwargs` are passed on to `schema_create`
     """
-    db_init(name)
     schema_create(**kwargs)
 
-    info = {'name'     : name,
+    info = {'name'     : db_name(),  # db_name is same as tournament name
             'timeframe': timeframe,
             'venue'    : venue}
     tourn = TournInfo.create(**info)
 
-def upload_roster(name: str, path: str) -> None:
+def upload_roster(path: str) -> None:
     """Create all Player records based on specified roster file (csv).  The header row
     must specify the required info field names for the model object.
     """
-    db_init(name)
     players = []
     with open(path, newline='') as f:
         reader = csv.reader(f)
@@ -56,19 +54,18 @@ def upload_roster(name: str, path: str) -> None:
     nteams = non_champs // 2 + 1
     assert nteams == (nplayers - thm_teams) // 2
 
-    tourn = TournInfo.get_by_name(name)
+    tourn = TournInfo.get()
     tourn.players = nplayers
     tourn.teams = nteams
     tourn.thm_teams = thm_teams
     tourn.save()
 
-def build_seed_bracket(name: str) -> None:
+def build_seed_bracket() -> None:
     """Populate seed round matchups and byes (in `seed_round` table) based on tournament
     parameters and uploaded roster.
 
     """
-    db_init(name)
-    tourn = TournInfo.get_by_name(name)
+    tourn = TournInfo.get()
     bracket_file = f'seed-{tourn.players}-{tourn.seed_rounds}.csv'
     pl_map = Player.get_player_map()
 
@@ -106,10 +103,9 @@ def build_seed_bracket(name: str) -> None:
                 games.append(game)
                 tbl_j += 1
 
-def fake_seed_results(name: str) -> None:
+def fake_seed_results() -> None:
+    """Generates random team points and determines winner for each seed game
     """
-    """
-    db_init(name)
     for game in SeedGame.select().where(SeedGame.byes.is_null()):
         if random.randrange(2) > 0:
             game.team1_pts = 10
@@ -121,10 +117,9 @@ def fake_seed_results(name: str) -> None:
             game.winner = game.team2_name
         game.save()
 
-def tabulate_seed_round(name: str) -> None:
+def tabulate_seed_round() -> None:
     """
     """
-    db_init(name)
     pl_map = Player.get_player_map()
 
     for player in pl_map.values():
@@ -171,86 +166,66 @@ def tabulate_seed_round(name: str) -> None:
         player.seed_pts_pct = player.seed_pts_for / totpts * 100.0
         player.save()
 
-def compute_player_seeds(name: str) -> None:
+def compute_player_seeds() -> None:
     """
     """
-    db_init(name)
-    pl_map = Player.get_player_map()
+    pl_list = Player.get_player_map().values()
 
     # TODO: break ties with points ratio, head-to-head, etc.!!!
     sort_key = lambda x: (-x.seed_win_pct, -x.seed_pts_diff, -x.seed_pts_pct)
-    by_record = sorted(pl_map.values(), key=sort_key)
+    by_record = sorted(pl_list, key=sort_key)
     for i, player in enumerate(by_record):
         player.player_seed = i + 1
         player.save()
 
-def fake_partner_picks(name: str) -> None:
-    """NOTE: also builds Team records
+def fake_partner_picks() -> None:
     """
-    db_init(name)
+    """
     pl_list = Player.get_player_map().values()
     by_seed = sorted(pl_list, key=lambda x: x.player_seed)
 
     # highest seeded champ must pick fellow champ(s)
     champs = [p for p in by_seed if p.reigning_champ]
-    champ1 = champs.pop(0)
-    print(f"champ: {champ1.player_num} ({champ1.nick_name})")
-    by_seed.remove(champ1)
-    assert len(champs) > 0
-
-    champ2 = champs.pop(0)
-    print(f"  - picks partner {champ2.player_num}")
-    champ1.partner_num = champ2.player_num
-    champ2.picked_by_num = champ1.player_num
-    by_seed.remove(champ2)
-
-    if len(champs) > 0:
-        champ3 = champs.pop(0)
-        print(f"  - picks partner {champ3.player_num}")
-        champ1.partner2_num = champ3.player_num
-        champ3.picked_by_num = champ1.player_num
-        by_seed.remove(champ3)
-    assert len(champs) == 0
+    champs[0].pick_partners(*champs[1:])
+    for p in champs:
+        by_seed.remove(p)
 
     # non-champs pick randomly
     avail = list(by_seed)  # shallow copy (no champs)
     for player in by_seed:
         player_num = player.player_num
-        print(f"player: {player_num} ({player.nick_name})")
         if player.picked_by:
             assert player not in avail
-            print(f"  - already picked by {player.picked_by_num}, skipping...")
             continue
         avail.remove(player)
 
-        partner = random.choice(avail)
-        print(f"  - picks partner {partner.player_num}")
-        player.partner_num = partner.player_num
-        partner.picked_by_num = player_num
-        avail.remove(partner)
-
-        if len(avail) == 1:
-            partner2 = avail.pop(0)
-            print(f"  - picks partner {partner2.player_num}")
-            player.partner2_num = partner2.player_num
-            partner2.picked_by_num = player_num
-            # note that we let it keep looping, for integrity checking
+        partners = [random.choice(avail)]
+        avail.remove(partners[0])
+        if len(avail) == 1:  # three-headed monster
+            partners.append(avail.pop(0))
+        player.pick_partners(*partners)
     assert len(avail) == 0
 
     for player in pl_list:
         player.save()
 
-def build_tourn_bracket(name: str) -> None:
+def build_tourn_teams() -> None:
+    """
+    """
+    pl_list = Player.get_player_map().values()
+    by_seed = sorted(pl_list, key=lambda x: x.player_seed)
+
+def build_tourn_bracket() -> None:
     """
     """
     pass
 
-def fake_tourn_results(name: str) -> None:
+def fake_tourn_results() -> None:
     """
     """
     pass
 
-def tabulate_tourn(name: str) -> None:
+def tabulate_tourn() -> None:
     """
     """
     pass
@@ -266,22 +241,36 @@ from ckautils import parse_argv
 def main() -> int:
     """Built-in driver to invoke module functions
 
-    Usage: python -m euchmgr <func> [<args> ...]
+    Usage: python -m euchmgr <tourn_name> <func> [<args> ...]
 
     Functions/usage:
-      - tourn_create <name> [timeframe=<timeframe>] [venue=<venue>]
-      - upload_roster <name> <file>
+      - tourn_create [timeframe=<timeframe>] [venue=<venue>] [<schema_create kwargs>]
+      - upload_roster roster=<csv_file>
+      - build_seed_bracket
+      - fake_seed_results
+      - tabulate_seed_round
+      - compute_player_seeds
+      - fake_partner_picks
+      - build_tourn_teams
+      - build_tourn_brackets
+      - fake_tourn_results
+      - tabulate_tourn
     """
     if len(sys.argv) < 2:
+        print(f"Tournament name not specified", file=sys.stderr)
+        return -1
+    if len(sys.argv) < 3:
         print(f"Utility function not specified", file=sys.stderr)
         return -1
-    elif sys.argv[1] not in globals():
-        print(f"Unknown utility function '{sys.argv[1]}'", file=sys.stderr)
+    elif sys.argv[2] not in globals():
+        print(f"Unknown utility function '{sys.argv[2]}'", file=sys.stderr)
         return -1
 
-    util_func = globals()[sys.argv[1]]
-    args, kwargs = parse_argv(sys.argv[2:])
+    tourn_name = sys.argv[1]
+    util_func = globals()[sys.argv[2]]
+    args, kwargs = parse_argv(sys.argv[3:])
 
+    db_init(tourn_name)
     return util_func(*args, **kwargs)
 
 if __name__ == '__main__':

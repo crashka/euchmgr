@@ -31,11 +31,20 @@ class TournInfo(BaseModel):
     tourn_rounds   = IntegerField(default=DFLT_TOURN_ROUNDS)
     divisions      = IntegerField(default=DFLT_DIVISIONS)
 
+    # class variables
+    inst: 'TournInfo' = None  # singleton instance
+
     @classmethod
-    def get_by_name(cls, name: str) -> 'TournInfo':
-        """Convenience query method
+    def get(cls, requery: bool = False) -> 'TournInfo':
+        """Return cached singleton instance (shadows more general base class method).
         """
-        return cls.get(cls.name == name)
+        # NOTE: use iterator() to circumvent caching in ORM layer
+        res = [t for t in cls.select().limit(2).iterator()]
+        assert len(res) == 1  # fails if not initialized, or unexpected multiple records
+
+        if cls.inst is None or requery:
+            cls.inst = res[0]
+        return cls.inst
 
 ##########
 # Player #
@@ -83,9 +92,34 @@ class Player(BaseModel):
             return cls.player_map
 
         cls.player_map = {}
-        for p in cls.select():
+        # see NOTE on use of iterator in `TournInfo.get`, above
+        for p in cls.select().iterator():
             cls.player_map[p.player_num] = p
         return cls.player_map
+
+    @classmethod
+    def get_player(cls, player_num: int) -> 'Player':
+        """Return player by player_num (from cached map)
+        """
+        pl_map = cls.get_player_map()
+        return pl_map[player_num]
+
+    def pick_partners(self, partner1: 'Player', partner2: 'Player' = None) -> None:
+        """
+        """
+        print(f"player: {self.player_num} ({self.nick_name})")
+        print(f"  - picks partner {partner1.player_num} ({partner1.nick_name})")
+        assert self.partner_num is None
+        assert partner1.picked_by_num is None
+        self.partner_num = partner1.player_num
+        partner1.picked_by_num = self.player_num
+
+        if partner2:
+            print(f"  - picks partner {partner2.player_num} ({partner2.nick_name})")
+            assert self.partner2_num is None
+            assert partner2.picked_by_num is None
+            self.partner2_num = partner2.player_num
+            partner2.picked_by_num = self.player_num
 
     def save(self, *args, **kwargs):
         """Ensure that nick_name is not null, since it is used as the display name in
@@ -144,10 +178,11 @@ class Team(BaseModel):
     is_thm         = BooleanField(default=False)
     is_bye         = BooleanField(default=False)
     team_name      = TextField(unique=True)
-    avg_player_seed = FloatField()
-    team_seed      = IntegerField(unique=True)  # 1-based, based on avg_player_seed
-    div_num        = IntegerField()
-    div_seed       = IntegerField()
+    # tournament bracket
+    avg_player_seed = FloatField(null=True)
+    team_seed      = IntegerField(unique=True, null=True)  # 1-based, based on avg_player_seed
+    div_num        = IntegerField(null=True)
+    div_seed       = IntegerField(null=True)
     # tournament play
     tourn_wins     = IntegerField(null=True)
     tourn_losses   = IntegerField(null=True)

@@ -133,6 +133,8 @@ class Player(BaseModel):
 # SeedGame #
 ############
 
+GAME_PTS = 10
+
 class SeedGame(BaseModel):
     """
     """
@@ -160,6 +162,28 @@ class SeedGame(BaseModel):
         indexes = (
             (('round_num', 'table_num'), True),
         )
+
+    def add_scores(self, team1_pts: int, team2_pts: int) -> None:
+        """Record scores for completed (or incomplete) game.  Scores should not be updated
+        directly in model object, since denormalizations (e.g. in PlayerGame) will not be
+        maintained (without some more involved pre-save logic).
+
+        TODO: check to see if this overwrites a completed game result, in which case the
+        denorms need to be properly managed!!!
+        """
+        self.team1_pts = team1_pts
+        self.team2_pts = team2_pts
+
+        if self.team1_pts >= GAME_PTS:
+            assert self.team2_pts < GAME_PTS
+            self.winner = self.team1_name
+        elif self.team2_pts >= GAME_PTS:
+            self.winner = self.team2_name
+        else:
+            self.winner = None
+
+        # TODO: insert records into GamePlayer!!!
+        pass
 
 ########
 # Team #

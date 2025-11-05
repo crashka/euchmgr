@@ -112,14 +112,12 @@ def fake_seed_results() -> None:
     """Generates random team points and determines winner for each seed game
     """
     for game in SeedGame.select().where(SeedGame.byes.is_null()):
+        winner_pts = 10
+        loser_pts = random.randrange(10)
         if random.randrange(2) > 0:
-            game.team1_pts = 10
-            game.team2_pts = random.randrange(10)
-            game.winner = game.team1_name
+            game.add_scores(winner_pts, loser_pts)
         else:
-            game.team1_pts = random.randrange(10)
-            game.team2_pts = 10
-            game.winner = game.team2_name
+            game.add_scores(loser_pts, winner_pts)
         game.save()
 
 def tabulate_seed_round() -> None:

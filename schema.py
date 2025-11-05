@@ -77,7 +77,7 @@ class Player(BaseModel):
                                      null=True)
 
     # class variables
-    player_map: ClassVar[dict[int, 'Player']] = None
+    player_map: ClassVar[dict[int, 'Player']] = None  # indexed by player_num
 
     class Meta:
         indexes = (
@@ -201,16 +201,43 @@ class Team(BaseModel):
     team_name      = TextField(unique=True)
     avg_player_seed = FloatField()
     top_player_seed = IntegerField()
-    team_seed      = IntegerField(unique=True)  # 1-based, based on avg_player_seed
     # tournament bracket
+    team_seed      = IntegerField(unique=True, null=True)  # 1-based, from players seeds
     div_num        = IntegerField(null=True)
     div_seed       = IntegerField(null=True)
     # tournament play
     tourn_wins     = IntegerField(null=True)
     tourn_losses   = IntegerField(null=True)
+    tourn_win_pct  = FloatField(null=True)
     tourn_pts_for  = IntegerField(null=True)
     tourn_pts_against = IntegerField(null=True)
+    tourn_pts_diff = IntegerField(null=True)
+    tourn_pts_pct  = FloatField(null=True)
     tourn_rank     = IntegerField(null=True)
+
+    # class variables
+    team_map: ClassVar[dict[int, 'Team']] = None  # indexed by team_seed
+
+    @classmethod
+    def get_team_map(cls, requery: bool = False) -> dict[int, 'Team']:
+        """Return dict of all teams, indexed by team_seed
+        """
+        if cls.team_map and not requery:
+            return cls.team_map
+
+        cls.team_map = {}
+        # see NOTE on use of iterator in `TournInfo.get`, above
+        for t in cls.select().iterator():
+            cls.team_map[t.team_seed] = t
+        return cls.team_map
+
+    @classmethod
+    def iter_teams(cls) -> 'Team':
+        """Iterator for teams (wrap ORM details)
+        """
+        # see NOTE on use of iterator in `TournInfo.get`, above
+        for t in cls.select().iterator():
+            yield t
 
 #############
 # TournGame #

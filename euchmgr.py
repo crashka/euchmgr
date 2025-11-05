@@ -244,14 +244,18 @@ def build_tourn_teams() -> None:
                 'team_name'      : team_name,
                 'avg_player_seed': avg_seed,
                 'top_player_seed': min_seed}
-        team = Team(**info)
+        team = Team.create(**info)
         teams.append(team)
 
+def compute_team_seeds() -> None:
+    """
+    """
+    tm_iter = Team.iter_teams()
     tourn = TournInfo.get()
     ndivs = tourn.divisions
 
     sort_key = lambda x: (x.avg_player_seed, x.top_player_seed)
-    for i, team in enumerate(sorted(teams, key=sort_key)):
+    for i, team in enumerate(sorted(tm_iter, key=sort_key)):
         team.team_seed = i + 1
         team.div_num = i % ndivs + 1
         team.div_seed = i // ndivs + 1

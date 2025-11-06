@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from typing import ClassVar
+from typing import ClassVar, Self, Iterator
 import re
 
 from peewee import (TextField, IntegerField, BooleanField, ForeignKeyField, FloatField,
@@ -32,10 +32,10 @@ class TournInfo(BaseModel):
     divisions      = IntegerField(default=DFLT_DIVISIONS)
 
     # class variables
-    inst: ClassVar['TournInfo'] = None  # singleton instance
+    inst: ClassVar[Self] = None  # singleton instance
 
     @classmethod
-    def get(cls, requery: bool = False) -> 'TournInfo':
+    def get(cls, requery: bool = False) -> Self:
         """Return cached singleton instance (shadows more general base class method).
         """
         # NOTE: use iterator() to circumvent caching in ORM layer
@@ -77,7 +77,7 @@ class Player(BaseModel):
                                      null=True)
 
     # class variables
-    player_map: ClassVar[dict[int, 'Player']] = None  # indexed by player_num
+    player_map: ClassVar[dict[int, Self]] = None  # indexed by player_num
 
     class Meta:
         indexes = (
@@ -85,7 +85,7 @@ class Player(BaseModel):
         )
 
     @classmethod
-    def get_player_map(cls, requery: bool = False) -> dict[int, 'Player']:
+    def get_player_map(cls, requery: bool = False) -> dict[int, Self]:
         """Return dict of all players, indexed by player_num
         """
         if cls.player_map and not requery:
@@ -98,13 +98,13 @@ class Player(BaseModel):
         return cls.player_map
 
     @classmethod
-    def get_player(cls, player_num: int) -> 'Player':
+    def get_player(cls, player_num: int) -> Self:
         """Return player by player_num (from cached map)
         """
         pl_map = cls.get_player_map()
         return pl_map[player_num]
 
-    def pick_partners(self, partner1: 'Player', partner2: 'Player' = None) -> None:
+    def pick_partners(self, partner1: Self, partner2: Self = None) -> None:
         """
         """
         print(f"player: {self.player_num} ({self.nick_name})")
@@ -141,7 +141,7 @@ class SeedGame(BaseModel):
     # required info
     round_num      = IntegerField()
     table_num      = IntegerField()
-    label          = TextField(unique=True)  # rnd-tbl
+    label          = TextField(unique=True)  # seed-{rnd}-{tbl}
     player1        = ForeignKeyField(Player, field='player_num', column_name='player1_num')
     player2        = ForeignKeyField(Player, field='player_num', column_name='player2_num',
                                      null=True)
@@ -197,7 +197,6 @@ class Team(BaseModel):
     player3        = ForeignKeyField(Player, field='player_num', column_name='player3_num',
                                      null=True)
     is_thm         = BooleanField(default=False)
-    is_bye         = BooleanField(default=False)
     team_name      = TextField(unique=True)
     avg_player_seed = FloatField()
     top_player_seed = IntegerField()
@@ -216,10 +215,15 @@ class Team(BaseModel):
     tourn_rank     = IntegerField(null=True)
 
     # class variables
-    team_map: ClassVar[dict[int, 'Team']] = None  # indexed by team_seed
+    team_map: ClassVar[dict[int, Self]] = None  # indexed by team_seed
+
+    class Meta:
+        indexes = (
+            (('div_num', 'div_seed'), True),
+        )
 
     @classmethod
-    def get_team_map(cls, requery: bool = False) -> dict[int, 'Team']:
+    def get_team_map(cls, requery: bool = False) -> dict[int, Self]:
         """Return dict of all teams, indexed by team_seed
         """
         if cls.team_map and not requery:
@@ -228,11 +232,19 @@ class Team(BaseModel):
         cls.team_map = {}
         # see NOTE on use of iterator in `TournInfo.get`, above
         for t in cls.select().iterator():
+            assert t.team_seed  # late check that seeds have been set
             cls.team_map[t.team_seed] = t
         return cls.team_map
 
     @classmethod
-    def iter_teams(cls) -> 'Team':
+    def get_div_map(cls, div: int, requery: bool = False) -> dict[int, Self]:
+        """Return dict of division teams, indexed by div_seed
+        """
+        tm_list = cls.get_team_map(requery).values()
+        return {t.div_seed: t for t in tm_list if t.div_num == div}
+
+    @classmethod
+    def iter_teams(cls) -> Iterator[Self]:
         """Iterator for teams (wrap ORM details)
         """
         # see NOTE on use of iterator in `TournInfo.get`, above
@@ -249,8 +261,8 @@ class TournGame(BaseModel):
     # required info
     div_num        = IntegerField()
     round_num      = IntegerField()
-    table_num      = IntegerField()
-    label          = TextField(unique=True)     # div-rnd-tbl
+    table_num      = IntegerField(null=True)  # null if bye
+    label          = TextField(unique=True)   # rr-{div}-{rnd}-{tbl}
     team1_seed     = IntegerField()
     team2_seed     = IntegerField()
     team1_name     = TextField()

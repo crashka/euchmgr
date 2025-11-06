@@ -8,7 +8,24 @@ import os
 
 from core import DataFile
 from database import db_init, db_name
-from schema import schema_create, TournInfo, Player, SeedGame, Team
+from schema import schema_create, TournInfo, Player, SeedGame, Team, TournGame
+
+BYE_TEAM = 'Bye'
+
+#####################
+# utility functions #
+#####################
+
+def build_team_name(player_nums: list[int]) -> str:
+    """
+    """
+    pl_map = Player.get_player_map()
+    nick_names = [pl_map[p].nick_name for p in player_nums]
+    return ' / '.join(nick_names)
+
+#####################
+# euchmgr functions #
+#####################
 
 def tourn_create(timeframe: str = None, venue: str = None, **kwargs) -> None:
     """Create a tournament with specified name (must be unique).
@@ -23,7 +40,7 @@ def tourn_create(timeframe: str = None, venue: str = None, **kwargs) -> None:
     tourn = TournInfo.create(**info)
 
 def upload_roster(csv_path: str) -> None:
-    """Create all Player records based on specified roster file (csv).  The header row
+    """Create all Player records based on specified roster file (CSV).  The header row
     must specify the required info field names for the model object.
     """
     players = []
@@ -32,6 +49,8 @@ def upload_roster(csv_path: str) -> None:
         header = next(reader)
         for row in reader:
             player_info = dict(zip(header, row))
+            # note that type coercion is expected to just work here (all CSV values come
+            # in as text strings)
             player = Player(**player_info)
             players.append(player)
 
@@ -60,20 +79,15 @@ def upload_roster(csv_path: str) -> None:
     tourn.thm_teams = thm_teams
     tourn.save()
 
-def build_team_name(player_nums: list[int]) -> str:
-    """
-    """
-    pl_map = Player.get_player_map()
-    nick_names = [pl_map[p].nick_name for p in player_nums]
-    return ' / '.join(nick_names)
-
 def build_seed_bracket() -> None:
     """Populate seed round matchups and byes (in `seed_round` table) based on tournament
     parameters and uploaded roster.
 
     """
     tourn = TournInfo.get()
-    bracket_file = f'seed-{tourn.players}-{tourn.seed_rounds}.csv'
+    nplayers = tourn.players
+    nrounds = tourn.seed_rounds
+    bracket_file = f'seed-{nplayers}-{nrounds}.csv'
 
     games = []
     with open(DataFile(bracket_file), newline='') as f:
@@ -240,7 +254,6 @@ def build_tourn_teams() -> None:
                 'player2_num'    : p.partner_num,
                 'player3_num'    : p.partner2_num,
                 'is_thm'         : is_thm,
-                'is_bye'         : False,
                 'team_name'      : team_name,
                 'avg_player_seed': avg_seed,
                 'top_player_seed': min_seed}
@@ -264,7 +277,68 @@ def compute_team_seeds() -> None:
 def build_tourn_bracket() -> None:
     """
     """
-    pass
+    tm_map = Team.get_team_map()
+    tourn = TournInfo.get()
+    nteams = tourn.teams
+    ndivs = tourn.divisions
+    nrounds = tourn.tourn_rounds
+    bye_seed = nteams + 1  # below all others
+
+    # lower numbered divisions may have one extra team--REVISIT: this is probably wrong,
+    # since the highest seeded overall team (div 1, seed 1) should have preferemtial bye
+    # over all other division top seeds!!!
+    div_teams = [nteams // ndivs] * ndivs
+    div_mod = nteams % ndivs
+    for i in range(div_mod):
+        div_teams[i - ndivs] += 1
+    assert sum(div_teams) == nteams
+
+    games = []
+    for div_i in range(ndivs):
+        brckt_teams = div_teams[div_i]
+        bye_div_seed = brckt_teams + 1  # TODO: only if odd number of teams!!!
+        bracket_file = f'rr-{brckt_teams}-{nrounds}.csv'
+        div_map = Team.get_div_map(div_i + 1)
+        with open(DataFile(bracket_file), newline='') as f:
+            reader = csv.reader(f)
+            for rnd_j, row in enumerate(reader):
+                seats = (int(x) for x in row)
+                tbl_k = 0
+                while table := list(islice(seats, 0, 2)):
+                    if bye_div_seed in table:
+                        t1, t2 = sorted(table)
+                        assert t2 == bye_div_seed
+                        label = f'rr-d{div_i+1}-r{rnd_j+1}-bye'
+                        team1 = div_map[t1]
+                        info = {'div_num'       : div_i + 1,
+                                'round_num'     : rnd_j + 1,
+                                'table_num'     : None,
+                                'label'         : label,
+                                'team1_seed'    : team1.team_seed,
+                                'team2_seed'    : bye_seed,
+                                'team1_name'    : team1.team_name,
+                                'team2_name'    : BYE_TEAM,
+                                'team1_div_seed': team1.div_seed,
+                                'team2_div_seed': bye_div_seed}
+
+                    else:
+                        t1,t2 = table
+                        label = f'rr-d{div_i+1}-r{rnd_j+1}-t{tbl_k+1}'
+                        team1 = div_map[t1]
+                        team2 = div_map[t2]
+                        info = {'div_num'       : div_i + 1,
+                                'round_num'     : rnd_j + 1,
+                                'table_num'     : tbl_k + 1,
+                                'label'         : label,
+                                'team1_seed'    : team1.team_seed,
+                                'team2_seed'    : team2.team_seed,
+                                'team1_name'    : team1.team_name,
+                                'team2_name'    : team2.team_name,
+                                'team1_div_seed': team1.div_seed,
+                                'team2_div_seed': team2.div_seed}
+                        tbl_k += 1
+                    game = TournGame.create(**info)
+                    games.append(game)
 
 def fake_tourn_results() -> None:
     """
@@ -306,10 +380,10 @@ def main() -> int:
         print(f"Tournament name not specified", file=sys.stderr)
         return -1
     if len(sys.argv) < 3:
-        print(f"Utility function not specified", file=sys.stderr)
+        print(f"Module function not specified", file=sys.stderr)
         return -1
     elif sys.argv[2] not in globals():
-        print(f"Unknown utility function '{sys.argv[2]}'", file=sys.stderr)
+        print(f"Unknown module function '{sys.argv[2]}'", file=sys.stderr)
         return -1
 
     tourn_name = sys.argv[1]
@@ -317,7 +391,7 @@ def main() -> int:
     args, kwargs = parse_argv(sys.argv[3:])
 
     db_init(tourn_name)
-    return util_func(*args, **kwargs)
+    return util_func(*args, **kwargs) or 0
 
 if __name__ == '__main__':
     sys.exit(main())

@@ -44,28 +44,21 @@ def upload_roster(csv_path: str) -> None:
     must specify the required info field names for the model object.
     """
     players = []
+    nchamps = 0
     with open(csv_path, newline='') as f:
         reader = csv.reader(f)
-        header = next(reader)
+        header = next(reader)  # TODO: check for required fields!!!
         for row in reader:
             player_info = dict(zip(header, row))
             # note that type coercion is expected to just work here (all CSV values come
             # in as text strings)
-            player = Player(**player_info)
+            player = Player.create(**player_info)
+            if player.reigning_champ:
+                nchamps += 1
             players.append(player)
 
-    # assign random numbers to players before saving (akin to picking ping pong balls out
-    # of a bag)
-    nplayers = len(players)
-    ords = iter(random.sample(range(nplayers), nplayers))
-    nchamps = 0
-    for player in players:
-        player.player_num = next(ords) + 1
-        player.save()
-        if player.reigning_champ:
-            nchamps += 1
-
     # update tournament info (players, teams, etc.)
+    nplayers = len(players)
     thm_teams = int(nchamps == 3)
     non_champs = nplayers - nchamps
     if non_champs & 0x01:
@@ -78,6 +71,24 @@ def upload_roster(csv_path: str) -> None:
     tourn.teams = nteams
     tourn.thm_teams = thm_teams
     tourn.save()
+
+def generate_player_nums(rand_seed: int = None) -> None:
+    """Generate random values for player_num, akin to picking numbered ping pong balls out
+     of a bag.
+
+    Note: player_nums can also be specified in the roster file or manually assigned, which
+    in either case this function should not be called (would overwrite existing values).
+    """
+    my_rand = random.Random
+    if isinstance(rand_seed, int):
+        my_rand.seed(rand_seed)  # for reproducible debugging only
+
+    pl_list = list(Player.iter_players())
+    nplayers = len(pl_list)
+    ords = iter(random.sample(range(nplayers), nplayers))
+    for player in pl_list:
+        player.player_num = next(ords) + 1
+        player.save()
 
 def build_seed_bracket() -> None:
     """Populate seed round matchups and byes (in `seed_round` table) based on tournament
@@ -395,12 +406,17 @@ def tabulate_tourn() -> None:
 def compute_team_ranks() -> None:
     """
     """
+    tourn = TournInfo.get()
+    ndivs = tourn.divisions
     tm_list = Team.get_team_map().values()
 
+    div_rank = {i + 1: 0 for i in range(ndivs)}
     # TODO: break ties with points ratio, head-to-head, etc.!!!
     sort_key = lambda x: (-x.tourn_win_pct, -x.tourn_pts_diff, -x.tourn_pts_pct)
     for i, team in enumerate(sorted(tm_list, key=sort_key)):
         team.tourn_rank = i + 1
+        div_rank[team.div_num] += 1
+        team.div_rank = div_rank[team.div_num]
         team.save()
 
 ########

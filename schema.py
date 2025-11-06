@@ -58,7 +58,7 @@ class Player(BaseModel):
     last_name      = TextField()
     nick_name      = TextField(unique=True)  # defaults to last_name
     reigning_champ = BooleanField(default=False)
-    player_num     = IntegerField(unique=True)  # 1-based random number
+    player_num     = IntegerField(unique=True, null=True)  # 1-based, must be contiguous
     # seeding round
     seed_wins      = IntegerField(null=True)
     seed_losses    = IntegerField(null=True)
@@ -103,6 +103,18 @@ class Player(BaseModel):
         """
         pl_map = cls.get_player_map()
         return pl_map[player_num]
+
+    @classmethod
+    def iter_players(cls) -> Iterator[Self]:
+        """Iterator for players (wrap ORM details).  Note that this also clears out local
+        cache, if populated
+        """
+        if cls.player_map:
+            cls.player_map = None
+
+        # see NOTE on use of iterator in `TournInfo.get`, above
+        for p in cls.select().iterator():
+            yield p
 
     def pick_partners(self, partner1: Self, partner2: Self = None) -> None:
         """
@@ -213,6 +225,7 @@ class Team(BaseModel):
     tourn_pts_diff = IntegerField(null=True)
     tourn_pts_pct  = FloatField(null=True)
     tourn_rank     = IntegerField(null=True)
+    div_rank       = IntegerField(null=True)
 
     # class variables
     team_map: ClassVar[dict[int, Self]] = None  # indexed by team_seed
@@ -245,8 +258,12 @@ class Team(BaseModel):
 
     @classmethod
     def iter_teams(cls) -> Iterator[Self]:
-        """Iterator for teams (wrap ORM details)
+        """Iterator for teams (wrap ORM details).  Note that this also clears out local
+        cache, if populate.
         """
+        if cls.team_map:
+            cls.team_map = None
+
         # see NOTE on use of iterator in `TournInfo.get`, above
         for t in cls.select().iterator():
             yield t

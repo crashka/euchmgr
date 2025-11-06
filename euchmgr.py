@@ -341,14 +341,67 @@ def build_tourn_bracket() -> None:
                     games.append(game)
 
 def fake_tourn_results() -> None:
+    """Generates random team points and determines winner for each tournament game (before
+    semis/finals)
     """
-    """
-    pass
+    for game in TournGame.select().where(TournGame.table_num.is_null(False)):
+        winner_pts = 10
+        loser_pts = random.randrange(10)
+        if random.randrange(2) > 0:
+            game.add_scores(winner_pts, loser_pts)
+        else:
+            game.add_scores(loser_pts, winner_pts)
+        game.save()
 
 def tabulate_tourn() -> None:
     """
     """
-    pass
+    tm_map = Team.get_team_map()
+
+    for team in tm_map.values():
+        assert team.tourn_wins is None
+        assert team.tourn_losses is None
+        assert team.tourn_pts_for is None
+        assert team.tourn_pts_against is None
+        team.tourn_wins = 0
+        team.tourn_losses = 0
+        team.tourn_pts_for = 0
+        team.tourn_pts_against = 0
+
+    for game in TournGame.select().where(TournGame.table_num.is_null(False)):
+        team1 = tm_map[game.team1_seed]
+        team2 = tm_map[game.team2_seed]
+
+        if game.winner == game.team1_name:
+            team1.tourn_wins += 1
+            team2.tourn_losses += 1
+        else:
+            team1.tourn_losses += 1
+            team2.tourn_wins += 1
+
+        team1.tourn_pts_for += game.team1_pts
+        team2.tourn_pts_for += game.team2_pts
+        team1.tourn_pts_against += game.team2_pts
+        team2.tourn_pts_against += game.team1_pts
+
+    for team in tm_map.values():
+        ngames = team.tourn_wins + team.tourn_losses
+        totpts = team.tourn_pts_for + team.tourn_pts_against
+        team.tourn_win_pct = team.tourn_wins / ngames * 100.0
+        team.tourn_pts_diff = team.tourn_pts_for - team.tourn_pts_against
+        team.tourn_pts_pct = team.tourn_pts_for / totpts * 100.0
+        team.save()
+
+def compute_team_ranks() -> None:
+    """
+    """
+    tm_list = Team.get_team_map().values()
+
+    # TODO: break ties with points ratio, head-to-head, etc.!!!
+    sort_key = lambda x: (-x.tourn_win_pct, -x.tourn_pts_diff, -x.tourn_pts_pct)
+    for i, team in enumerate(sorted(tm_list, key=sort_key)):
+        team.tourn_rank = i + 1
+        team.save()
 
 ########
 # main #

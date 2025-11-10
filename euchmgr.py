@@ -1,6 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+To Do list:
+- explicitly track phase of tournament, with integrity checks
+- use head-to-head record for tie-breakers
+- fix assignment of teams to divisions (highest seed should be prioritized for byes)
+"""
+
 import random
 from itertools import islice
 import csv
@@ -281,6 +288,8 @@ def compute_team_seeds() -> None:
     sort_key = lambda x: (x.avg_player_seed, x.top_player_seed)
     for i, team in enumerate(sorted(tm_iter, key=sort_key)):
         team.team_seed = i + 1
+        # REVISIT: see comment on seeds and preferential bye treatment below (in
+        # `build_tourn_bracket`)
         team.div_num = i % ndivs + 1
         team.div_seed = i // ndivs + 1
         team.save()
@@ -331,7 +340,6 @@ def build_tourn_bracket() -> None:
                                 'team2_name'    : BYE_TEAM,
                                 'team1_div_seed': team1.div_seed,
                                 'team2_div_seed': bye_div_seed}
-
                     else:
                         t1,t2 = table
                         label = f'rr-d{div_i+1}-r{rnd_j+1}-t{tbl_k+1}'
@@ -435,15 +443,18 @@ def main() -> int:
     Functions/usage:
       - tourn_create [timeframe=<timeframe>] [venue=<venue>] [<schema_create kwargs>]
       - upload_roster roster=<csv_file>
+      - generate_player_nums
       - build_seed_bracket
       - fake_seed_results
       - tabulate_seed_round
       - compute_player_seeds
       - fake_partner_picks
       - build_tourn_teams
-      - build_tourn_brackets
+      - compute_team_seeds
+      - build_tourn_bracket
       - fake_tourn_results
       - tabulate_tourn
+      - compute_team_ranks
     """
     if len(sys.argv) < 2:
         print(f"Tournament name not specified", file=sys.stderr)

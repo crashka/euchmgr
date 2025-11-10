@@ -14,6 +14,10 @@ DFLT_SEED_ROUNDS  = 8
 DFLT_TOURN_ROUNDS = 8
 DFLT_DIVISIONS    = 2
 
+BRACKET_SEED    = 'seed'
+BRACKET_TOURN   = 'rr'
+BRACKET_PLAYOFF = 'playoff'
+
 #############
 # TournInfo #
 #############
@@ -26,7 +30,7 @@ class TournInfo(BaseModel):
     venue          = TextField(null=True)
     players        = IntegerField(null=True)
     teams          = IntegerField(null=True)
-    thm_teams      = IntegerField(default=0)
+    thm_teams      = IntegerField(null=True)
     seed_rounds    = IntegerField(default=DFLT_SEED_ROUNDS)
     tourn_rounds   = IntegerField(default=DFLT_TOURN_ROUNDS)
     divisions      = IntegerField(default=DFLT_DIVISIONS)
@@ -36,7 +40,8 @@ class TournInfo(BaseModel):
 
     @classmethod
     def get(cls, requery: bool = False) -> Self:
-        """Return cached singleton instance (shadows more general base class method).
+        """Return cached singleton instance (purposefully shadows more general base class
+        method).
         """
         # NOTE: use iterator() to circumvent caching in ORM layer
         res = [t for t in cls.select().limit(2).iterator()]
@@ -107,7 +112,7 @@ class Player(BaseModel):
     @classmethod
     def iter_players(cls) -> Iterator[Self]:
         """Iterator for players (wrap ORM details).  Note that this also clears out local
-        cache, if populated
+        cache, if populated.
         """
         if cls.player_map:
             cls.player_map = None
@@ -193,8 +198,34 @@ class SeedGame(BaseModel):
         else:
             self.winner = None
 
-        # TODO: insert records into PlayerGame!!!
-        pass
+        # insert records into PlayerGame for each player
+        players     = [self.player1, self.player2, self.player3, self.player4]
+        partners    = [self.player2, self.player1, self.player4, self.player3]
+        opps_tups   = [(self.player3, self.player4), (self.player1, self.player2)]
+        team_scores = [self.team1_pts, self.team2_pts]
+
+        pl_games = []
+        for pl_idx, player in enumerate(players):
+            tm_idx    = pl_idx // 2
+            op_idx    = tm_idx ^ 0x01
+            partner   = partners[pl_idx]
+            opps_tup  = opps_tups[tm_idx]
+            team_pts  = team_scores[tm_idx]
+            opp_pts   = team_scores[op_idx]
+
+            pg_info = {'bracket'      : BRACKET_SEED,
+                       'round_num'    : self.round_num,
+                       'game_label'   : self.label,
+                       'player'       : player,
+                       'partners'     : [partner.player_num],
+                       'opponents'    : [p.player_num for p in opps_tup],
+                       'partner_names': [partner.nick_name],
+                       'opp_names'    : [p.nick_name for p in opps_tup],
+                       'team_pts'     : team_pts,
+                       'opp_pts'      : opp_pts,
+                       'is_winner'    : team_pts > opp_pts}
+            pl_game = PlayerGame.create(**pg_info)
+            pl_games.append(pl_game)
 
 ########
 # Team #
@@ -259,7 +290,7 @@ class Team(BaseModel):
     @classmethod
     def iter_teams(cls) -> Iterator[Self]:
         """Iterator for teams (wrap ORM details).  Note that this also clears out local
-        cache, if populate.
+        cache, if populated.
         """
         if cls.team_map:
             cls.team_map = None
@@ -280,8 +311,8 @@ class TournGame(BaseModel):
     round_num      = IntegerField()
     table_num      = IntegerField(null=True)  # null if bye
     label          = TextField(unique=True)   # rr-{div}-{rnd}-{tbl}
-    team1_seed     = IntegerField()
-    team2_seed     = IntegerField()
+    team1          = ForeignKeyField(Team, field='team_seed', column_name='team1_seed')
+    team2          = ForeignKeyField(Team, field='team_seed', column_name='team2_seed')
     team1_name     = TextField()
     team2_name     = TextField()
     team1_div_seed = IntegerField()
@@ -315,26 +346,47 @@ class TournGame(BaseModel):
         else:
             self.winner = None
 
-        # TODO: insert records into TeamGame!!!
-        pass
+        # insert records into PlayerGame for each player
+        teams       = [self.team1, self.team2]
+        team_scores = [self.team1_pts, self.team2_pts]
+
+        tm_games = []
+        for tm_idx, team in enumerate([self.team1, self.team2]):
+            op_idx   = tm_idx ^ 0x01
+            team_pts = team_scores[tm_idx]
+            opp_pts  = team_scores[op_idx]
+
+            tg_info = {'bracket'   : BRACKET_TOURN,
+                       'round_num' : self.round_num,
+                       'game_label': self.label,
+                       'team'      : team,
+                       'opponent'  : teams[op_idx],
+                       'team_team' : team.team_name,
+                       'opp_name'  : teams[op_idx].team_name,
+                       'team_pts'  : team_pts,
+                       'opp_pts'   : opp_pts,
+                       'is_winner' : team_pts > opp_pts}
+            tm_game = TeamGame.create(**tg_info)
+            tm_games.append(tm_game)
 
 ##############
 # PlayerGame #
 ##############
 
 class PlayerGame(BaseModel):
-    """Denormalization of SeedGame and TournGame data, for use in computing stats,
-    determining head-to-head match-ups, etc.
+    """Denormalization of SeedGame (and possibly TournGame data), for use in computing
+    stats, determining head-to-head match-ups, etc.
     """
-    bracket        = TextField()             # "seed", "rr", or "final"
+    bracket        = TextField()            # "seed", "rr", or "playoff"
     round_num      = IntegerField()
-    game_label     = TextField(unique=True)  # seed-rnd-tbl or rr-div-rnd-tbl
+    game_label     = TextField()            # seed-rnd-tbl or rr-div-rnd-tbl
     player         = ForeignKeyField(Player, field='player_num', column_name='player_num')
-    partners       = JSONField(null=True)    # array of partner player_num(s)
-    opponents      = JSONField(null=True)    # array of opposing player_nums
-    player_team    = TextField(null=True)
-    opp_team       = TextField(null=True)    # or "bye"(?)
-    is_bye         = BooleanField(null=True)
+    player_name    = TextField()            # automatic denorm
+    partners       = JSONField(default=[])  # array of partner player_num(s)
+    opponents      = JSONField(default=[])  # array of opposing player_nums
+    partner_names  = JSONField(default=[])  # denorm
+    opp_names      = JSONField(default=[])  # denorm
+    is_bye         = BooleanField(default=False)
     # results
     team_pts       = IntegerField(null=True)
     opp_pts        = IntegerField(null=True)
@@ -343,13 +395,57 @@ class PlayerGame(BaseModel):
     class Meta:
         indexes = (
             (('bracket', 'round_num', 'player'), True),
+            (('game_label', 'player'), True)
         )
 
-##########
-# create #
-##########
+    def save(self, *args, **kwargs):
+        """Set player name (denorm field) as player's nick name
+        """
+        if not self.player_name:
+            self.player_name = self.player.nick_name
+        return super().save(*args, **kwargs)
 
-ALL_MODELS = [TournInfo, Player, SeedGame, Team, TournGame, PlayerGame]
+##############
+# TeamGame #
+##############
+
+class TeamGame(BaseModel):
+    """Denormalization of TournGame data, for use in computing stats, determining
+    head-to-head match-ups, etc.
+    """
+    bracket        = TextField()           # "rr" or "playoff"
+    round_num      = IntegerField()
+    game_label     = TextField()           # e.g. rr-div-rnd-tbl
+    team           = ForeignKeyField(Team, field='team_seed', column_name='team_seed')
+    opponent       = ForeignKeyField(Team, field='team_seed', column_name='opp_seed', null=True)
+    team_name      = TextField()
+    opp_name       = TextField(null=True)  # or "bye"(?)
+    is_bye         = BooleanField(default=False)
+    # results
+    team_pts       = IntegerField(null=True)
+    opp_pts        = IntegerField(null=True)
+    is_winner      = BooleanField(null=True)
+
+    class Meta:
+        indexes = (
+            (('bracket', 'round_num', 'team'), True),
+            (('game_label', 'team'), True)
+        )
+
+    def save(self, *args, **kwargs):
+        """Set team and opponane names (denorm fields)
+        """
+        if not self.team_name:
+            self.team_name = self.team.team_name
+        if self.opponent and not self.opp_name:
+            self.opp_name = self.opponent.team_name
+        return super().save(*args, **kwargs)
+
+#################
+# schema_create #
+#################
+
+ALL_MODELS = [TournInfo, Player, SeedGame, Team, TournGame, PlayerGame, TeamGame]
 
 def schema_create(models: list[BaseModel | str] | str = None, force = False) -> None:
     """Create tables for specified models (list of objects or comma-separated list of

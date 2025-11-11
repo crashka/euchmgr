@@ -20,7 +20,7 @@ import os
 
 from core import DataFile
 from database import db_init, db_name
-from schema import schema_create, TournState, TournInfo, Player, SeedGame, Team, TournGame
+from schema import schema_create, TournStage, TournInfo, Player, SeedGame, Team, TournGame
 
 BYE_TEAM = '-- (bye) --'
 
@@ -56,7 +56,7 @@ def tourn_create(timeframe: str = None, venue: str = None, **kwargs) -> None:
     info = {'name'       : db_name(),  # db_name is same as tournament name
             'timeframe'  : timeframe,
             'venue'      : venue,
-            'state_compl': TournState.TOURN_CREATE}
+            'stage_compl': TournStage.TOURN_CREATE}
     tourn = TournInfo.create(**info)
 
 def upload_roster(csv_path: str) -> None:
@@ -90,7 +90,7 @@ def upload_roster(csv_path: str) -> None:
     tourn.players = nplayers
     tourn.teams = nteams
     tourn.thm_teams = thm_teams
-    tourn.state_compl = TournState.ROSTER_UPLOAD
+    tourn.stage_compl = TournStage.PLAYER_ROSTER
     tourn.save()
 
 def generate_player_nums(rand_seed: int = None) -> None:
@@ -111,7 +111,7 @@ def generate_player_nums(rand_seed: int = None) -> None:
         player.player_num = next(ords) + 1
         player.save()
 
-    TournInfo.mark_state_complete(TournState.PLAYER_NUMS)
+    TournInfo.mark_stage_complete(TournStage.PLAYER_NUMS)
 
 def build_seed_bracket() -> None:
     """Populate seed round matchups and byes (in `seed_round` table) based on tournament
@@ -158,7 +158,7 @@ def build_seed_bracket() -> None:
                 games.append(game)
                 tbl_j += 1
 
-    tourn.complete_state(TournState.SEED_BRACKET)
+    tourn.complete_stage(TournStage.SEED_BRACKET)
 
 def fake_seed_results() -> None:
     """Generates random team points and determines winner for each seed game
@@ -172,7 +172,7 @@ def fake_seed_results() -> None:
             game.add_scores(loser_pts, winner_pts)
         game.save()
 
-    TournInfo.mark_state_complete(TournState.SEED_RESULTS)
+    TournInfo.mark_stage_complete(TournStage.SEED_RESULTS)
 
 def tabulate_seed_round() -> None:
     """
@@ -223,7 +223,7 @@ def tabulate_seed_round() -> None:
         player.seed_pts_pct = player.seed_pts_for / totpts * 100.0
         player.save()
 
-    TournInfo.mark_state_complete(TournState.SEED_TABULATE)
+    TournInfo.mark_stage_complete(TournStage.SEED_TABULATE)
 
 def compute_player_seeds() -> None:
     """
@@ -236,7 +236,7 @@ def compute_player_seeds() -> None:
         player.player_seed = i + 1
         player.save()
 
-    TournInfo.mark_state_complete(TournState.SEED_RANKS)
+    TournInfo.mark_stage_complete(TournStage.SEED_RANKS)
 
 def fake_partner_picks() -> None:
     """
@@ -269,7 +269,7 @@ def fake_partner_picks() -> None:
     for player in pl_list:
         player.save()
 
-    TournInfo.mark_state_complete(TournState.PARTNER_PICK)
+    TournInfo.mark_stage_complete(TournStage.PARTNER_PICK)
 
 def build_tourn_teams() -> None:
     """
@@ -306,7 +306,7 @@ def build_tourn_teams() -> None:
         team = Team.create(**info)
         teams.append(team)
 
-    TournInfo.mark_state_complete(TournState.TOURN_TEAMS)
+    TournInfo.mark_stage_complete(TournStage.TOURN_TEAMS)
 
 def compute_team_seeds() -> None:
     """
@@ -324,7 +324,7 @@ def compute_team_seeds() -> None:
         team.div_seed = i // ndivs + 1
         team.save()
 
-    tourn.complete_state(TournState.TEAM_SEEDS)
+    tourn.complete_stage(TournStage.TEAM_SEEDS)
 
 def build_tourn_bracket() -> None:
     """
@@ -391,7 +391,7 @@ def build_tourn_bracket() -> None:
                     game = TournGame.create(**info)
                     games.append(game)
 
-    tourn.complete_state(TournState.TOURN_BRACKET)
+    tourn.complete_stage(TournStage.TOURN_BRACKET)
 
 def fake_tourn_results() -> None:
     """Generates random team points and determines winner for each tournament game (before
@@ -406,7 +406,7 @@ def fake_tourn_results() -> None:
             game.add_scores(loser_pts, winner_pts)
         game.save()
 
-    TournInfo.mark_state_complete(TournState.TOURN_RESULTS)
+    TournInfo.mark_stage_complete(TournStage.TOURN_RESULTS)
 
 def tabulate_tourn() -> None:
     """
@@ -447,7 +447,7 @@ def tabulate_tourn() -> None:
         team.tourn_pts_pct = team.tourn_pts_for / totpts * 100.0
         team.save()
 
-    TournInfo.mark_state_complete(TournState.TOURN_TABULATE)
+    TournInfo.mark_stage_complete(TournStage.TOURN_TABULATE)
 
 def compute_team_ranks() -> None:
     """
@@ -465,7 +465,7 @@ def compute_team_ranks() -> None:
         team.div_rank = div_rank[team.div_num]
         team.save()
 
-    tourn.complete_state(TournState.TEAM_RANKS)
+    tourn.complete_stage(TournStage.TEAM_RANKS)
 
 ########
 # main #

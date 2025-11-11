@@ -18,7 +18,7 @@ from core import DataFile
 from database import db_init, db_name
 from schema import schema_create, TournInfo, Player, SeedGame, Team, TournGame
 
-BYE_TEAM = '-- bye --'
+BYE_TEAM = '-- (bye) --'
 
 #####################
 # utility functions #
@@ -359,11 +359,10 @@ def build_tourn_bracket() -> None:
                                 'round_num'     : rnd_j + 1,
                                 'table_num'     : tbl_k + 1,
                                 'label'         : label,
-                                'team1_seed'    : team1.team_seed,
-                                'team2_seed'    : team2.team_seed,
+                                'team1'         : team1,
+                                'team2'         : team2,
                                 'team1_name'    : team1.team_name,
                                 'team2_name'    : team2.team_name,
-                                'bye_team'      : None,
                                 'team1_div_seed': team1.div_seed,
                                 'team2_div_seed': team2.div_seed}
                         tbl_k += 1

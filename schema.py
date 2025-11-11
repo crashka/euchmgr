@@ -14,9 +14,11 @@ DFLT_SEED_ROUNDS  = 8
 DFLT_TOURN_ROUNDS = 8
 DFLT_DIVISIONS    = 2
 
-BRACKET_SEED    = 'seed'
-BRACKET_TOURN   = 'rr'
-BRACKET_PLAYOFF = 'playoff'
+GAME_PTS          = 10
+
+BRACKET_SEED      = 'seed'
+BRACKET_TOURN     = 'rr'
+BRACKET_PLAYOFF   = 'playoff'
 
 #############
 # TournInfo #
@@ -150,15 +152,13 @@ class Player(BaseModel):
 # SeedGame #
 ############
 
-GAME_PTS = 10
-
 class SeedGame(BaseModel):
     """
     """
     # required info
     round_num      = IntegerField()
-    table_num      = IntegerField()
-    label          = TextField(unique=True)  # seed-{rnd}-{tbl}
+    table_num      = IntegerField(null=True)  # null if bye
+    label          = TextField(unique=True)   # seed-{rnd}-{tbl}
     player1        = ForeignKeyField(Player, field='player_num', column_name='player1_num')
     player2        = ForeignKeyField(Player, field='player_num', column_name='player2_num',
                                      null=True)
@@ -166,18 +166,29 @@ class SeedGame(BaseModel):
                                      null=True)
     player4        = ForeignKeyField(Player, field='player_num', column_name='player4_num',
                                      null=True)
-    team1_name     = TextField(null=True)  # player1_name / player2_name
-    team2_name     = TextField(null=True)  # player3_name / player4_name
-    byes           = TextField(null=True)  # player1 / ...
+    team1_name     = TextField(null=True)     # player1_name / player2_name
+    team2_name     = TextField(null=True)     # player3_name / player4_name
+    bye_players    = TextField(null=True)     # player1 / ...
     # results
     team1_pts      = IntegerField(null=True)
     team2_pts      = IntegerField(null=True)
-    winner         = TextField(null=True)  # team name
+    winner         = TextField(null=True)     # team name
 
     class Meta:
         indexes = (
             (('round_num', 'table_num'), True),
         )
+
+    @classmethod
+    def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
+        """Iterator for seed_games (wrap ORM details).
+        """
+        # see NOTE on use of iterator in `TournInfo.get`, above
+        sel = cls.select()
+        if not include_byes:
+            sel = sel.where(cls.table_num.is_null(False))
+        for t in sel.iterator():
+            yield t
 
     def add_scores(self, team1_pts: int, team2_pts: int) -> None:
         """Record scores for completed (or incomplete) game.  Scores should not be updated
@@ -312,20 +323,31 @@ class TournGame(BaseModel):
     table_num      = IntegerField(null=True)  # null if bye
     label          = TextField(unique=True)   # rr-{div}-{rnd}-{tbl}
     team1          = ForeignKeyField(Team, field='team_seed', column_name='team1_seed')
-    team2          = ForeignKeyField(Team, field='team_seed', column_name='team2_seed')
-    team1_name     = TextField()
-    team2_name     = TextField()
+    team2          = ForeignKeyField(Team, field='team_seed', column_name='team2_seed', null=True)
+    team1_name     = TextField()              # denorm
+    team2_name     = TextField()              # denorm (or BYE_TEAM)
     team1_div_seed = IntegerField()
-    team2_div_seed = IntegerField()
+    team2_div_seed = IntegerField(null=True)
     # results
     team1_pts      = IntegerField(null=True)
     team2_pts      = IntegerField(null=True)
-    winner         = TextField(null=True)  # team name
+    winner         = TextField(null=True)     # team name
 
     class Meta:
         indexes = (
             (('div_num', 'round_num', 'table_num'), True),
         )
+
+    @classmethod
+    def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
+        """Iterator for seed_games (wrap ORM details).
+        """
+        # see NOTE on use of iterator in `TournInfo.get`, above
+        sel = cls.select()
+        if not include_byes:
+            sel = sel.where(cls.table_num.is_null(False))
+        for t in sel.iterator():
+            yield t
 
     def add_scores(self, team1_pts: int, team2_pts: int) -> None:
         """Record scores for completed (or incomplete) game.  Scores should not be updated

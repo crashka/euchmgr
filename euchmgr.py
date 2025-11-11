@@ -5,7 +5,8 @@
 To Do list:
 - explicitly track phase of tournament, with integrity checks
 - use head-to-head record for tie-breakers
-- fix assignment of teams to divisions (highest seed should be prioritized for byes)
+- highest seed should be assigned to division with byes (if any)
+- bracketology for inter-division play
 """
 
 import random
@@ -17,13 +18,20 @@ from core import DataFile
 from database import db_init, db_name
 from schema import schema_create, TournInfo, Player, SeedGame, Team, TournGame
 
-BYE_TEAM = 'Bye'
+BYE_TEAM = '-- bye --'
 
 #####################
 # utility functions #
 #####################
 
-def build_team_name(player_nums: list[int]) -> str:
+def fmt_player_list(player_nums: list[int]) -> str:
+    """
+    """
+    pl_map = Player.get_player_map()
+    nick_names = [pl_map[p].nick_name for p in player_nums]
+    return '; '.join(nick_names)
+
+def fmt_team_name(player_nums: list[int]) -> str:
     """
     """
     pl_map = Player.get_player_map()
@@ -115,19 +123,21 @@ def build_seed_bracket() -> None:
             tbl_j = 0
             while table := list(islice(seats, 0, 4)):
                 if len(table) < 4:
-                    byes = build_team_name(table)
+                    bye_players = fmt_player_list(table)
                     table += [None] * (4 - len(table))
                     p1, p2, p3, p4 = table
+                    table_num = None
                     label = f'seed-r{rnd_i+1}-byes'
                     team1_name = team2_name = None
                 else:
                     p1, p2, p3, p4 = table
+                    table_num = tbl_j + 1
                     label = f'seed-r{rnd_i+1}-t{tbl_j+1}'
-                    team1_name = build_team_name([p1, p2])
-                    team2_name = build_team_name([p3, p4])
-                    byes = None
+                    team1_name = fmt_team_name([p1, p2])
+                    team2_name = fmt_team_name([p3, p4])
+                    bye_players = None
                 info = {'round_num'  : rnd_i + 1,
-                        'table_num'  : tbl_j + 1,
+                        'table_num'  : table_num,
                         'label'      : label,
                         'player1_num': p1,
                         'player2_num': p2,
@@ -135,7 +145,7 @@ def build_seed_bracket() -> None:
                         'player4_num': p4,
                         'team1_name' : team1_name,
                         'team2_name' : team2_name,
-                        'byes'       : byes}
+                        'bye_players': bye_players}
                 game = SeedGame.create(**info)
                 games.append(game)
                 tbl_j += 1
@@ -143,7 +153,7 @@ def build_seed_bracket() -> None:
 def fake_seed_results() -> None:
     """Generates random team points and determines winner for each seed game
     """
-    for game in SeedGame.select().where(SeedGame.byes.is_null()):
+    for game in SeedGame.iter_games():
         winner_pts = 10
         loser_pts = random.randrange(10)
         if random.randrange(2) > 0:
@@ -167,7 +177,7 @@ def tabulate_seed_round() -> None:
         player.seed_pts_for = 0
         player.seed_pts_against = 0
 
-    for game in SeedGame.select().where(SeedGame.byes.is_null()):
+    for game in SeedGame.iter_games():
         player1 = pl_map[game.player1_num]
         player2 = pl_map[game.player2_num]
         player3 = pl_map[game.player3_num]
@@ -258,12 +268,12 @@ def build_tourn_teams() -> None:
         min_seed = min(p.player_seed, partner.player_seed)
         if not p.partner2_num:
             is_thm = False
-            team_name = build_team_name([p.player_num, p.partner_num])
+            team_name = fmt_team_name([p.player_num, p.partner_num])
             avg_seed = seed_sum / 2.0
         else:
             partner2 = pl_map[p.partner2_num]
             is_thm = True
-            team_name = build_team_name([p.player_num, p.partner_num, p.partner2_num])
+            team_name = fmt_team_name([p.player_num, p.partner_num, p.partner2_num])
             seed_sum += partner2.player_seed
             min_seed = min(min_seed, partner2.player_seed)
             avg_seed = seed_sum / 3.0
@@ -334,12 +344,12 @@ def build_tourn_bracket() -> None:
                                 'round_num'     : rnd_j + 1,
                                 'table_num'     : None,
                                 'label'         : label,
-                                'team1_seed'    : team1.team_seed,
-                                'team2_seed'    : bye_seed,
+                                'team1'         : team1,
+                                'team2'         : None,
                                 'team1_name'    : team1.team_name,
                                 'team2_name'    : BYE_TEAM,
                                 'team1_div_seed': team1.div_seed,
-                                'team2_div_seed': bye_div_seed}
+                                'team2_div_seed': None}
                     else:
                         t1,t2 = table
                         label = f'rr-d{div_i+1}-r{rnd_j+1}-t{tbl_k+1}'
@@ -353,6 +363,7 @@ def build_tourn_bracket() -> None:
                                 'team2_seed'    : team2.team_seed,
                                 'team1_name'    : team1.team_name,
                                 'team2_name'    : team2.team_name,
+                                'bye_team'      : None,
                                 'team1_div_seed': team1.div_seed,
                                 'team2_div_seed': team2.div_seed}
                         tbl_k += 1
@@ -363,7 +374,7 @@ def fake_tourn_results() -> None:
     """Generates random team points and determines winner for each tournament game (before
     semis/finals)
     """
-    for game in TournGame.select().where(TournGame.table_num.is_null(False)):
+    for game in TournGame.iter_games():
         winner_pts = 10
         loser_pts = random.randrange(10)
         if random.randrange(2) > 0:
@@ -387,7 +398,7 @@ def tabulate_tourn() -> None:
         team.tourn_pts_for = 0
         team.tourn_pts_against = 0
 
-    for game in TournGame.select().where(TournGame.table_num.is_null(False)):
+    for game in TournGame.iter_games():
         team1 = tm_map[game.team1_seed]
         team2 = tm_map[game.team2_seed]
 
@@ -457,9 +468,11 @@ def main() -> int:
       - compute_team_ranks
     """
     if len(sys.argv) < 2:
+        print(main.__doc__)
         print(f"Tournament name not specified", file=sys.stderr)
         return -1
     if len(sys.argv) < 3:
+        print(main.__doc__)
         print(f"Module function not specified", file=sys.stderr)
         return -1
     elif sys.argv[2] not in globals():

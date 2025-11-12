@@ -46,7 +46,7 @@ def fmt_team_name(player_nums: list[int]) -> str:
 # euchmgr functions #
 #####################
 
-def tourn_create(timeframe: str = None, venue: str = None, **kwargs) -> None:
+def tourn_create(timeframe: str = None, venue: str = None, **kwargs) -> TournInfo:
     """Create a tournament with specified name (must be unique).
 
     Additional `kwargs` are passed on to `schema_create`
@@ -58,6 +58,7 @@ def tourn_create(timeframe: str = None, venue: str = None, **kwargs) -> None:
             'venue'      : venue,
             'stage_compl': TournStage.TOURN_CREATE}
     tourn = TournInfo.create(**info)
+    return tourn
 
 def upload_roster(csv_path: str) -> None:
     """Create all Player records based on specified roster file (CSV).  The header row
@@ -113,7 +114,7 @@ def generate_player_nums(rand_seed: int = None) -> None:
 
     TournInfo.mark_stage_complete(TournStage.PLAYER_NUMS)
 
-def build_seed_bracket() -> None:
+def build_seed_bracket() -> list[SeedGame]:
     """Populate seed round matchups and byes (in `seed_round` table) based on tournament
     parameters and uploaded roster.
 
@@ -159,6 +160,7 @@ def build_seed_bracket() -> None:
                 tbl_j += 1
 
     tourn.complete_stage(TournStage.SEED_BRACKET)
+    return games
 
 def fake_seed_results() -> None:
     """Generates random team points and determines winner for each seed game
@@ -271,7 +273,7 @@ def fake_partner_picks() -> None:
 
     TournInfo.mark_stage_complete(TournStage.PARTNER_PICK)
 
-def build_tourn_teams() -> None:
+def build_tourn_teams() -> list[Team]:
     """
     """
     pl_map = Player.get_player_map()
@@ -307,6 +309,7 @@ def build_tourn_teams() -> None:
         teams.append(team)
 
     TournInfo.mark_stage_complete(TournStage.TOURN_TEAMS)
+    return teams
 
 def compute_team_seeds() -> None:
     """
@@ -326,7 +329,7 @@ def compute_team_seeds() -> None:
 
     tourn.complete_stage(TournStage.TEAM_SEEDS)
 
-def build_tourn_bracket() -> None:
+def build_tourn_bracket() -> list[TournGame]:
     """
     """
     tm_map = Team.get_team_map()
@@ -392,6 +395,7 @@ def build_tourn_bracket() -> None:
                     games.append(game)
 
     tourn.complete_stage(TournStage.TOURN_BRACKET)
+    return games
 
 def fake_tourn_results() -> None:
     """Generates random team points and determines winner for each tournament game (before
@@ -513,7 +517,8 @@ def main() -> int:
     args, kwargs = parse_argv(sys.argv[3:])
 
     db_init(tourn_name)
-    return util_func(*args, **kwargs) or 0
+    util_func(*args, **kwargs)  # will throw exceptions on error
+    return 0
 
 if __name__ == '__main__':
     sys.exit(main())

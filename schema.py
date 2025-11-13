@@ -102,6 +102,7 @@ class TournInfo(BaseModel):
 
     # class variables
     inst: ClassVar[Self] = None  # singleton instance
+    inst_name: ClassVar[str] = None
 
     @classmethod
     def get(cls, requery: bool = False) -> Self:
@@ -112,8 +113,9 @@ class TournInfo(BaseModel):
         res = [t for t in cls.select().limit(2).iterator()]
         assert len(res) == 1  # fails if not initialized, or unexpected multiple records
 
-        if cls.inst is None or requery:
+        if cls.inst is None or res[0].name != cls.inst_name or requery:
             cls.inst = res[0]
+            cls.inst_name = res[0].name
         return cls.inst
 
     @classmethod

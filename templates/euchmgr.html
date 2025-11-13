@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{{title}}</title>
+
+    <style>
+     .container {
+       overflow: hidden;
+     }
+     .section {
+       margin-top: 1.0rem;
+     }
+     .section_lbl {
+       font-size: larger;
+       font-weight: bold;
+     }
+     .sel_tourn {
+       width: 12rem;
+     }
+     form {
+       overflow: hidden;
+     }
+     .info {
+       width: 27rem;
+       float: left;
+     }
+     .msg {
+       display: block;
+     }
+     .buttons {
+       clear: both;
+     }
+     table {
+       margin-top: 0.3rem;
+     }
+     .pname {
+       width: 10.5rem;
+     }
+     .td_lbl {
+       text-align: right;
+     }
+     .td_txt,
+     .td_num,
+     .td_dec {
+       text-align: left;
+     }
+     input[readonly] {
+       border: thin solid grey;
+       background-color: #F0F0F0;
+     }
+     input[type="text"] {
+       width: 12rem;
+     }
+     input[type="number"] {
+       width: 3rem;
+     }
+     input::-webkit-outer-spin-button,
+     input::-webkit-inner-spin-button {
+       -webkit-appearance: none;
+       margin: 0;
+     }
+     .strategies {
+       margin-top: 0.5rem;
+       width: 40rem;
+     }
+     .strategy {
+       width: 10rem;
+       float: left;
+     }
+     .strategy input[type="checkbox"] {
+       position: relative;
+       top: 0.1rem;
+       margin-right: 0.2rem;
+     }
+     .links {
+       margin-top: 0.5rem;
+     }
+     .links a {
+       display: inline-block;
+       width: 5.5rem;
+     }
+     .refs {
+       margin-top: 1.2rem;
+       font-size: smaller;
+     }
+     .refs ul {
+       margin-top: 0.1rem;
+       padding: 0;
+       list-style-type: none;
+     }
+    </style>
+  </head>
+
+  <body>
+    <form method="post">
+      <div class="section">
+        <span>Pick tournament:</span>
+        <select name="sel_tourn" class="sel_tourn" title="{{help_txt['tn_0']}}">
+          {% if new_tourn %}
+          {% for tourn_name in tourn_list %}
+          <option value="{{tourn_name}}"{{" selected" if tourn_name == sel_new else ""}}{{" disabled" if tourn_name == sel_sep else ""}}>{{tourn_name}}</option>
+          {% endfor %}
+          {% elif tourn %}
+          {% for tourn_name in tourn_list %}
+          <option value="{{tourn_name}}"{{" selected" if tourn_name == tourn.name else ""}}{{" disabled" if tourn_name == sel_sep else ""}}>{{tourn_name}}</option>
+          {% endfor %}
+          {% else %}
+          <option value="" disabled selected></option>
+          {% for tourn_name in tourn_list %}
+          <option value="{{tourn_name}}"{{" disabled" if tourn_name == sel_sep else ""}}>{{tourn_name}}</option>
+          {% endfor %}
+          {% endif %}
+        </select>
+      </div>
+      {% if new_tourn %}
+      <div class="container">
+        <div class="section info">
+          <span class="section_lbl">Specify Tournament Info</span>
+          <table class="tourn_params">
+            <colgroup>
+              <col class="pname">
+              <col class="pval">
+            </colgroup>
+            <tr>
+              <td class="td_lbl">Name:</td>
+              <td class="td_txt">
+                <input name="tourn_name" type="text" value="{{tourn.name if tourn.name else ''}}" placeholder="required (must be unique)">
+              </td>
+            </tr>
+            <tr>
+              <td class="td_lbl">Timeframe:</td>
+              <td class="td_txt">
+                <input name="timeframe" type="text" value="{{tourn.timeframe if tourn.timeframe else ''}}">
+              </td>
+            </tr>
+            <tr>
+              <td class="td_lbl">Venue:</td>
+              <td class="td_num">
+                <input name="venue" type="text" value="{{tourn.venue if tourn.venue else ''}}">
+              </td>
+            </tr>
+            <tr>
+              <td class="td_lbl">Seeding Rounds:</td>
+              <td class="td_num">
+                <input name="seed_rounds" type="number" value="{{tourn.seed_rounds}}" disabled>
+              </td>
+            </tr>
+            <tr>
+              <td class="td_lbl">Tournament Rounds:</td>
+              <td class="td_num">
+                <input name="tourn_rounds" type="number" value="{{tourn.tourn_rounds}}" disabled>
+              </td>
+            </tr>
+            <tr>
+              <td class="td_lbl">Tournament Divisions:</td>
+              <td class="td_num">
+                <input name="divisions" type="number" value="{{tourn.divisions}}" disabled>
+              </td>
+            </tr>
+            <tr>
+              <td class="td_lbl">Overwrite Existing?</td>
+              <td>
+                <input type="checkbox" name="overwrite" value="yes">
+              </td>
+            </tr>
+          </table>
+        </div>
+        <div class="section buttons">
+          <button class="submit" value="create_tourn" title="{{help_txt['bt_0']}}">Create Tournament</button>
+        </div>
+      </div>
+      {% elif tourn %}
+      <div class="container">
+        <div class="section info">
+          <span class="section_lbl">Tournament Info</span>
+          <table class="tourn_params">
+            <colgroup>
+              <col class="pname">
+              <col class="pval">
+            </colgroup>
+            <tr>
+              <td class="td_lbl">Name:</td>
+              <td class="td_txt">
+                <input name="tourn_name" type="text" value="{{tourn.name}}" disabled>
+              </td>
+            </tr>
+            <tr>
+              <td class="td_lbl">Timeframe:</td>
+              <td class="td_txt">
+                <input name="timeframe" type="text" value="{{tourn.timeframe if tourn.timeframe else ''}}" disabled>
+              </td>
+            </tr>
+            <tr>
+              <td class="td_lbl">Venue:</td>
+              <td class="td_num">
+                <input name="venue" type="text" value="{{tourn.venue if tourn.venue else ''}}" disabled>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="section">
+          <span class="section_lbl">Status</span>
+          <span class="msg">{{info_msg}}</span>
+        </div>
+
+      </div>
+      {% endif %}  {# new_tourn #}
+    </form>
+  </body>
+
+  <script src="/static/jquery-3.7.1.min.js"></script>
+  <script>
+   $(function() {
+     // add css and attributes
+     $(".submit").attr({
+       type: 'submit',
+       name: "submit_func"
+     });
+
+     // tournament section
+     $(".sel_tourn").on('change', function() {
+       var value = $(this).val();
+       var curpage = window.location.origin + window.location.pathname;
+       window.location.href = curpage + "?sel_tourn=" + encodeURIComponent(value);
+     });
+
+     // links section
+     $(".links a:contains('Select')").on('click', function() {
+       $(".strategy input").prop("checked", true);
+     });
+     $(".links a:contains('Unselect')").on('click', function() {
+       $(".strategy input").prop("checked", false);
+     });
+
+     // buttons section
+     $("button[value!='run_tourn']").on('click', function() {
+       $("form").attr({target: '_self', onsubmit: null});
+     });
+     $("button[value='run_tourn']").on('click', function() {
+       $("form").attr({target: '_blank', onsubmit: null});
+     });
+   });
+  </script>
+</html>

@@ -61,7 +61,7 @@ class StageInfo(NamedTuple):
 # - "assigned" means the completion of a process that may be either manual or automated
 #
 STAGE_DATA = [
-    StageInfo(False, True,  None,                      "New tournament"),
+    StageInfo(False, False, None,                      "New tournament"),
     StageInfo(True,  True,  "Creating player roster",  "Player roster created"),
     StageInfo(True,  False, "Assigning player nums",   "Player nums assigned"),
     StageInfo(False, True,  None,                      "Seeding bracket created"),

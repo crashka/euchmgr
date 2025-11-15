@@ -14,8 +14,45 @@
        font-size: larger;
        font-weight: bold;
      }
+     .subsect {
+       margin-top: 0.2rem;
+       overflow: hidden;
+     }
      .sel_tourn {
        width: 12rem;
+     }
+     .view {
+       margin-left: 2.0rem;
+     }
+     .view_lbl {
+       margin-right: 0.2rem;
+     }
+     .view label {
+       margin-left: 0.35rem;
+     }
+     .info_blk {
+       padding: 0.5rem 0;
+     }
+     .info_blk span {
+       margin-right: 1.5rem;
+     }
+     .info_blk input {
+       margin-left: 0.3rem;
+     }
+     .players {
+       display: {{"block;" if view_chk[0] else "none;"}}
+     }
+     .seeding {
+       display: {{"block;" if view_chk[1] else "none;"}}
+     }
+     .partners {
+       display: {{"block;" if view_chk[2] else "none;"}}
+     }
+     .teams {
+       display: {{"block;" if view_chk[3] else "none;"}}
+     }
+     .round_robin {
+       display: {{"block;" if view_chk[4] else "none;"}}
      }
      form {
        overflow: hidden;
@@ -24,8 +61,12 @@
        width: 27rem;
        float: left;
      }
-     .msg {
+     .info_msg {
        display: block;
+     }
+     .err_msg {
+       display: block;
+       color: #FF0000;
      }
      .buttons {
        clear: both;
@@ -40,6 +81,7 @@
        text-align: right;
      }
      .td_txt,
+     .td_file,
      .td_num,
      .td_dec {
        text-align: left;
@@ -59,43 +101,15 @@
        -webkit-appearance: none;
        margin: 0;
      }
-     .strategies {
-       margin-top: 0.5rem;
-       width: 40rem;
-     }
-     .strategy {
-       width: 10rem;
-       float: left;
-     }
-     .strategy input[type="checkbox"] {
-       position: relative;
-       top: 0.1rem;
-       margin-right: 0.2rem;
-     }
-     .links {
-       margin-top: 0.5rem;
-     }
-     .links a {
-       display: inline-block;
-       width: 5.5rem;
-     }
-     .refs {
-       margin-top: 1.2rem;
-       font-size: smaller;
-     }
-     .refs ul {
-       margin-top: 0.1rem;
-       padding: 0;
-       list-style-type: none;
-     }
     </style>
   </head>
 
   <body>
-    <form method="post">
+    {% if not tourn or (tourn.stage_compl or 0) < 2 %}
+    <form action="/" method="post" enctype="multipart/form-data">
       <div class="section">
         <span>Pick tournament:</span>
-        <select name="sel_tourn" class="sel_tourn" title="{{help_txt['tn_0']}}">
+        <select name="tourn" class="sel_tourn">
           {% if new_tourn %}
           {% for tourn_name in tourn_list %}
           <option value="{{tourn_name}}"{{" selected" if tourn_name == sel_new else ""}}{{" disabled" if tourn_name == sel_sep else ""}}>{{tourn_name}}</option>
@@ -115,7 +129,7 @@
       {% if new_tourn %}
       <div class="container">
         <div class="section info">
-          <span class="section_lbl">Specify Tournament Info</span>
+          <span class="section_lbl">New Tournament Info</span>
           <table class="tourn_params">
             <colgroup>
               <col class="pname">
@@ -124,7 +138,7 @@
             <tr>
               <td class="td_lbl">Name:</td>
               <td class="td_txt">
-                <input name="tourn_name" type="text" value="{{tourn.name if tourn.name else ''}}" placeholder="required (must be unique)">
+                <input name="tourn_name" type="text" value="{{tourn.name if tourn.name else ''}}" placeholder="required (must be unique)" required>
               </td>
             </tr>
             <tr>
@@ -158,16 +172,39 @@
               </td>
             </tr>
             <tr>
+              <td class="td_lbl">Roster File:</td>
+              <td class="td_file">
+                <input name="roster_file" type="file" accept=".csv">
+              </td>
+            </tr>
+            <tr>
               <td class="td_lbl">Overwrite Existing?</td>
               <td>
-                <input type="checkbox" name="overwrite" value="yes">
+                <input type="checkbox" name="force" value="yes">
               </td>
             </tr>
           </table>
         </div>
-        <div class="section buttons">
-          <button class="submit" value="create_tourn" title="{{help_txt['bt_0']}}">Create Tournament</button>
+        <div class="section">
+          <span class="section_lbl">Messages</span>
+          <span class="info_msg">
+            {% for info_msg in info_msgs %}
+            {{info_msg}}<br/>
+            {% endfor %}
+          </span>
+          <span class="err_msg">
+            {% for err_msg in err_msgs %}
+            {{err_msg}}<br/>
+            {% endfor %}
+          </span>
         </div>
+        <div class="section">
+          <span class="section_lbl">Status</span>
+          <span class="info_msg">{{tourn.status if tourn.status else ''}}</span>
+        </div>
+      </div>
+      <div class="section buttons">
+        <button class="submit" value="create_tourn">Create Tournament</button>
       </div>
       {% elif tourn %}
       <div class="container">
@@ -181,32 +218,113 @@
             <tr>
               <td class="td_lbl">Name:</td>
               <td class="td_txt">
-                <input name="tourn_name" type="text" value="{{tourn.name}}" disabled>
+                <input name="tourn_name" type="text" value="{{tourn.name}}" readonly>
               </td>
             </tr>
             <tr>
               <td class="td_lbl">Timeframe:</td>
               <td class="td_txt">
-                <input name="timeframe" type="text" value="{{tourn.timeframe if tourn.timeframe else ''}}" disabled>
+                <input name="timeframe" type="text" value="{{tourn.timeframe}}" disabled>
               </td>
             </tr>
             <tr>
               <td class="td_lbl">Venue:</td>
               <td class="td_num">
-                <input name="venue" type="text" value="{{tourn.venue if tourn.venue else ''}}" disabled>
+                <input name="venue" type="text" value="{{tourn.venue}}" disabled>
               </td>
+            </tr>
+            <tr>
+              <td class="td_lbl">Seeding Rounds:</td>
+              <td class="td_num">
+                <input name="seed_rounds" type="number" value="{{tourn.seed_rounds}}" disabled>
+              </td>
+            </tr>
+            <tr>
+              <td class="td_lbl">Tournament Rounds:</td>
+              <td class="td_num">
+                <input name="tourn_rounds" type="number" value="{{tourn.tourn_rounds}}" disabled>
+              </td>
+            </tr>
+            <tr>
+              <td class="td_lbl">Tournament Divisions:</td>
+              <td class="td_num">
+                <input name="divisions" type="number" value="{{tourn.divisions}}" disabled>
+              </td>
+            </tr>
+            <tr>
+              <td class="td_lbl">Roster File:</td>
+              {% if roster_file %}
+              <td class="td_text">
+                <input name="roster_file" type="text" value="{{roster_file}}" disabled>
+              </td>
+              {% else %}
+              <td class="td_file">
+                <input name="roster_file" type="file" accept=".csv">
+              </td>
+              {% endif %}
             </tr>
           </table>
         </div>
-
+        <div class="section">
+          <span class="section_lbl">Messages</span>
+          <span class="info_msg">
+            {% for info_msg in info_msgs %}
+            {{info_msg}}<br/>
+            {% endfor %}
+          </span>
+          <span class="err_msg">
+            {% for err_msg in err_msgs %}
+            {{err_msg}}<br/>
+            {% endfor %}
+          </span>
+        </div>
         <div class="section">
           <span class="section_lbl">Status</span>
-          <span class="msg">{{info_msg}}</span>
+          <span class="info_msg">{{tourn.status if tourn.status else ''}}</span>
         </div>
-
+      </div>
+      <div class="section buttons">
+        <button class="submit" value="update_tourn"}}">Upload Roster File</button>
+        <button class="submit" value="create_roster"}}">Manually Create Roster</button>
       </div>
       {% endif %}  {# new_tourn #}
     </form>
+    {% else %}  {# creating tourn #}
+    <div class="container">
+      <div class="section">
+        <span class="section_lbl">Tournament</span>
+        <span class="view">
+          <span class="view_lbl">View:</span>
+          <label>Players<input type="radio" name="view_rdo" value="0"{{view_chk[0]}}></label>
+          <label>Seeding<input type="radio" name="view_rdo" value="1"{{view_chk[1]}}></label>
+          <label>Partners<input type="radio" name="view_rdo" value="2"{{view_chk[2]}}></label>
+          <label>Teams<input type="radio" name="view_rdo" value="3"{{view_chk[3]}}></label>
+          <label>Round Robin<input type="radio" name="view_rdo" value="4"{{view_chk[4]}}></label>
+        </span>
+        <div class="subsect info_blk">
+          <span>Name:<input name="tourn_name" type="text" value="{{tourn.name}}" disabled></span>
+          <span>Players:<input name="players" type="number" value="{{tourn.players}}" disabled></span>
+          <span>Teams:<input name="teams" type="number" value="{{tourn.teams}}" disabled></span>
+          <span>THM Teams:<input name="thm_teams" type="number" value="{{tourn.thm_teams}}" disabled></span>
+        </div>
+      </div>
+      <div class="section players">
+        <span class="section_lbl">Players</span>
+      </div>
+      <div class="section seeding">
+        <span class="section_lbl">Seeding</span>
+      </div>
+      <div class="section partners">
+        <span class="section_lbl">Partners</span>
+      </div>
+      <div class="section teams">
+        <span class="section_lbl">Teams</span>
+      </div>
+      <div class="section round_robin">
+        <span class="section_lbl">Round Robin</span>
+      </div>
+      {% endif %}  {# creating tourn #}
+    </div>
   </body>
 
   <script src="/static/jquery-3.7.1.min.js"></script>
@@ -222,23 +340,17 @@
      $(".sel_tourn").on('change', function() {
        var value = $(this).val();
        var curpage = window.location.origin + window.location.pathname;
-       window.location.href = curpage + "?sel_tourn=" + encodeURIComponent(value);
+       window.location.href = curpage + "?tourn=" + encodeURIComponent(value);
      });
 
-     // links section
-     $(".links a:contains('Select')").on('click', function() {
-       $(".strategy input").prop("checked", true);
-     });
-     $(".links a:contains('Unselect')").on('click', function() {
-       $(".strategy input").prop("checked", false);
-     });
-
-     // buttons section
-     $("button[value!='run_tourn']").on('click', function() {
-       $("form").attr({target: '_self', onsubmit: null});
-     });
-     $("button[value='run_tourn']").on('click', function() {
-       $("form").attr({target: '_blank', onsubmit: null});
+     // tournament views
+     $(".view input").on('change', function() {
+       var tourn = $('.info_blk input[name="tourn_name"]').val();
+       var view = $(".view input:checked").val();
+       var tournStr = "?tourn=" + encodeURIComponent(tourn);
+       var viewStr = "&view=" + encodeURIComponent(view);
+       var curpage = window.location.origin + window.location.pathname;
+       window.location.href = curpage + tournStr + viewStr;
      });
    });
   </script>

@@ -24,12 +24,16 @@ import os.path
 import re
 
 from ckautils import typecast
+from peewee import OperationalError
 from flask import Flask, session, request, render_template, Response, abort
+from werkzeug.utils import secure_filename
 
-from core import DATA_DIR
+from core import DATA_DIR, UPLOAD_DIR
 from database import DB_FILETYPE
 from schema import TournInfo
-from euchmgr import db_init, tourn_create, generate_player_nums
+from euchmgr import db_init, tourn_create, upload_roster
+
+CHECKED = ' checked'
 
 #########
 # Setup #
@@ -65,7 +69,7 @@ def get_tourns() -> list[str]:
         m = re.fullmatch(match_str, file)
         assert m and len(m.groups()) == 1
         tourns.append(m.groups()[0])
-        
+
     return tourns
 
 #################
@@ -88,8 +92,9 @@ def round_val(val: Number) -> Number:
 
 SUBMIT_FUNCS = [
     'create_tourn',
+    'update_tourn',
     'archive_tourn',
-    'upload_roster',
+    'create_roster',
     'gen_player_nums',
     'gen_seed_bracket',
     'fake_seed_results',
@@ -104,10 +109,11 @@ SUBMIT_FUNCS = [
 def index():
     """
     """
-    tourn = None
+    tourn     = None
     new_tourn = None
+    view_chk  = [''] * 5
 
-    sel_tourn = request.args.get('sel_tourn')
+    sel_tourn = request.args.get('tourn')
     if sel_tourn:
         db_init(sel_tourn)
         if sel_tourn == SEL_NEW:
@@ -117,9 +123,13 @@ def index():
             tourn = TournInfo.get()
             new_tourn = False
 
+    if view := request.args.get('view'):
+        view_chk[int(view)] = CHECKED
+
     context = {
         'tourn'    : tourn,
-        'new_tourn': new_tourn
+        'new_tourn': new_tourn,
+        'view_chk' : view_chk
     }
     return render_app(context)
 
@@ -133,20 +143,116 @@ def submit():
         abort(404, f"Invalid submit func '{func}'")
     return globals()[func](request.form)
 
+cap_first = lambda x: x[0].upper() + x[1:]
+
 def create_tourn(form: dict) -> str:
     """
     """
-    tourn_name = form.get('tourn_name')
-    timeframe  = form.get('timeframe') or None
-    venue      = form.get('venue') or None
-    overwrite  = form.get('overwrite')
-    db_init(tourn_name)
-    tourn = tourn_create(timeframe=timeframe, venue=venue, force=bool(overwrite))
+    info_msgs   = []
+    err_msgs    = []
+    tourn       = None
+    new_tourn   = False
+    roster_fn   = None
+    view_chk    = [''] * 5
 
-    create_msg = f"Tournament \"{tourn_name}\" created..."
+    tourn_name  = form.get('tourn_name')
+    timeframe   = form.get('timeframe') or None
+    venue       = form.get('venue') or None
+    force       = form.get('force')
+    roster_file = request.files.get('roster_file')
+    if roster_file:
+        roster_fn = secure_filename(roster_file.filename)
+        roster_path = os.path.join(UPLOAD_DIR, roster_fn)
+        roster_file.save(roster_path)
+
+    try:
+        db_init(tourn_name)
+        tourn = tourn_create(timeframe=timeframe, venue=venue, force=bool(force))
+        info_msgs.append(f"Tournament \"{tourn_name}\" created")
+        if roster_file:
+            upload_roster(roster_path)
+            info_msgs.append(f"Roster file \"{roster_fn}\" uploaded")
+        else:
+            # TEMP: prompt for uploaded in the UI!!!
+            err_msgs.append("Roster file not specified")
+    except OperationalError as e:
+        err_msgs.append(cap_first(str(e)))
+        tourn = TournInfo(name=tourn_name, timeframe=timeframe, venue=venue)
+        new_tourn = True
+
     context = {
-        'tourn'    : tourn,
-        'info_msg' : create_msg
+        'tourn'      : tourn,
+        'new_tourn'  : new_tourn,
+        'roster_file': roster_fn,
+        'info_msgs'  : info_msgs,
+        'err_msgs'   : err_msgs,
+        'view_chk'   : view_chk
+    }
+    return render_app(context)
+
+def update_tourn(form: dict) -> str:
+    """
+    """
+    info_msgs   = []
+    err_msgs    = []
+    tourn       = None
+    new_tourn   = False
+    roster_fn   = None
+    view_chk    = [''] * 5
+
+    tourn_name  = form.get('tourn_name')
+    timeframe   = form.get('timeframe') or None
+    venue       = form.get('venue') or None
+    roster_file = request.files.get('roster_file')
+    if roster_file:
+        roster_fn = secure_filename(roster_file.filename)
+        roster_path = os.path.join(UPLOAD_DIR, roster_fn)
+        roster_file.save(roster_path)
+
+    try:
+        db_init(tourn_name)
+        tourn = TournInfo.get()
+        tourn.timeframe = timeframe
+        tourn.venue = venue
+        tourn.save()
+        info_msgs.append(f"Tournament \"{tourn_name}\" updated")
+        if roster_file:
+            upload_roster(roster_path)
+            info_msgs.append(f"Roster file \"{roster_fn}\" uploaded")
+        else:
+            # TEMP: prompt for uploaded in the UI!!!
+            err_msgs.append("Roster file not specified")
+    except OperationalError as e:
+        err_msgs.append(cap_first(str(e)))
+        tourn = TournInfo(name=tourn_name, timeframe=timeframe, venue=venue)
+        new_tourn = True
+
+    view_chk[0] = CHECKED
+    context = {
+        'tourn'      : tourn,
+        'new_tourn'  : new_tourn,
+        'roster_file': roster_fn,
+        'info_msgs'  : info_msgs,
+        'err_msgs'   : err_msgs,
+        'view_chk'   : view_chk
+    }
+    return render_app(context)
+
+def create_roster(form: dict) -> str:
+    """
+    """
+    info_msgs   = []
+    err_msgs    = []
+
+    tourn_name = form.get('tourn_name')
+    db_init(tourn_name)
+    tourn = TournInfo.get()
+    err_msgs.append("Not yet implemented!")
+
+    context = {
+        'tourn'      : tourn,
+        'info_msgs'  : info_msgs,
+        'err_msgs'   : err_msgs,
     }
     return render_app(context)
 

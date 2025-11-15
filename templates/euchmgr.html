@@ -41,6 +41,7 @@
      }
      .players {
        display: {{"block;" if view_chk[0] else "none;"}}
+       width: 70rem;
      }
      .seeding {
        display: {{"block;" if view_chk[1] else "none;"}}
@@ -70,6 +71,7 @@
      }
      .buttons {
        clear: both;
+       padding: 1.0rem 0;
      }
      table {
        margin-top: 0.3rem;
@@ -102,6 +104,7 @@
        margin: 0;
      }
     </style>
+    <link href="/static/datatables.min.css" rel="stylesheet">
   </head>
 
   <body>
@@ -310,6 +313,22 @@
       </div>
       <div class="section players">
         <span class="section_lbl">Players</span>
+        <table id="plyr_tbl" class="display" contenteditable>
+          <thead>
+            <tr>
+              {% for col in pl_layout %}
+              <th>{{col[1]}}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+        </table>
+        <div class="subsection buttons">
+          <form action="/" method="post">
+            <input name="tourn_name" type="hidden" value="{{tourn.name}}">
+            <button class="submit" value="gen_player_nums"}}">Generate Player Nums</button>
+            <button class="submit" value="gen_seed_bracket"}}">Generate Seed Bracket</button>
+        </form>
+        </div>
       </div>
       <div class="section seeding">
         <span class="section_lbl">Seeding</span>
@@ -328,6 +347,7 @@
   </body>
 
   <script src="/static/jquery-3.7.1.min.js"></script>
+  <script src="/static/datatables.min.js"></script>
   <script>
    $(function() {
      // add css and attributes
@@ -338,20 +358,61 @@
 
      // tournament section
      $(".sel_tourn").on('change', function() {
-       var value = $(this).val();
-       var curpage = window.location.origin + window.location.pathname;
-       window.location.href = curpage + "?tourn=" + encodeURIComponent(value);
+       var tourn    = $(this).val();
+       var tournStr = "?tourn=" + encodeURIComponent(tourn);
+       var curpage  = window.location.origin + window.location.pathname;
+       window.location.href = curpage + tournStr
      });
 
      // tournament views
      $(".view input").on('change', function() {
-       var tourn = $('.info_blk input[name="tourn_name"]').val();
-       var view = $(".view input:checked").val();
+       var tourn    = $('.info_blk input[name="tourn_name"]').val();
+       var view     = $(".view input:checked").val();
        var tournStr = "?tourn=" + encodeURIComponent(tourn);
-       var viewStr = "&view=" + encodeURIComponent(view);
-       var curpage = window.location.origin + window.location.pathname;
+       var viewStr  = "&view=" + encodeURIComponent(view);
+       var curpage  = window.location.origin + window.location.pathname;
        window.location.href = curpage + tournStr + viewStr;
      });
+
+     // players view
+     if ("{{view_chk[0]}}") {
+       var tourn = $('.info_blk input[name="tourn_name"]').val();
+       var table = $('#plyr_tbl').DataTable({
+         scrollX: true,
+         scrollY: '30rem',
+         paging: false,
+         fixedColumns: {
+           start: 3
+         },
+         columnControl: {
+           target: 1,
+           content: ['search']
+         },
+         ajax: {
+           url: '/players?tourn=' + encodeURIComponent(tourn),
+           dataSrc: 'data'
+         },
+         columns: [
+           {% for col in pl_layout %}
+           {data: '{{col[0]}}'},
+           {% endfor %}
+         ],
+         columnDefs: [
+           {% for col in pl_layout %}
+           {% if col[2] == 'hidden' %}
+           {targets: {{loop.index0}}, visible: false, searchable: false},
+           {% elif col[2] == 'centered' %}
+           {targets: {{loop.index0}}, className: 'dt-center'},
+           {% else %}
+           {targets: {{loop.index0}}},
+           {% endif %}
+           {% endfor %}
+         ],
+         initComplete: function(settings, json) {
+           table.columns.adjust().draw();
+         }
+       });
+     }
    });
   </script>
 </html>

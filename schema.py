@@ -153,6 +153,10 @@ class TournInfo(BaseModel):
                 self.status = stage_data.compl_msg
 
             # TODO: should also log this information!!!
+        if self.id is None:
+            cls = type(self)
+            cls.inst = None
+            cls.inst_name = None
         return super().save(*args, **kwargs)
 
     def start_stage(self, stage: TournStage, auto_save: bool = True) -> None:
@@ -238,6 +242,18 @@ class Player(BaseModel):
         # see NOTE on use of iterator in `TournInfo.get`, above
         for p in cls.select().iterator():
             yield p
+
+    @property
+    def full_name(self) -> str:
+        """
+        """
+        return self.first_name + ' ' + self.last_name
+
+    @property
+    def champ(self) -> str | None:
+        """
+        """
+        return 'y' if self.reigning_champ else None
 
     def pick_partners(self, partner1: Self, partner2: Self = None) -> None:
         """

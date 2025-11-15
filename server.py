@@ -30,7 +30,7 @@ from werkzeug.utils import secure_filename
 
 from core import DATA_DIR, UPLOAD_DIR
 from database import DB_FILETYPE
-from schema import TournInfo
+from schema import TournInfo, Player
 from euchmgr import db_init, tourn_create, upload_roster
 
 CHECKED = ' checked'
@@ -86,6 +86,9 @@ def round_val(val: Number) -> Number:
         return round(val, FLOAT_PREC)
     return val
 
+# do not downcase the rest of the string like str.capitalize()
+cap_first = lambda x: x[0].upper() + x[1:]
+
 ################
 # Flask Routes #
 ################
@@ -105,6 +108,24 @@ SUBMIT_FUNCS = [
     'tabulate_tourn_results'
 ]
 
+pl_addl_props = [
+    'full_name',
+    'champ'
+]
+
+pl_layout = [
+    ('id',               "ID",               'hidden'),
+    ('full_name',        "Name",             None),
+    ('nick_name',        "Nick Name",        None),
+    ('player_num',       "Player Num",       None),
+    ('champ',            "Champ?",           'centered'),
+    ('seed_wins',        "Seed Wins",        None),
+    ('seed_losses',      "Seed Losses",      None),
+    ('seed_pts_for',     "Seed Pts For",     None),
+    ('seed_pts_against', "Seed Pts Against", None),
+    ('player_seed',      "Seed Rank",        None)
+]
+
 @app.get("/")
 def index():
     """
@@ -113,10 +134,10 @@ def index():
     new_tourn = None
     view_chk  = [''] * 5
 
-    sel_tourn = request.args.get('tourn')
-    if sel_tourn:
-        db_init(sel_tourn)
-        if sel_tourn == SEL_NEW:
+    tourn_name = request.args.get('tourn')
+    if tourn_name:
+        db_init(tourn_name)
+        if tourn_name == SEL_NEW:
             tourn = TournInfo()
             new_tourn = True
         else:
@@ -129,7 +150,8 @@ def index():
     context = {
         'tourn'    : tourn,
         'new_tourn': new_tourn,
-        'view_chk' : view_chk
+        'view_chk' : view_chk,
+        'pl_layout': pl_layout
     }
     return render_app(context)
 
@@ -143,7 +165,24 @@ def submit():
         abort(404, f"Invalid submit func '{func}'")
     return globals()[func](request.form)
 
-cap_first = lambda x: x[0].upper() + x[1:]
+@app.get("/players")
+def get_players():
+    """
+    """
+    tourn_name = request.args.get('tourn')
+
+    db_init(tourn_name)
+    pl_list = Player.iter_players()
+    pl_data = []
+    for player in pl_list:
+        props = {prop: getattr(player, prop) for prop in pl_addl_props}
+        pl_data.append(player.__data__ | props)
+
+    return {'data': pl_data}
+
+################
+# POST actions #
+################
 
 def create_tourn(form: dict) -> str:
     """
@@ -172,6 +211,8 @@ def create_tourn(form: dict) -> str:
         if roster_file:
             upload_roster(roster_path)
             info_msgs.append(f"Roster file \"{roster_fn}\" uploaded")
+            #view_chk[0] = CHECKED
+            tourn = TournInfo.get()
         else:
             # TEMP: prompt for uploaded in the UI!!!
             err_msgs.append("Roster file not specified")
@@ -211,7 +252,7 @@ def update_tourn(form: dict) -> str:
 
     try:
         db_init(tourn_name)
-        tourn = TournInfo.get()
+        tourn = TournInfo.get(True)
         tourn.timeframe = timeframe
         tourn.venue = venue
         tourn.save()
@@ -219,6 +260,8 @@ def update_tourn(form: dict) -> str:
         if roster_file:
             upload_roster(roster_path)
             info_msgs.append(f"Roster file \"{roster_fn}\" uploaded")
+            #view_chk[0] = CHECKED
+            tourn = TournInfo.get()
         else:
             # TEMP: prompt for uploaded in the UI!!!
             err_msgs.append("Roster file not specified")
@@ -227,7 +270,6 @@ def update_tourn(form: dict) -> str:
         tourn = TournInfo(name=tourn_name, timeframe=timeframe, venue=venue)
         new_tourn = True
 
-    view_chk[0] = CHECKED
     context = {
         'tourn'      : tourn,
         'new_tourn'  : new_tourn,

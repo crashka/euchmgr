@@ -335,18 +335,35 @@
       </div>
       <div class="section seeding">
         <span class="section_lbl">Seeding</span>
+        <table id="seed_tbl" class="display" spellcheck="false">
+          <thead>
+            <tr>
+              {% for col in sg_layout %}
+              <th>{{col[1]}}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+        </table>
+        <div class="subsection buttons">
+          <form action="/" method="post">
+            <input name="tourn_name" type="hidden" value="{{tourn.name}}">
+            <button class="submit" value="fake_seed_results"}}">Generate Fake Results</button>
+            <button class="submit" value="tabulate_seed_results"}}">Tabulate Seed Results</button>
+          </form>
+        </div>
       </div>
-      <div class="section partners">
-        <span class="section_lbl">Partners</span>
-      </div>
-      <div class="section teams">
-        <span class="section_lbl">Teams</span>
-      </div>
-      <div class="section round_robin">
-        <span class="section_lbl">Round Robin</span>
-      </div>
-      {% endif %}  {# creating tourn #}
     </div>
+    <div class="section partners">
+      <span class="section_lbl">Partners</span>
+    </div>
+    <div class="section teams">
+      <span class="section_lbl">Teams</span>
+    </div>
+    <div class="section round_robin">
+      <span class="section_lbl">Round Robin</span>
+    </div>
+    {% endif %}  {# creating tourn #}
+      </div>
   </body>
 
   <script src="/static/jquery-3.7.1.min.js"></script>
@@ -385,8 +402,9 @@
          node.setAttribute('contenteditable', true);
          node.addEventListener('keypress', function(e) {
            if (e.which == 13) {
+             e.preventDefault();
              $(this).trigger('blur');
-             return false;
+             //return false;
            }
          });
 
@@ -439,6 +457,87 @@
          ],
          columnDefs: [
            {% for col in pl_layout %}
+           {% if col[2] == 'hidden' %}
+           {target: {{loop.index0}}, visible: false, searchable: false},
+           {% elif col[2] == 'centered' %}
+           {target: {{loop.index0}}, className: 'dt-center'},
+           {% elif col[2] == 'editable' %}
+           {target: {{loop.index0}}, createdCell: editable},
+           {% else %}
+           {target: {{loop.index0}}},
+           {% endif %}
+           {% endfor %}
+         ],
+         initComplete: function(settings, json) {
+           table.columns.adjust().draw();
+         }
+       });
+     }
+
+     // seeding view
+     if ("{{view_chk[1]}}") {
+       const editable = function(node) {
+         let orig_val;
+
+         node.setAttribute('contenteditable', true);
+         node.addEventListener('keypress', function(e) {
+           if (e.which == 13) {
+             e.preventDefault();
+             $(this).trigger('blur');
+             $(this).next('td').focus();
+             //return false;
+           }
+         });
+
+         node.addEventListener('focus', function(e) {
+           orig_val = e.target.textContent;
+         });
+
+         node.addEventListener('blur', function(e) {
+           if (e.target.textContent !== orig_val) {
+             const cell = table.cell(e.target)
+             const row = table.row(e.target.parentElement);
+             cell.data(e.target.textContent);
+             row.invalidate();
+
+             const post_data = $.extend({}, row.data(), {tourn: "{{tourn.name}}"});
+             $.post('/seeding', post_data)
+              .done(function(resp) {
+                console.log('POST /seeding done: ', resp);
+                $(e.target).removeClass("red");
+              })
+              .fail(function(resp) {
+                console.log('POST /seeding fail: ', resp);
+                cell.data(orig_val);
+                $(e.target).addClass("red");
+                row.invalidate();
+              });
+         }});
+       };
+
+       const tourn = $('.info_blk input[name="tourn_name"]').val();
+       const table = $('#seed_tbl').DataTable({
+         scrollX: true,
+         scrollY: '30rem',
+         paging: false,
+         fixedColumns: {
+           start: 3
+         },
+         columnControl: {
+           target: 1,
+           content: ['search']
+         },
+         ajax: {
+           url: '/seeding?tourn=' + encodeURIComponent(tourn),
+           dataSrc: 'data'
+         },
+         columns: [
+           {% for col in sg_layout %}
+           {data: '{{col[0]}}'},
+           {% endfor %}
+         ],
+         columnDefs: [
+           {% for col in sg_layout %}
            {% if col[2] == 'hidden' %}
            {target: {{loop.index0}}, visible: false, searchable: false},
            {% elif col[2] == 'centered' %}

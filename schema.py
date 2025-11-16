@@ -322,6 +322,13 @@ class SeedGame(BaseModel):
         for t in sel.iterator():
             yield t
 
+    @property
+    def player_nums(self) -> str:
+        """
+        """
+        pl_nums = (self.player1_num, self.player2_num, self.player3_num, self.player4_num)
+        return ', '.join(str(x) for x in pl_nums if x)
+
     def add_scores(self, team1_pts: int, team2_pts: int) -> None:
         """Record scores for completed (or incomplete) game.  Scores should not be updated
         directly in model object, since denormalizations (e.g. in PlayerGame) will not be

@@ -30,8 +30,9 @@ from werkzeug.utils import secure_filename
 
 from core import DATA_DIR, UPLOAD_DIR
 from database import DB_FILETYPE
-from schema import TournInfo, Player
-from euchmgr import db_init, tourn_create, upload_roster
+from schema import TournInfo, Player, SeedGame
+from euchmgr import (db_init, tourn_create, upload_roster, generate_player_nums,
+                     build_seed_bracket)
 
 CHECKED = ' checked'
 
@@ -108,24 +109,6 @@ SUBMIT_FUNCS = [
     'tabulate_tourn_results'
 ]
 
-pl_addl_props = [
-    'full_name',
-    'champ'
-]
-
-pl_layout = [
-    ('id',               "ID",               'hidden'),
-    ('full_name',        "Name",             None),
-    ('nick_name',        "Nick Name",        None),
-    ('player_num',       "Player Num",       'editable'),
-    ('champ',            "Champ?",           'centered'),
-    ('seed_wins',        "Seed Wins",        None),
-    ('seed_losses',      "Seed Losses",      None),
-    ('seed_pts_for',     "Seed Pts For",     None),
-    ('seed_pts_against', "Seed Pts Against", None),
-    ('player_seed',      "Seed Rank",        None)
-]
-
 @app.get("/")
 def index():
     """
@@ -151,7 +134,8 @@ def index():
         'tourn'    : tourn,
         'new_tourn': new_tourn,
         'view_chk' : view_chk,
-        'pl_layout': pl_layout
+        'pl_layout': pl_layout,
+        'sg_layout': sg_layout
     }
     return render_app(context)
 
@@ -165,6 +149,28 @@ def submit():
         abort(404, f"Invalid submit func '{func}'")
     return globals()[func](request.form)
 
+############
+# /players #
+############
+
+pl_addl_props = [
+    'full_name',
+    'champ'
+]
+
+pl_layout = [
+    ('id',               "ID",               'hidden'),
+    ('full_name',        "Name",             None),
+    ('nick_name',        "Nick Name",        None),
+    ('player_num',       "Player Num",       'editable'),
+    ('champ',            "Champ?",           'centered'),
+    ('seed_wins',        "Seed Wins",        None),
+    ('seed_losses',      "Seed Losses",      None),
+    ('seed_pts_for',     "Seed Pts For",     None),
+    ('seed_pts_against', "Seed Pts Against", None),
+    ('player_seed',      "Seed Rank",        None)
+]
+
 @app.get("/players")
 def get_players():
     """
@@ -172,9 +178,9 @@ def get_players():
     tourn_name = request.args.get('tourn')
 
     db_init(tourn_name)
-    pl_list = Player.iter_players()
+    pl_iter = Player.iter_players()
     pl_data = []
-    for player in pl_list:
+    for player in pl_iter:
         props = {prop: getattr(player, prop) for prop in pl_addl_props}
         pl_data.append(player.__data__ | props)
 
@@ -189,6 +195,57 @@ def post_players():
     upd_info = {x[0]: data.get(x[0]) for x in pl_layout if x[2] == 'editable'}
     try:
         res = Player.update(**upd_info).where(Player.id == data['id']).execute()
+    except IntegrityError as e:
+        abort(409, str(e))
+
+    return {'result': res}
+
+############
+# /seeding #
+############
+
+sg_addl_props = [
+    'player_nums'
+]
+
+sg_layout = [
+    ('id',          "ID",          'hidden'),
+    ('label',       "Ref",         None),
+    ('round_num',   "Round",       None),
+    ('table_num',   "Table",       None),
+    ('player_nums', "Player Nums", None),
+    ('team1_name',  "Team 1",      None),
+    ('team2_name',  "Team 2",      None),
+    ('bye_players', "Byes",        None),
+    ('team1_pts',   "Team 1 Pts",  'editable'),
+    ('team2_pts',   "Team 2 Pts",  'editable'),
+    ('winner',      "Winner",      None)
+]
+
+@app.get("/seeding")
+def get_seeding():
+    """
+    """
+    tourn_name = request.args.get('tourn')
+
+    db_init(tourn_name)
+    sg_iter = SeedGame.iter_games(True)
+    sg_data = []
+    for game in sg_iter:
+        props = {prop: getattr(game, prop) for prop in sg_addl_props}
+        sg_data.append(game.__data__ | props)
+
+    return {'data': sg_data}
+
+@app.post("/seeding")
+def post_seeding():
+    """
+    """
+    res = None
+    data = request.form
+    upd_info = {x[0]: data.get(x[0]) for x in sg_layout if x[2] == 'editable'}
+    try:
+        res = SeedGame.update(**upd_info).where(SeedGame.id == data['id']).execute()
     except IntegrityError as e:
         abort(409, str(e))
 
@@ -225,7 +282,7 @@ def create_tourn(form: dict) -> str:
         if roster_file:
             upload_roster(roster_path)
             info_msgs.append(f"Roster file \"{roster_fn}\" uploaded")
-            #view_chk[0] = CHECKED
+            view_chk[0] = CHECKED
             tourn = TournInfo.get()
         else:
             # TEMP: prompt for uploaded in the UI!!!
@@ -241,7 +298,8 @@ def create_tourn(form: dict) -> str:
         'roster_file': roster_fn,
         'info_msgs'  : info_msgs,
         'err_msgs'   : err_msgs,
-        'view_chk'   : view_chk
+        'view_chk'   : view_chk,
+        'pl_layout'  : pl_layout
     }
     return render_app(context)
 
@@ -274,7 +332,7 @@ def update_tourn(form: dict) -> str:
         if roster_file:
             upload_roster(roster_path)
             info_msgs.append(f"Roster file \"{roster_fn}\" uploaded")
-            #view_chk[0] = CHECKED
+            view_chk[0] = CHECKED
             tourn = TournInfo.get()
         else:
             # TEMP: prompt for uploaded in the UI!!!
@@ -290,7 +348,8 @@ def update_tourn(form: dict) -> str:
         'roster_file': roster_fn,
         'info_msgs'  : info_msgs,
         'err_msgs'   : err_msgs,
-        'view_chk'   : view_chk
+        'view_chk'   : view_chk,
+        'pl_layout'  : pl_layout
     }
     return render_app(context)
 
@@ -309,6 +368,48 @@ def create_roster(form: dict) -> str:
         'tourn'      : tourn,
         'info_msgs'  : info_msgs,
         'err_msgs'   : err_msgs,
+    }
+    return render_app(context)
+
+def gen_player_nums(form: dict) -> str:
+    """
+    """
+    view_chk    = [''] * 5
+    info_msgs   = []
+    err_msgs    = []
+
+    tourn_name  = form.get('tourn_name')
+    db_init(tourn_name)
+    generate_player_nums()
+    view_chk[0] = CHECKED
+
+    context = {
+        'tourn'      : TournInfo.get(),
+        'info_msgs'  : info_msgs,
+        'err_msgs'   : err_msgs,
+        'view_chk'   : view_chk,
+        'pl_layout'  : pl_layout
+    }
+    return render_app(context)
+
+def gen_seed_bracket(form: dict) -> str:
+    """
+    """
+    view_chk    = [''] * 5
+    info_msgs   = []
+    err_msgs    = []
+
+    tourn_name  = form.get('tourn_name')
+    db_init(tourn_name)
+    build_seed_bracket()
+    view_chk[1] = CHECKED
+
+    context = {
+        'tourn'      : TournInfo.get(),
+        'info_msgs'  : info_msgs,
+        'err_msgs'   : err_msgs,
+        'view_chk'   : view_chk,
+        'sg_layout'  : sg_layout
     }
     return render_app(context)
 

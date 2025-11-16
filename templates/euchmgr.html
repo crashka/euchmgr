@@ -4,6 +4,9 @@
     <title>{{title}}</title>
 
     <style>
+     .red {
+       color: red;
+     }
      .container {
        overflow: hidden;
      }
@@ -313,7 +316,7 @@
       </div>
       <div class="section players">
         <span class="section_lbl">Players</span>
-        <table id="plyr_tbl" class="display" contenteditable>
+        <table id="plyr_tbl" class="display" spellcheck="false">
           <thead>
             <tr>
               {% for col in pl_layout %}
@@ -327,7 +330,7 @@
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
             <button class="submit" value="gen_player_nums"}}">Generate Player Nums</button>
             <button class="submit" value="gen_seed_bracket"}}">Generate Seed Bracket</button>
-        </form>
+          </form>
         </div>
       </div>
       <div class="section seeding">
@@ -358,26 +361,63 @@
 
      // tournament section
      $(".sel_tourn").on('change', function() {
-       var tourn    = $(this).val();
-       var tournStr = "?tourn=" + encodeURIComponent(tourn);
-       var curpage  = window.location.origin + window.location.pathname;
+       const tourn    = $(this).val();
+       const tournStr = "?tourn=" + encodeURIComponent(tourn);
+       const curpage  = window.location.origin + window.location.pathname;
        window.location.href = curpage + tournStr
      });
 
      // tournament views
      $(".view input").on('change', function() {
-       var tourn    = $('.info_blk input[name="tourn_name"]').val();
-       var view     = $(".view input:checked").val();
-       var tournStr = "?tourn=" + encodeURIComponent(tourn);
-       var viewStr  = "&view=" + encodeURIComponent(view);
-       var curpage  = window.location.origin + window.location.pathname;
+       const tourn    = $('.info_blk input[name="tourn_name"]').val();
+       const view     = $(".view input:checked").val();
+       const tournStr = "?tourn=" + encodeURIComponent(tourn);
+       const viewStr  = "&view=" + encodeURIComponent(view);
+       const curpage  = window.location.origin + window.location.pathname;
        window.location.href = curpage + tournStr + viewStr;
      });
 
      // players view
      if ("{{view_chk[0]}}") {
-       var tourn = $('.info_blk input[name="tourn_name"]').val();
-       var table = $('#plyr_tbl').DataTable({
+       const editable = function(node) {
+         let orig_val;
+
+         node.setAttribute('contenteditable', true);
+         node.addEventListener('keypress', function(e) {
+           if (e.which == 13) {
+             $(this).trigger('blur');
+             return false;
+           }
+         });
+
+         node.addEventListener('focus', function(e) {
+           orig_val = e.target.textContent;
+         });
+
+         node.addEventListener('blur', function(e) {
+           if (e.target.textContent !== orig_val) {
+             const cell = table.cell(e.target)
+             const row = table.row(e.target.parentElement);
+             cell.data(e.target.textContent);
+             row.invalidate();
+
+             const post_data = $.extend({}, row.data(), {tourn: "{{tourn.name}}"});
+             $.post('/players', post_data)
+              .done(function(resp) {
+                console.log('POST /players done: ', resp);
+                $(e.target).removeClass("red");
+              })
+              .fail(function(resp) {
+                console.log('POST /players fail: ', resp);
+                cell.data(orig_val);
+                $(e.target).addClass("red");
+                row.invalidate();
+              });
+         }});
+       };
+
+       const tourn = $('.info_blk input[name="tourn_name"]').val();
+       const table = $('#plyr_tbl').DataTable({
          scrollX: true,
          scrollY: '30rem',
          paging: false,
@@ -400,11 +440,13 @@
          columnDefs: [
            {% for col in pl_layout %}
            {% if col[2] == 'hidden' %}
-           {targets: {{loop.index0}}, visible: false, searchable: false},
+           {target: {{loop.index0}}, visible: false, searchable: false},
            {% elif col[2] == 'centered' %}
-           {targets: {{loop.index0}}, className: 'dt-center'},
+           {target: {{loop.index0}}, className: 'dt-center'},
+           {% elif col[2] == 'editable' %}
+           {target: {{loop.index0}}, createdCell: editable},
            {% else %}
-           {targets: {{loop.index0}}},
+           {target: {{loop.index0}}},
            {% endif %}
            {% endfor %}
          ],

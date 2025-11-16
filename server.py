@@ -24,7 +24,7 @@ import os.path
 import re
 
 from ckautils import typecast
-from peewee import OperationalError
+from peewee import OperationalError, IntegrityError
 from flask import Flask, session, request, render_template, Response, abort
 from werkzeug.utils import secure_filename
 
@@ -117,7 +117,7 @@ pl_layout = [
     ('id',               "ID",               'hidden'),
     ('full_name',        "Name",             None),
     ('nick_name',        "Nick Name",        None),
-    ('player_num',       "Player Num",       None),
+    ('player_num',       "Player Num",       'editable'),
     ('champ',            "Champ?",           'centered'),
     ('seed_wins',        "Seed Wins",        None),
     ('seed_losses',      "Seed Losses",      None),
@@ -179,6 +179,20 @@ def get_players():
         pl_data.append(player.__data__ | props)
 
     return {'data': pl_data}
+
+@app.post("/players")
+def post_players():
+    """
+    """
+    res = None
+    data = request.form
+    upd_info = {x[0]: data.get(x[0]) for x in pl_layout if x[2] == 'editable'}
+    try:
+        res = Player.update(**upd_info).where(Player.id == data['id']).execute()
+    except IntegrityError as e:
+        abort(409, str(e))
+
+    return {'result': res}
 
 ################
 # POST actions #

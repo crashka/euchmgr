@@ -162,7 +162,7 @@ def build_seed_bracket() -> list[SeedGame]:
     tourn.complete_stage(TournStage.SEED_BRACKET)
     return games
 
-def fake_seed_results() -> None:
+def fake_seed_games() -> None:
     """Generates random team points and determines winner for each seed game
     """
     for game in SeedGame.iter_games():
@@ -240,7 +240,7 @@ def compute_player_seeds() -> None:
 
     TournInfo.mark_stage_complete(TournStage.SEED_RANKS)
 
-def fake_partner_picks() -> None:
+def fake_picking_partners() -> None:
     """
     """
     pl_list = Player.get_player_map().values()
@@ -397,7 +397,7 @@ def build_tourn_bracket() -> list[TournGame]:
     tourn.complete_stage(TournStage.TOURN_BRACKET)
     return games
 
-def fake_tourn_results() -> None:
+def fake_tourn_games() -> None:
     """Generates random team points and determines winner for each tournament game (before
     semis/finals)
     """
@@ -489,14 +489,14 @@ def main() -> int:
       - upload_roster roster=<csv_file>
       - generate_player_nums
       - build_seed_bracket
-      - fake_seed_results
+      - fake_seed_games
       - tabulate_seed_round
       - compute_player_seeds
-      - fake_partner_picks
+      - fake_picking_partners
       - build_tourn_teams
       - compute_team_seeds
       - build_tourn_bracket
-      - fake_tourn_results
+      - fake_tourn_games
       - tabulate_tourn
       - compute_team_ranks
     """

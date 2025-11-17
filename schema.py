@@ -39,7 +39,7 @@ TournStage = IntEnum('TournStage',
                       'TEAM_RANKS'])
 
 class StageInfo(NamedTuple):
-    """Behavior parameters and status messages for tournament stages
+    """Behavior parameters and messages for tournament stages
 
     REVISIT(?): there is currently redundancy in the two boolean flags, but we may keep it
     this way for integrity checking
@@ -61,20 +61,20 @@ class StageInfo(NamedTuple):
 # - "assigned" means the completion of a process that may be either manual or automated
 #
 STAGE_DATA = [
-    StageInfo(False, False, None,                      "New tournament"),
-    StageInfo(True,  True,  "Creating player roster",  "Player roster created"),
-    StageInfo(True,  False, "Assigning player nums",   "Player nums assigned"),
-    StageInfo(False, True,  None,                      "Seeding bracket created"),
-    StageInfo(True , False, "Seeding round active",    "Seeding results completed"),
-    StageInfo(False, False, None,                      "Seeding results tabulated"),
-    StageInfo(False, True,  None,                      "Seeding rankings computed"),
-    StageInfo(True,  False, "Picking partners",        "Partner picks completed"),
-    StageInfo(False, False, None,                      "Round robin teams created"),
-    StageInfo(False, False, None,                      "Round robin team seeds computed"),
-    StageInfo(False, True,  None,                      "Round robin brackets created"),
-    StageInfo(True,  False, "Round robin play active", "Round robin results completed"),
-    StageInfo(False, False, None,                      "Round robin results tabulated"),
-    StageInfo(False, False, None,                      "Team rankings computed")
+    StageInfo(False, False, None,                            "New tournament"),
+    StageInfo(True,  True,  "Creating player roster",        "Player roster created"),
+    StageInfo(True,  False, "Assigning player nums",         "Player nums assigned"),
+    StageInfo(False, True,  "Generate seeding bracket",      "Seeding bracket created"),
+    StageInfo(True , False, "Seeding round active",          "Seeding results completed"),
+    StageInfo(False, False, "Tabulate seeding results",      "Seeding results tabulated"),
+    StageInfo(False, True,  None,                            "Seeding rankings computed"),
+    StageInfo(True,  False, "Picking partners",              "Partner picks completed"),
+    StageInfo(False, False, "Generate round robin brackets", "Round robin teams created"),
+    StageInfo(False, False, None,                            "Round robin team seeds computed"),
+    StageInfo(False, True,  None,                            "Round robin brackets created"),
+    StageInfo(True,  False, "Round robin play active",       "Round robin results completed"),
+    StageInfo(False, False, "Tabulate round robin results",  "Round robin results tabulated"),
+    StageInfo(False, False, None,                            "Team rankings computed")
 ]
 
 assert len(STAGE_DATA) == len(TournStage)  # not ensured by zip
@@ -92,7 +92,8 @@ class TournInfo(BaseModel):
     venue          = TextField(null=True)
     stage_start    = IntegerField()
     stage_compl    = IntegerField()
-    status         = TextField()
+    cur_stage      = TextField()
+    next_action    = TextField(null=True)
     players        = IntegerField(null=True)
     teams          = IntegerField(null=True)
     thm_teams      = IntegerField(null=True)
@@ -133,7 +134,7 @@ class TournInfo(BaseModel):
         tourn.complete_stage(stage)
 
     def save(self, *args, **kwargs):
-        """Manage stage/status changes
+        """Manage stage changes and associated message text
         """
         if 'stage_compl' in self._dirty:
             stage_data = StageData[self.stage_compl]
@@ -146,11 +147,15 @@ class TournInfo(BaseModel):
             if stage_data.auto_advance:
                 # this may overwrite the update above, but we leave things like this for
                 # the associated integrity checking
-                next_stage = self.stage_compl + 1
-                self.stage_start = next_stage
-                self.status = StageData[next_stage].start_msg
+                stage_next = self.stage_compl + 1
+                self.stage_start = stage_next
+                self.cur_stage = StageData[stage_next].start_msg
+                self.next_action = StageData[stage_next].compl_msg
             else:
-                self.status = stage_data.compl_msg
+                self.cur_stage = stage_data.compl_msg
+                stage_next = self.stage_compl + 1
+                if stage_next < len(StageData):
+                    self.next_action = StageData[stage_next].start_msg
 
             # TODO: should also log this information!!!
         if self.id is None:

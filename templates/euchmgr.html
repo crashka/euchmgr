@@ -33,13 +33,16 @@
      .view label {
        margin-left: 0.35rem;
      }
-     .info_blk {
+     .info_blk,
+     .stage_blk {
        padding: 0.5rem 0;
      }
-     .info_blk span {
+     .info_blk span,
+     .stage_blk span {
        margin-right: 1.5rem;
      }
-     .info_blk input {
+     .info_blk input,
+     .stage_blk input {
        margin-left: 0.3rem;
      }
      .players {
@@ -48,15 +51,19 @@
      }
      .seeding {
        display: {{"block;" if view_chk[1] else "none;"}}
+       width: 70rem;
      }
      .partners {
        display: {{"block;" if view_chk[2] else "none;"}}
+       width: 70rem;
      }
      .teams {
        display: {{"block;" if view_chk[3] else "none;"}}
+       width: 70rem;
      }
      .round_robin {
        display: {{"block;" if view_chk[4] else "none;"}}
+       width: 70rem;
      }
      form {
        overflow: hidden;
@@ -205,8 +212,8 @@
           </span>
         </div>
         <div class="section">
-          <span class="section_lbl">Status</span>
-          <span class="info_msg">{{tourn.status if tourn.status else ''}}</span>
+          <span class="section_lbl">Current Stage</span>
+          <span class="info_msg">{{tourn.cur_stage if tourn.cur_stage else ''}}</span>
         </div>
       </div>
       <div class="section buttons">
@@ -285,8 +292,8 @@
           </span>
         </div>
         <div class="section">
-          <span class="section_lbl">Status</span>
-          <span class="info_msg">{{tourn.status if tourn.status else ''}}</span>
+          <span class="section_lbl">Current Stage</span>
+          <span class="info_msg">{{tourn.cur_stage if tourn.cur_stage else ''}}</span>
         </div>
       </div>
       <div class="section buttons">
@@ -313,6 +320,10 @@
           <span>Teams:<input name="teams" type="number" value="{{tourn.teams}}" disabled></span>
           <span>THM Teams:<input name="thm_teams" type="number" value="{{tourn.thm_teams}}" disabled></span>
         </div>
+        <div class="subsect stage_blk">
+          <span>Current Stage:<input name="cur_stage" type="text" value="{{tourn.cur_stage}}" disabled></span>
+          <span>Next:<input name="next_action" type="text" value="{{tourn.next_action if tourn.next_action else ''}}" disabled></span>
+        </div>
       </div>
       <div class="section players">
         <span class="section_lbl">Players</span>
@@ -329,7 +340,7 @@
           <form action="/" method="post">
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
             <button class="submit" value="gen_player_nums"}}">Generate Player Nums</button>
-            <button class="submit" value="gen_seed_bracket"}}">Generate Seed Bracket</button>
+            <button class="submit" value="gen_seed_bracket"}}">Create Seeding Bracket</button>
           </form>
         </div>
       </div>
@@ -348,7 +359,7 @@
           <form action="/" method="post">
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
             <button class="submit" value="fake_seed_results"}}">Generate Fake Results</button>
-            <button class="submit" value="tabulate_seed_results"}}">Tabulate Seed Results</button>
+            <button class="submit" value="tabulate_seed_results"}}">Tabulate Seeding Results</button>
           </form>
         </div>
       </div>
@@ -363,7 +374,6 @@
       <span class="section_lbl">Round Robin</span>
     </div>
     {% endif %}  {# creating tourn #}
-      </div>
   </body>
 
   <script src="/static/jquery-3.7.1.min.js"></script>
@@ -404,6 +414,7 @@
            if (e.which == 13) {
              e.preventDefault();
              $(this).trigger('blur');
+             $(this).next('td').focus();
              //return false;
            }
          });
@@ -418,7 +429,7 @@
              const row = table.row(e.target.parentElement);
              cell.data(e.target.textContent).draw();
 
-             const post_data = $.extend({}, row.data(), {tourn: "{{tourn.name}}"});
+             const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
              $.post('/players', post_data)
               .done(function(resp) {
                 //console.log('POST /players done: ', resp);
@@ -438,9 +449,10 @@
 
        const tourn = $('.info_blk input[name="tourn_name"]').val();
        const table = $('#plyr_tbl').DataTable({
+         rowId: 'nick_name',
+         paging: false,
          scrollX: true,
          scrollY: '30rem',
-         paging: false,
          fixedColumns: {
            start: 3
          },
@@ -501,7 +513,7 @@
              const row = table.row(e.target.parentElement);
              cell.data(e.target.textContent).draw();
 
-             const post_data = $.extend({}, row.data(), {tourn: "{{tourn.name}}"});
+             const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
              $.post('/seeding', post_data)
               .done(function(resp) {
                 //console.log('POST /seeding done: ', resp);
@@ -522,9 +534,9 @@
        const tourn = $('.info_blk input[name="tourn_name"]').val();
        const table = $('#seed_tbl').DataTable({
          rowId: 'label',
+         paging: false,
          scrollX: true,
          scrollY: '30rem',
-         paging: false,
          fixedColumns: {
            start: 3
          },

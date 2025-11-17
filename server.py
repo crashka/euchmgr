@@ -32,7 +32,8 @@ from core import DATA_DIR, UPLOAD_DIR
 from database import DB_FILETYPE
 from schema import TournInfo, Player, SeedGame
 from euchmgr import (db_init, tourn_create, upload_roster, generate_player_nums,
-                     build_seed_bracket)
+                     build_seed_bracket, fake_seed_games, tabulate_seed_round,
+                     compute_player_seeds)
 
 CHECKED = ' checked'
 
@@ -219,7 +220,7 @@ sg_addl_props = [
 
 sg_layout = [
     ('id',          "ID",          'hidden'),
-    ('label',       "Ref",         None),
+    ('label',       "Ref",         'hidden'),
     ('round_num',   "Round",       None),
     ('table_num',   "Table",       None),
     ('player_nums', "Player Nums", None),
@@ -428,6 +429,49 @@ def gen_seed_bracket(form: dict) -> str:
         'err_msgs'   : err_msgs,
         'view_chk'   : view_chk,
         'sg_layout'  : sg_layout
+    }
+    return render_app(context)
+
+def fake_seed_results(form: dict) -> str:
+    """
+    """
+    view_chk    = [''] * 5
+    info_msgs   = []
+    err_msgs    = []
+
+    tourn_name  = form.get('tourn_name')
+    db_init(tourn_name)
+    fake_seed_games()
+    view_chk[1] = CHECKED
+
+    context = {
+        'tourn'      : TournInfo.get(),
+        'info_msgs'  : info_msgs,
+        'err_msgs'   : err_msgs,
+        'view_chk'   : view_chk,
+        'sg_layout'  : sg_layout
+    }
+    return render_app(context)
+
+def tabulate_seed_results(form: dict) -> str:
+    """
+    """
+    view_chk    = [''] * 5
+    info_msgs   = []
+    err_msgs    = []
+
+    tourn_name  = form.get('tourn_name')
+    db_init(tourn_name)
+    tabulate_seed_round()
+    compute_player_seeds()
+    view_chk[0] = CHECKED
+
+    context = {
+        'tourn'      : TournInfo.get(),
+        'info_msgs'  : info_msgs,
+        'err_msgs'   : err_msgs,
+        'view_chk'   : view_chk,
+        'pl_layout'  : pl_layout
     }
     return render_app(context)
 

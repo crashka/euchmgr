@@ -16,7 +16,7 @@ echo "done"
 python -m euchmgr ${TOURN} build_seed_bracket
 read -p "Press any key to create fake seeding results..." -n1 -s
 echo "done"
-python -m euchmgr ${TOURN} fake_seed_results
+python -m euchmgr ${TOURN} fake_seed_games
 echo -n "Tabulating seeding results..."
 echo "done"
 python -m euchmgr ${TOURN} tabulate_seed_round
@@ -25,7 +25,7 @@ echo "done"
 python -m euchmgr ${TOURN} compute_player_seeds
 read -p "Press any key to create fake partner picks..." -n1 -s
 echo "done"
-python -m euchmgr ${TOURN} fake_partner_picks
+python -m euchmgr ${TOURN} fake_picking_partners
 echo -n "Building tournament teams..."
 echo "done"
 python -m euchmgr ${TOURN} build_tourn_teams
@@ -37,7 +37,7 @@ echo "done"
 python -m euchmgr ${TOURN} build_tourn_bracket
 read -p "Press any key to create fake tournament results..." -n1 -s
 echo "done"
-python -m euchmgr ${TOURN} fake_tourn_results
+python -m euchmgr ${TOURN} fake_tourn_games
 echo -n "Tabulating tournament results..."
 echo "done"
 python -m euchmgr ${TOURN} tabulate_tourn

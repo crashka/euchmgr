@@ -33,7 +33,7 @@ def fmt_player_list(player_nums: list[int]) -> str:
     """
     pl_map = Player.get_player_map()
     nick_names = [pl_map[p].nick_name for p in player_nums]
-    return '; '.join(nick_names)
+    return ' / '.join(nick_names)
 
 def fmt_team_name(player_nums: list[int]) -> str:
     """

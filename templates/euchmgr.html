@@ -416,20 +416,22 @@
            if (e.target.textContent !== orig_val) {
              const cell = table.cell(e.target)
              const row = table.row(e.target.parentElement);
-             cell.data(e.target.textContent);
-             row.invalidate();
+             cell.data(e.target.textContent).draw();
 
              const post_data = $.extend({}, row.data(), {tourn: "{{tourn.name}}"});
              $.post('/players', post_data)
               .done(function(resp) {
-                console.log('POST /players done: ', resp);
+                //console.log('POST /players done: ', resp);
                 $(e.target).removeClass("red");
+                if (resp.upd) {
+                  console.log('Updating row data: ', resp.data);
+                  row.data(resp.data).draw();
+                }
               })
               .fail(function(resp) {
-                console.log('POST /players fail: ', resp);
-                cell.data(orig_val);
+                console.log('POST /players fail: ', resp.responseText);
+                cell.data(orig_val).draw();
                 $(e.target).addClass("red");
-                row.invalidate();
               });
          }});
        };
@@ -497,26 +499,29 @@
            if (e.target.textContent !== orig_val) {
              const cell = table.cell(e.target)
              const row = table.row(e.target.parentElement);
-             cell.data(e.target.textContent);
-             row.invalidate();
+             cell.data(e.target.textContent).draw();
 
              const post_data = $.extend({}, row.data(), {tourn: "{{tourn.name}}"});
              $.post('/seeding', post_data)
               .done(function(resp) {
-                console.log('POST /seeding done: ', resp);
+                //console.log('POST /seeding done: ', resp);
                 $(e.target).removeClass("red");
+                if (resp.upd) {
+                  console.log('Updating row data: ', resp.data);
+                  row.data(resp.data).draw();
+                }
               })
               .fail(function(resp) {
-                console.log('POST /seeding fail: ', resp);
-                cell.data(orig_val);
+                console.log('POST /seeding fail: ', resp.responseText);
+                cell.data(orig_val).draw();
                 $(e.target).addClass("red");
-                row.invalidate();
               });
          }});
        };
 
        const tourn = $('.info_blk input[name="tourn_name"]').val();
        const table = $('#seed_tbl').DataTable({
+         rowId: 'label',
          scrollX: true,
          scrollY: '30rem',
          paging: false,

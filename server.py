@@ -181,8 +181,8 @@ def get_players():
     pl_iter = Player.iter_players()
     pl_data = []
     for player in pl_iter:
-        props = {prop: getattr(player, prop) for prop in pl_addl_props}
-        pl_data.append(player.__data__ | props)
+        pl_props = {prop: getattr(player, prop) for prop in pl_addl_props}
+        pl_data.append(player.__data__ | pl_props)
 
     return {'data': pl_data}
 
@@ -190,15 +190,24 @@ def get_players():
 def post_players():
     """
     """
-    res = None
+    pl_data = None
+    pl_upd = False
+
     data = request.form
     upd_info = {x[0]: data.get(x[0]) for x in pl_layout if x[2] == 'editable'}
     try:
-        res = Player.update(**upd_info).where(Player.id == data['id']).execute()
+        player = Player[data['id']]
+        for col, val in upd_info.items():
+            setattr(player, col, typecast(val))
+        player.save()
+
+        pl_props = {prop: getattr(player, prop) for prop in pl_addl_props}
+        pl_data = player.__data__ | pl_props
+        pl_upd = False
     except IntegrityError as e:
         abort(409, str(e))
 
-    return {'result': res}
+    return {'data': pl_data, 'upd': pl_upd}
 
 ############
 # /seeding #
@@ -232,8 +241,8 @@ def get_seeding():
     sg_iter = SeedGame.iter_games(True)
     sg_data = []
     for game in sg_iter:
-        props = {prop: getattr(game, prop) for prop in sg_addl_props}
-        sg_data.append(game.__data__ | props)
+        sg_props = {prop: getattr(game, prop) for prop in sg_addl_props}
+        sg_data.append(game.__data__ | sg_props)
 
     return {'data': sg_data}
 
@@ -241,15 +250,24 @@ def get_seeding():
 def post_seeding():
     """
     """
-    res = None
+    sg_data = None
+    sg_upd = None
+
     data = request.form
     upd_info = {x[0]: data.get(x[0]) for x in sg_layout if x[2] == 'editable'}
     try:
-        res = SeedGame.update(**upd_info).where(SeedGame.id == data['id']).execute()
-    except IntegrityError as e:
+        game = SeedGame[data['id']]
+        for col, val in upd_info.items():
+            setattr(game, col, typecast(val))
+        game.save()
+
+        sg_props = {prop: getattr(game, prop) for prop in sg_addl_props}
+        sg_data = game.__data__ | sg_props
+        sg_upd = bool(game.winner)
+    except AssertionError as e:
         abort(409, str(e))
 
-    return {'result': res}
+    return {'data': sg_data, 'upd': sg_upd}
 
 ################
 # POST actions #

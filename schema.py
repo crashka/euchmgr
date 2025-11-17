@@ -340,14 +340,6 @@ class SeedGame(BaseModel):
         self.team1_pts = team1_pts
         self.team2_pts = team2_pts
 
-        if self.team1_pts >= GAME_PTS:
-            assert self.team2_pts < GAME_PTS
-            self.winner = self.team1_name
-        elif self.team2_pts >= GAME_PTS:
-            self.winner = self.team2_name
-        else:
-            self.winner = None
-
         # insert records into PlayerGame for each player
         players     = [self.player1, self.player2, self.player3, self.player4]
         partners    = [self.player2, self.player1, self.player4, self.player3]
@@ -376,6 +368,20 @@ class SeedGame(BaseModel):
                        'is_winner'    : team_pts > opp_pts}
             pl_game = PlayerGame.create(**pg_info)
             pl_games.append(pl_game)
+
+    def save(self, *args, **kwargs):
+        """Compute winner if both scores have been entered
+        """
+        if set(self._dirty) & {'team1_pts', 'team2_pts'}:
+            if None not in {self.team1_pts, self.team2_pts}:
+                if self.team1_pts >= GAME_PTS:
+                    assert self.team2_pts < GAME_PTS, f"both team scores > {GAME_PTS}"
+                    self.winner = self.team1_name
+                elif self.team2_pts >= GAME_PTS:
+                    self.winner = self.team2_name
+                else:
+                    self.winner = None
+        return super().save(*args, **kwargs)
 
 ########
 # Team #

@@ -5,7 +5,7 @@
 
     <style>
      .red {
-       color: red;
+       background-color: #FFECEC;
      }
      .container {
        overflow: hidden;
@@ -363,15 +363,31 @@
           </form>
         </div>
       </div>
-    </div>
-    <div class="section partners">
-      <span class="section_lbl">Partners</span>
-    </div>
-    <div class="section teams">
-      <span class="section_lbl">Teams</span>
-    </div>
-    <div class="section round_robin">
-      <span class="section_lbl">Round Robin</span>
+      <div class="section partners">
+        <span class="section_lbl">Partners</span>
+        <table id="ptnr_tbl" class="display" spellcheck="false">
+          <thead>
+            <tr>
+              {% for col in pt_layout %}
+              <th>{{col[1]}}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+        </table>
+        <div class="subsection buttons">
+          <form action="/" method="post">
+            <input name="tourn_name" type="hidden" value="{{tourn.name}}">
+            <button class="submit" value="fake_partner_picks"}}">Generate Fake Picks</button>
+            <button class="submit" value="gen_tourn_brackets"}}">Create Round Robin Brackets</button>
+          </form>
+        </div>
+      </div>
+      <div class="section teams">
+        <span class="section_lbl">Teams</span>
+      </div>
+      <div class="section round_robin">
+        <span class="section_lbl">Round Robin</span>
+      </div>
     </div>
     {% endif %}  {# creating tourn #}
   </body>
@@ -421,6 +437,7 @@
 
          node.addEventListener('focus', function(e) {
            orig_val = e.target.textContent;
+           $(e.target).removeClass("red");
          });
 
          node.addEventListener('blur', function(e) {
@@ -433,7 +450,6 @@
              $.post('/players', post_data)
               .done(function(resp) {
                 //console.log('POST /players done: ', resp);
-                $(e.target).removeClass("red");
                 if (resp.upd) {
                   console.log('Updating row data: ', resp.data);
                   row.data(resp.data).draw();
@@ -505,6 +521,7 @@
 
          node.addEventListener('focus', function(e) {
            orig_val = e.target.textContent;
+           $(e.target).removeClass("red");
          });
 
          node.addEventListener('blur', function(e) {
@@ -517,7 +534,6 @@
              $.post('/seeding', post_data)
               .done(function(resp) {
                 //console.log('POST /seeding done: ', resp);
-                $(e.target).removeClass("red");
                 if (resp.upd) {
                   console.log('Updating row data: ', resp.data);
                   row.data(resp.data).draw();
@@ -566,6 +582,101 @@
            {% endif %}
            {% endfor %}
          ],
+         initComplete: function(settings, json) {
+           table.columns.adjust().draw();
+         }
+       });
+     }
+
+     // partners view
+     if ("{{view_chk[2]}}") {
+       const editable = function(node) {
+         let orig_val;
+
+         node.setAttribute('contenteditable', true);
+         node.addEventListener('keypress', function(e) {
+           if (e.which == 13) {
+             e.preventDefault();
+             $(this).trigger('blur');
+             $(this).next('td').focus();
+             //return false;
+           }
+         });
+
+         node.addEventListener('focus', function(e) {
+           orig_val = e.target.textContent;
+           $(e.target).removeClass("red");
+         });
+
+         node.addEventListener('blur', function(e) {
+           if (e.target.textContent !== orig_val) {
+             const cell = table.cell(e.target)
+             const row = table.row(e.target.parentElement);
+             cell.data(e.target.textContent).draw();
+
+             const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
+             $.post('/partners', post_data)
+              .done(function(resp) {
+                //console.log('POST /partners done: ', resp);
+                if (resp.err) {
+                  console.log('POST /partners error: ', resp.err);
+                  cell.data(orig_val).draw();
+                  $(e.target).addClass("red");
+                }
+                else if (resp.upd) {
+                  //console.log('Updating row data: ', resp.data);
+                  //row.data(resp.data).draw();
+                  console.log('Reloading table data (POST /partners)');
+                  table.ajax.reload();
+                }
+              })
+              .fail(function(resp) {
+                console.log('POST /partners fail: ', resp.responseText);
+                cell.data(orig_val).draw();
+                $(e.target).addClass("red");
+              });
+         }});
+       };
+
+       const tourn = $('.info_blk input[name="tourn_name"]').val();
+       const table = $('#ptnr_tbl').DataTable({
+         rowId: 'nick_name',
+         paging: false,
+         scrollX: true,
+         scrollY: '30rem',
+         fixedColumns: {
+           start: 3
+         },
+         columnControl: {
+           target: 1,
+           content: ['search']
+         },
+         ajax: {
+           url: '/partners?tourn=' + encodeURIComponent(tourn),
+           dataSrc: 'data'
+         },
+         columns: [
+           {% for col in pt_layout %}
+           {data: '{{col[0]}}'},
+           {% endfor %}
+         ],
+         columnDefs: [
+           {% for col in pt_layout %}
+           {% if col[2] == 'hidden' %}
+           {target: {{loop.index0}}, visible: false, searchable: false},
+           {% elif col[2] == 'centered' %}
+           {target: {{loop.index0}}, className: 'dt-center'},
+           {% elif col[2] == 'editable' %}
+           {target: {{loop.index0}}, createdCell: editable},
+           {% else %}
+           {target: {{loop.index0}}},
+           {% endif %}
+           {% endfor %}
+         ],
+         order: {
+           name: 'player_seed',
+           dir: 'asc'
+         },
          initComplete: function(settings, json) {
            table.columns.adjust().draw();
          }

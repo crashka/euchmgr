@@ -6,7 +6,7 @@ from typing import ClassVar, Self, Iterator, NamedTuple
 import re
 
 from peewee import (TextField, IntegerField, BooleanField, ForeignKeyField, FloatField,
-                    OperationalError)
+                    OperationalError, DoesNotExist)
 from playhouse.sqlite_ext import JSONField
 
 from database import BaseModel
@@ -230,6 +230,14 @@ class Player(BaseModel):
         return cls.player_map
 
     @classmethod
+    def available_players(cls, requery: bool = False) -> list[Self]:
+        """Return list of available players, sorted by player_seed
+        """
+        pl_list = cls.get_player_map(requery).values()
+        avail = list(filter(lambda x: x.available, pl_list))
+        return sorted(avail, key=lambda x: x.player_seed)
+
+    @classmethod
     def get_player(cls, player_num: int) -> Self:
         """Return player by player_num (from cached map)
         """
@@ -237,45 +245,89 @@ class Player(BaseModel):
         return pl_map[player_num]
 
     @classmethod
-    def iter_players(cls) -> Iterator[Self]:
+    def fetch_by_seed(cls, player_seed: int) -> Self:
+        """
+        """
+        try:
+            pl = cls.get(cls.player_seed == player_seed)
+        except DoesNotExist as e:
+            pl = None
+        except:
+            raise
+        return pl
+
+    @classmethod
+    def iter_players(cls, by_seeding: bool = False) -> Iterator[Self]:
         """Iterator for players (wrap ORM details).  Note that this also clears out local
         cache, if populated.
         """
         if cls.player_map:
             cls.player_map = None
 
+        query = cls.select()
+        if by_seeding:
+            query = query.order_by(cls.player_seed)
         # see NOTE on use of iterator in `TournInfo.get`, above
-        for p in cls.select().iterator():
+        for p in query.iterator():
             yield p
 
     @property
     def full_name(self) -> str:
-        """
+        """For UI support (one field instead of two)
         """
         return self.first_name + ' ' + self.last_name
 
     @property
     def champ(self) -> str | None:
-        """
+        """For UI support ('y' or empty)
         """
         return 'y' if self.reigning_champ else None
 
-    def pick_partners(self, partner1: Self, partner2: Self = None) -> None:
+    @property
+    def available(self) -> str | None:
+        """For partner picking UI ('y' or empty)
+        """
+        return 'y' if not (self.partner or self.picked_by) else None
+
+    @property
+    def seed_ident(self) -> str:
+        """Player name + seed, for partner picking UI
+        """
+        return f"{self.nick_name} ({self.player_seed})"
+
+    @property
+    def picks_info(self) -> str | None:
+        """For partner picking UI
+        """
+        pt_info = None
+        if self.partner:
+            pt_info = self.partner.seed_ident
+            if self.partner2:
+                pt_info += f", {self.partner2.seed_ident} [THM]"
+        return pt_info
+
+    @property
+    def picked_by_info(self) -> str | None:
+        """For partner picking UI
+        """
+        return self.picked_by.seed_ident if self.picked_by else None
+
+    def pick_partners(self, partner: Self, partner2: Self = None) -> None:
         """
         """
         print(f"player: {self.player_num} ({self.nick_name})")
-        print(f"  - picks partner {partner1.player_num} ({partner1.nick_name})")
-        assert self.partner_num is None
-        assert partner1.picked_by_num is None
-        self.partner_num = partner1.player_num
-        partner1.picked_by_num = self.player_num
+        print(f"  - picks partner {partner.player_num} ({partner.nick_name})")
+        assert self.partner is None
+        assert partner.picked_by is None
+        self.partner = partner
+        partner.picked_by = self
 
         if partner2:
             print(f"  - picks partner {partner2.player_num} ({partner2.nick_name})")
-            assert self.partner2_num is None
-            assert partner2.picked_by_num is None
-            self.partner2_num = partner2.player_num
-            partner2.picked_by_num = self.player_num
+            assert self.partner2 is None
+            assert partner2.picked_by is None
+            self.partner2 = partner2
+            partner2.picked_by = self
 
     def save(self, *args, **kwargs):
         """Ensure that nick_name is not null, since it is used as the display name in
@@ -283,6 +335,11 @@ class Player(BaseModel):
         """
         if not self.nick_name:
             self.nick_name = self.last_name
+        # cascade commit to partner(s), if dirty
+        if self.partner and self.partner._dirty:
+            self.partner.save()
+            if self.partner2 and self.partner2._dirty:
+                self.partner2.save()
         return super().save(*args, **kwargs)
 
 ############

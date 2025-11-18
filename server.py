@@ -33,9 +33,13 @@ from database import DB_FILETYPE
 from schema import TournInfo, Player, SeedGame
 from euchmgr import (db_init, tourn_create, upload_roster, generate_player_nums,
                      build_seed_bracket, fake_seed_games, tabulate_seed_round,
-                     compute_player_seeds)
+                     compute_player_seeds, fake_picking_partners)
 
-CHECKED = ' checked'
+# magic strings
+CHECKED  = ' checked'
+HIDDEN   = 'hidden'
+CENTERED = 'centered'
+EDITABLE = 'editable'
 
 #########
 # Setup #
@@ -136,7 +140,8 @@ def index():
         'new_tourn': new_tourn,
         'view_chk' : view_chk,
         'pl_layout': pl_layout,
-        'sg_layout': sg_layout
+        'sg_layout': sg_layout,
+        'pt_layout': pt_layout
     }
     return render_app(context)
 
@@ -160,11 +165,11 @@ pl_addl_props = [
 ]
 
 pl_layout = [
-    ('id',               "ID",               'hidden'),
+    ('id',               "ID",               HIDDEN),
     ('full_name',        "Name",             None),
     ('nick_name',        "Nick Name",        None),
-    ('player_num',       "Player Num",       'editable'),
-    ('champ',            "Champ?",           'centered'),
+    ('player_num',       "Player Num",       EDITABLE),
+    ('champ',            "Champ?",           CENTERED),
     ('seed_wins',        "Seed Wins",        None),
     ('seed_losses',      "Seed Losses",      None),
     ('seed_pts_for',     "Seed Pts For",     None),
@@ -195,7 +200,7 @@ def post_players():
     pl_upd = False
 
     data = request.form
-    upd_info = {x[0]: data.get(x[0]) for x in pl_layout if x[2] == 'editable'}
+    upd_info = {x[0]: data.get(x[0]) for x in pl_layout if x[2] == EDITABLE}
     try:
         player = Player[data['id']]
         for col, val in upd_info.items():
@@ -219,16 +224,16 @@ sg_addl_props = [
 ]
 
 sg_layout = [
-    ('id',          "ID",          'hidden'),
-    ('label',       "Ref",         'hidden'),
+    ('id',          "ID",          HIDDEN),
+    ('label',       "Ref",         HIDDEN),
     ('round_num',   "Round",       None),
     ('table_num',   "Table",       None),
     ('player_nums', "Player Nums", None),
     ('team1_name',  "Team 1",      None),
     ('team2_name',  "Team 2",      None),
     ('bye_players', "Byes",        None),
-    ('team1_pts',   "Team 1 Pts",  'editable'),
-    ('team2_pts',   "Team 2 Pts",  'editable'),
+    ('team1_pts',   "Team 1 Pts",  EDITABLE),
+    ('team2_pts',   "Team 2 Pts",  EDITABLE),
     ('winner',      "Winner",      None)
 ]
 
@@ -255,7 +260,7 @@ def post_seeding():
     sg_upd = None
 
     data = request.form
-    upd_info = {x[0]: data.get(x[0]) for x in sg_layout if x[2] == 'editable'}
+    upd_info = {x[0]: data.get(x[0]) for x in sg_layout if x[2] == EDITABLE}
     try:
         game = SeedGame[data['id']]
         for col, val in upd_info.items():
@@ -269,6 +274,81 @@ def post_seeding():
         abort(409, str(e))
 
     return {'data': sg_data, 'upd': sg_upd}
+
+#############
+# /partners #
+#############
+
+pt_addl_props = [
+    'full_name',
+    'champ',
+    'available',
+    'picks_info',
+    'picked_by_info'
+]
+
+pt_layout = [
+    ('id',             "ID",         HIDDEN),
+    ('full_name',      "Name",       None),
+    ('nick_name',      "Nick Name",  None),
+    ('player_seed',    "Seed Rank",  None),
+    ('champ',          "Champ?",     CENTERED),
+    ('available',      "Avail?",     CENTERED),
+    ('picks_info',     "Picks as Partner(s)", EDITABLE),
+    ('picked_by_info', "Picked By",  None)
+]
+
+@app.get("/partners")
+def get_partners():
+    """
+    """
+    tourn_name = request.args.get('tourn')
+
+    db_init(tourn_name)
+    pt_iter = Player.iter_players(by_seeding=True)
+    pt_data = []
+    for player in pt_iter:
+        pt_props = {prop: getattr(player, prop) for prop in pt_addl_props}
+        pt_data.append(player.__data__ | pt_props)
+
+    return {'data': pt_data}
+
+@app.post("/partners")
+def post_partners():
+    """
+    """
+    pt_err = None
+    pt_upd = False
+
+    data = request.form
+    upd_info = {x[0]: data.get(x[0]) for x in pt_layout if x[2] == EDITABLE}
+    picks_seed = typecast(upd_info.pop('picks_info', None))
+    assert picks_seed
+    assert len(upd_info) == 0
+    partner = Player.fetch_by_seed(picks_seed)
+    player_id = typecast(data['id'])
+    # TODO: validate avilable and not self!!!
+
+    # automatic final pick(s) if 2 or 3 teams remain
+    avail = Player.available_players(requery=True)
+    assert len(avail) not in (0, 1)
+    if len(avail) in (2, 3):
+        player = avail[0]
+        assert player.id == player_id
+        partners = avail[1:]
+        assert partner in partners
+        player.pick_partners(*partners)
+        player.save()
+        avail = []
+        pt_upd = True
+    else:
+        player = Player[player_id]
+        player.pick_partners(partner)
+        player.save()
+        pt_upd = True
+
+    # REVISIT: return available players? (...and if so, by num or seed?)
+    return {'err': pt_err, 'upd': pt_upd}
 
 ################
 # POST actions #
@@ -464,14 +544,35 @@ def tabulate_seed_results(form: dict) -> str:
     db_init(tourn_name)
     tabulate_seed_round()
     compute_player_seeds()
-    view_chk[0] = CHECKED
+    view_chk[2] = CHECKED
 
     context = {
         'tourn'      : TournInfo.get(),
         'info_msgs'  : info_msgs,
         'err_msgs'   : err_msgs,
         'view_chk'   : view_chk,
-        'pl_layout'  : pl_layout
+        'pt_layout'  : pt_layout
+    }
+    return render_app(context)
+
+def fake_partner_picks(form: dict) -> str:
+    """
+    """
+    view_chk    = [''] * 5
+    info_msgs   = []
+    err_msgs    = []
+
+    tourn_name  = form.get('tourn_name')
+    db_init(tourn_name)
+    fake_picking_partners()
+    view_chk[2] = CHECKED
+
+    context = {
+        'tourn'      : TournInfo.get(),
+        'info_msgs'  : info_msgs,
+        'err_msgs'   : err_msgs,
+        'view_chk'   : view_chk,
+        'pt_layout'  : pt_layout
     }
     return render_app(context)
 

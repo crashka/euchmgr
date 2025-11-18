@@ -238,24 +238,27 @@ def compute_player_seeds() -> None:
         player.player_seed = i + 1
         player.save()
 
+    # FIX: this doesn't really belong here, should probably be another stage in the
+    # process!!!
+    #
+    # highest seeded champ must pick fellow champ(s)
+    by_seed = sorted(pl_list, key=lambda x: x.player_seed)
+    champs = list(filter(lambda x: x.reigning_champ, by_seed))
+    assert len(champs) in (2, 3)
+    champs[0].pick_partners(*champs[1:])
+    champs[0].save()
+
     TournInfo.mark_stage_complete(TournStage.SEED_RANKS)
 
 def fake_picking_partners() -> None:
-    """
+    """Assumes champ team is pre-picked
     """
     pl_list = Player.get_player_map().values()
     by_seed = sorted(pl_list, key=lambda x: x.player_seed)
+    non_champs = list(filter(lambda x: not x.reigning_champ, by_seed))
 
-    # highest seeded champ must pick fellow champ(s)
-    champs = [p for p in by_seed if p.reigning_champ]
-    champs[0].pick_partners(*champs[1:])
-    for p in champs:
-        by_seed.remove(p)
-
-    # non-champs pick randomly
-    avail = list(by_seed)  # shallow copy (no champs)
-    for player in by_seed:
-        player_num = player.player_num
+    avail = list(non_champs)  # shallow copy
+    for player in non_champs:
         if player.picked_by:
             assert player not in avail
             continue
@@ -266,10 +269,8 @@ def fake_picking_partners() -> None:
         if len(avail) == 1:  # three-headed monster
             partners.append(avail.pop(0))
         player.pick_partners(*partners)
-    assert len(avail) == 0
-
-    for player in pl_list:
         player.save()
+    assert len(avail) == 0
 
     TournInfo.mark_stage_complete(TournStage.PARTNER_PICK)
 

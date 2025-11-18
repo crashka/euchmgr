@@ -31,7 +31,7 @@ from werkzeug.utils import secure_filename
 
 from core import DATA_DIR, UPLOAD_DIR
 from database import DB_FILETYPE
-from schema import TournInfo, Player, SeedGame, Team, TournGame
+from schema import TournStage, TournInfo, Player, SeedGame, Team, TournGame
 from euchmgr import (db_init, tourn_create, upload_roster, generate_player_nums,
                      build_seed_bracket, fake_seed_games, tabulate_seed_round,
                      compute_player_seeds, prepick_champ_partners, fake_pick_partners,
@@ -126,12 +126,32 @@ SUBMIT_FUNCS = [
     'tabulate_tourn_results'
 ]
 
+STAGE_MAPPING = [
+    (TournStage.TEAM_RANKS,    View.TEAMS),
+    (TournStage.TOURN_RESULTS, View.ROUND_ROBIN),
+    (TournStage.TEAM_SEEDS,    View.TEAMS),
+    (TournStage.PARTNER_PICK,  View.PARTNERS),
+    (TournStage.SEED_RESULTS,  View.SEEDING),
+    (TournStage.PLAYER_NUMS,   View.PLAYERS),
+]
+
+def dflt_view(tourn: TournInfo) -> View:
+    """Return most relevant view for the current stage of the tournament
+    """
+    if tourn.stage_start is None:
+        return None
+    for stage, view in STAGE_MAPPING:
+        if tourn.stage_start >= stage:
+            return view
+    return None
+
 @app.get("/")
 def index():
     """
     """
     tourn     = None
     new_tourn = None
+    view      = None
 
     tourn_name = request.args.get('tourn')
     if tourn_name:
@@ -142,7 +162,11 @@ def index():
         else:
             tourn = TournInfo.get()
             new_tourn = False
-    view = typecast(request.args.get('view', ''))
+
+    if 'view' in request.args:
+        view = typecast(request.args['view'])
+    elif tourn:
+        view = dflt_view(tourn)
 
     context = {
         'tourn'    : tourn,

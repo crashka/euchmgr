@@ -142,7 +142,7 @@ def index():
         else:
             tourn = TournInfo.get()
             new_tourn = False
-    view = typecast(request.args.get('view'))
+    view = typecast(request.args.get('view', ''))
 
     context = {
         'tourn'    : tourn,
@@ -172,9 +172,9 @@ pl_addl_props = [
 
 pl_layout = [
     ('id',               "ID",           HIDDEN),
-    ('full_name',        "Name",         None),
-    ('nick_name',        "Nick Name",    None),
-    ('player_num',       "Player Num",   EDITABLE),
+    ('player_num',       "Num",          EDITABLE),
+    ('full_name',        "Player",       None),
+    ('nick_name',        "Short Name",   None),
     ('champ',            "Champ?",       CENTERED),
     ('seed_wins',        "Seed Wins",    None),
     ('seed_losses',      "Seed Losses",  None),
@@ -231,13 +231,12 @@ sg_addl_props = [
 
 sg_layout = [
     ('id',          "ID",          HIDDEN),
-    ('label',       "Ref",         HIDDEN),
-    ('round_num',   "Round",       None),
-    ('table_num',   "Table",       None),
+    ('label',       "Game",        None),
+    ('round_num',   "Rnd",         None),
     ('player_nums', "Player Nums", None),
     ('team1_name',  "Team 1",      None),
     ('team2_name',  "Team 2",      None),
-    ('bye_players', "Byes",        None),
+    ('bye_players', "Bye(s)",      None),
     ('team1_pts',   "Team 1 Pts",  EDITABLE),
     ('team2_pts',   "Team 2 Pts",  EDITABLE),
     ('winner',      "Winner",      None)
@@ -295,9 +294,9 @@ pt_addl_props = [
 
 pt_layout = [
     ('id',             "ID",         HIDDEN),
-    ('full_name',      "Name",       None),
-    ('nick_name',      "Nick Name",  None),
-    ('player_seed',    "Seed Rank",  None),
+    ('player_seed',    "Seed",       None),
+    ('full_name',      "Player",     None),
+    ('nick_name',      "Short Name", None),
     ('champ',          "Champ?",     CENTERED),
     ('available',      "Avail?",     CENTERED),
     ('picks_info',     "Picks as Partner(s)", EDITABLE),
@@ -366,11 +365,9 @@ tm_addl_props = [
 
 tm_layout = [
     ('id',                "ID",            HIDDEN),
-    ('team_name',         "Name",          None),
-    ('team_seed',         "Team Seed",     None),
-    ('avg_player_seed_rnd', "Avg Plyr Seed", None),
-    ('top_player_seed',   "Top Plyr Seed", None),
-    ('div_num',           "Div Num",       None),
+    ('team_seed',         "Seed",          None),
+    ('team_name',         "Team",          None),
+    ('div_num',           "Div",           None),
     ('div_seed',          "Div Seed",      None),
     ('tourn_wins',        "Tourn Wins",    None),
     ('tourn_losses',      "Tourn Losses",  None),
@@ -417,6 +414,66 @@ def post_teams():
         abort(409, str(e))
 
     return {'data': tm_data, 'upd': tm_upd}
+
+################
+# /round_robin #
+################
+
+tg_addl_props = [
+    'team_seeds'
+]
+
+tg_layout = [
+    ('id',         "ID",         HIDDEN),
+    ('label',      "Game",       None),
+    ('div_num',    "Div",        None),
+    ('round_num',  "Rnd",        None),
+    ('team_seeds', "Div Seeds",  None),
+    ('team1_name', "Team 1",     None),
+    ('team2_name', "Team 2",     None),
+    ('bye_team',   "Bye",        None),
+    ('team1_pts',  "Team 1 Pts", EDITABLE),
+    ('team2_pts',  "Team 2 Pts", EDITABLE),
+    ('winner',     "Winner",     None)
+]
+
+@app.get("/round_robin")
+def get_round_robin():
+    """
+    """
+    tourn_name = request.args.get('tourn')
+
+    db_init(tourn_name)
+    tg_iter = TournGame.iter_games(True)
+    tg_data = []
+    for game in tg_iter:
+        tg_props = {prop: getattr(game, prop) for prop in tg_addl_props}
+        tg_data.append(game.__data__ | tg_props)
+
+    return {'data': tg_data}
+
+@app.post("/round_robin")
+def post_round_robin():
+    """
+    """
+    tg_data = None
+    tg_upd = None
+
+    data = request.form
+    upd_info = {x[0]: data.get(x[0]) for x in tg_layout if x[2] == EDITABLE}
+    try:
+        game = TournGame[data['id']]
+        for col, val in upd_info.items():
+            setattr(game, col, typecast(val))
+        game.save()
+
+        tg_props = {prop: getattr(game, prop) for prop in tg_addl_props}
+        tg_data = game.__data__ | tg_props
+        tg_upd = bool(game.winner)
+    except AssertionError as e:
+        abort(409, str(e))
+
+    return {'data': tg_data, 'upd': tg_upd}
 
 ################
 # POST actions #
@@ -614,7 +671,7 @@ def tabulate_seed_results(form: dict) -> str:
         'tourn'      : TournInfo.get(),
         'info_msgs'  : info_msgs,
         'err_msgs'   : err_msgs,
-        'view'       : view_chk
+        'view'       : view
     }
     return render_app(context)
 
@@ -688,7 +745,7 @@ def fake_tourn_results(form: dict) -> str:
 
     tourn_name  = form.get('tourn_name')
     db_init(tourn_name)
-    fake_tourn_teams()
+    fake_tourn_games()
     view = View.ROUND_ROBIN
 
     context = {
@@ -745,6 +802,7 @@ def render_app(context: dict) -> str:
         'sg_layout': sg_layout,
         'pt_layout': pt_layout,
         'tm_layout': tm_layout,
+        'tg_layout': tg_layout,
         'help_txt' : help_txt,
         'ref_links': ref_links
     }

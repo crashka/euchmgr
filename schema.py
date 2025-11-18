@@ -537,8 +537,9 @@ class TournGame(BaseModel):
     label          = TextField(unique=True)   # rr-{div}-{rnd}-{tbl}
     team1          = ForeignKeyField(Team, field='team_seed', column_name='team1_seed')
     team2          = ForeignKeyField(Team, field='team_seed', column_name='team2_seed', null=True)
-    team1_name     = TextField()              # denorm
-    team2_name     = TextField()              # denorm (or BYE_TEAM)
+    team1_name     = TextField(null=True)     # denorm (null if team1 is bye_team)
+    team2_name     = TextField(null=True)     # denorm
+    bye_team       = TextField(null=True)
     team1_div_seed = IntegerField()
     team2_div_seed = IntegerField(null=True)
     # results
@@ -562,9 +563,16 @@ class TournGame(BaseModel):
         for t in sel.iterator():
             yield t
 
+    @property
+    def team_seeds(self) -> str:
+        """
+        """
+        tm_seeds = (self.team1_div_seed, self.team2_div_seed)
+        return ' vs. '.join(str(x) for x in tm_seeds if x)
+
     def add_scores(self, team1_pts: int, team2_pts: int) -> None:
         """Record scores for completed (or incomplete) game.  Scores should not be updated
-        directly in model object, since denormalizations (e.g. in PlayerGame) will not be
+        directly in model object, since denormalizations (e.g. in TeamGame) will not be
         maintained (without some more involved pre-save logic).
 
         TODO: check to see if this overwrites a completed game result, in which case the
@@ -573,15 +581,7 @@ class TournGame(BaseModel):
         self.team1_pts = team1_pts
         self.team2_pts = team2_pts
 
-        if self.team1_pts >= GAME_PTS:
-            assert self.team2_pts < GAME_PTS
-            self.winner = self.team1_name
-        elif self.team2_pts >= GAME_PTS:
-            self.winner = self.team2_name
-        else:
-            self.winner = None
-
-        # insert records into PlayerGame for each player
+        # insert records into TeamGame for each team
         teams       = [self.team1, self.team2]
         team_scores = [self.team1_pts, self.team2_pts]
 
@@ -603,6 +603,20 @@ class TournGame(BaseModel):
                        'is_winner' : team_pts > opp_pts}
             tm_game = TeamGame.create(**tg_info)
             tm_games.append(tm_game)
+
+    def save(self, *args, **kwargs):
+        """Compute winner if both scores have been entered
+        """
+        if set(self._dirty) & {'team1_pts', 'team2_pts'}:
+            if None not in {self.team1_pts, self.team2_pts}:
+                if self.team1_pts >= GAME_PTS:
+                    assert self.team2_pts < GAME_PTS, f"both team scores > {GAME_PTS}"
+                    self.winner = self.team1_name
+                elif self.team2_pts >= GAME_PTS:
+                    self.winner = self.team2_name
+                else:
+                    self.winner = None
+        return super().save(*args, **kwargs)
 
 ##############
 # PlayerGame #

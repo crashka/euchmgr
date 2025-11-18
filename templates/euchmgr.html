@@ -29,9 +29,11 @@
      }
      .view_lbl {
        margin-right: 0.2rem;
+       font-weight: bold;
      }
      .view label {
        margin-left: 0.35rem;
+       font-weight: bold;
      }
      .info_blk,
      .stage_blk {
@@ -326,7 +328,6 @@
         </div>
       </div>
       <div class="section players">
-        <span class="section_lbl">Players</span>
         <table id="plyr_tbl" class="display" spellcheck="false">
           <thead>
             <tr>
@@ -345,7 +346,6 @@
         </div>
       </div>
       <div class="section seeding">
-        <span class="section_lbl">Seeding</span>
         <table id="seed_tbl" class="display" spellcheck="false">
           <thead>
             <tr>
@@ -364,7 +364,6 @@
         </div>
       </div>
       <div class="section partners">
-        <span class="section_lbl">Partners</span>
         <table id="ptnr_tbl" class="display" spellcheck="false">
           <thead>
             <tr>
@@ -383,7 +382,6 @@
         </div>
       </div>
       <div class="section teams">
-        <span class="section_lbl">Teams</span>
         <table id="team_tbl" class="display" spellcheck="false">
           <thead>
             <tr>
@@ -401,8 +399,7 @@
         </div>
       </div>
       <div class="section round_robin">
-        <span class="section_lbl">Round Robin</span>
-        <table id="seed_tbl" class="display" spellcheck="false">
+        <table id="rr_tbl" class="display" spellcheck="false">
           <thead>
             <tr>
               {% for col in tg_layout %}
@@ -499,10 +496,10 @@
          rowId: 'nick_name',
          paging: false,
          scrollX: true,
-         scrollY: '30rem',
-         fixedColumns: {
-           start: 3
-         },
+         scrollY: '32rem',
+         //fixedColumns: {
+         //  start: 3
+         //},
          columnControl: {
            target: 1,
            content: ['search']
@@ -529,6 +526,7 @@
            {% endif %}
            {% endfor %}
          ],
+         //order: [[1, 'asc']],  // player_num
          initComplete: function(settings, json) {
            table.columns.adjust().draw();
          }
@@ -583,10 +581,10 @@
          rowId: 'label',
          paging: false,
          scrollX: true,
-         scrollY: '30rem',
-         fixedColumns: {
-           start: 3
-         },
+         scrollY: '32rem',
+         //fixedColumns: {
+         //  start: 3
+         //},
          columnControl: {
            target: 1,
            content: ['search']
@@ -674,10 +672,10 @@
          rowId: 'nick_name',
          paging: false,
          scrollX: true,
-         scrollY: '30rem',
-         fixedColumns: {
-           start: 3
-         },
+         scrollY: '32rem',
+         //fixedColumns: {
+         //  start: 3
+         //},
          columnControl: {
            target: 1,
            content: ['search']
@@ -704,10 +702,7 @@
            {% endif %}
            {% endfor %}
          ],
-         order: {
-           name: 'player_seed',
-           dir: 'asc'
-         },
+         order: [[1, 'asc']],  // player_seed
          initComplete: function(settings, json) {
            table.columns.adjust().draw();
          }
@@ -762,10 +757,10 @@
          rowId: 'team_name',
          paging: false,
          scrollX: true,
-         scrollY: '30rem',
-         fixedColumns: {
-           start: 3
-         },
+         scrollY: '32rem',
+         //fixedColumns: {
+         //  start: 2
+         //},
          columnControl: {
            target: 1,
            content: ['search']
@@ -792,10 +787,91 @@
            {% endif %}
            {% endfor %}
          ],
-         order: {
-           name: 'team_seed',
-           dir: 'asc'
+         order: [[1, 'asc']],  // teem_seed
+         initComplete: function(settings, json) {
+           table.columns.adjust().draw();
+         }
+       });
+     }
+
+     // round_robin view
+     if ("{{view_chk[4]}}") {
+       const editable = function(node) {
+         let orig_val;
+
+         node.setAttribute('contenteditable', true);
+         node.addEventListener('keypress', function(e) {
+           if (e.which == 13) {
+             e.preventDefault();
+             $(this).trigger('blur');
+             $(this).next('td').focus();
+             //return false;
+           }
+         });
+
+         node.addEventListener('focus', function(e) {
+           orig_val = e.target.textContent;
+           $(e.target).removeClass("red");
+         });
+
+         node.addEventListener('blur', function(e) {
+           if (e.target.textContent !== orig_val) {
+             const cell = table.cell(e.target)
+             const row = table.row(e.target.parentElement);
+             cell.data(e.target.textContent).draw();
+
+             const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
+             $.post('/round_robin', post_data)
+              .done(function(resp) {
+                //console.log('POST /round_robin done: ', resp);
+                if (resp.upd) {
+                  console.log('Updating row data: ', resp.data);
+                  row.data(resp.data).draw();
+                }
+              })
+              .fail(function(resp) {
+                console.log('POST /round_robin fail: ', resp.responseText);
+                cell.data(orig_val).draw();
+                $(e.target).addClass("red");
+              });
+         }});
+       };
+
+       const tourn = $('.info_blk input[name="tourn_name"]').val();
+       const table = $('#rr_tbl').DataTable({
+         rowId: 'label',
+         paging: false,
+         scrollX: true,
+         scrollY: '32rem',
+         //fixedColumns: {
+         //  start: 2
+         //},
+         columnControl: {
+           target: 1,
+           content: ['search']
          },
+         ajax: {
+           url: '/round_robin?tourn=' + encodeURIComponent(tourn),
+           dataSrc: 'data'
+         },
+         columns: [
+           {% for col in tg_layout %}
+           {data: '{{col[0]}}'},
+           {% endfor %}
+         ],
+         columnDefs: [
+           {% for col in tg_layout %}
+           {% if col[2] == 'hidden' %}
+           {target: {{loop.index0}}, visible: false, searchable: false},
+           {% elif col[2] == 'centered' %}
+           {target: {{loop.index0}}, className: 'dt-center'},
+           {% elif col[2] == 'editable' %}
+           {target: {{loop.index0}}, createdCell: editable},
+           {% else %}
+           {target: {{loop.index0}}},
+           {% endif %}
+           {% endfor %}
+         ],
          initComplete: function(settings, json) {
            table.columns.adjust().draw();
          }

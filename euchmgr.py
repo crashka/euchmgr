@@ -33,7 +33,7 @@ def fmt_player_list(player_nums: list[int]) -> str:
     """
     pl_map = Player.get_player_map()
     nick_names = [pl_map[p].nick_name for p in player_nums]
-    return ' / '.join(nick_names)
+    return ', '.join(nick_names)
 
 def fmt_team_name(player_nums: list[int]) -> str:
     """
@@ -136,12 +136,12 @@ def build_seed_bracket() -> list[SeedGame]:
                     table += [None] * (4 - len(table))
                     p1, p2, p3, p4 = table
                     table_num = None
-                    label = f'seed-r{rnd_i+1}-byes'
+                    label = f'seed-{rnd_i+1}-byes'
                     team1_name = team2_name = None
                 else:
                     p1, p2, p3, p4 = table
                     table_num = tbl_j + 1
-                    label = f'seed-r{rnd_i+1}-t{tbl_j+1}'
+                    label = f'seed-{rnd_i+1}-{tbl_j+1}'
                     team1_name = fmt_team_name([p1, p2])
                     team2_name = fmt_team_name([p3, p4])
                     bye_players = None
@@ -367,7 +367,7 @@ def build_tourn_bracket() -> list[TournGame]:
                     if bye_div_seed in table:
                         t1, t2 = sorted(table)
                         assert t2 == bye_div_seed
-                        label = f'rr-d{div_i+1}-r{rnd_j+1}-bye'
+                        label = f'rr-{div_i+1}-{rnd_j+1}-bye'
                         team1 = div_map[t1]
                         info = {'div_num'       : div_i + 1,
                                 'round_num'     : rnd_j + 1,
@@ -375,13 +375,14 @@ def build_tourn_bracket() -> list[TournGame]:
                                 'label'         : label,
                                 'team1'         : team1,
                                 'team2'         : None,
-                                'team1_name'    : team1.team_name,
-                                'team2_name'    : BYE_TEAM,
+                                'team1_name'    : None,
+                                'team2_name'    : None,
+                                'bye_team'      : team1.team_name,
                                 'team1_div_seed': team1.div_seed,
                                 'team2_div_seed': None}
                     else:
                         t1,t2 = table
-                        label = f'rr-d{div_i+1}-r{rnd_j+1}-t{tbl_k+1}'
+                        label = f'rr-{div_i+1}-{rnd_j+1}-{tbl_k+1}'
                         team1 = div_map[t1]
                         team2 = div_map[t2]
                         info = {'div_num'       : div_i + 1,
@@ -392,6 +393,7 @@ def build_tourn_bracket() -> list[TournGame]:
                                 'team2'         : team2,
                                 'team1_name'    : team1.team_name,
                                 'team2_name'    : team2.team_name,
+                                'bye_team'      : None,
                                 'team1_div_seed': team1.div_seed,
                                 'team2_div_seed': team2.div_seed}
                         tbl_k += 1

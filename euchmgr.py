@@ -238,27 +238,30 @@ def compute_player_seeds() -> None:
         player.player_seed = i + 1
         player.save()
 
-    # FIX: this doesn't really belong here, should probably be another stage in the
-    # process!!!
-    #
-    # highest seeded champ must pick fellow champ(s)
-    by_seed = sorted(pl_list, key=lambda x: x.player_seed)
-    champs = list(filter(lambda x: x.reigning_champ, by_seed))
-    assert len(champs) in (2, 3)
-    champs[0].pick_partners(*champs[1:])
-    champs[0].save()
-
     TournInfo.mark_stage_complete(TournStage.SEED_RANKS)
 
-def fake_picking_partners() -> None:
+def prepick_champ_partners() -> None:
+    """Reigning champs get paired (or tripled) as a team before general partner picking
+    starts
+    """
+    pl_list = Player.get_player_map().values()
+    champs = list(filter(lambda x: x.reigning_champ, pl_list))
+    by_seed = sorted(champs, key=lambda x: x.player_seed)
+
+    # highest seeded champ picks fellow champ(s)
+    assert len(by_seed) in (2, 3)
+    by_seed[0].pick_partners(*by_seed[1:])
+    by_seed[0].save()
+
+def fake_pick_partners() -> None:
     """Assumes champ team is pre-picked
     """
     pl_list = Player.get_player_map().values()
-    by_seed = sorted(pl_list, key=lambda x: x.player_seed)
-    non_champs = list(filter(lambda x: not x.reigning_champ, by_seed))
+    non_champs = list(filter(lambda x: not x.reigning_champ, pl_list))
+    by_seed = sorted(non_champs, key=lambda x: x.player_seed)
 
-    avail = list(non_champs)  # shallow copy
-    for player in non_champs:
+    avail = list(by_seed)  # shallow copy
+    for player in by_seed:
         if player.picked_by:
             assert player not in avail
             continue
@@ -493,7 +496,8 @@ def main() -> int:
       - fake_seed_games
       - tabulate_seed_round
       - compute_player_seeds
-      - fake_picking_partners
+      - prepick_champ_partners
+      - fake_pick_partners
       - build_tourn_teams
       - compute_team_seeds
       - build_tourn_bracket

@@ -23,9 +23,12 @@ python -m euchmgr ${TOURN} tabulate_seed_round
 echo -n "Computing player rankings..."
 echo "done"
 python -m euchmgr ${TOURN} compute_player_seeds
+echo -n "Prepicking champ partners..."
+echo "done"
+python -m euchmgr ${TOURN} prepick_champ_partners
 read -p "Press any key to create fake partner picks..." -n1 -s
 echo "done"
-python -m euchmgr ${TOURN} fake_picking_partners
+python -m euchmgr ${TOURN} fake_pick_partners
 echo -n "Building tournament teams..."
 echo "done"
 python -m euchmgr ${TOURN} build_tourn_teams

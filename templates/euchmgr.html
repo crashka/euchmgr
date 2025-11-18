@@ -47,23 +47,23 @@
      }
      .players {
        display: {{"block;" if view_chk[0] else "none;"}}
-       width: 70rem;
+       width: 75rem;
      }
      .seeding {
        display: {{"block;" if view_chk[1] else "none;"}}
-       width: 70rem;
+       width: 75rem;
      }
      .partners {
        display: {{"block;" if view_chk[2] else "none;"}}
-       width: 70rem;
+       width: 75rem;
      }
      .teams {
        display: {{"block;" if view_chk[3] else "none;"}}
-       width: 70rem;
+       width: 75rem;
      }
      .round_robin {
        display: {{"block;" if view_chk[4] else "none;"}}
-       width: 70rem;
+       width: 75rem;
      }
      form {
        overflow: hidden;
@@ -124,16 +124,16 @@
         <span>Pick tournament:</span>
         <select name="tourn" class="sel_tourn">
           {% if new_tourn %}
-          {% for tourn_name in tourn_list %}
+          {% for tourn_name in tourn_sel %}
           <option value="{{tourn_name}}"{{" selected" if tourn_name == sel_new else ""}}{{" disabled" if tourn_name == sel_sep else ""}}>{{tourn_name}}</option>
           {% endfor %}
           {% elif tourn %}
-          {% for tourn_name in tourn_list %}
+          {% for tourn_name in tourn_sel %}
           <option value="{{tourn_name}}"{{" selected" if tourn_name == tourn.name else ""}}{{" disabled" if tourn_name == sel_sep else ""}}>{{tourn_name}}</option>
           {% endfor %}
           {% else %}
           <option value="" disabled selected></option>
-          {% for tourn_name in tourn_list %}
+          {% for tourn_name in tourn_sel %}
           <option value="{{tourn_name}}"{{" disabled" if tourn_name == sel_sep else ""}}>{{tourn_name}}</option>
           {% endfor %}
           {% endif %}
@@ -359,7 +359,7 @@
           <form action="/" method="post">
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
             <button class="submit" value="fake_seed_results"}}">Generate Fake Results</button>
-            <button class="submit" value="tabulate_seed_results"}}">Tabulate Seeding Results</button>
+            <button class="submit" value="tabulate_seed_results"}}">Tabulate Results</button>
           </form>
         </div>
       </div>
@@ -378,15 +378,46 @@
           <form action="/" method="post">
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
             <button class="submit" value="fake_partner_picks"}}">Generate Fake Picks</button>
-            <button class="submit" value="gen_tourn_brackets"}}">Create Round Robin Brackets</button>
+            <button class="submit" value="comp_team_seeds"}}">Compute Team Seeds</button>
           </form>
         </div>
       </div>
       <div class="section teams">
         <span class="section_lbl">Teams</span>
+        <table id="team_tbl" class="display" spellcheck="false">
+          <thead>
+            <tr>
+              {% for col in tm_layout %}
+              <th>{{col[1]}}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+        </table>
+        <div class="subsection buttons">
+          <form action="/" method="post">
+            <input name="tourn_name" type="hidden" value="{{tourn.name}}">
+            <button class="submit" value="gen_tourn_brackets"}}">Create Round Robin Brackets</button>
+          </form>
+        </div>
       </div>
       <div class="section round_robin">
         <span class="section_lbl">Round Robin</span>
+        <table id="seed_tbl" class="display" spellcheck="false">
+          <thead>
+            <tr>
+              {% for col in tg_layout %}
+              <th>{{col[1]}}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+        </table>
+        <div class="subsection buttons">
+          <form action="/" method="post">
+            <input name="tourn_name" type="hidden" value="{{tourn.name}}">
+            <button class="submit" value="fake_tourn_results"}}">Generate Fake Results</button>
+            <button class="submit" value="tabulate_tourn_results"}}">Tabulate Results</button>
+          </form>
+        </div>
       </div>
     </div>
     {% endif %}  {# creating tourn #}
@@ -675,6 +706,94 @@
          ],
          order: {
            name: 'player_seed',
+           dir: 'asc'
+         },
+         initComplete: function(settings, json) {
+           table.columns.adjust().draw();
+         }
+       });
+     }
+
+     // teams view
+     if ("{{view_chk[3]}}") {
+       const editable = function(node) {
+         let orig_val;
+
+         node.setAttribute('contenteditable', true);
+         node.addEventListener('keypress', function(e) {
+           if (e.which == 13) {
+             e.preventDefault();
+             $(this).trigger('blur');
+             $(this).next('td').focus();
+             //return false;
+           }
+         });
+
+         node.addEventListener('focus', function(e) {
+           orig_val = e.target.textContent;
+           $(e.target).removeClass("red");
+         });
+
+         node.addEventListener('blur', function(e) {
+           if (e.target.textContent !== orig_val) {
+             const cell = table.cell(e.target)
+             const row = table.row(e.target.parentElement);
+             cell.data(e.target.textContent).draw();
+
+             const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
+             $.post('/teams', post_data)
+              .done(function(resp) {
+                //console.log('POST /teams done: ', resp);
+                if (resp.upd) {
+                  console.log('Updating row data: ', resp.data);
+                  row.data(resp.data).draw();
+                }
+              })
+              .fail(function(resp) {
+                console.log('POST /teams fail: ', resp.responseText);
+                cell.data(orig_val).draw();
+                $(e.target).addClass("red");
+              });
+         }});
+       };
+
+       const tourn = $('.info_blk input[name="tourn_name"]').val();
+       const table = $('#team_tbl').DataTable({
+         rowId: 'team_name',
+         paging: false,
+         scrollX: true,
+         scrollY: '30rem',
+         fixedColumns: {
+           start: 3
+         },
+         columnControl: {
+           target: 1,
+           content: ['search']
+         },
+         ajax: {
+           url: '/teams?tourn=' + encodeURIComponent(tourn),
+           dataSrc: 'data'
+         },
+         columns: [
+           {% for col in tm_layout %}
+           {data: '{{col[0]}}'},
+           {% endfor %}
+         ],
+         columnDefs: [
+           {% for col in tm_layout %}
+           {% if col[2] == 'hidden' %}
+           {target: {{loop.index0}}, visible: false, searchable: false},
+           {% elif col[2] == 'centered' %}
+           {target: {{loop.index0}}, className: 'dt-center'},
+           {% elif col[2] == 'editable' %}
+           {target: {{loop.index0}}, createdCell: editable},
+           {% else %}
+           {target: {{loop.index0}}},
+           {% endif %}
+           {% endfor %}
+         ],
+         order: {
+           name: 'team_seed',
            dir: 'asc'
          },
          initComplete: function(settings, json) {

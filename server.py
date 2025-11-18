@@ -18,6 +18,7 @@ To do list:
 
 """
 
+from enum import IntEnum
 from numbers import Number
 from glob import glob
 import os.path
@@ -25,15 +26,27 @@ import re
 
 from ckautils import typecast
 from peewee import OperationalError, IntegrityError
-from flask import Flask, session, request, render_template, Response, abort
+from flask import Flask, request, render_template, Response, abort, redirect, url_for
 from werkzeug.utils import secure_filename
 
 from core import DATA_DIR, UPLOAD_DIR
 from database import DB_FILETYPE
-from schema import TournInfo, Player, SeedGame
+from schema import TournInfo, Player, SeedGame, Team, TournGame
 from euchmgr import (db_init, tourn_create, upload_roster, generate_player_nums,
                      build_seed_bracket, fake_seed_games, tabulate_seed_round,
-                     compute_player_seeds, fake_picking_partners)
+                     compute_player_seeds, prepick_champ_partners, fake_pick_partners,
+                     build_tourn_teams, compute_team_seeds, build_tourn_bracket,
+                     fake_tourn_games, tabulate_tourn, compute_team_ranks)
+
+#############
+# app stuff #
+#############
+
+app = Flask(__name__)
+#app.config.from_prefixed_env()
+
+APP_NAME      = "Euchre Manager"
+APP_TEMPLATE  = "euchmgr.html"
 
 # magic strings
 CHECKED  = ' checked'
@@ -41,15 +54,13 @@ HIDDEN   = 'hidden'
 CENTERED = 'centered'
 EDITABLE = 'editable'
 
-#########
-# Setup #
-#########
-
-app = Flask(__name__)
-#app.config.from_prefixed_env()
-
-APP_NAME      = "Euchre Manager"
-APP_TEMPLATE  = "euchmgr.html"
+# app views
+class View(IntEnum):
+    PLAYERS     = 0
+    SEEDING     = 1
+    PARTNERS    = 2
+    TEAMS       = 3
+    ROUND_ROBIN = 4
 
 ###############
 # tourn stuff #
@@ -109,6 +120,7 @@ SUBMIT_FUNCS = [
     'fake_seed_results',
     'tabulate_seed_results',
     'fake_partner_picks',
+    'comp_team_seeds',
     'gen_tourn_brackets',
     'fake_tourn_results',
     'tabulate_tourn_results'
@@ -120,7 +132,6 @@ def index():
     """
     tourn     = None
     new_tourn = None
-    view_chk  = [''] * 5
 
     tourn_name = request.args.get('tourn')
     if tourn_name:
@@ -131,17 +142,12 @@ def index():
         else:
             tourn = TournInfo.get()
             new_tourn = False
-
-    if view := request.args.get('view'):
-        view_chk[int(view)] = CHECKED
+    view = typecast(request.args.get('view'))
 
     context = {
         'tourn'    : tourn,
         'new_tourn': new_tourn,
-        'view_chk' : view_chk,
-        'pl_layout': pl_layout,
-        'sg_layout': sg_layout,
-        'pt_layout': pt_layout
+        'view'     : view
     }
     return render_app(context)
 
@@ -165,16 +171,16 @@ pl_addl_props = [
 ]
 
 pl_layout = [
-    ('id',               "ID",               HIDDEN),
-    ('full_name',        "Name",             None),
-    ('nick_name',        "Nick Name",        None),
-    ('player_num',       "Player Num",       EDITABLE),
-    ('champ',            "Champ?",           CENTERED),
-    ('seed_wins',        "Seed Wins",        None),
-    ('seed_losses',      "Seed Losses",      None),
-    ('seed_pts_for',     "Seed Pts For",     None),
-    ('seed_pts_against', "Seed Pts Against", None),
-    ('player_seed',      "Seed Rank",        None)
+    ('id',               "ID",           HIDDEN),
+    ('full_name',        "Name",         None),
+    ('nick_name',        "Nick Name",    None),
+    ('player_num',       "Player Num",   EDITABLE),
+    ('champ',            "Champ?",       CENTERED),
+    ('seed_wins',        "Seed Wins",    None),
+    ('seed_losses',      "Seed Losses",  None),
+    ('seed_pts_for',     "Seed Pts",     None),
+    ('seed_pts_against', "Seed Opp Pts", None),
+    ('player_seed',      "Seed Rank",    None)
 ]
 
 @app.get("/players")
@@ -350,6 +356,68 @@ def post_partners():
     # REVISIT: return available players? (...and if so, by num or seed?)
     return {'err': pt_err, 'upd': pt_upd}
 
+##########
+# /teams #
+##########
+
+tm_addl_props = [
+    'avg_player_seed_rnd'
+]
+
+tm_layout = [
+    ('id',                "ID",            HIDDEN),
+    ('team_name',         "Name",          None),
+    ('team_seed',         "Team Seed",     None),
+    ('avg_player_seed_rnd', "Avg Plyr Seed", None),
+    ('top_player_seed',   "Top Plyr Seed", None),
+    ('div_num',           "Div Num",       None),
+    ('div_seed',          "Div Seed",      None),
+    ('tourn_wins',        "Tourn Wins",    None),
+    ('tourn_losses',      "Tourn Losses",  None),
+    ('tourn_pts_for',     "Tourn Pts",     None),
+    ('tourn_pts_against', "Tourn Opp Pts", None),
+    ('tourn_rank',        "Tourn Rank",    None),
+    ('div_rank',          "Div Rank",      None)
+]
+
+@app.get("/teams")
+def get_teams():
+    """
+    """
+    tourn_name = request.args.get('tourn')
+
+    db_init(tourn_name)
+    tm_iter = Team.iter_teams()
+    tm_data = []
+    for team in tm_iter:
+        tm_props = {prop: getattr(team, prop) for prop in tm_addl_props}
+        tm_data.append(team.__data__ | tm_props)
+
+    return {'data': tm_data}
+
+@app.post("/teams")
+def post_teams():
+    """
+    """
+    tm_data = None
+    tm_upd = False
+
+    data = request.form
+    upd_info = {x[0]: data.get(x[0]) for x in tm_layout if x[2] == EDITABLE}
+    try:
+        team = Team[data['id']]
+        for col, val in upd_info.items():
+            setattr(team, col, typecast(val))
+        team.save()
+
+        tm_props = {prop: getattr(team, prop) for prop in tm_addl_props}
+        tm_data = team.__data__ | tm_props
+        tm_upd = False
+    except IntegrityError as e:
+        abort(409, str(e))
+
+    return {'data': tm_data, 'upd': tm_upd}
+
 ################
 # POST actions #
 ################
@@ -362,7 +430,7 @@ def create_tourn(form: dict) -> str:
     tourn       = None
     new_tourn   = False
     roster_fn   = None
-    view_chk    = [''] * 5
+    view        = None
 
     tourn_name  = form.get('tourn_name')
     timeframe   = form.get('timeframe') or None
@@ -381,7 +449,7 @@ def create_tourn(form: dict) -> str:
         if roster_file:
             upload_roster(roster_path)
             info_msgs.append(f"Roster file \"{roster_fn}\" uploaded")
-            view_chk[0] = CHECKED
+            view = View.PLAYERS
             tourn = TournInfo.get()
         else:
             # TEMP: prompt for uploaded in the UI!!!
@@ -397,8 +465,7 @@ def create_tourn(form: dict) -> str:
         'roster_file': roster_fn,
         'info_msgs'  : info_msgs,
         'err_msgs'   : err_msgs,
-        'view_chk'   : view_chk,
-        'pl_layout'  : pl_layout
+        'view'       : view
     }
     return render_app(context)
 
@@ -410,7 +477,7 @@ def update_tourn(form: dict) -> str:
     tourn       = None
     new_tourn   = False
     roster_fn   = None
-    view_chk    = [''] * 5
+    view        = None
 
     tourn_name  = form.get('tourn_name')
     timeframe   = form.get('timeframe') or None
@@ -431,7 +498,7 @@ def update_tourn(form: dict) -> str:
         if roster_file:
             upload_roster(roster_path)
             info_msgs.append(f"Roster file \"{roster_fn}\" uploaded")
-            view_chk[0] = CHECKED
+            view = View.PLAYERS
             tourn = TournInfo.get()
         else:
             # TEMP: prompt for uploaded in the UI!!!
@@ -447,8 +514,7 @@ def update_tourn(form: dict) -> str:
         'roster_file': roster_fn,
         'info_msgs'  : info_msgs,
         'err_msgs'   : err_msgs,
-        'view_chk'   : view_chk,
-        'pl_layout'  : pl_layout
+        'view'       : view
     }
     return render_app(context)
 
@@ -473,106 +539,184 @@ def create_roster(form: dict) -> str:
 def gen_player_nums(form: dict) -> str:
     """
     """
-    view_chk    = [''] * 5
     info_msgs   = []
     err_msgs    = []
+    view        = None
 
     tourn_name  = form.get('tourn_name')
     db_init(tourn_name)
     generate_player_nums()
-    view_chk[0] = CHECKED
+    view = View.PLAYERS
 
     context = {
         'tourn'      : TournInfo.get(),
         'info_msgs'  : info_msgs,
         'err_msgs'   : err_msgs,
-        'view_chk'   : view_chk,
-        'pl_layout'  : pl_layout
+        'view'       : view
     }
     return render_app(context)
 
 def gen_seed_bracket(form: dict) -> str:
     """
     """
-    view_chk    = [''] * 5
     info_msgs   = []
     err_msgs    = []
+    view        = None
 
     tourn_name  = form.get('tourn_name')
     db_init(tourn_name)
     build_seed_bracket()
-    view_chk[1] = CHECKED
+    view = View.SEEDING
 
     context = {
         'tourn'      : TournInfo.get(),
         'info_msgs'  : info_msgs,
         'err_msgs'   : err_msgs,
-        'view_chk'   : view_chk,
-        'sg_layout'  : sg_layout
+        'view'       : view
     }
     return render_app(context)
 
 def fake_seed_results(form: dict) -> str:
     """
     """
-    view_chk    = [''] * 5
     info_msgs   = []
     err_msgs    = []
+    view        = None
 
     tourn_name  = form.get('tourn_name')
     db_init(tourn_name)
     fake_seed_games()
-    view_chk[1] = CHECKED
+    view = View.SEEDING
 
     context = {
         'tourn'      : TournInfo.get(),
         'info_msgs'  : info_msgs,
         'err_msgs'   : err_msgs,
-        'view_chk'   : view_chk,
-        'sg_layout'  : sg_layout
+        'view'       : view
     }
     return render_app(context)
 
 def tabulate_seed_results(form: dict) -> str:
     """
     """
-    view_chk    = [''] * 5
     info_msgs   = []
     err_msgs    = []
+    view        = None
 
     tourn_name  = form.get('tourn_name')
     db_init(tourn_name)
     tabulate_seed_round()
     compute_player_seeds()
-    view_chk[2] = CHECKED
+    prepick_champ_partners()
+    view = View.PARTNERS
 
     context = {
         'tourn'      : TournInfo.get(),
         'info_msgs'  : info_msgs,
         'err_msgs'   : err_msgs,
-        'view_chk'   : view_chk,
-        'pt_layout'  : pt_layout
+        'view'       : view_chk
     }
     return render_app(context)
 
 def fake_partner_picks(form: dict) -> str:
     """
     """
-    view_chk    = [''] * 5
     info_msgs   = []
     err_msgs    = []
+    view        = None
 
     tourn_name  = form.get('tourn_name')
     db_init(tourn_name)
-    fake_picking_partners()
-    view_chk[2] = CHECKED
+    fake_pick_partners()
+    view = View.PARTNERS
 
     context = {
         'tourn'      : TournInfo.get(),
         'info_msgs'  : info_msgs,
         'err_msgs'   : err_msgs,
-        'view_chk'   : view_chk,
-        'pt_layout'  : pt_layout
+        'view'       : view
+    }
+    return render_app(context)
+
+def comp_team_seeds(form: dict) -> str:
+    """
+    """
+    info_msgs   = []
+    err_msgs    = []
+    view        = None
+
+    tourn_name  = form.get('tourn_name')
+    db_init(tourn_name)
+    build_tourn_teams()
+    compute_team_seeds()
+    view = View.TEAMS
+
+    context = {
+        'tourn'      : TournInfo.get(),
+        'info_msgs'  : info_msgs,
+        'err_msgs'   : err_msgs,
+        'view'       : view
+    }
+    return render_app(context)
+
+def gen_tourn_brackets(form: dict) -> str:
+    """
+    """
+    info_msgs   = []
+    err_msgs    = []
+    view        = None
+
+    tourn_name  = form.get('tourn_name')
+    db_init(tourn_name)
+    build_tourn_bracket()
+    view = View.ROUND_ROBIN
+
+    context = {
+        'tourn'      : TournInfo.get(),
+        'info_msgs'  : info_msgs,
+        'err_msgs'   : err_msgs,
+        'view'       : view
+    }
+    return render_app(context)
+
+def fake_tourn_results(form: dict) -> str:
+    """
+    """
+    info_msgs   = []
+    err_msgs    = []
+    view        = None
+
+    tourn_name  = form.get('tourn_name')
+    db_init(tourn_name)
+    fake_tourn_teams()
+    view = View.ROUND_ROBIN
+
+    context = {
+        'tourn'      : TournInfo.get(),
+        'info_msgs'  : info_msgs,
+        'err_msgs'   : err_msgs,
+        'view'       : view
+    }
+    return render_app(context)
+
+def tabulate_tourn_results(form: dict) -> str:
+    """
+    """
+    info_msgs   = []
+    err_msgs    = []
+    view        = None
+
+    tourn_name  = form.get('tourn_name')
+    db_init(tourn_name)
+    tabulate_tourn()
+    compute_team_ranks()
+    view = View.TEAMS
+
+    context = {
+        'tourn'      : TournInfo.get(),
+        'info_msgs'  : info_msgs,
+        'err_msgs'   : err_msgs,
+        'view'       : view
     }
     return render_app(context)
 
@@ -586,15 +730,25 @@ SEL_NEW = "(create new)"
 def render_app(context: dict) -> str:
     """Common post-processing of context before rendering the main app page through Jinja
     """
-    tourn_list = get_tourns() + [SEL_SEP, SEL_NEW]
+    view_chk = [''] * len(View)
+    view = context.get('view')
+    if isinstance(view, int):
+        view_chk[view] = CHECKED
 
-    context['title']      = APP_NAME
-    context['tourn_list'] = tourn_list
-    context['sel_sep']    = SEL_SEP
-    context['sel_new']    = SEL_NEW
-    context['help_txt']   = help_txt
-    context['ref_links']  = ref_links
-    return render_template(APP_TEMPLATE, **context)
+    base_ctx = {
+        'title'    : APP_NAME,
+        'tourn_sel': get_tourns() + [SEL_SEP, SEL_NEW],
+        'sel_sep'  : SEL_SEP,
+        'sel_new'  : SEL_NEW,
+        'view_chk' : view_chk,
+        'pl_layout': pl_layout,
+        'sg_layout': sg_layout,
+        'pt_layout': pt_layout,
+        'tm_layout': tm_layout,
+        'help_txt' : help_txt,
+        'ref_links': ref_links
+    }
+    return render_template(APP_TEMPLATE, **(base_ctx | context))
 
 #########################
 # Content / Metacontent #

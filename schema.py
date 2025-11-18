@@ -517,6 +517,12 @@ class Team(BaseModel):
         for t in cls.select().iterator():
             yield t
 
+    @property
+    def avg_player_seed_rnd(self) -> float:
+        """Round avg_player_seed for display purposes
+        """
+        return round(self.avg_player_seed, 2)
+
 #############
 # TournGame #
 #############

@@ -196,8 +196,8 @@ pl_addl_props = [
 
 pl_layout = [
     ('id',               "ID",           HIDDEN),
-    ('player_num',       "Num",          EDITABLE),
     ('full_name',        "Player",       None),
+    ('player_num',       "Player Num",   EDITABLE),
     ('nick_name',        "Short Name",   None),
     ('champ',            "Champ?",       CENTERED),
     ('seed_wins',        "Seed Wins",    None),
@@ -310,6 +310,7 @@ def post_seeding():
 
 pt_addl_props = [
     'full_name',
+    'seed_ident',
     'champ',
     'available',
     'picks_info',
@@ -318,12 +319,13 @@ pt_addl_props = [
 
 pt_layout = [
     ('id',             "ID",         HIDDEN),
-    ('player_seed',    "Seed",       None),
+    ('player_seed',    "Seed Rank",  None),
     ('full_name',      "Player",     None),
-    ('nick_name',      "Short Name", None),
+    ('player_num',     "Player Num", None),
+    ('seed_ident',     "Pick Order", None),
     ('champ',          "Champ?",     CENTERED),
     ('available',      "Avail?",     CENTERED),
-    ('picks_info',     "Picks as Partner(s)", EDITABLE),
+    ('picks_info',     "Partner(s) (pick by Seed Rank)", EDITABLE),
     ('picked_by_info', "Picked By",  None)
 ]
 
@@ -384,12 +386,13 @@ def post_partners():
 ##########
 
 tm_addl_props = [
-    'avg_player_seed_rnd'
+    'player_nums'
 ]
 
 tm_layout = [
     ('id',                "ID",            HIDDEN),
-    ('team_seed',         "Seed",          None),
+    ('team_seed',         "Team Seed",     None),
+    ('player_nums',       "Player Nums",   None),
     ('team_name',         "Team",          None),
     ('div_num',           "Div",           None),
     ('div_seed',          "Div Seed",      None),
@@ -600,7 +603,7 @@ def update_tourn(form: dict) -> str:
     return render_app(context)
 
 def create_roster(form: dict) -> str:
-    """
+    """Manually create the player roster (NOTE: will probably never implement this!)
     """
     info_msgs   = []
     err_msgs    = []

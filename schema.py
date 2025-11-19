@@ -388,8 +388,14 @@ class SeedGame(BaseModel):
     def player_nums(self) -> str:
         """
         """
-        pl_nums = (self.player1_num, self.player2_num, self.player3_num, self.player4_num)
-        return ', '.join(str(x) for x in pl_nums if x)
+        pl_nums = list(filter(bool, (self.player1_num,
+                                     self.player2_num,
+                                     self.player3_num,
+                                     self.player4_num)))
+        if len(pl_nums) < 4:
+            return ', '.join(map(str, pl_nums))
+
+        return f"{pl_nums[0]} / {pl_nums[1]} vs. {pl_nums[2]} / {pl_nums[3]}"
 
     def add_scores(self, team1_pts: int, team2_pts: int) -> None:
         """Record scores for completed (or incomplete) game.  Scores should not be updated
@@ -516,6 +522,15 @@ class Team(BaseModel):
         # see NOTE on use of iterator in `TournInfo.get`, above
         for t in cls.select().iterator():
             yield t
+
+    @property
+    def player_nums(self) -> str:
+        """
+        """
+        pl_nums = list(filter(bool, (self.player1_num,
+                                     self.player2_num,
+                                     self.player3_num)))
+        return ' / '.join(map(str, pl_nums))
 
     @property
     def avg_player_seed_rnd(self) -> float:

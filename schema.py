@@ -246,7 +246,7 @@ class Player(BaseModel):
 
     @classmethod
     def fetch_by_seed(cls, player_seed: int) -> Self:
-        """
+        """Return player by player_seed (always retrieved from database)
         """
         try:
             pl = cls.get(cls.player_seed == player_seed)
@@ -278,6 +278,13 @@ class Player(BaseModel):
         return self.first_name + ' ' + self.last_name
 
     @property
+    def player_tag(self) -> str:
+        """Combination of player_num and nick_name with embedded HTML annotation (used for
+        bracket and scores/results displays)
+        """
+        return f"<b>{self.player_num}</b>&nbsp;&nbsp;<u>{self.nick_name}</u>"
+
+    @property
     def champ(self) -> str | None:
         """For UI support ('y' or empty)
         """
@@ -291,7 +298,7 @@ class Player(BaseModel):
 
     @property
     def seed_ident(self) -> str:
-        """Player name + seed, for partner picking UI
+        """Player "name (seed)", for partner picking UI
         """
         return f"{self.nick_name} ({self.player_seed})"
 
@@ -386,7 +393,7 @@ class SeedGame(BaseModel):
 
     @property
     def player_nums(self) -> str:
-        """
+        """Used for the seeding view of the UI
         """
         pl_nums = list(filter(bool, (self.player1_num,
                                      self.player2_num,
@@ -396,6 +403,34 @@ class SeedGame(BaseModel):
             return ', '.join(map(str, pl_nums))
 
         return f"{pl_nums[0]} / {pl_nums[1]} vs. {pl_nums[2]} / {pl_nums[3]}"
+
+    @property
+    def team_tags(self) -> tuple[str, str]:
+        """Team references based on player tags with embedded HTML annotation (used for
+        bracket and scores/results displays)--currently, can only be called for actual
+        matchup. and not bye records
+        """
+        p1 = self.player1
+        p2 = self.player2
+        p3 = self.player3
+        p4 = self.player4
+        assert p1 and p2 and p3 and p4
+        team1_tag = f"{p1.player_tag}&nbsp;&nbsp;/&nbsp;&nbsp;{p2.player_tag}"
+        team2_tag = f"{p3.player_tag}&nbsp;&nbsp;/&nbsp;&nbsp;{p4.player_tag}"
+        return (team1_tag, team2_tag)
+
+    @property
+    def bye_tags(self) -> list[str]:
+        """Byes references based on player tags with embedded HTML annotation (used for
+        bracket and scores/results displays)--currently, can only be called for bye
+        records
+        """
+        pl_list = list(filter(bool, (self.player1,
+                                     self.player2,
+                                     self.player3,
+                                     self.player4)))
+        assert len(pl_list) < 4  # ...or return None?
+        return [pl.player_tag for pl in pl_list]
 
     def add_scores(self, team1_pts: int, team2_pts: int) -> None:
         """Record scores for completed (or incomplete) game.  Scores should not be updated

@@ -18,7 +18,7 @@
        font-weight: bold;
      }
      .subsect {
-       margin-top: 0.2rem;
+       margin-top: 0.5rem;
        overflow: hidden;
      }
      .sel_tourn {
@@ -37,7 +37,7 @@
      }
      .info_blk,
      .stage_blk {
-       padding: 0.5rem 0;
+       padding: 0.3rem 0;
      }
      .info_blk span,
      .stage_blk span {
@@ -46,6 +46,7 @@
      .info_blk input,
      .stage_blk input {
        margin-left: 0.3rem;
+       padding: 0.1rem 0.35rem;
      }
      .players {
        display: {{"block;" if view_chk[0] else "none;"}}
@@ -84,6 +85,18 @@
      .buttons {
        clear: both;
        padding: 1.0rem 0;
+     }
+     .buttons button {
+       margin-right: 0.8rem;
+       padding: 0.2rem 0.8rem;
+     }
+     .buttons a {
+       margin-right: 0.5rem;
+       #padding: 0.2rem 0.2rem;
+     }
+     .lnk_lbl {
+       margin-left: 1.0rem;
+       margin-right: 0.3rem;
      }
      table {
        margin-top: 0.3rem;
@@ -360,6 +373,9 @@
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
             <button class="submit" value="fake_seed_results"}}">Generate Fake Results</button>
             <button class="submit" value="tabulate_seed_results"}}">Tabulate Results</button>
+            <span class="lnk_lbl">Print (poster):</span>
+            <a href="#" onclick="window.open('/poster/sd_bracket/{{tourn.name}}', '_blank')"">Seeding Bracket</a>
+            <a href="#" onclick="window.open('/poster/sd_scores/{{tourn.name}}', '_blank')"">Seeding Scores</a>
           </form>
         </div>
       </div>
@@ -413,6 +429,9 @@
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
             <button class="submit" value="fake_tourn_results"}}">Generate Fake Results</button>
             <button class="submit" value="tabulate_tourn_results"}}">Tabulate Results</button>
+            <span class="lnk_lbl">Print (poster):</span>
+            <a href="#" onclick="window.open('/poster/rr_brackets/{{tourn.name}}', '_blank')"">Round Robin Brackets</a>
+            <a href="#" onclick="window.open('/poster/rr_scores/{{tourn.name}}', '_blank')"">Round Robin Scores</a>
           </form>
         </div>
       </div>
@@ -526,7 +545,7 @@
            {% endif %}
            {% endfor %}
          ],
-         //order: [[1, 'asc']],  // player_num
+         //order: [[0, 'asc']],  // player.id
          initComplete: function(settings, json) {
            table.columns.adjust().draw();
          }
@@ -611,6 +630,7 @@
            {% endif %}
            {% endfor %}
          ],
+         //order: [[0, 'asc']],  // seed_game.id
          initComplete: function(settings, json) {
            table.columns.adjust().draw();
          }
@@ -872,6 +892,7 @@
            {% endif %}
            {% endfor %}
          ],
+         //order: [[0, 'asc']],  // tourn_game.id
          initComplete: function(settings, json) {
            table.columns.adjust().draw();
          }

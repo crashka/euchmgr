@@ -28,15 +28,18 @@ BYE_TEAM = '-- (bye) --'
 # utility functions #
 #####################
 
+# REVISIT: these functions should probably be moved into schema.py, and the denormalized
+# values for player and team names should be created upon record save!!!
+
 def fmt_player_list(player_nums: list[int]) -> str:
-    """
+    """Consistently delimited list of player names, e.g. byes for a round
     """
     pl_map = Player.get_player_map()
     nick_names = [pl_map[p].nick_name for p in player_nums]
     return ', '.join(nick_names)
 
 def fmt_team_name(player_nums: list[int]) -> str:
-    """
+    """Consistent concatenation of member player names
     """
     pl_map = Player.get_player_map()
     nick_names = [pl_map[p].nick_name for p in player_nums]
@@ -118,6 +121,8 @@ def build_seed_bracket() -> list[SeedGame]:
     """Populate seed round matchups and byes (in `seed_round` table) based on tournament
     parameters and uploaded roster.
 
+    Note: we should probably move the construction of denorm columns (team names and byes)
+    into schema.py (save())--see comment for utility functions, above
     """
     tourn = TournInfo.get()
     nplayers = tourn.players
@@ -278,7 +283,8 @@ def fake_pick_partners() -> None:
     TournInfo.mark_stage_complete(TournStage.PARTNER_PICK)
 
 def build_tourn_teams() -> list[Team]:
-    """
+    """Note: we should probably move the construction of the team name into schema.py
+    (save())--see comment for utility functions, above
     """
     pl_map = Player.get_player_map()
     by_seed = sorted(pl_map.values(), key=lambda x: x.player_seed)

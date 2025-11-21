@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{{title}}</title>
+
+    <style>
+     .red {
+       background-color: #FFECEC;
+     }
+     .container {
+       margin-top: 2.0rem;
+       overflow: hidden;
+     }
+     .container_lbl {
+       font-size: larger;
+       font-weight: bold;
+     }
+     .section {
+       margin-top: 2.0rem;
+       width: 100em;
+       overflow-x: auto;
+       white-space: nowrap;
+     }
+     table, th, td {
+       border: 1px solid darkgrey;
+       border-collapse: collapse;
+       padding: 0.75em;
+     }
+     td {
+       text-align: center;
+       white-space: pre;
+     }
+     b {
+       font-weight: bold;
+       color: grey;
+     }
+     u {
+       text-decoration: solid underline grey 2px;
+     }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <span class="container_lbl">{{title}}</span>
+      <div class="section">
+        <table id="seed_brckt" class="display" spellcheck="false">
+          <thead>
+            <tr>
+              <th>Round</th>
+              {% for tbl in range(1, rnd_tables + 1) %}
+              <th>Table {{tbl}}</th>
+              {% endfor %}
+              {% if rnd_byes > 1 %}
+              <th>Byes</th>
+              {% elif rnd_byes %}
+              <th>Bye</th>
+              {% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for rnd in range(1, seed_rnds + 1) %}
+            <tr>
+              <td>{{rnd}}</td>
+              {% for tbl in range(1, rnd_tables + 1) %}
+              <td>{{sg_map[rnd][tbl]|safe}}</td>
+              {% endfor %}
+              {% if rnd_byes %}
+              <td>{{sg_map[rnd][None]|safe}}</td>
+              {% endif %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </body>
+
+  <script src="/static/jquery-3.7.1.min.js"></script>
+  <script src="/static/datatables.min.js"></script>
+  <script>
+   $(function() {
+     // document ready
+   });
+  </script>
+</html>

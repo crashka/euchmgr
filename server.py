@@ -26,7 +26,8 @@ import re
 
 from ckautils import typecast
 from peewee import OperationalError, IntegrityError
-from flask import Flask, request, render_template, Response, abort, redirect, url_for
+from flask import (Flask, Request, request, render_template, Response, abort, redirect,
+                   url_for)
 from werkzeug.utils import secure_filename
 
 from core import DATA_DIR, UPLOAD_DIR
@@ -45,8 +46,13 @@ from euchmgr import (db_init, tourn_create, upload_roster, generate_player_nums,
 app = Flask(__name__)
 #app.config.from_prefixed_env()
 
-APP_NAME      = "Euchre Manager"
-APP_TEMPLATE  = "euchmgr.html"
+APP_NAME        = "Euchre Manager"
+APP_TEMPLATE    = "euchmgr.html"
+POSTER_TEMPLATE = "poster.html"
+SD_BRACKET      = "Seeding Round Bracket"
+SD_SCORES       = "Seeding Round Scores"
+RR_BRACKET      = "Round Robin Brackets"
+RR_SCORES       = "Round Robin Scores"
 
 # magic strings
 CHECKED  = ' checked'
@@ -146,7 +152,7 @@ def dflt_view(tourn: TournInfo) -> View:
     return None
 
 @app.get("/")
-def index():
+def index() -> str:
     """
     """
     tourn     = None
@@ -176,7 +182,7 @@ def index():
     return render_app(context)
 
 @app.post("/")
-def submit():
+def submit() -> str:
     """Process submitted form, switch on ``submit_func``, which is validated against
     values in ``SUBMIT_FUNCS``
     """
@@ -208,7 +214,7 @@ pl_layout = [
 ]
 
 @app.get("/players")
-def get_players():
+def get_players() -> dict:
     """
     """
     tourn_name = request.args.get('tourn')
@@ -223,7 +229,7 @@ def get_players():
     return {'data': pl_data}
 
 @app.post("/players")
-def post_players():
+def post_players() -> dict:
     """
     """
     pl_data = None
@@ -267,7 +273,7 @@ sg_layout = [
 ]
 
 @app.get("/seeding")
-def get_seeding():
+def get_seeding() -> dict:
     """
     """
     tourn_name = request.args.get('tourn')
@@ -282,7 +288,7 @@ def get_seeding():
     return {'data': sg_data}
 
 @app.post("/seeding")
-def post_seeding():
+def post_seeding() -> dict:
     """
     """
     sg_data = None
@@ -330,7 +336,7 @@ pt_layout = [
 ]
 
 @app.get("/partners")
-def get_partners():
+def get_partners() -> dict:
     """
     """
     tourn_name = request.args.get('tourn')
@@ -345,7 +351,7 @@ def get_partners():
     return {'data': pt_data}
 
 @app.post("/partners")
-def post_partners():
+def post_partners() -> dict:
     """
     """
     pt_err = None
@@ -405,7 +411,7 @@ tm_layout = [
 ]
 
 @app.get("/teams")
-def get_teams():
+def get_teams() -> dict:
     """
     """
     tourn_name = request.args.get('tourn')
@@ -420,7 +426,7 @@ def get_teams():
     return {'data': tm_data}
 
 @app.post("/teams")
-def post_teams():
+def post_teams() -> dict:
     """
     """
     tm_data = None
@@ -465,7 +471,7 @@ tg_layout = [
 ]
 
 @app.get("/round_robin")
-def get_round_robin():
+def get_round_robin() -> dict:
     """
     """
     tourn_name = request.args.get('tourn')
@@ -480,7 +486,7 @@ def get_round_robin():
     return {'data': tg_data}
 
 @app.post("/round_robin")
-def post_round_robin():
+def post_round_robin() -> dict:
     """
     """
     tg_data = None
@@ -501,6 +507,85 @@ def post_round_robin():
         abort(409, str(e))
 
     return {'data': tg_data, 'upd': tg_upd}
+
+###########
+# /poster #
+###########
+
+POSTER_FUNCS = [
+    'sd_bracket',
+    'sd_scores',
+    'rr_brackets',
+    'rr_scores',
+]
+
+@app.get("/poster/<path:subpath>")
+def get_poster(subpath: str) -> str:
+    """
+    """
+    poster, tourn_name = subpath.split('/', 1)
+    if poster not in POSTER_FUNCS:
+        abort(404, f"Invalid poster func '{poster}'")
+
+    db_init(tourn_name)
+    tourn = TournInfo.get()
+    return globals()[poster](tourn)
+
+def sd_bracket(tourn: TournInfo) -> str:
+    """
+    """
+    rnd_tables = tourn.players // 4
+    rnd_byes = tourn.players % 4
+
+    sg_map = {}  # key sequence: round, table -> sg_inst
+    sg_iter = SeedGame.iter_games(include_byes=True)
+    for sg in sg_iter:
+        rnd = sg.round_num
+        tbl = sg.table_num
+        if rnd not in sg_map:
+            sg_map[rnd] = {}
+        assert tbl not in sg_map[rnd]
+        if tbl:
+            sg_map[rnd][tbl] = "\nvs.\n".join(sg.team_tags)
+        else:
+            sg_map[rnd][tbl] = "\n".join(sg.bye_tags)  # bye(s)
+
+    context = {
+        'title'     : SD_BRACKET,
+        'seed_rnds' : tourn.seed_rounds,
+        'rnd_tables': rnd_tables,
+        'rnd_byes'  : rnd_byes,
+        'sg_map'    : sg_map
+    }
+    return render_poster(context)
+
+def sd_scores(tourn: TournInfo) -> str:
+    """
+    """
+    assert False, "Not yet implemented"
+    context = {
+    }
+    return render_poster(context)
+
+def rr_brackets(tourn: TournInfo) -> str:
+    """
+    """
+    assert False, "Not yet implemented"
+    div_teams = (tourn.teams + 1) // tourn.divisions
+    rnd_tables = div_teams // 2
+    rnd_byes = tourn.teams % tourn.divisions
+
+    context = {
+    }
+    return render_poster(context)
+
+def rr_scores(tourn: TournInfo) -> str:
+    """
+    """
+    assert False, "Not yet implemented"
+    context = {
+    }
+    return render_poster(context)
 
 ################
 # POST actions #
@@ -834,6 +919,11 @@ def render_app(context: dict) -> str:
         'ref_links': ref_links
     }
     return render_template(APP_TEMPLATE, **(base_ctx | context))
+
+def render_poster(context: dict) -> str:
+    """Common post-processing of context before rendering poster pages through Jinja
+    """
+    return render_template(POSTER_TEMPLATE, **context)
 
 #########################
 # Content / Metacontent #

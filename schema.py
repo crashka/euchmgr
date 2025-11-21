@@ -697,6 +697,17 @@ class PlayerGame(BaseModel):
             (('game_label', 'player'), True)
         )
 
+    @classmethod
+    def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
+        """Iterator for seed_games (wrap ORM details).
+        """
+        # see NOTE on use of iterator in `TournInfo.get`, above
+        sel = cls.select()
+        if not include_byes:
+            sel = sel.where(cls.is_bye == False)
+        for t in sel.iterator():
+            yield t
+
     def save(self, *args, **kwargs):
         """Set player name (denorm field) as player's nick name
         """

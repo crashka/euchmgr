@@ -32,7 +32,8 @@ from werkzeug.utils import secure_filename
 
 from core import DATA_DIR, UPLOAD_DIR
 from database import DB_FILETYPE
-from schema import TournStage, TournInfo, Player, SeedGame, Team, TournGame
+from schema import (GAME_PTS, TournStage, TournInfo, Player, SeedGame, Team, TournGame,
+                    PlayerGame, TeamGame)
 from euchmgr import (db_init, tourn_create, upload_roster, generate_player_nums,
                      build_seed_bracket, fake_seed_games, tabulate_seed_round,
                      compute_player_seeds, prepick_champ_partners, fake_pick_partners,
@@ -111,6 +112,14 @@ def round_val(val: Number) -> Number:
 
 # do not downcase the rest of the string like str.capitalize()
 cap_first = lambda x: x[0].upper() + x[1:]
+
+def fmt_score(pts: int) -> str:
+    """Markup score if game-winning
+    """
+    if pts >= GAME_PTS:
+        return f"<b>{pts}</b>"
+    else:
+        return str(pts)
 
 ################
 # Flask Routes #
@@ -537,33 +546,72 @@ def sd_bracket(tourn: TournInfo) -> str:
     rnd_tables = tourn.players // 4
     rnd_byes = tourn.players % 4
 
-    sg_map = {}  # key sequence: round, table -> sg_inst
+    matchups = {}  # key sequence: rnd, tbl -> matchup_html
     sg_iter = SeedGame.iter_games(include_byes=True)
     for sg in sg_iter:
         rnd = sg.round_num
         tbl = sg.table_num
-        if rnd not in sg_map:
-            sg_map[rnd] = {}
-        assert tbl not in sg_map[rnd]
+        if rnd not in matchups:
+            matchups[rnd] = {}
+        assert tbl not in matchups[rnd]
         if tbl:
-            sg_map[rnd][tbl] = "\nvs.\n".join(sg.team_tags)
+            matchups[rnd][tbl] = "<br>vs.<br>".join(sg.team_tags)
         else:
-            sg_map[rnd][tbl] = "\n".join(sg.bye_tags)  # bye(s)
+            matchups[rnd][tbl] = "<br>".join(sg.bye_tags)  # bye(s)
+
+    assert len(matchups) == tourn.seed_rounds
+    for rnd, tbls in matchups.items():
+        assert len(tbls) == rnd_tables + int(bool(rnd_byes))
 
     context = {
+        'poster_num': 0,
         'title'     : SD_BRACKET,
+        'tourn_name': tourn.name,
         'seed_rnds' : tourn.seed_rounds,
         'rnd_tables': rnd_tables,
         'rnd_byes'  : rnd_byes,
-        'sg_map'    : sg_map
+        'matchups'  : matchups,
+        'bold_color': '#555555'
     }
     return render_poster(context)
 
 def sd_scores(tourn: TournInfo) -> str:
     """
     """
-    assert False, "Not yet implemented"
+    pl_list = sorted(Player.iter_players(), key=lambda pl: pl.player_num)
+    # sub-dict key is rnd, value is pts
+    team_pts = {pl.player_num: {} for pl in pl_list}
+    opp_pts  = {pl.player_num: {} for pl in pl_list}
+    wins     = {pl.player_num: 0 for pl in pl_list}
+    losses   = {pl.player_num: 0 for pl in pl_list}
+    pg_iter = PlayerGame.iter_games(include_byes=True)
+    for pg in pg_iter:
+        pl_num = pg.player_num
+        rnd = pg.round_num
+        assert rnd not in team_pts[pl_num]
+        assert rnd not in opp_pts[pl_num]
+        if pg.is_bye:
+            team_pts[pl_num][rnd] = None
+            opp_pts[pl_num][rnd] = None
+        else:
+            team_pts[pl_num][rnd] = fmt_score(pg.team_pts)
+            opp_pts[pl_num][rnd] = fmt_score(pg.opp_pts)
+            if pg.is_winner:
+                wins[pl_num] += 1
+            else:
+                losses[pl_num] += 1
+
     context = {
+        'poster_num': 1,
+        'title'     : SD_SCORES,
+        'tourn_name': tourn.name,
+        'seed_rnds' : tourn.seed_rounds,
+        'players'   : pl_list,
+        'team_pts'  : team_pts,
+        'opp_pts'   : opp_pts,
+        'wins'      : wins,
+        'losses'    : losses,
+        'bold_color': '#555555'
     }
     return render_poster(context)
 

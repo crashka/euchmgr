@@ -17,22 +17,44 @@
      }
      .section {
        margin-top: 2.0rem;
-       width: 100em;
        overflow-x: auto;
        white-space: nowrap;
      }
-     table, th, td {
+     .seed_bracket {
+       width: 100em;
+     }
+     .seed_scores {
+       width: 100em;
+     }
+     .rr_brackets {
+       width: 100em;
+     }
+     .rr_scores {
+       width: 100em;
+     }
+     table {
+       border: 2px solid darkgrey;
+       border-collapse: collapse;
+     }
+     th, td {
        border: 1px solid darkgrey;
        border-collapse: collapse;
        padding: 0.75em;
-     }
-     td {
        text-align: center;
-       white-space: pre;
+     }
+     .hor_sect {
+       border-bottom: 2px solid darkgrey;
+     }
+     .vert_sect {
+       border-left: 2px solid darkgrey;
+     }
+     .plyr_lbl {
+       text-align: left;
+       width: 10em;
      }
      b {
        font-weight: bold;
-       color: grey;
+       color: {{bold_color or "black"}};
      }
      u {
        text-decoration: solid underline grey 2px;
@@ -42,19 +64,21 @@
 
   <body>
     <div class="container">
-      <span class="container_lbl">{{title}}</span>
-      <div class="section">
-        <table id="seed_brckt" class="display" spellcheck="false">
+      <span class="container_lbl">{{tourn_name}} &ndash; {{title}}</span>
+      {% if poster_num == 0 %}
+      <div class="section seed_bracket">
+        <table>
           <thead>
             <tr>
-              <th>Round</th>
-              {% for tbl in range(1, rnd_tables + 1) %}
-              <th>Table {{tbl}}</th>
+              <th class="hor_sect">Round</th>
+              <th class="hor_sect vert_sect">Table 1</th>
+              {% for tbl in range(2, rnd_tables + 1) %}
+              <th class="hor_sect">Table {{tbl}}</th>
               {% endfor %}
               {% if rnd_byes > 1 %}
-              <th>Byes</th>
+              <th class="hor_sect">Byes</th>
               {% elif rnd_byes %}
-              <th>Bye</th>
+              <th class="hor_sect">Bye</th>
               {% endif %}
             </tr>
           </thead>
@@ -62,17 +86,61 @@
             {% for rnd in range(1, seed_rnds + 1) %}
             <tr>
               <td>{{rnd}}</td>
-              {% for tbl in range(1, rnd_tables + 1) %}
-              <td>{{sg_map[rnd][tbl]|safe}}</td>
+              <td class="vert_sect">{{matchups[rnd][1]|safe}}</td>
+              {% for tbl in range(2, rnd_tables + 1) %}
+              <td>{{matchups[rnd][tbl]|safe}}</td>
               {% endfor %}
               {% if rnd_byes %}
-              <td>{{sg_map[rnd][None]|safe}}</td>
+              <td>{{matchups[rnd][None]|safe}}</td>
               {% endif %}
             </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
+      {% endif %}
+      {% if poster_num == 1 %}
+      <div class="section seed_scores">
+        <table>
+          <thead>
+            <tr>
+              <th class="plyr_lbl hor_sect" rowspan="2">Player (by num)</th>
+              <th class="hor_sect" rowspan="2">Wins</th>
+              <th class="hor_sect" rowspan=2>Losses</th>
+              <th class="vert_sect" colspan="{{seed_rnds}}">Points For (by round)</th>
+              <th class="vert_sect" colspan="{{seed_rnds}}">Points Against (by round)</th>
+            </tr>
+            <tr>
+              <th class="hor_sect vert_sect">1</th>
+              {% for rnd in range(2, seed_rnds + 1) %}
+              <th class="hor_sect">{{rnd}}</th>
+              {% endfor %}
+              <th class="hor_sect vert_sect">1</th>
+              {% for rnd in range(2, seed_rnds + 1) %}
+              <th class="hor_sect">{{rnd}}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for pl in players %}
+            <tr>
+              <td class="plyr_lbl">{{pl.player_tag|safe}}</td>
+              <td>{{wins[pl.player_num]}}</td>
+              <td>{{losses[pl.player_num]}}</td>
+              <td class="vert_sect">{{team_pts[pl.player_num][1]|safe}}</td>
+              {% for rnd in range(2, seed_rnds + 1) %}
+              <td>{{team_pts[pl.player_num][rnd]|safe}}</td>
+              {% endfor %}
+              <td class="vert_sect">{{opp_pts[pl.player_num][1]|safe}}</td>
+              {% for rnd in range(2, seed_rnds + 1) %}
+              <td>{{opp_pts[pl.player_num][rnd]|safe}}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
     </div>
   </body>
 

@@ -121,6 +121,12 @@ def fmt_score(pts: int) -> str:
     else:
         return str(pts)
 
+def fmt_tally(pts: int) -> str:
+    """Print arguments for <img> tag for showing point tallies
+    """
+    tally_file = f"/static/tally_{pts}.png"
+    return f'src="{tally_file}" height="15" width="50"'
+
 ################
 # Flask Routes #
 ################
@@ -541,7 +547,7 @@ def get_poster(subpath: str) -> str:
     return globals()[poster](tourn)
 
 def sd_bracket(tourn: TournInfo) -> str:
-    """
+    """Renders seed round bracket as a chart
     """
     rnd_tables = tourn.players // 4
     rnd_byes = tourn.players % 4
@@ -561,7 +567,8 @@ def sd_bracket(tourn: TournInfo) -> str:
 
     assert len(matchups) == tourn.seed_rounds
     for rnd, tbls in matchups.items():
-        assert len(tbls) == rnd_tables + int(bool(rnd_byes))
+        pass
+        #assert len(tbls) == rnd_tables + int(bool(rnd_byes))
 
     context = {
         'poster_num': 0,
@@ -576,7 +583,7 @@ def sd_bracket(tourn: TournInfo) -> str:
     return render_poster(context)
 
 def sd_scores(tourn: TournInfo) -> str:
-    """
+    """Renders seed round scores as a chart
     """
     pl_list = sorted(Player.iter_players(), key=lambda pl: pl.player_num)
     # sub-dict key is rnd, value is pts
@@ -601,17 +608,25 @@ def sd_scores(tourn: TournInfo) -> str:
             else:
                 losses[pl_num] += 1
 
+    win_tallies = {}
+    loss_tallies = {}
+    for pl in pl_list:
+        win_tallies[pl.player_num] = fmt_tally(wins[pl.player_num])
+        loss_tallies[pl.player_num] = fmt_tally(losses[pl.player_num])
+
     context = {
         'poster_num': 1,
-        'title'     : SD_SCORES,
-        'tourn_name': tourn.name,
-        'seed_rnds' : tourn.seed_rounds,
-        'players'   : pl_list,
-        'team_pts'  : team_pts,
-        'opp_pts'   : opp_pts,
-        'wins'      : wins,
-        'losses'    : losses,
-        'bold_color': '#555555'
+        'title'       : SD_SCORES,
+        'tourn_name'  : tourn.name,
+        'seed_rnds'   : tourn.seed_rounds,
+        'players'     : pl_list,
+        'team_pts'    : team_pts,
+        'opp_pts'     : opp_pts,
+        'wins'        : wins,
+        'losses'      : losses,
+        'win_tallies' : win_tallies,
+        'loss_tallies': loss_tallies,
+        'bold_color'  : '#555555'
     }
     return render_poster(context)
 

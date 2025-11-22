@@ -52,6 +52,9 @@
        text-align: left;
        width: 10em;
      }
+     .tally {
+       vertical-align: bottom;
+     }
      b {
        font-weight: bold;
        color: {{bold_color or "black"}};
@@ -75,11 +78,7 @@
               {% for tbl in range(2, rnd_tables + 1) %}
               <th class="hor_sect">Table {{tbl}}</th>
               {% endfor %}
-              {% if rnd_byes > 1 %}
-              <th class="hor_sect">Byes</th>
-              {% elif rnd_byes %}
-              <th class="hor_sect">Bye</th>
-              {% endif %}
+              <th class="hor_sect">Bye(s)</th>
             </tr>
           </thead>
           <tbody>
@@ -90,9 +89,8 @@
               {% for tbl in range(2, rnd_tables + 1) %}
               <td>{{matchups[rnd][tbl]|safe}}</td>
               {% endfor %}
-              {% if rnd_byes %}
-              <td>{{matchups[rnd][None]|safe}}</td>
-              {% endif %}
+              {# the following just happens to render as "None" if no byes #}
+              <td>{{matchups[rnd].get(None)|safe}}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -125,8 +123,8 @@
             {% for pl in players %}
             <tr>
               <td class="plyr_lbl">{{pl.player_tag|safe}}</td>
-              <td>{{wins[pl.player_num]}}</td>
-              <td>{{losses[pl.player_num]}}</td>
+              <td class="tally"><img {{win_tallies[pl.player_num]|safe}} /></td>
+              <td class="tally"><img {{loss_tallies[pl.player_num]|safe}} /></td>
               <td class="vert_sect">{{team_pts[pl.player_num][1]|safe}}</td>
               {% for rnd in range(2, seed_rnds + 1) %}
               <td>{{team_pts[pl.player_num][rnd]|safe}}</td>

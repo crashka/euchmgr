@@ -421,7 +421,7 @@ class SeedGame(BaseModel):
 
     @property
     def bye_tags(self) -> list[str]:
-        """Byes references based on player tags with embedded HTML annotation (used for
+        """Bye references based on player tags with embedded HTML annotation (used for
         bracket and scores/results displays)--currently, can only be called for bye
         records
         """
@@ -559,6 +559,13 @@ class Team(BaseModel):
             yield t
 
     @property
+    def team_tag(self) -> str:
+        """Combination of div_seed and team_name with embedded HTML annotation (used for
+        bracket and scores/results displays)
+        """
+        return f"<b>{self.div_seed}</b>&nbsp;&nbsp;<u>{self.team_name}</u>"
+
+    @property
     def player_nums(self) -> str:
         """
         """
@@ -619,6 +626,23 @@ class TournGame(BaseModel):
         """
         tm_seeds = (self.team1_div_seed, self.team2_div_seed)
         return ' vs. '.join(str(x) for x in tm_seeds if x)
+
+    @property
+    def team_tags(self) -> tuple[str, str]:
+        """Team tags with embedded HTML annotation (used for bracket and scores/results
+        displays)--currently, can only be called for actual matchup. and not bye records
+        """
+        assert self.team1 and self.team2
+        return (self.team1.team_tag, self.team2.team_tag)
+
+    @property
+    def bye_tag(self) -> str:
+        """Bye reference based on team tags with embedded HTML annotation (used for
+        bracket and scores/results displays)--currently, can only be called for bye
+        records
+        """
+        assert self.team1 and self.team2 is None  # ...or return None?
+        return self.team1.team_tag
 
     def add_scores(self, team1_pts: int, team2_pts: int) -> None:
         """Record scores for completed (or incomplete) game.  Scores should not be updated
@@ -741,6 +765,17 @@ class TeamGame(BaseModel):
             (('bracket', 'round_num', 'team'), True),
             (('game_label', 'team'), True)
         )
+
+    @classmethod
+    def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
+        """Iterator for tourn_games (wrap ORM details).
+        """
+        # see NOTE on use of iterator in `TournInfo.get`, above
+        sel = cls.select()
+        if not include_byes:
+            sel = sel.where(cls.is_bye == False)
+        for t in sel.iterator():
+            yield t
 
     def save(self, *args, **kwargs):
         """Set team and opponane names (denorm fields)

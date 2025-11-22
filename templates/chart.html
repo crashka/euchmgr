@@ -18,12 +18,14 @@
      }
      .section {
        margin-top: 2.0rem;
+       margin-bottom: 2.0rem;
      }
      .section_lbl {
        font-size: large;
        font-weight: bold;
      }
      table {
+       margin-top: 1.5rem;
        border: 2px solid darkgrey;
        border-collapse: collapse;
      }
@@ -39,7 +41,8 @@
      .vert_sect {
        border-left: 2px solid darkgrey;
      }
-     .plyr_lbl {
+     .plyr_lbl,
+     .team_lbl{
        text-align: left;
        width: 10em;
      }
@@ -129,6 +132,83 @@
           </tbody>
         </table>
       </div>
+      {% endif %}
+      {% if chart_num == 2 %}
+      {% for div in div_list %}
+      <div class="section rr_brackets">
+        <span class="section_lbl">Division {{div}}</span>
+        <table>
+          <thead>
+            <tr>
+              <th class="hor_sect">Round</th>
+              <th class="hor_sect vert_sect">Table 1</th>
+              {% for tbl in range(2, rnd_tables + 1) %}
+              <th class="hor_sect">Table {{tbl}}</th>
+              {% endfor %}
+              <th class="hor_sect">Bye(s)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for rnd in range(1, tourn_rnds + 1) %}
+            <tr>
+              <td>{{rnd}}</td>
+              <td class="vert_sect">{{matchups[div][rnd][1]|safe}}</td>
+              {% for tbl in range(2, rnd_tables + 1) %}
+              <td>{{matchups[div][rnd][tbl]|safe}}</td>
+              {% endfor %}
+              {# the following just happens to render as "None" if no byes #}
+              <td>{{matchups[div][rnd].get(None)|safe}}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endfor %}
+      {% endif %}
+      {% if chart_num == 3 %}
+      {% for div in div_list %}
+      <div class="section rr_scores">
+        <span class="section_lbl">Division {{div}}</span>
+        <table>
+          <thead>
+            <tr>
+              <th class="plyr_lbl hor_sect" rowspan="2">Team (by div seed)</th>
+              <th class="hor_sect" rowspan="2">Wins</th>
+              <th class="hor_sect" rowspan=2>Losses</th>
+              <th class="vert_sect" colspan="{{tourn_rnds}}">Points For (by round)</th>
+              <th class="vert_sect" colspan="{{tourn_rnds}}">Points Against (by round)</th>
+            </tr>
+            <tr>
+              <th class="hor_sect vert_sect">1</th>
+              {% for rnd in range(2, tourn_rnds + 1) %}
+              <th class="hor_sect">{{rnd}}</th>
+              {% endfor %}
+              <th class="hor_sect vert_sect">1</th>
+              {% for rnd in range(2, tourn_rnds + 1) %}
+              <th class="hor_sect">{{rnd}}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for tm in div_teams[div] %}
+            <tr>
+              <td class="team_lbl">{{tm.team_tag|safe}}</td>
+              <td class="tally"><img {{win_tallies[div][tm.team_seed]|safe}} /></td>
+              <td class="tally"><img {{loss_tallies[div][tm.team_seed]|safe}} /></td>
+              <td class="vert_sect">{{team_pts[div][tm.team_seed].get(1, '-')|safe}}</td>
+              {% for rnd in range(2, tourn_rnds + 1) %}
+              <td>{{team_pts[div][tm.team_seed].get(rnd, '-')|safe}}</td>
+              {% endfor %}
+              <td class="vert_sect">{{opp_pts[div][tm.team_seed].get(1, '-')|safe}}</td>
+              {% for rnd in range(2, tourn_rnds + 1) %}
+              <td>{{opp_pts[div][tm.team_seed].get(rnd, '-')|safe}}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endfor %}
       {% endif %}
     </div>
   </body>

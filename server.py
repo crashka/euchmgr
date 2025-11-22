@@ -52,7 +52,7 @@ APP_TEMPLATE    = "euchmgr.html"
 CHART_TEMPLATE  = "chart.html"
 SD_BRACKET      = "Seeding Round Bracket"
 SD_SCORES       = "Seeding Round Scores"
-RR_BRACKET      = "Round Robin Brackets"
+RR_BRACKETS     = "Round Robin Brackets"
 RR_SCORES       = "Round Robin Scores"
 
 # magic strings
@@ -536,7 +536,7 @@ CHART_FUNCS = [
 
 @app.get("/chart/<path:subpath>")
 def get_chart(subpath: str) -> str:
-    """
+    """Render specified chart
     """
     chart, tourn_name = subpath.split('/', 1)
     if chart not in CHART_FUNCS:
@@ -547,7 +547,7 @@ def get_chart(subpath: str) -> str:
     return globals()[chart](tourn)
 
 def sd_bracket(tourn: TournInfo) -> str:
-    """Renders seed round bracket as a chart
+    """Render seed round bracket as a chart
     """
     rnd_tables = tourn.players // 4
     rnd_byes = tourn.players % 4
@@ -583,7 +583,7 @@ def sd_bracket(tourn: TournInfo) -> str:
     return render_chart(context)
 
 def sd_scores(tourn: TournInfo) -> str:
-    """Renders seed round scores as a chart
+    """Render seed round scores as a chart
     """
     pl_list = sorted(Player.iter_players(), key=lambda pl: pl.player_num)
     # sub-dict key is rnd, value is pts
@@ -631,22 +631,105 @@ def sd_scores(tourn: TournInfo) -> str:
     return render_chart(context)
 
 def rr_brackets(tourn: TournInfo) -> str:
+    """Render round robin brackets as a chart
     """
-    """
-    assert False, "Not yet implemented"
+    div_list = list(range(1, tourn.divisions + 1))
     div_teams = (tourn.teams + 1) // tourn.divisions
     rnd_tables = div_teams // 2
     rnd_byes = tourn.teams % tourn.divisions
 
+    # key sequence for sub-dict: rnd, tbl -> matchup_html
+    matchups = {div: {} for div in div_list}
+    tg_iter = TournGame.iter_games(include_byes=True)
+    for tg in tg_iter:
+        div = tg.div_num
+        rnd = tg.round_num
+        tbl = tg.table_num
+        if rnd not in matchups[div]:
+            matchups[div][rnd] = {}
+        assert tbl not in matchups[div][rnd]
+        if tbl:
+            matchups[div][rnd][tbl] = "<br>vs.<br>".join(tg.team_tags)
+        else:
+            matchups[div][rnd][tbl] = tg.bye_tag
+
+    assert len(matchups[div]) == tourn.tourn_rounds
+    for rnd, tbls in matchups[div].items():
+        pass
+        #assert len(tbls) == rnd_tables + int(bool(rnd_byes))
+
     context = {
+        'chart_num' : 2,
+        'title'     : RR_BRACKETS,
+        'tourn_name': tourn.name,
+        'tourn_rnds': tourn.tourn_rounds,
+        'div_list'  : div_list,
+        'rnd_tables': rnd_tables,
+        'rnd_byes'  : rnd_byes,
+        'matchups'  : matchups,
+        'bold_color': '#555555'
     }
     return render_chart(context)
 
 def rr_scores(tourn: TournInfo) -> str:
+    """Render round robin scores as a chart
     """
-    """
-    assert False, "Not yet implemented"
+    div_list = list(range(1, tourn.divisions + 1))
+    tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.team_seed)
+    team_pts = {}
+    opp_pts  = {}
+    wins     = {}
+    losses   = {}
+    for div in div_list:
+        # sub-dict key is rnd, value is pts
+        team_pts[div] = {tm.team_seed: {} for tm in tm_list}
+        opp_pts[div]  = {tm.team_seed: {} for tm in tm_list}
+        wins[div]     = {tm.team_seed: 0 for tm in tm_list}
+        losses[div]   = {tm.team_seed: 0 for tm in tm_list}
+
+    tg_iter = TeamGame.iter_games(include_byes=True)
+    for tg in tg_iter:
+        div = tg.team.div_num
+        tm_seed = tg.team_seed
+        assert tm_seed == tg.team.team_seed
+        rnd = tg.round_num
+        assert rnd not in team_pts[div][tm_seed]
+        assert rnd not in opp_pts[div][tm_seed]
+        if tg.is_bye:
+            team_pts[div][tm_seed][rnd] = None
+            opp_pts[div][tm_seed][rnd] = None
+        else:
+            team_pts[div][tm_seed][rnd] = fmt_score(tg.team_pts)
+            opp_pts[div][tm_seed][rnd] = fmt_score(tg.opp_pts)
+            if tg.is_winner:
+                wins[div][tm_seed] += 1
+            else:
+                losses[div][tm_seed] += 1
+
+    div_teams = {div: [] for div in div_list}
+    win_tallies = {div: {} for div in div_list}
+    loss_tallies = {div: {} for div in div_list}
+    for div in div_list:
+        for tm in tm_list:
+            if tm.div_num == div:
+                div_teams[div].append(tm)
+            win_tallies[div][tm.team_seed] = fmt_tally(wins[div][tm.team_seed])
+            loss_tallies[div][tm.team_seed] = fmt_tally(losses[div][tm.team_seed])
+
     context = {
+        'chart_num'   : 3,
+        'title'       : RR_SCORES,
+        'tourn_name'  : tourn.name,
+        'tourn_rnds'  : tourn.tourn_rounds,
+        'div_list'    : div_list,
+        'div_teams'   : div_teams,
+        'team_pts'    : team_pts,
+        'opp_pts'     : opp_pts,
+        'wins'        : wins,
+        'losses'      : losses,
+        'win_tallies' : win_tallies,
+        'loss_tallies': loss_tallies,
+        'bold_color'  : '#555555'
     }
     return render_chart(context)
 

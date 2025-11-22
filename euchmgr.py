@@ -1,16 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""
-To do list:
-- compute intermediary results/stats when scores are entered
-  - related: create teams as picks are made?
-- use head-to-head record for tie-breakers
-- implement playoff rounds
+"""This module contains the core logic for managing Beta-style euchre tournaments, coupled
+with encapsulated database logic in schema.py.  The interfaces/interactions are still kind
+of messy in some places (and may end up staying that way, oh well...).
 
-Fix in bracket generation (`round-robin` project):
-- highest seeds (across divisions) should get byes (if any)
-- bracketology fairness for inter-divisional play
+The To Do List has been moved to TODO.md.
 """
 
 import random

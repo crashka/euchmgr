@@ -6,6 +6,7 @@
 - add clear player_num and clear partner picks buttons (for convenience)
 - entry and exit criteria for tournament stages
 - enable/diabling UI buttons based on entry/exit criteria
+- selector for partner picks?
 
 - structure for handling/displaying errors from button pushes or content editing
   - use 'err' member of status 200 response vs. dealing with 400/500 status codes?
@@ -20,29 +21,34 @@
 
 ## Bugs
 
-- for seeding view (and round robin view), make bye rows readonly
+- only allow currently remaining highest ranked player to make partner picks
+- make bye rows readonly, for seeding and round robin views
 - maintain player\_game and team\_game tables properly when updating scores
   - ...or invalidate, then regenerate when needed
 
 ## Refactoring
 
 - redirect to appropriate view after handling submit_func POST
-  - need to handle error messages correctly (no redirect?)
-- fully define views in server.py (including buttons, etc.)
+  - need to handle error messages correctly (and no redirect?)
+- improve HTML and CSS design
+  - use \<section\>, \<div\>, \<span\>, etc. properly
+  - prettier styling in general
+- fix naming throughout (e.g. seed vs seeding, seed vs rank, etc.)
 - convert pl\_layout, sg\_layout, etc. from tuples to dict[str, tuple[...]]
-- fix naming (e.g. seed vs seeding, seed vs rank, etc.)
+- define views (including buttons, etc.), and/or charts, as data in server.py
+  - get rid of replicated code in templates
 
 ## Framework
 
-- security (flask-login), if non-local hosting is required
-- timestamps for database records?
-- audit trailing?
-- optimistic locking?
+- security (flask-login?), if considering non-local hosting
+- created/updated timestamps for database records?
+- audit trailing (and/or snapshotting)?
+- optimistic locking (or other concurrency control)?
 
 ## Bracketology
 
 - highest seeds (across divisions) should get all byes (if any)
-- measure/ensure fairness for inter-divisional play (if needed, for either bye problem or
-  just numbers)
-- euchmgr need to use new omni-bracket format
+- measure/ensure fairness for inter-divisional play (if needed for either the bye problem
+  or just numbers)
+- euchmgr needs to use new omni-bracket format
 - optimize for combination of r-squared value and RMSE (relative to ideal)

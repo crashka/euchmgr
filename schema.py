@@ -240,6 +240,16 @@ class Player(BaseModel):
         return sorted(avail, key=lambda x: x.player_seed)
 
     @classmethod
+    def active_picker(cls, requery: bool = False) -> Self:
+        """Return top seeded player currently available, which equates to the player
+        currently picking during the partner selection process
+        """
+        avail = cls.available_players(requery)
+        if len(avail) == 0:
+            raise LogicError("No available players")
+        return avail[0]
+
+    @classmethod
     def get_player(cls, player_num: int) -> Self:
         """Return player by player_num (from cached map)
         """
@@ -294,7 +304,8 @@ class Player(BaseModel):
 
     @property
     def available(self) -> str | None:
-        """For partner picking UI ('y' or empty)
+        """For partner picking UI; returns 'y' or None.  Note that this return value
+        evaluates correctly as a boolean.
         """
         return 'y' if not (self.partner or self.picked_by) else None
 

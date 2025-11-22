@@ -352,7 +352,7 @@ pt_layout = [
 
 @app.get("/partners")
 def get_partners() -> dict:
-    """
+    """Ajax call to load datatable for partners view.
     """
     tourn_name = request.args.get('tourn')
 
@@ -367,26 +367,37 @@ def get_partners() -> dict:
 
 @app.post("/partners")
 def post_partners() -> dict:
-    """
+    """Handle POST of partner pick data--the entire row is submitted, but we only look at
+    the `id` and `picks_info` fields.
     """
     pt_err = None
     pt_upd = False
 
     data = request.form
     upd_info = {x[0]: data.get(x[0]) for x in pt_layout if x[2] == EDITABLE}
-    picks_seed = typecast(upd_info.pop('picks_info', None))
-    assert picks_seed
+    picks_info = typecast(upd_info.pop('picks_info', None))
+    assert picks_info
     assert len(upd_info) == 0
-    partner = Player.fetch_by_seed(picks_seed)
-    player_id = typecast(data['id'])
-    # TODO: validate avilable and not self!!!
+
+    avail = Player.available_players(requery=True)
+    if len(avail) == 0:
+        return {'err': "No available players"}
+
+    player = Player[typecast(data['id'])]
+    if not player.available:
+        return {'err': f"Specified picker \"{player.seed_ident}\" already on a team"}
+    if player != avail[0]:
+        return {'err': f"Current pick belongs to \"{avail[0].seed_ident}\""}
+
+    partner = Player.fetch_by_seed(picks_info)
+    if not partner.available:
+        return {'err': f"Selected partner \"{partner.seed_ident}\" not available"}
+    if partner == player:
+        return {'err': f"Cannot choose self as a partner"}
 
     # automatic final pick(s) if 2 or 3 teams remain
-    avail = Player.available_players(requery=True)
     assert len(avail) not in (0, 1)
     if len(avail) in (2, 3):
-        player = avail[0]
-        assert player.id == player_id
         partners = avail[1:]
         assert partner in partners
         player.pick_partners(*partners)
@@ -394,7 +405,6 @@ def post_partners() -> dict:
         avail = []
         pt_upd = True
     else:
-        player = Player[player_id]
         player.pick_partners(partner)
         player.save()
         pt_upd = True

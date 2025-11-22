@@ -340,6 +340,7 @@
           <span>Next:<input name="next_action" type="text" value="{{tourn.next_action if tourn.next_action else ''}}" disabled></span>
         </div>
       </div>
+
       <div class="section players">
         <table id="plyr_tbl" class="display" spellcheck="false">
           <thead>
@@ -358,6 +359,7 @@
           </form>
         </div>
       </div>
+
       <div class="section seeding">
         <table id="seed_tbl" class="display" spellcheck="false">
           <thead>
@@ -373,13 +375,18 @@
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
             <button class="submit" value="fake_seed_results"}}">Generate Fake Results</button>
             <button class="submit" value="tabulate_seed_results"}}">Tabulate Results</button>
-            <span class="lnk_lbl">Print (chart):</span>
+            <span class="lnk_lbl">Display Chart:</span>
             <a href="#" onclick="window.open('/chart/sd_bracket/{{tourn.name}}', '_blank')"">Seeding Round Bracket</a>
             <a href="#" onclick="window.open('/chart/sd_scores/{{tourn.name}}', '_blank')"">Seeding Round Scores</a>
           </form>
         </div>
       </div>
+
       <div class="section partners">
+        <dialog id="ptnr_dlg">
+          <p></p>
+          <button autofocus>Close</button>
+        </dialog>
         <table id="ptnr_tbl" class="display" spellcheck="false">
           <thead>
             <tr>
@@ -397,6 +404,7 @@
           </form>
         </div>
       </div>
+
       <div class="section teams">
         <table id="team_tbl" class="display" spellcheck="false">
           <thead>
@@ -414,6 +422,7 @@
           </form>
         </div>
       </div>
+
       <div class="section round_robin">
         <table id="rr_tbl" class="display" spellcheck="false">
           <thead>
@@ -429,7 +438,7 @@
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
             <button class="submit" value="fake_tourn_results"}}">Generate Fake Results</button>
             <button class="submit" value="tabulate_tourn_results"}}">Tabulate Results</button>
-            <span class="lnk_lbl">Print (chart):</span>
+            <span class="lnk_lbl">Display Chart:</span>
             <a href="#" onclick="window.open('/chart/rr_brackets/{{tourn.name}}', '_blank')"">Round Robin Brackets</a>
             <a href="#" onclick="window.open('/chart/rr_scores/{{tourn.name}}', '_blank')"">Round Robin Scores</a>
           </form>
@@ -671,6 +680,9 @@
                   console.log('POST /partners error: ', resp.err);
                   cell.data(orig_val).draw();
                   $(e.target).addClass("red");
+
+                  $('#ptnr_dlg p').text(resp.err);
+                  $('#ptnr_dlg')[0].showModal();
                 }
                 else if (resp.upd) {
                   //console.log('Updating row data: ', resp.data);
@@ -726,6 +738,11 @@
          initComplete: function(settings, json) {
            table.columns.adjust().draw();
          }
+       });
+
+       // event handlers
+       $('#ptnr_dlg button').on('click', function () {
+         $('#ptnr_dlg')[0].close();
        });
      }
 

@@ -350,8 +350,8 @@ def build_tourn_bracket() -> list[TournGame]:
     bye_seed = nteams + 1  # below all others
 
     # lower numbered divisions may have one extra team--REVISIT: this is probably wrong,
-    # since the highest seeded overall team (div 1, seed 1) should have preferemtial bye
-    # over all other division top seeds!!!
+    # since the highest seeded overall team (div 1, seed 1) should have preferential bye
+    # consideration over all other division top seeds!!!
     div_teams = [nteams // ndivs] * ndivs
     div_mod = nteams % ndivs
     for i in range(div_mod):

@@ -62,6 +62,7 @@
   <body>
     <div class="container">
       <span class="container_lbl">{{tourn_name}} &ndash; {{title}}</span>
+
       {% if chart_num == 0 %}
       <div class="section seed_bracket">
         <table>
@@ -91,6 +92,7 @@
         </table>
       </div>
       {% endif %}
+
       {% if chart_num == 1 %}
       <div class="section seed_scores">
         <table>
@@ -139,6 +141,7 @@
         </table>
       </div>
       {% endif %}
+
       {% if chart_num == 2 %}
       {% for div in div_list %}
       <div class="section rr_brackets">
@@ -148,7 +151,7 @@
             <tr>
               <th class="hor_sect">Round</th>
               <th class="hor_sect vert_sect">Table 1</th>
-              {% for tbl in range(2, rnd_tables + 1) %}
+              {% for tbl in range(2, rnd_tables[div] + 1) %}
               <th class="hor_sect">Table {{tbl}}</th>
               {% endfor %}
               <th class="hor_sect">Bye</th>
@@ -159,7 +162,7 @@
             <tr>
               <td>{{rnd}}</td>
               <td class="vert_sect">{{matchups[div][rnd][1]|safe}}</td>
-              {% for tbl in range(2, rnd_tables + 1) %}
+              {% for tbl in range(2, rnd_tables[div] + 1) %}
               <td>{{matchups[div][rnd][tbl]|safe}}</td>
               {% endfor %}
               {# the following just happens to render as "None" if no byes #}
@@ -171,6 +174,7 @@
       </div>
       {% endfor %}
       {% endif %}
+
       {% if chart_num == 3 %}
       {% for div in div_list %}
       <div class="section rr_scores">

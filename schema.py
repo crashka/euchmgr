@@ -156,6 +156,8 @@ class TournInfo(BaseModel):
                 stage_next = self.stage_compl + 1
                 if stage_next < len(StageData):
                     self.next_action = StageData[stage_next].start_msg
+                else:
+                    self.next_action = None
 
             # TODO: should also log this information!!!
         if self.id is None:

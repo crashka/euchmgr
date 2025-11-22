@@ -567,8 +567,7 @@ def sd_bracket(tourn: TournInfo) -> str:
 
     assert len(matchups) == tourn.seed_rounds
     for rnd, tbls in matchups.items():
-        pass
-        #assert len(tbls) == rnd_tables + int(bool(rnd_byes))
+        assert len(tbls) == rnd_tables + int(bool(rnd_byes))
 
     context = {
         'chart_num' : 0,
@@ -576,7 +575,6 @@ def sd_bracket(tourn: TournInfo) -> str:
         'tourn_name': tourn.name,
         'seed_rnds' : tourn.seed_rounds,
         'rnd_tables': rnd_tables,
-        'rnd_byes'  : rnd_byes,
         'matchups'  : matchups,
         'bold_color': '#555555'
     }
@@ -634,10 +632,16 @@ def sd_scores(tourn: TournInfo) -> str:
 def rr_brackets(tourn: TournInfo) -> str:
     """Render round robin brackets as a chart
     """
-    div_list = list(range(1, tourn.divisions + 1))
-    div_teams = (tourn.teams + 1) // tourn.divisions
-    rnd_tables = div_teams // 2
-    rnd_byes = tourn.teams % tourn.divisions
+    div_list   = list(range(1, tourn.divisions + 1))
+    div_teams  = (tourn.teams - 1) // tourn.divisions + 1  # counting byes
+    tot_byes   = tourn.teams % tourn.divisions
+    div_tables = [div_teams // 2] * tourn.divisions
+    div_byes   = [0] * tourn.divisions
+    for i in range(tot_byes):
+        div_tables[-1 - i] -= 1
+        div_byes[-1 - i] += 1
+    rnd_tables = dict(zip(div_list, div_tables))
+    rnd_byes = dict(zip(div_list, div_byes))
 
     # key sequence for sub-dict: rnd, tbl -> matchup_html
     matchups = {div: {} for div in div_list}
@@ -654,10 +658,10 @@ def rr_brackets(tourn: TournInfo) -> str:
         else:
             matchups[div][rnd][tbl] = tg.bye_tag
 
-    assert len(matchups[div]) == tourn.tourn_rounds
-    for rnd, tbls in matchups[div].items():
-        pass
-        #assert len(tbls) == rnd_tables + int(bool(rnd_byes))
+    for div in div_list:
+        assert len(matchups[div]) == tourn.tourn_rounds
+        for rnd, tbls in matchups[div].items():
+            assert len(tbls) == rnd_tables[div] + rnd_byes[div]
 
     context = {
         'chart_num' : 2,
@@ -666,7 +670,6 @@ def rr_brackets(tourn: TournInfo) -> str:
         'tourn_rnds': tourn.tourn_rounds,
         'div_list'  : div_list,
         'rnd_tables': rnd_tables,
-        'rnd_byes'  : rnd_byes,
         'matchups'  : matchups,
         'bold_color': '#555555'
     }

@@ -14,7 +14,7 @@
        margin-top: 1.0rem;
      }
      .section_lbl {
-       font-size: larger;
+       font-size: x-large;
        font-weight: bold;
      }
      .subsect {
@@ -32,7 +32,7 @@
        font-weight: bold;
      }
      .view label {
-       margin-left: 0.35rem;
+       margin-left: 0.6rem;
        font-weight: bold;
      }
      .info_blk,
@@ -373,9 +373,9 @@
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
             <button class="submit" value="fake_seed_results"}}">Generate Fake Results</button>
             <button class="submit" value="tabulate_seed_results"}}">Tabulate Results</button>
-            <span class="lnk_lbl">Print (poster):</span>
-            <a href="#" onclick="window.open('/poster/sd_bracket/{{tourn.name}}', '_blank')"">Seeding Round Bracket</a>
-            <a href="#" onclick="window.open('/poster/sd_scores/{{tourn.name}}', '_blank')"">Seeding Round Scores</a>
+            <span class="lnk_lbl">Print (chart):</span>
+            <a href="#" onclick="window.open('/chart/sd_bracket/{{tourn.name}}', '_blank')"">Seeding Round Bracket</a>
+            <a href="#" onclick="window.open('/chart/sd_scores/{{tourn.name}}', '_blank')"">Seeding Round Scores</a>
           </form>
         </div>
       </div>
@@ -429,9 +429,9 @@
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
             <button class="submit" value="fake_tourn_results"}}">Generate Fake Results</button>
             <button class="submit" value="tabulate_tourn_results"}}">Tabulate Results</button>
-            <span class="lnk_lbl">Print (poster):</span>
-            <a href="#" onclick="window.open('/poster/rr_brackets/{{tourn.name}}', '_blank')"">Round Robin Brackets</a>
-            <a href="#" onclick="window.open('/poster/rr_scores/{{tourn.name}}', '_blank')"">Round Robin Scores</a>
+            <span class="lnk_lbl">Print (chart):</span>
+            <a href="#" onclick="window.open('/chart/rr_brackets/{{tourn.name}}', '_blank')"">Round Robin Brackets</a>
+            <a href="#" onclick="window.open('/chart/rr_scores/{{tourn.name}}', '_blank')"">Round Robin Scores</a>
           </form>
         </div>
       </div>

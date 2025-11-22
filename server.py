@@ -49,7 +49,7 @@ app = Flask(__name__)
 
 APP_NAME        = "Euchre Manager"
 APP_TEMPLATE    = "euchmgr.html"
-POSTER_TEMPLATE = "poster.html"
+CHART_TEMPLATE  = "chart.html"
 SD_BRACKET      = "Seeding Round Bracket"
 SD_SCORES       = "Seeding Round Scores"
 RR_BRACKET      = "Round Robin Brackets"
@@ -523,28 +523,28 @@ def post_round_robin() -> dict:
 
     return {'data': tg_data, 'upd': tg_upd}
 
-###########
-# /poster #
-###########
+##########
+# /chart #
+##########
 
-POSTER_FUNCS = [
+CHART_FUNCS = [
     'sd_bracket',
     'sd_scores',
     'rr_brackets',
     'rr_scores',
 ]
 
-@app.get("/poster/<path:subpath>")
-def get_poster(subpath: str) -> str:
+@app.get("/chart/<path:subpath>")
+def get_chart(subpath: str) -> str:
     """
     """
-    poster, tourn_name = subpath.split('/', 1)
-    if poster not in POSTER_FUNCS:
-        abort(404, f"Invalid poster func '{poster}'")
+    chart, tourn_name = subpath.split('/', 1)
+    if chart not in CHART_FUNCS:
+        abort(404, f"Invalid chart func '{chart}'")
 
     db_init(tourn_name)
     tourn = TournInfo.get()
-    return globals()[poster](tourn)
+    return globals()[chart](tourn)
 
 def sd_bracket(tourn: TournInfo) -> str:
     """Renders seed round bracket as a chart
@@ -571,7 +571,7 @@ def sd_bracket(tourn: TournInfo) -> str:
         #assert len(tbls) == rnd_tables + int(bool(rnd_byes))
 
     context = {
-        'poster_num': 0,
+        'chart_num' : 0,
         'title'     : SD_BRACKET,
         'tourn_name': tourn.name,
         'seed_rnds' : tourn.seed_rounds,
@@ -580,7 +580,7 @@ def sd_bracket(tourn: TournInfo) -> str:
         'matchups'  : matchups,
         'bold_color': '#555555'
     }
-    return render_poster(context)
+    return render_chart(context)
 
 def sd_scores(tourn: TournInfo) -> str:
     """Renders seed round scores as a chart
@@ -615,7 +615,7 @@ def sd_scores(tourn: TournInfo) -> str:
         loss_tallies[pl.player_num] = fmt_tally(losses[pl.player_num])
 
     context = {
-        'poster_num': 1,
+        'chart_num'   : 1,
         'title'       : SD_SCORES,
         'tourn_name'  : tourn.name,
         'seed_rnds'   : tourn.seed_rounds,
@@ -628,7 +628,7 @@ def sd_scores(tourn: TournInfo) -> str:
         'loss_tallies': loss_tallies,
         'bold_color'  : '#555555'
     }
-    return render_poster(context)
+    return render_chart(context)
 
 def rr_brackets(tourn: TournInfo) -> str:
     """
@@ -640,7 +640,7 @@ def rr_brackets(tourn: TournInfo) -> str:
 
     context = {
     }
-    return render_poster(context)
+    return render_chart(context)
 
 def rr_scores(tourn: TournInfo) -> str:
     """
@@ -648,7 +648,7 @@ def rr_scores(tourn: TournInfo) -> str:
     assert False, "Not yet implemented"
     context = {
     }
-    return render_poster(context)
+    return render_chart(context)
 
 ################
 # POST actions #
@@ -983,10 +983,10 @@ def render_app(context: dict) -> str:
     }
     return render_template(APP_TEMPLATE, **(base_ctx | context))
 
-def render_poster(context: dict) -> str:
-    """Common post-processing of context before rendering poster pages through Jinja
+def render_chart(context: dict) -> str:
+    """Common post-processing of context before rendering chart pages through Jinja
     """
-    return render_template(POSTER_TEMPLATE, **context)
+    return render_template(CHART_TEMPLATE, **context)
 
 #########################
 # Content / Metacontent #

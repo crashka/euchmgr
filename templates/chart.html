@@ -9,28 +9,19 @@
      }
      .container {
        margin-top: 2.0rem;
-       overflow: hidden;
+       overflow-x: auto;
+       white-space: nowrap;
      }
      .container_lbl {
-       font-size: larger;
+       font-size: x-large;
        font-weight: bold;
      }
      .section {
        margin-top: 2.0rem;
-       overflow-x: auto;
-       white-space: nowrap;
      }
-     .seed_bracket {
-       width: 100em;
-     }
-     .seed_scores {
-       width: 100em;
-     }
-     .rr_brackets {
-       width: 100em;
-     }
-     .rr_scores {
-       width: 100em;
+     .section_lbl {
+       font-size: large;
+       font-weight: bold;
      }
      table {
        border: 2px solid darkgrey;
@@ -68,7 +59,7 @@
   <body>
     <div class="container">
       <span class="container_lbl">{{tourn_name}} &ndash; {{title}}</span>
-      {% if poster_num == 0 %}
+      {% if chart_num == 0 %}
       <div class="section seed_bracket">
         <table>
           <thead>
@@ -97,7 +88,7 @@
         </table>
       </div>
       {% endif %}
-      {% if poster_num == 1 %}
+      {% if chart_num == 1 %}
       <div class="section seed_scores">
         <table>
           <thead>
@@ -125,13 +116,13 @@
               <td class="plyr_lbl">{{pl.player_tag|safe}}</td>
               <td class="tally"><img {{win_tallies[pl.player_num]|safe}} /></td>
               <td class="tally"><img {{loss_tallies[pl.player_num]|safe}} /></td>
-              <td class="vert_sect">{{team_pts[pl.player_num][1]|safe}}</td>
+              <td class="vert_sect">{{team_pts[pl.player_num].get(1, '-')|safe}}</td>
               {% for rnd in range(2, seed_rnds + 1) %}
-              <td>{{team_pts[pl.player_num][rnd]|safe}}</td>
+              <td>{{team_pts[pl.player_num].get(rnd, '-')|safe}}</td>
               {% endfor %}
-              <td class="vert_sect">{{opp_pts[pl.player_num][1]|safe}}</td>
+              <td class="vert_sect">{{opp_pts[pl.player_num].get(1, '-')|safe}}</td>
               {% for rnd in range(2, seed_rnds + 1) %}
-              <td>{{opp_pts[pl.player_num][rnd]|safe}}</td>
+              <td>{{opp_pts[pl.player_num].get(rnd, '-')|safe}}</td>
               {% endfor %}
             </tr>
             {% endfor %}

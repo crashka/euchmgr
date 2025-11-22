@@ -626,6 +626,7 @@ def sd_scores(tourn: TournInfo) -> str:
         'losses'      : losses,
         'win_tallies' : win_tallies,
         'loss_tallies': loss_tallies,
+        'round_val'   : round_val,
         'bold_color'  : '#555555'
     }
     return render_chart(context)
@@ -729,6 +730,7 @@ def rr_scores(tourn: TournInfo) -> str:
         'losses'      : losses,
         'win_tallies' : win_tallies,
         'loss_tallies': loss_tallies,
+        'round_val'   : round_val,
         'bold_color'  : '#555555'
     }
     return render_chart(context)

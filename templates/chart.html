@@ -101,6 +101,9 @@
               <th class="hor_sect" rowspan=2>Losses</th>
               <th class="vert_sect" colspan="{{seed_rnds}}">Points For (by round)</th>
               <th class="vert_sect" colspan="{{seed_rnds}}">Points Against (by round)</th>
+              <th class="hor_sect vert_sect" rowspan="2">Win Pct</th>
+              <th class="hor_sect" rowspan=2>Pts Diff</th>
+              <th class="hor_sect" rowspan=2>Rank</th>
             </tr>
             <tr>
               <th class="hor_sect vert_sect">1</th>
@@ -127,6 +130,9 @@
               {% for rnd in range(2, seed_rnds + 1) %}
               <td>{{opp_pts[pl.player_num].get(rnd, '-')|safe}}</td>
               {% endfor %}
+              <td class="vert_sect">{{round_val(pl.seed_win_pct)}}%</td>
+              <td>{{pl.seed_pts_diff}}</td>
+              <td>{{pl.player_seed}}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -145,7 +151,7 @@
               {% for tbl in range(2, rnd_tables + 1) %}
               <th class="hor_sect">Table {{tbl}}</th>
               {% endfor %}
-              <th class="hor_sect">Bye(s)</th>
+              <th class="hor_sect">Bye</th>
             </tr>
           </thead>
           <tbody>
@@ -177,6 +183,9 @@
               <th class="hor_sect" rowspan=2>Losses</th>
               <th class="vert_sect" colspan="{{tourn_rnds}}">Points For (by round)</th>
               <th class="vert_sect" colspan="{{tourn_rnds}}">Points Against (by round)</th>
+              <th class="hor_sect vert_sect" rowspan="2">Win Pct</th>
+              <th class="hor_sect" rowspan=2>Pts Diff</th>
+              <th class="hor_sect" rowspan=2>Div Rank</th>
             </tr>
             <tr>
               <th class="hor_sect vert_sect">1</th>
@@ -203,6 +212,9 @@
               {% for rnd in range(2, tourn_rnds + 1) %}
               <td>{{opp_pts[div][tm.team_seed].get(rnd, '-')|safe}}</td>
               {% endfor %}
+              <td class="vert_sect">{{round_val(tm.tourn_win_pct)}}%</td>
+              <td>{{tm.tourn_pts_diff}}</td>
+              <td>{{tm.div_rank}}</td>
             </tr>
             {% endfor %}
           </tbody>

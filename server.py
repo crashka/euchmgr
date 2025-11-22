@@ -94,7 +94,7 @@ def get_tourns() -> list[str]:
         assert m and len(m.groups()) == 1
         tourns.append(m.groups()[0])
 
-    return tourns
+    return sorted(tourns)
 
 #################
 # utility stuff #

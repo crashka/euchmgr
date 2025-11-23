@@ -232,6 +232,35 @@ class Player(BaseModel):
         return cls.player_map
 
     @classmethod
+    def clear_player_nums(cls, ids: list[int] = None) -> int:
+        """Delete player_num values for all rows (or specified IDs); return number of
+        records updated.  Also refreshes (or clears) the cached player map.
+        """
+        assert ids is None, "list of IDs not yet supported"
+        res = 0
+        pl_map = Player.get_player_map(requery=True)
+        if None in pl_map:
+            upd = Player.update(player_num=None)
+            res = upd.execute()
+            cls.player_map = None
+        return res
+
+    @classmethod
+    def clear_partner_picks(cls, ids: list[int] = None) -> int:
+        """Delete partner_picks for all rows (or specified IDs); return number of records
+        updated.  Also refreshes (or clears) the cached player map.
+        """
+        assert ids is None, "list of IDs not yet supported"
+        res = 0
+        pl_list = cls.get_player_map(requery=True).values()
+        not_avail = list(filter(lambda x: not x.available, pl_list))
+        if len(not_avail) > 0:
+            upd = Player.update(partner=None, partner2=None, picked_by=None)
+            res = upd.execute()
+            cls.player_map = None
+        return res
+
+    @classmethod
     def available_players(cls, requery: bool = False) -> list[Self]:
         """Return list of available players, sorted by player_seed
         """

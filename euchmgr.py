@@ -99,6 +99,10 @@ def generate_player_nums(rand_seed: int = None) -> None:
     Note: player_nums can also be specified in the roster file or manually assigned, which
     in either case this function should not be called (would overwrite existing values).
     """
+    # for now we just clear existing values (if needed), so we don't have to test and/or
+    # work around contiguousness
+    Player.clear_player_nums()
+
     my_rand = random.Random
     if isinstance(rand_seed, int):
         my_rand.seed(rand_seed)  # for reproducible debugging only
@@ -162,10 +166,13 @@ def build_seed_bracket() -> list[SeedGame]:
     tourn.complete_stage(TournStage.SEED_BRACKET)
     return games
 
-def fake_seed_games() -> None:
-    """Generates random team points and determines winner for each seed game
+def fake_seed_games(clear_existing: bool = False) -> None:
+    """Generates random team points and determines winner for each seed game.  Note that
+    `clear_existing` only clears completed games.
     """
     for game in SeedGame.iter_games():
+        if game.winner and not clear_existing:
+            continue
         winner_pts = 10
         loser_pts = random.randrange(10)
         if random.randrange(2) > 0:
@@ -179,7 +186,7 @@ def fake_seed_games() -> None:
 def tabulate_seed_round() -> None:
     """
     """
-    pl_map = Player.get_player_map()
+    pl_map = Player.get_player_map(requery=True)
 
     for player in pl_map.values():
         assert player.seed_wins is None
@@ -253,15 +260,17 @@ def prepick_champ_partners() -> None:
     by_seed[0].pick_partners(*by_seed[1:])
     by_seed[0].save()
 
-def fake_pick_partners() -> None:
+def fake_pick_partners(clear_existing: bool = False) -> None:
     """Assumes champ team is pre-picked
     """
-    pl_list = Player.get_player_map().values()
-    non_champs = list(filter(lambda x: not x.reigning_champ, pl_list))
-    by_seed = sorted(non_champs, key=lambda x: x.player_seed)
+    if clear_existing:
+        Player.clear_partner_picks()
 
-    avail = list(by_seed)  # shallow copy
-    for player in by_seed:
+    avail = Player.available_players()  # already sorted by player_seed
+    assert len(avail) >= 2
+    pickers = list(avail)  # shallow copy
+    for player in pickers:
+        # picker may have already been picked in this loop
         if player.picked_by:
             assert player not in avail
             continue
@@ -404,11 +413,13 @@ def build_tourn_bracket() -> list[TournGame]:
     tourn.complete_stage(TournStage.TOURN_BRACKET)
     return games
 
-def fake_tourn_games() -> None:
+def fake_tourn_games(clear_existing: bool = False) -> None:
     """Generates random team points and determines winner for each tournament game (before
-    semis/finals)
+    semis/finals).  Note that `clear_existing` only clears completed games.
     """
     for game in TournGame.iter_games():
+        if game.winner and not clear_existing:
+            continue
         winner_pts = 10
         loser_pts = random.randrange(10)
         if random.randrange(2) > 0:
@@ -422,7 +433,7 @@ def fake_tourn_games() -> None:
 def tabulate_tourn() -> None:
     """
     """
-    tm_map = Team.get_team_map()
+    tm_map = Team.get_team_map(requery=True)
 
     for team in tm_map.values():
         assert team.tourn_wins is None

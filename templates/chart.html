@@ -158,7 +158,7 @@
             </tr>
           </thead>
           <tbody>
-            {% for rnd in range(1, tourn_rnds + 1) %}
+            {% for rnd in range(1, rnds + 1) %}
             <tr>
               <td>{{rnd}}</td>
               <td class="vert_sect">{{matchups[div][rnd][1]|safe}}</td>
@@ -185,19 +185,19 @@
               <th class="plyr_lbl hor_sect" rowspan="2">Team (by Div Seed)</th>
               <th class="hor_sect" rowspan="2">Wins</th>
               <th class="hor_sect" rowspan=2>Losses</th>
-              <th class="vert_sect" colspan="{{tourn_rnds}}">Points For (by Round)</th>
-              <th class="vert_sect" colspan="{{tourn_rnds}}">Points Against (by Round)</th>
+              <th class="vert_sect" colspan="{{rnds}}">Points For (by Round)</th>
+              <th class="vert_sect" colspan="{{rnds}}">Points Against (by Round)</th>
               <th class="hor_sect vert_sect" rowspan="2">Win Pct</th>
               <th class="hor_sect" rowspan=2>Pts Diff</th>
               <th class="hor_sect" rowspan=2>Div Rank</th>
             </tr>
             <tr>
               <th class="hor_sect vert_sect">1</th>
-              {% for rnd in range(2, tourn_rnds + 1) %}
+              {% for rnd in range(2, rnds + 1) %}
               <th class="hor_sect">{{rnd}}</th>
               {% endfor %}
               <th class="hor_sect vert_sect">1</th>
-              {% for rnd in range(2, tourn_rnds + 1) %}
+              {% for rnd in range(2, rnds + 1) %}
               <th class="hor_sect">{{rnd}}</th>
               {% endfor %}
             </tr>
@@ -209,11 +209,11 @@
               <td class="tally"><img {{win_tallies[div][tm.team_seed]|safe}} /></td>
               <td class="tally"><img {{loss_tallies[div][tm.team_seed]|safe}} /></td>
               <td class="vert_sect">{{team_pts[div][tm.team_seed].get(1, '-')|safe}}</td>
-              {% for rnd in range(2, tourn_rnds + 1) %}
+              {% for rnd in range(2, rnds + 1) %}
               <td>{{team_pts[div][tm.team_seed].get(rnd, '-')|safe}}</td>
               {% endfor %}
               <td class="vert_sect">{{opp_pts[div][tm.team_seed].get(1, '-')|safe}}</td>
-              {% for rnd in range(2, tourn_rnds + 1) %}
+              {% for rnd in range(2, rnds + 1) %}
               <td>{{opp_pts[div][tm.team_seed].get(rnd, '-')|safe}}</td>
               {% endfor %}
               <td class="vert_sect">{{round_val(tm.tourn_win_pct)}}%</td>

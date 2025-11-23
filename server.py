@@ -1084,9 +1084,11 @@ SEL_NEW = "(create new)"
 def render_app(context: dict) -> str:
     """Common post-processing of context before rendering the main app page through Jinja
     """
+    view_name = None
     view_chk = [''] * len(View)
     view = context.get('view')
     if isinstance(view, int):
+        view_name = VIEW_NAME[view]
         view_chk[view] = CHECKED
 
     base_ctx = {
@@ -1094,7 +1096,7 @@ def render_app(context: dict) -> str:
         'tourn_sel': get_tourns() + [SEL_SEP, SEL_NEW],
         'sel_sep'  : SEL_SEP,
         'sel_new'  : SEL_NEW,
-        'view_name': VIEW_NAME[view],
+        'view_name': view_name,
         'view_chk' : view_chk,
         'pl_layout': pl_layout,
         'sg_layout': sg_layout,

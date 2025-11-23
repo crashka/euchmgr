@@ -4,8 +4,11 @@
     <title>{{title}}</title>
 
     <style>
-     .red {
+     .attn {
        background-color: #FFECEC;
+     }
+     .demo {
+       background-color: #AFEEEE;
      }
      .container {
        overflow: hidden;
@@ -383,7 +386,7 @@
         <div class="subsection buttons">
           <form action="/" method="post">
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
-            <button class="submit" value="fake_seed_results"}}">Generate Fake Results</button>
+            <button class="submit demo" value="fake_seed_results"}}">Generate Fake Results</button>
             <button class="submit" value="tabulate_seed_results"}}">Tabulate Results</button>
             <span class="lnk_lbl">Display Chart:</span>
             <a href="#" onclick="window.open('/chart/sd_bracket/{{tourn.name}}', '_blank')"">Seeding Round Bracket</a>
@@ -405,7 +408,7 @@
         <div class="subsection buttons">
           <form action="/" method="post">
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
-            <button class="submit" value="fake_partner_picks"}}">Generate Fake Picks</button>
+            <button class="submit demo" value="fake_partner_picks"}}">Generate Fake Picks</button>
             <button class="submit" value="comp_team_seeds"}}">Compute Team Seeds</button>
           </form>
         </div>
@@ -442,7 +445,7 @@
         <div class="subsection buttons">
           <form action="/" method="post">
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
-            <button class="submit" value="fake_tourn_results"}}">Generate Fake Results</button>
+            <button class="submit demo" value="fake_tourn_results"}}">Generate Fake Results</button>
             <button class="submit" value="tabulate_tourn_results"}}">Tabulate Results</button>
             <span class="lnk_lbl">Display Chart:</span>
             <a href="#" onclick="window.open('/chart/rr_brackets/{{tourn.name}}', '_blank')"">Round Robin Brackets</a>
@@ -509,7 +512,7 @@
 
          node.addEventListener('focus', function(e) {
            orig_val = e.target.textContent;
-           $(e.target).removeClass("red");
+           $(e.target).removeClass("attn");
          });
 
          node.addEventListener('blur', function(e) {
@@ -530,7 +533,7 @@
               .fail(function(resp) {
                 console.log('POST /players fail: ', resp.responseText);
                 cell.data(orig_val).draw();
-                $(e.target).addClass("red");
+                $(e.target).addClass("attn");
               });
          }});
        };
@@ -594,7 +597,7 @@
 
          node.addEventListener('focus', function(e) {
            orig_val = e.target.textContent;
-           $(e.target).removeClass("red");
+           $(e.target).removeClass("attn");
          });
 
          node.addEventListener('blur', function(e) {
@@ -615,7 +618,7 @@
               .fail(function(resp) {
                 console.log('POST /seeding fail: ', resp.responseText);
                 cell.data(orig_val).draw();
-                $(e.target).addClass("red");
+                $(e.target).addClass("attn");
               });
          }});
        };
@@ -679,7 +682,7 @@
 
          node.addEventListener('focus', function(e) {
            orig_val = e.target.textContent;
-           $('td[contenteditable].red').removeClass("red");
+           $('td[contenteditable].attn').removeClass("attn");
            window.getSelection().selectAllChildren(e.target);
          });
 
@@ -697,7 +700,7 @@
                 if (resp.err) {
                   console.log('POST /partners error: ', resp.err);
                   cell.data(orig_val).draw();
-                  $(e.target).addClass("red");
+                  $(e.target).addClass("attn");
                   show_error(resp.err);
                 }
                 else if (resp.upd) {
@@ -710,7 +713,7 @@
               .fail(function(resp) {
                 console.log('POST /partners fail: ', resp.responseText);
                 cell.data(orig_val).draw();
-                $(e.target).addClass("red");
+                $(e.target).addClass("attn");
               });
          }});
        };
@@ -776,7 +779,7 @@
 
          node.addEventListener('focus', function(e) {
            orig_val = e.target.textContent;
-           $(e.target).removeClass("red");
+           $(e.target).removeClass("attn");
          });
 
          node.addEventListener('blur', function(e) {
@@ -797,7 +800,7 @@
               .fail(function(resp) {
                 console.log('POST /teams fail: ', resp.responseText);
                 cell.data(orig_val).draw();
-                $(e.target).addClass("red");
+                $(e.target).addClass("attn");
               });
          }});
        };
@@ -861,7 +864,7 @@
 
          node.addEventListener('focus', function(e) {
            orig_val = e.target.textContent;
-           $(e.target).removeClass("red");
+           $(e.target).removeClass("attn");
          });
 
          node.addEventListener('blur', function(e) {
@@ -882,7 +885,7 @@
               .fail(function(resp) {
                 console.log('POST /round_robin fail: ', resp.responseText);
                 cell.data(orig_val).draw();
-                $(e.target).addClass("red");
+                $(e.target).addClass("attn");
               });
          }});
        };

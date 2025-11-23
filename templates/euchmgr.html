@@ -674,9 +674,11 @@
          node.addEventListener('focus', function(e) {
            orig_val = e.target.textContent;
            $('td[contenteditable].red').removeClass("red");
+           window.getSelection().selectAllChildren(e.target);
          });
 
          node.addEventListener('blur', function(e) {
+           window.getSelection().empty();
            if (e.target.textContent !== orig_val) {
              const cell = table.cell(e.target)
              const row = table.row(e.target.parentElement);

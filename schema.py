@@ -258,15 +258,18 @@ class Player(BaseModel):
 
     @classmethod
     def fetch_by_seed(cls, player_seed: int) -> Self:
-        """Return player by player_seed (always retrieved from database)
+        """Return player by player_seed (always retrieved from database), or `None` if not
+        found
         """
-        try:
-            pl = cls.get(cls.player_seed == player_seed)
-        except DoesNotExist as e:
-            pl = None
-        except:
-            raise
-        return pl
+        return cls.get_or_none(cls.player_seed == player_seed)
+
+    @classmethod
+    def find_by_name_pfx(cls, name_pfx: str) -> Iterator[Self]:
+        """Iterator returning players matching the specified (nick) name prefix
+        """
+        query = cls.select().where(cls.nick_name.startswith(name_pfx))
+        for p in query.iterator():
+            yield p
 
     @classmethod
     def iter_players(cls, by_seeding: bool = False) -> Iterator[Self]:

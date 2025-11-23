@@ -346,7 +346,7 @@ pt_layout = [
     ('seed_ident',     "Pick Order", None),
     ('champ',          "Champ?",     CENTERED),
     ('available',      "Avail?",     CENTERED),
-    ('picks_info',     "Partner(s) (pick by Seed Rank)", EDITABLE),
+    ('picks_info',     "Partner(s) (pick by Name or Rank)", EDITABLE),
     ('picked_by_info', "Picked By",  None)
 ]
 
@@ -389,7 +389,22 @@ def post_partners() -> dict:
     if player != avail[0]:
         return {'err': f"Active pick belongs to \"{avail[0].seed_ident}\""}
 
-    partner = Player.fetch_by_seed(picks_info)
+    if isinstance(picks_info, int):
+        partner = Player.fetch_by_seed(picks_info)
+    elif isinstance(picks_info, str):
+        matches = list(Player.find_by_name_pfx(picks_info))
+        if len(matches) > 1:
+            samples = ', '.join([p.nick_name for p in matches][:2]) + ", etc."
+            return {'err': f"Multiple matches ({samples}) found for name starting with \"{picks_info}\""}
+        elif len(matches) == 1:
+            partner = matches.pop()
+        else:
+            partner = None
+    else:
+        return {'err': f"Cannot find player identified by \"{picks_info}\""}
+
+    if not partner:
+        return {'err': f"Partner identified by \"{picks_info}\" does not exist"}
     if not partner.available:
         return {'err': f"Partner pick \"{partner.seed_ident}\" not available"}
     if partner == player:
@@ -1085,6 +1100,26 @@ def render_chart(context: dict) -> str:
     """Common post-processing of context before rendering chart pages through Jinja
     """
     return render_template(CHART_TEMPLATE, **context)
+
+# type aliases
+RowSelector = str
+
+succ_msg = lambda x: "success" if x else "failure"
+
+def ajax_response(succ: bool, msg: str = None, data: dict | bool = None) -> dict:
+    """Return data for ajax request (either GET or POST).  The `data` arg is passed
+    through to the front-end: it is either a dict (JSON object) representing `rowId:
+    rowData` key-value pairs, or `True` representing a directive to reload the entire
+    table data.
+
+    LATER: may want to add selectors for row and/or cell highlights (to indicate problem
+    areas), and possibly also for the cell in which to set focus upon return!
+    """
+    return {
+        'succ'   : succ,
+        'msg'    : msg if msg else succ_msg(succ),
+        'data'   : data
+    }
 
 #########################
 # Content / Metacontent #

@@ -385,13 +385,13 @@ def post_partners() -> dict:
 
     player = Player[typecast(data['id'])]
     if not player.available:
-        return {'err': f"Specified picker \"{player.seed_ident}\" already on a team"}
+        return {'err': f"Current player \"{player.seed_ident}\" already on a team"}
     if player != avail[0]:
-        return {'err': f"Current pick belongs to \"{avail[0].seed_ident}\""}
+        return {'err': f"Active pick belongs to \"{avail[0].seed_ident}\""}
 
     partner = Player.fetch_by_seed(picks_info)
     if not partner.available:
-        return {'err': f"Selected partner \"{partner.seed_ident}\" not available"}
+        return {'err': f"Partner pick \"{partner.seed_ident}\" not available"}
     if partner == player:
         return {'err': f"Cannot choose self as a partner"}
 

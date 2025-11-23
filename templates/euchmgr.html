@@ -133,6 +133,10 @@
   </head>
 
   <body>
+    <dialog class="err_dlg">
+      <p></p>
+      <button autofocus>Close</button>
+    </dialog>
     {% if not tourn or (tourn.stage_compl or 0) < 2 %}
     <form action="/" method="post" enctype="multipart/form-data">
       <div class="section">
@@ -166,7 +170,7 @@
             <tr>
               <td class="td_lbl">Name:</td>
               <td class="td_txt">
-                <input name="tourn_name" type="text" value="{{tourn.name if tourn.name else ''}}" placeholder="required (must be unique)" required>
+                <input name="tourn_name" type="text" value="{{tourn.name if tourn.name else ''}}" placeholder="required (must be unique)" required autofocus>
               </td>
             </tr>
             <tr>
@@ -383,10 +387,6 @@
       </div>
 
       <div class="section partners">
-        <dialog id="ptnr_dlg">
-          <p></p>
-          <button autofocus>Close</button>
-        </dialog>
         <table id="ptnr_tbl" class="display" spellcheck="false">
           <thead>
             <tr>
@@ -458,6 +458,15 @@
        name: "submit_func"
      });
 
+     // error dialog
+     $('.err_dlg button').on('click', function() {
+       $('.err_dlg')[0].close();
+     });
+     const show_error = function(err_text) {
+       $('.err_dlg p').text(err_text);
+       $('.err_dlg')[0].showModal();
+     };
+
      // tournament section
      $(".sel_tourn").on('change', function() {
        const tourn    = $(this).val();
@@ -481,6 +490,7 @@
        const editable = function(node) {
          let orig_val;
 
+         node.classList.add("pick");
          node.setAttribute('contenteditable', true);
          node.addEventListener('keypress', function(e) {
            if (e.which == 13) {
@@ -663,7 +673,7 @@
 
          node.addEventListener('focus', function(e) {
            orig_val = e.target.textContent;
-           $(e.target).removeClass("red");
+           $('td[contenteditable].red').removeClass("red");
          });
 
          node.addEventListener('blur', function(e) {
@@ -680,9 +690,7 @@
                   console.log('POST /partners error: ', resp.err);
                   cell.data(orig_val).draw();
                   $(e.target).addClass("red");
-
-                  $('#ptnr_dlg p').text(resp.err);
-                  $('#ptnr_dlg')[0].showModal();
+                  show_error(resp.err);
                 }
                 else if (resp.upd) {
                   //console.log('Updating row data: ', resp.data);
@@ -738,11 +746,6 @@
          initComplete: function(settings, json) {
            table.columns.adjust().draw();
          }
-       });
-
-       // event handlers
-       $('#ptnr_dlg button').on('click', function () {
-         $('#ptnr_dlg')[0].close();
        });
      }
 

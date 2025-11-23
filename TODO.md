@@ -2,7 +2,8 @@
 
 ## Features/Enhancements
 
-- pick partners by typing in leading portion of name (unique partial matching)
+- set focus on partner picking field for currently active picker when entering partner
+  view
 - add clear player_num and clear partner picks buttons (for convenience)
 - entry and exit criteria for tournament stages
 - enable/diabling UI buttons based on entry/exit criteria
@@ -21,7 +22,6 @@
 
 ## Bugs
 
-- only allow currently remaining highest ranked player to make partner picks
 - make bye rows readonly, for seeding and round robin views
 - maintain player\_game and team\_game tables properly when updating scores
   - ...or invalidate, then regenerate when needed

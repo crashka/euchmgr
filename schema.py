@@ -326,7 +326,7 @@ class Player(BaseModel):
         if self.partner:
             pt_info = self.partner.seed_ident
             if self.partner2:
-                pt_info += f", {self.partner2.seed_ident} [THM]"
+                pt_info += f", {self.partner2.seed_ident}"
         return pt_info
 
     @property

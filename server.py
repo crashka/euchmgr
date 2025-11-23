@@ -69,6 +69,15 @@ class View(IntEnum):
     TEAMS       = 3
     ROUND_ROBIN = 4
 
+
+VIEW_NAME = [
+    'Players',
+    'Seeding Round',
+    'Picking Partners',
+    'Teams',
+    'Round Robin'
+]
+
 ###############
 # tourn stuff #
 ###############
@@ -597,8 +606,8 @@ def sd_bracket(tourn: TournInfo) -> str:
     context = {
         'chart_num' : 0,
         'title'     : SD_BRACKET,
-        'tourn_name': tourn.name,
-        'seed_rnds' : tourn.seed_rounds,
+        'tourn'     : tourn,
+        'rnds'      : tourn.seed_rounds,
         'rnd_tables': rnd_tables,
         'matchups'  : matchups,
         'bold_color': '#555555'
@@ -640,8 +649,8 @@ def sd_scores(tourn: TournInfo) -> str:
     context = {
         'chart_num'   : 1,
         'title'       : SD_SCORES,
-        'tourn_name'  : tourn.name,
-        'seed_rnds'   : tourn.seed_rounds,
+        'tourn'       : tourn,
+        'rnds'        : tourn.seed_rounds,
         'players'     : pl_list,
         'team_pts'    : team_pts,
         'opp_pts'     : opp_pts,
@@ -691,8 +700,8 @@ def rr_brackets(tourn: TournInfo) -> str:
     context = {
         'chart_num' : 2,
         'title'     : RR_BRACKETS,
-        'tourn_name': tourn.name,
-        'tourn_rnds': tourn.tourn_rounds,
+        'tourn'     : tourn,
+        'rnds'      : tourn.tourn_rounds,
         'div_list'  : div_list,
         'rnd_tables': rnd_tables,
         'matchups'  : matchups,
@@ -748,8 +757,8 @@ def rr_scores(tourn: TournInfo) -> str:
     context = {
         'chart_num'   : 3,
         'title'       : RR_SCORES,
-        'tourn_name'  : tourn.name,
-        'tourn_rnds'  : tourn.tourn_rounds,
+        'tourn'       : tourn,
+        'rnds'        : tourn.tourn_rounds,
         'div_list'    : div_list,
         'div_teams'   : div_teams,
         'team_pts'    : team_pts,
@@ -1085,6 +1094,7 @@ def render_app(context: dict) -> str:
         'tourn_sel': get_tourns() + [SEL_SEP, SEL_NEW],
         'sel_sep'  : SEL_SEP,
         'sel_new'  : SEL_NEW,
+        'view_name': VIEW_NAME[view],
         'view_chk' : view_chk,
         'pl_layout': pl_layout,
         'sg_layout': sg_layout,

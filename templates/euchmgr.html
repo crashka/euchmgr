@@ -17,6 +17,10 @@
        font-size: x-large;
        font-weight: bold;
      }
+     .hdr_view {
+       display: inline-block;
+       width: 11rem;
+     }
      .subsect {
        margin-top: 0.5rem;
        overflow: hidden;
@@ -25,7 +29,7 @@
        width: 12rem;
      }
      .view {
-       margin-left: 2.0rem;
+       margin-left: 1.5rem;
      }
      .view_lbl {
        margin-right: 0.1rem;
@@ -35,9 +39,11 @@
        margin-left: 0.6rem;
        font-weight: bold;
      }
-     .info_blk,
+     .info_blk {
+       padding: 0.8rem 0 0.5rem 1.0rem;
+     }
      .stage_blk {
-       padding: 0.3rem 0;
+       padding-left: 1.0rem;
      }
      .info_blk span,
      .stage_blk span {
@@ -324,7 +330,7 @@
     {% else %}  {# creating tourn #}
     <div class="container">
       <div class="section">
-        <span class="section_lbl">Tournament</span>
+        <span class="section_lbl">{{tourn.name}} &ndash; <span class="hdr_view">{{view_name}}</span></span>
         <span class="view">
           <span class="view_lbl">View:</span>
           <label>Players<input type="radio" name="view_rdo" value="0"{{view_chk[0]}}></label>
@@ -334,7 +340,7 @@
           <label>Round Robin<input type="radio" name="view_rdo" value="4"{{view_chk[4]}}></label>
         </span>
         <div class="subsect info_blk">
-          <span>Name:<input name="tourn_name" type="text" value="{{tourn.name}}" disabled></span>
+          <input name="tourn_name" type="text" value="{{tourn.name}}" hidden>
           <span>Players:<input name="players" type="number" value="{{tourn.players}}" disabled></span>
           <span>Teams:<input name="teams" type="number" value="{{tourn.teams}}" disabled></span>
           <span>THM Teams:<input name="thm_teams" type="number" value="{{tourn.thm_teams}}" disabled></span>
@@ -749,6 +755,8 @@
            table.columns.adjust().draw();
          }
        });
+
+       // TODO: set initial focus (and/or highlight) here!!!
      }
 
      // teams view

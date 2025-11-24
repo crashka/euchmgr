@@ -73,7 +73,9 @@
               {% for tbl in range(2, rnd_tables + 1) %}
               <th class="hor_sect">Table {{tbl}}</th>
               {% endfor %}
-              <th class="hor_sect">Bye(s)</th>
+              {% if rnd_byes %}
+              <th class="hor_sect">Bye</th>
+              {% endif %}
             </tr>
           </thead>
           <tbody>
@@ -84,8 +86,9 @@
               {% for tbl in range(2, rnd_tables + 1) %}
               <td>{{matchups[rnd][tbl]|safe}}</td>
               {% endfor %}
-              {# the following just happens to render as "None" if no byes #}
+              {% if rnd_byes %}
               <td>{{matchups[rnd].get(None)|safe}}</td>
+              {% endif %}
             </tr>
             {% endfor %}
           </tbody>
@@ -154,7 +157,9 @@
               {% for tbl in range(2, rnd_tables[div] + 1) %}
               <th class="hor_sect">Table {{tbl}}</th>
               {% endfor %}
+              {% if rnd_byes[div] %}
               <th class="hor_sect">Bye</th>
+              {% endif %}
             </tr>
           </thead>
           <tbody>
@@ -165,8 +170,9 @@
               {% for tbl in range(2, rnd_tables[div] + 1) %}
               <td>{{matchups[div][rnd][tbl]|safe}}</td>
               {% endfor %}
-              {# the following just happens to render as "None" if no byes #}
+              {% if rnd_byes[div] %}
               <td>{{matchups[div][rnd].get(None)|safe}}</td>
+              {% endif %}
             </tr>
             {% endfor %}
           </tbody>

@@ -609,6 +609,7 @@ def sd_bracket(tourn: TournInfo) -> str:
         'tourn'     : tourn,
         'rnds'      : tourn.seed_rounds,
         'rnd_tables': rnd_tables,
+        'rnd_byes'  : rnd_byes,
         'matchups'  : matchups,
         'bold_color': '#555555'
     }
@@ -704,6 +705,7 @@ def rr_brackets(tourn: TournInfo) -> str:
         'rnds'      : tourn.tourn_rounds,
         'div_list'  : div_list,
         'rnd_tables': rnd_tables,
+        'rnd_byes'  : rnd_byes,
         'matchups'  : matchups,
         'bold_color': '#555555'
     }

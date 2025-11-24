@@ -1080,6 +1080,7 @@ def tabulate_tourn_results(form: dict) -> str:
 
 SEL_SEP = "----------------"
 SEL_NEW = "(create new)"
+BUTTONS = SUBMIT_FUNCS
 
 def render_app(context: dict) -> str:
     """Common post-processing of context before rendering the main app page through Jinja
@@ -1090,6 +1091,32 @@ def render_app(context: dict) -> str:
     if isinstance(view, int):
         view_name = VIEW_NAME[view]
         view_chk[view] = CHECKED
+
+    stage_compl = 0
+    if context.get('tourn'):
+        stage_compl = context['tourn'].stage_compl or 0
+    btn_attr = [''] * len(BUTTONS)
+
+    if stage_compl != TournStage.TEAM_RANKS:
+        btn_attr[2] += ' disabled'
+    if stage_compl not in (TournStage.PLAYER_ROSTER, TournStage.PLAYER_NUMS):
+        btn_attr[4] += ' disabled'
+    if stage_compl != TournStage.PLAYER_NUMS:
+        btn_attr[5] += ' disabled'
+    if stage_compl not in (TournStage.SEED_BRACKET, TournStage.SEED_RESULTS):
+        btn_attr[6] += ' disabled'
+    if stage_compl != TournStage.SEED_RESULTS:
+        btn_attr[7] += ' disabled'
+    if stage_compl != TournStage.SEED_RANKS:
+        btn_attr[8] += ' disabled'
+    if stage_compl != TournStage.PARTNER_PICK:
+        btn_attr[9] += ' disabled'
+    if stage_compl != TournStage.TEAM_SEEDS:
+        btn_attr[10] += ' disabled'
+    if stage_compl not in (TournStage.TOURN_BRACKET, TournStage.TOURN_RESULTS):
+        btn_attr[11] += ' disabled'
+    if stage_compl != TournStage.TOURN_RESULTS:
+        btn_attr[12] += ' disabled'
 
     base_ctx = {
         'title'    : APP_NAME,
@@ -1103,6 +1130,8 @@ def render_app(context: dict) -> str:
         'pt_layout': pt_layout,
         'tm_layout': tm_layout,
         'tg_layout': tg_layout,
+        'btn_val'  : SUBMIT_FUNCS,
+        'btn_attr' : btn_attr,
         'help_txt' : help_txt,
         'ref_links': ref_links
     }

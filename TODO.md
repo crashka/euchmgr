@@ -2,12 +2,8 @@
 
 ## Features/Enhancements
 
-- set focus on partner picking field for currently active picker when entering partner
-  view
-- add clear player_num and clear partner picks buttons (for convenience)
-- entry and exit criteria for tournament stages
-- enable/diabling UI buttons based on entry/exit criteria
-- selector for partner picks?
+- set focus on currently active picker in partner view (and disable picks on other rows)
+- selector for partner picks (not sure we really need this)?
 
 - structure for handling/displaying errors from button pushes or content editing
   - use 'err' member of status 200 response vs. dealing with 400/500 status codes?
@@ -18,7 +14,7 @@
 - auto-updating monitor view (e.g. charts with fading highlights for updates)
 
 - use head-to-head record for tie-breakers
-- implement playoff rounds
+- implement playoff rounds (or at least, generate playoff brackets)
 
 ## Bugs
 
@@ -31,11 +27,11 @@
 - redirect to appropriate view after handling submit_func POST
   - need to handle error messages correctly (and no redirect?)
 - improve HTML and CSS design
-  - use \<section\>, \<div\>, \<span\>, etc. properly
+  - use \<section\>, \<div\>, \<span\>, \<h1\>, \<h2\>, etc. properly
   - prettier styling in general
 - fix naming throughout (e.g. seed vs seeding, seed vs rank, etc.)
 - convert pl\_layout, sg\_layout, etc. from tuples to dict[str, tuple[...]]
-- define views (including buttons, etc.), and/or charts, as data in server.py
+- define views (including buttons, etc.) and/or charts as data in server.py
   - get rid of replicated code in templates
 
 ## Framework

@@ -5,7 +5,7 @@
 
     <style>
      .attn {
-       background-color: #FFECEC;
+       background-color: #FFE4E1;
      }
      .demo {
        background-color: #AFEEEE;
@@ -245,7 +245,7 @@
         </div>
       </div>
       <div class="section buttons">
-        <button class="submit" value="create_tourn">Create Tournament</button>
+        <button class="submit" value="{{btn_val[0]}}"{{btn_attr[0]}}>Create Tournament</button>
       </div>
       {% elif tourn %}
       <div class="container">
@@ -325,8 +325,9 @@
         </div>
       </div>
       <div class="section buttons">
-        <button class="submit" value="update_tourn"}}">Upload Roster File</button>
-        <button class="submit" value="create_roster"}}">Manually Create Roster</button>
+        <button class="submit" value="{{btn_val[1]}}"{{btn_attr[1]}}>Upload Roster File</button>
+        <button class="submit" value="{{btn_val[2]}}"{{btn_attr[2]}}>Archive Tournament</button>
+        <button class="submit" value="{{btn_val[3]}}"{{btn_attr[3]}}>Manually Create Roster</button>
       </div>
       {% endif %}  {# new_tourn #}
     </form>
@@ -367,8 +368,8 @@
         <div class="subsection buttons">
           <form action="/" method="post">
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
-            <button class="submit" value="gen_player_nums"}}">Generate Player Nums</button>
-            <button class="submit" value="gen_seed_bracket"}}">Create Seeding Bracket</button>
+            <button class="submit" value="{{btn_val[4]}}"{{btn_attr[4]}}>Generate Player Nums</button>
+            <button class="submit" value="{{btn_val[5]}}"{{btn_attr[5]}}>Create Seeding Bracket</button>
           </form>
         </div>
       </div>
@@ -386,8 +387,8 @@
         <div class="subsection buttons">
           <form action="/" method="post">
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
-            <button class="submit demo" value="fake_seed_results"}}">Generate Fake Results</button>
-            <button class="submit" value="tabulate_seed_results"}}">Tabulate Results</button>
+            <button class="submit demo" value="{{btn_val[6]}}"{{btn_attr[6]}}>Generate Fake Results</button>
+            <button class="submit" value="{{btn_val[7]}}"{{btn_attr[7]}}>Tabulate Results</button>
             <span class="lnk_lbl">Display Chart:</span>
             <a href="#" onclick="window.open('/chart/sd_bracket/{{tourn.name}}', '_blank')"">Seeding Round Bracket</a>
             <a href="#" onclick="window.open('/chart/sd_scores/{{tourn.name}}', '_blank')"">Seeding Round Scores</a>
@@ -408,8 +409,8 @@
         <div class="subsection buttons">
           <form action="/" method="post">
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
-            <button class="submit demo" value="fake_partner_picks"}}">Generate Fake Picks</button>
-            <button class="submit" value="comp_team_seeds"}}">Compute Team Seeds</button>
+            <button class="submit demo" value="{{btn_val[8]}}"{{btn_attr[8]}}>Generate Fake Picks</button>
+            <button class="submit" value="{{btn_val[9]}}"{{btn_attr[9]}}>Compute Team Seeds</button>
           </form>
         </div>
       </div>
@@ -427,7 +428,7 @@
         <div class="subsection buttons">
           <form action="/" method="post">
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
-            <button class="submit" value="gen_tourn_brackets"}}">Create Round Robin Brackets</button>
+            <button class="submit" value="{{btn_val[10]}}"{{btn_attr[10]}}>Create Round Robin Brackets</button>
           </form>
         </div>
       </div>
@@ -445,8 +446,8 @@
         <div class="subsection buttons">
           <form action="/" method="post">
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
-            <button class="submit demo" value="fake_tourn_results"}}">Generate Fake Results</button>
-            <button class="submit" value="tabulate_tourn_results"}}">Tabulate Results</button>
+            <button class="submit demo" value="{{btn_val[11]}}"{{btn_attr[11]}}>Generate Fake Results</button>
+            <button class="submit" value="{{btn_val[12]}}"{{btn_attr[12]}}>Tabulate Results</button>
             <span class="lnk_lbl">Display Chart:</span>
             <a href="#" onclick="window.open('/chart/rr_brackets/{{tourn.name}}', '_blank')"">Round Robin Brackets</a>
             <a href="#" onclick="window.open('/chart/rr_scores/{{tourn.name}}', '_blank')"">Round Robin Scores</a>

@@ -9,6 +9,7 @@ from peewee import (TextField, IntegerField, BooleanField, ForeignKeyField, Floa
                     OperationalError, DoesNotExist)
 from playhouse.sqlite_ext import JSONField
 
+from core import ImplementationError
 from database import BaseModel
 
 DFLT_SEED_ROUNDS  = 8
@@ -23,20 +24,20 @@ BRACKET_PLAYOFF   = 'playoff'
 
 # stage values are chronologically sequenced
 TournStage = IntEnum('TournStage',
-                     ['TOURN_CREATE',
+                     ['TOURN_CREATE',   # 1
                       'PLAYER_ROSTER',
                       'PLAYER_NUMS',
                       'SEED_BRACKET',
-                      'SEED_RESULTS',
+                      'SEED_RESULTS',   # 5
                       'SEED_TABULATE',
                       'SEED_RANKS',
                       'PARTNER_PICK',
                       'TOURN_TEAMS',
-                      'TEAM_SEEDS',
+                      'TEAM_SEEDS',     # 10
                       'TOURN_BRACKET',
                       'TOURN_RESULTS',
                       'TOURN_TABULATE',
-                      'TEAM_RANKS'])
+                      'TEAM_RANKS'])    # 14
 
 class StageInfo(NamedTuple):
     """Behavior parameters and messages for tournament stages
@@ -236,13 +237,11 @@ class Player(BaseModel):
         """Delete player_num values for all rows (or specified IDs); return number of
         records updated.  Also refreshes (or clears) the cached player map.
         """
-        assert ids is None, "list of IDs not yet supported"
-        res = 0
-        pl_map = Player.get_player_map(requery=True)
-        if None in pl_map:
-            upd = Player.update(player_num=None)
-            res = upd.execute()
-            cls.player_map = None
+        if ids is not None:
+            raise ImplementationError("list of IDs not yet supported")
+        upd = Player.update(player_num=None)
+        res = upd.execute()
+        cls.player_map = None
         return res
 
     @classmethod
@@ -250,14 +249,11 @@ class Player(BaseModel):
         """Delete partner_picks for all rows (or specified IDs); return number of records
         updated.  Also refreshes (or clears) the cached player map.
         """
-        assert ids is None, "list of IDs not yet supported"
-        res = 0
-        pl_list = cls.get_player_map(requery=True).values()
-        not_avail = list(filter(lambda x: not x.available, pl_list))
-        if len(not_avail) > 0:
-            upd = Player.update(partner=None, partner2=None, picked_by=None)
-            res = upd.execute()
-            cls.player_map = None
+        if ids is not None:
+            raise ImplementationError("list of IDs not yet supported")
+        upd = Player.update(partner=None, partner2=None, picked_by=None)
+        res = upd.execute()
+        cls.player_map = None
         return res
 
     @classmethod

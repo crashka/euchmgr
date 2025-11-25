@@ -2,15 +2,10 @@
 
 ## Features/Enhancements
 
-- set focus on currently active picker in partner view (and disable picks on other rows)
-- selector for partner picks (not sure we really need this)?
-
-- structure for handling/displaying errors from button pushes or content editing
-  - use 'err' member of status 200 response vs. dealing with 400/500 status codes?
-  - use \<dialog closedby="any"\> HTML elements?
-
 - compute intermediary results/stats when scores are entered
-  - related: create teams as picks are made?
+- maintain player\_game and team\_game tables properly when updating scores
+  - ...or invalidate, then regenerate when needed
+- create teams as picks are made?
 - auto-updating monitor view (e.g. charts with fading highlights for updates)
 
 - use head-to-head record for tie-breakers
@@ -19,8 +14,8 @@
 ## Bugs
 
 - make bye rows readonly, for seeding and round robin views
-- maintain player\_game and team\_game tables properly when updating scores
-  - ...or invalidate, then regenerate when needed
+- set focus on currently active picker in partner view (and disable picks on other rows)
+- selector for partner picks (not sure we really need this)?
 
 ## Refactoring
 

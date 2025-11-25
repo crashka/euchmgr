@@ -84,13 +84,6 @@
        width: 27rem;
        float: left;
      }
-     .info_msg {
-       display: block;
-     }
-     .err_msg {
-       display: block;
-       color: #FF0000;
-     }
      .buttons {
        clear: both;
        padding: 1.0rem 0;
@@ -226,11 +219,6 @@
             </tr>
           </table>
         </div>
-        {% if err_msg %}
-        <div class="section">
-          <span class="err_msg">{{err_msg}}</span>
-        </div>
-        {% endif %}
       </div>
       <div class="section buttons">
         <button class="submit" value="{{btn_val[0]}}"{{btn_attr[0]}}>Create Tournament</button>
@@ -294,11 +282,6 @@
             </tr>
           </table>
         </div>
-        {% if err_msg %}
-        <div class="section">
-          <span class="err_msg">{{err_msg}}</span>
-        </div>
-        {% endif %}
       </div>
       <div class="section buttons">
         <button class="submit" value="{{btn_val[1]}}"{{btn_attr[1]}}>Upload Roster File</button>
@@ -925,6 +908,10 @@
          }
        });
      }
+
+     {% if err_msg %}
+     show_error('{{err_msg|safe}}');
+     {% endif %}
    });
   </script>
 </html>

@@ -790,12 +790,11 @@ def rr_scores(tourn: TournInfo) -> str:
 def create_tourn(form: dict) -> str:
     """
     """
-    info_msgs   = []
-    err_msgs    = []
-    tourn       = None
-    new_tourn   = False
-    roster_fn   = None
-    view        = None
+    err_msg   = None
+    tourn     = None
+    new_tourn = False
+    roster_fn = None
+    view      = None
 
     tourn_name  = form.get('tourn_name')
     timeframe   = form.get('timeframe') or None
@@ -810,17 +809,15 @@ def create_tourn(form: dict) -> str:
     try:
         db_init(tourn_name)
         tourn = tourn_create(timeframe=timeframe, venue=venue, force=bool(force))
-        info_msgs.append(f"Tournament \"{tourn_name}\" created")
         if roster_file:
             upload_roster(roster_path)
-            info_msgs.append(f"Roster file \"{roster_fn}\" uploaded")
             view = View.PLAYERS
             tourn = TournInfo.get()
         else:
             # TEMP: prompt for uploaded in the UI!!!
-            err_msgs.append("Roster file not specified")
+            err_msg = "Roster file not specified"
     except OperationalError as e:
-        err_msgs.append(cap_first(str(e)))
+        err_msg = cap_first(str(e))
         tourn = TournInfo(name=tourn_name, timeframe=timeframe, venue=venue)
         new_tourn = True
 
@@ -828,8 +825,7 @@ def create_tourn(form: dict) -> str:
         'tourn'      : tourn,
         'new_tourn'  : new_tourn,
         'roster_file': roster_fn,
-        'info_msgs'  : info_msgs,
-        'err_msgs'   : err_msgs,
+        'err_msg'    : err_msg,
         'view'       : view
     }
     return render_app(context)
@@ -837,12 +833,11 @@ def create_tourn(form: dict) -> str:
 def update_tourn(form: dict) -> str:
     """
     """
-    info_msgs   = []
-    err_msgs    = []
-    tourn       = None
-    new_tourn   = False
-    roster_fn   = None
-    view        = None
+    err_msg   = None
+    tourn     = None
+    new_tourn = False
+    roster_fn = None
+    view      = None
 
     tourn_name  = form.get('tourn_name')
     timeframe   = form.get('timeframe') or None
@@ -859,17 +854,15 @@ def update_tourn(form: dict) -> str:
         tourn.timeframe = timeframe
         tourn.venue = venue
         tourn.save()
-        info_msgs.append(f"Tournament \"{tourn_name}\" updated")
         if roster_file:
             upload_roster(roster_path)
-            info_msgs.append(f"Roster file \"{roster_fn}\" uploaded")
             view = View.PLAYERS
             tourn = TournInfo.get()
         else:
             # TEMP: prompt for uploaded in the UI!!!
-            err_msgs.append("Roster file not specified")
+            err_msg = "Roster file not specified"
     except OperationalError as e:
-        err_msgs.append(cap_first(str(e)))
+        err_msg = cap_first(str(e))
         tourn = TournInfo(name=tourn_name, timeframe=timeframe, venue=venue)
         new_tourn = True
 
@@ -877,8 +870,7 @@ def update_tourn(form: dict) -> str:
         'tourn'      : tourn,
         'new_tourn'  : new_tourn,
         'roster_file': roster_fn,
-        'info_msgs'  : info_msgs,
-        'err_msgs'   : err_msgs,
+        'err_msg'    : err_msg,
         'view'       : view
     }
     return render_app(context)
@@ -886,26 +878,19 @@ def update_tourn(form: dict) -> str:
 def create_roster(form: dict) -> str:
     """Manually create the player roster (NOTE: will probably never implement this!)
     """
-    info_msgs   = []
-    err_msgs    = []
-
     tourn_name = form.get('tourn_name')
     db_init(tourn_name)
     tourn = TournInfo.get()
-    err_msgs.append("Not yet implemented!")
+    raise ImplementationError("Not yet implemented!")
 
     context = {
         'tourn'      : tourn,
-        'info_msgs'  : info_msgs,
-        'err_msgs'   : err_msgs,
     }
     return render_app(context)
 
 def gen_player_nums(form: dict) -> str:
     """
     """
-    info_msgs   = []
-    err_msgs    = []
     view        = None
 
     tourn_name  = form.get('tourn_name')
@@ -915,8 +900,6 @@ def gen_player_nums(form: dict) -> str:
 
     context = {
         'tourn'      : TournInfo.get(),
-        'info_msgs'  : info_msgs,
-        'err_msgs'   : err_msgs,
         'view'       : view
     }
     return render_app(context)
@@ -924,8 +907,6 @@ def gen_player_nums(form: dict) -> str:
 def gen_seed_bracket(form: dict) -> str:
     """
     """
-    info_msgs   = []
-    err_msgs    = []
     view        = None
 
     tourn_name  = form.get('tourn_name')
@@ -935,8 +916,6 @@ def gen_seed_bracket(form: dict) -> str:
 
     context = {
         'tourn'      : TournInfo.get(),
-        'info_msgs'  : info_msgs,
-        'err_msgs'   : err_msgs,
         'view'       : view
     }
     return render_app(context)
@@ -944,8 +923,6 @@ def gen_seed_bracket(form: dict) -> str:
 def fake_seed_results(form: dict) -> str:
     """
     """
-    info_msgs   = []
-    err_msgs    = []
     view        = None
 
     tourn_name  = form.get('tourn_name')
@@ -955,8 +932,6 @@ def fake_seed_results(form: dict) -> str:
 
     context = {
         'tourn'      : TournInfo.get(),
-        'info_msgs'  : info_msgs,
-        'err_msgs'   : err_msgs,
         'view'       : view
     }
     return render_app(context)
@@ -964,8 +939,6 @@ def fake_seed_results(form: dict) -> str:
 def tabulate_seed_results(form: dict) -> str:
     """
     """
-    info_msgs   = []
-    err_msgs    = []
     view        = None
 
     tourn_name  = form.get('tourn_name')
@@ -977,8 +950,6 @@ def tabulate_seed_results(form: dict) -> str:
 
     context = {
         'tourn'      : TournInfo.get(),
-        'info_msgs'  : info_msgs,
-        'err_msgs'   : err_msgs,
         'view'       : view
     }
     return render_app(context)
@@ -986,8 +957,6 @@ def tabulate_seed_results(form: dict) -> str:
 def fake_partner_picks(form: dict) -> str:
     """
     """
-    info_msgs   = []
-    err_msgs    = []
     view        = None
 
     tourn_name  = form.get('tourn_name')
@@ -997,8 +966,6 @@ def fake_partner_picks(form: dict) -> str:
 
     context = {
         'tourn'      : TournInfo.get(),
-        'info_msgs'  : info_msgs,
-        'err_msgs'   : err_msgs,
         'view'       : view
     }
     return render_app(context)
@@ -1006,8 +973,6 @@ def fake_partner_picks(form: dict) -> str:
 def comp_team_seeds(form: dict) -> str:
     """
     """
-    info_msgs   = []
-    err_msgs    = []
     view        = None
 
     tourn_name  = form.get('tourn_name')
@@ -1018,8 +983,6 @@ def comp_team_seeds(form: dict) -> str:
 
     context = {
         'tourn'      : TournInfo.get(),
-        'info_msgs'  : info_msgs,
-        'err_msgs'   : err_msgs,
         'view'       : view
     }
     return render_app(context)
@@ -1027,8 +990,6 @@ def comp_team_seeds(form: dict) -> str:
 def gen_tourn_brackets(form: dict) -> str:
     """
     """
-    info_msgs   = []
-    err_msgs    = []
     view        = None
 
     tourn_name  = form.get('tourn_name')
@@ -1038,8 +999,6 @@ def gen_tourn_brackets(form: dict) -> str:
 
     context = {
         'tourn'      : TournInfo.get(),
-        'info_msgs'  : info_msgs,
-        'err_msgs'   : err_msgs,
         'view'       : view
     }
     return render_app(context)
@@ -1047,8 +1006,6 @@ def gen_tourn_brackets(form: dict) -> str:
 def fake_tourn_results(form: dict) -> str:
     """
     """
-    info_msgs   = []
-    err_msgs    = []
     view        = None
 
     tourn_name  = form.get('tourn_name')
@@ -1058,8 +1015,6 @@ def fake_tourn_results(form: dict) -> str:
 
     context = {
         'tourn'      : TournInfo.get(),
-        'info_msgs'  : info_msgs,
-        'err_msgs'   : err_msgs,
         'view'       : view
     }
     return render_app(context)
@@ -1067,8 +1022,6 @@ def fake_tourn_results(form: dict) -> str:
 def tabulate_tourn_results(form: dict) -> str:
     """
     """
-    info_msgs   = []
-    err_msgs    = []
     view        = None
 
     tourn_name  = form.get('tourn_name')
@@ -1079,8 +1032,6 @@ def tabulate_tourn_results(form: dict) -> str:
 
     context = {
         'tourn'      : TournInfo.get(),
-        'info_msgs'  : info_msgs,
-        'err_msgs'   : err_msgs,
         'view'       : view
     }
     return render_app(context)
@@ -1093,9 +1044,25 @@ SEL_SEP = "----------------"
 SEL_NEW = "(create new)"
 BUTTONS = SUBMIT_FUNCS
 
+# button index to tuple of stages for which button is enabled
+BUTTON_MAP = {
+    2:  (TournStage.TEAM_RANKS,),
+    4:  (TournStage.PLAYER_ROSTER, TournStage.PLAYER_NUMS),
+    5:  (TournStage.PLAYER_NUMS,),
+    6:  (TournStage.SEED_BRACKET, TournStage.SEED_RESULTS),
+    7:  (TournStage.SEED_RESULTS,),
+    8:  (TournStage.SEED_RANKS,),
+    9:  (TournStage.PARTNER_PICK,),
+    10: (TournStage.TEAM_SEEDS,),
+    11: (TournStage.TOURN_BRACKET, TournStage.TOURN_RESULTS),
+    12: (TournStage.TOURN_RESULTS,)
+}
+
 def render_app(context: dict) -> str:
     """Common post-processing of context before rendering the main app page through Jinja
     """
+    if 'err_msg' not in context:
+        context['err_msg'] = None
     view_name = None
     view_chk = [''] * len(View)
     view = context.get('view')
@@ -1107,27 +1074,9 @@ def render_app(context: dict) -> str:
     if context.get('tourn'):
         stage_compl = context['tourn'].stage_compl or 0
     btn_attr = [''] * len(BUTTONS)
-
-    if stage_compl not in (TournStage.TEAM_RANKS,):
-        btn_attr[2] += DISABLED
-    if stage_compl not in (TournStage.PLAYER_ROSTER, TournStage.PLAYER_NUMS):
-        btn_attr[4] += DISABLED
-    if stage_compl not in (TournStage.PLAYER_NUMS,):
-        btn_attr[5] += DISABLED
-    if stage_compl not in (TournStage.SEED_BRACKET, TournStage.SEED_RESULTS):
-        btn_attr[6] += DISABLED
-    if stage_compl not in (TournStage.SEED_RESULTS,):
-        btn_attr[7] += DISABLED
-    if stage_compl not in (TournStage.SEED_RANKS,):
-        btn_attr[8] += DISABLED
-    if stage_compl not in (TournStage.PARTNER_PICK,):
-        btn_attr[9] += DISABLED
-    if stage_compl not in (TournStage.TEAM_SEEDS,):
-        btn_attr[10] += DISABLED
-    if stage_compl not in (TournStage.TOURN_BRACKET, TournStage.TOURN_RESULTS):
-        btn_attr[11] += DISABLED
-    if stage_compl not in (TournStage.TOURN_RESULTS,):
-        btn_attr[12] += DISABLED
+    for btn_idx, btn_stages in BUTTON_MAP.items():
+        if stage_compl not in btn_stages:
+            btn_attr[btn_idx] += DISABLED
 
     base_ctx = {
         'title'    : APP_NAME,

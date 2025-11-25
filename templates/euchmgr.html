@@ -226,23 +226,11 @@
             </tr>
           </table>
         </div>
+        {% if err_msg %}
         <div class="section">
-          <span class="section_lbl">Messages</span>
-          <span class="info_msg">
-            {% for info_msg in info_msgs %}
-            {{info_msg}}<br/>
-            {% endfor %}
-          </span>
-          <span class="err_msg">
-            {% for err_msg in err_msgs %}
-            {{err_msg}}<br/>
-            {% endfor %}
-          </span>
+          <span class="err_msg">{{err_msg}}</span>
         </div>
-        <div class="section">
-          <span class="section_lbl">Current Stage</span>
-          <span class="info_msg">{{tourn.cur_stage if tourn.cur_stage else ''}}</span>
-        </div>
+        {% endif %}
       </div>
       <div class="section buttons">
         <button class="submit" value="{{btn_val[0]}}"{{btn_attr[0]}}>Create Tournament</button>
@@ -306,23 +294,11 @@
             </tr>
           </table>
         </div>
+        {% if err_msg %}
         <div class="section">
-          <span class="section_lbl">Messages</span>
-          <span class="info_msg">
-            {% for info_msg in info_msgs %}
-            {{info_msg}}<br/>
-            {% endfor %}
-          </span>
-          <span class="err_msg">
-            {% for err_msg in err_msgs %}
-            {{err_msg}}<br/>
-            {% endfor %}
-          </span>
+          <span class="err_msg">{{err_msg}}</span>
         </div>
-        <div class="section">
-          <span class="section_lbl">Current Stage</span>
-          <span class="info_msg">{{tourn.cur_stage if tourn.cur_stage else ''}}</span>
-        </div>
+        {% endif %}
       </div>
       <div class="section buttons">
         <button class="submit" value="{{btn_val[1]}}"{{btn_attr[1]}}>Upload Roster File</button>

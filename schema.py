@@ -519,7 +519,8 @@ class SeedGame(BaseModel):
         if set(self._dirty) & {'team1_pts', 'team2_pts'}:
             if None not in {self.team1_pts, self.team2_pts}:
                 if self.team1_pts >= GAME_PTS:
-                    assert self.team2_pts < GAME_PTS, f"both team scores > {GAME_PTS}"
+                    if self.team2_pts >= GAME_PTS:
+                        raise RuntimeError(f"Only one team can score game-winning points ({GAME_PTS})")
                     self.winner = self.team1_name
                 elif self.team2_pts >= GAME_PTS:
                     self.winner = self.team2_name
@@ -725,7 +726,8 @@ class TournGame(BaseModel):
         if set(self._dirty) & {'team1_pts', 'team2_pts'}:
             if None not in {self.team1_pts, self.team2_pts}:
                 if self.team1_pts >= GAME_PTS:
-                    assert self.team2_pts < GAME_PTS, f"both team scores > {GAME_PTS}"
+                    if self.team2_pts >= GAME_PTS:
+                        raise RuntimeError(f"Only one team can score game-winning points ({GAME_PTS})")
                     self.winner = self.team1_name
                 elif self.team2_pts >= GAME_PTS:
                     self.winner = self.team2_name

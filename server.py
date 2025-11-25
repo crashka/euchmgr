@@ -60,6 +60,7 @@ CHECKED  = ' checked'
 HIDDEN   = 'hidden'
 CENTERED = 'centered'
 EDITABLE = 'editable'
+DISABLED = ' disabled'
 
 # app views
 class View(IntEnum):
@@ -250,14 +251,13 @@ def get_players() -> dict:
         pl_props = {prop: getattr(player, prop) for prop in pl_addl_props}
         pl_data.append(player.__data__ | pl_props)
 
-    return {'data': pl_data}
+    return ajax_data(pl_data)
 
 @app.post("/players")
 def post_players() -> dict:
     """
     """
     pl_data = None
-    pl_upd = False
 
     data = request.form
     upd_info = {x[0]: data.get(x[0]) for x in pl_layout if x[2] == EDITABLE}
@@ -267,13 +267,15 @@ def post_players() -> dict:
             setattr(player, col, typecast(val))
         player.save()
 
-        pl_props = {prop: getattr(player, prop) for prop in pl_addl_props}
-        pl_data = player.__data__ | pl_props
-        pl_upd = False
+        # NOTE: no need to update row data for now (LATER, may need this if denorm or
+        # derived fields are updated when saving)
+        if False:
+            pl_props = {prop: getattr(player, prop) for prop in pl_addl_props}
+            pl_data = player.__data__ | pl_props
     except IntegrityError as e:
-        abort(409, str(e))
+        return ajax_error(str(e))
 
-    return {'data': pl_data, 'upd': pl_upd}
+    return ajax_data(pl_data)
 
 ############
 # /seeding #
@@ -309,14 +311,13 @@ def get_seeding() -> dict:
         sg_props = {prop: getattr(game, prop) for prop in sg_addl_props}
         sg_data.append(game.__data__ | sg_props)
 
-    return {'data': sg_data}
+    return ajax_data(sg_data)
 
 @app.post("/seeding")
 def post_seeding() -> dict:
     """
     """
     sg_data = None
-    sg_upd = None
 
     data = request.form
     upd_info = {x[0]: data.get(x[0]) for x in sg_layout if x[2] == EDITABLE}
@@ -326,13 +327,13 @@ def post_seeding() -> dict:
             setattr(game, col, typecast(val))
         game.save()
 
-        sg_props = {prop: getattr(game, prop) for prop in sg_addl_props}
-        sg_data = game.__data__ | sg_props
-        sg_upd = bool(game.winner)
-    except AssertionError as e:
-        abort(409, str(e))
+        if game.winner:
+            sg_props = {prop: getattr(game, prop) for prop in sg_addl_props}
+            sg_data = game.__data__ | sg_props
+    except RuntimeError as e:
+        return ajax_error(str(e))
 
-    return {'data': sg_data, 'upd': sg_upd}
+    return ajax_data(sg_data)
 
 #############
 # /partners #
@@ -372,7 +373,7 @@ def get_partners() -> dict:
         pt_props = {prop: getattr(player, prop) for prop in pt_addl_props}
         pt_data.append(player.__data__ | pt_props)
 
-    return {'data': pt_data}
+    return ajax_data(pt_data)
 
 @app.post("/partners")
 def post_partners() -> dict:
@@ -390,34 +391,42 @@ def post_partners() -> dict:
 
     avail = Player.available_players(requery=True)
     if len(avail) == 0:
-        return {'err': "No available players"}
+        return ajax_error("No available players")
 
     player = Player[typecast(data['id'])]
     if not player.available:
-        return {'err': f"Current player \"{player.seed_ident}\" already on a team"}
+        return ajax_error(f"Current player ({player.nick_name}) already on a team")
     if player != avail[0]:
-        return {'err': f"Active pick belongs to \"{avail[0].seed_ident}\""}
+        return ajax_error(f"Active pick belongs to {avail[0].seed_ident}")
 
     if isinstance(picks_info, int):
         partner = Player.fetch_by_seed(picks_info)
     elif isinstance(picks_info, str):
-        matches = list(Player.find_by_name_pfx(picks_info))
-        if len(matches) > 1:
-            samples = ', '.join([p.nick_name for p in matches][:2]) + ", etc."
-            return {'err': f"Multiple matches ({samples}) found for name starting with \"{picks_info}\""}
-        elif len(matches) == 1:
-            partner = matches.pop()
+        match = list(Player.find_by_name_pfx(picks_info))
+        match_av = list(filter(lambda x: x.available, match))
+        if len(match_av) > 1:
+            av_by_name = sorted(match_av, key=lambda pl: pl.nick_name)
+            samples = ', '.join([p.nick_name for p in av_by_name][:2]) + ", etc."
+            return ajax_error(f"Multiple available matches ({samples}) found for name starting with \"{picks_info}\"")
+        elif len(match_av) == 1:
+            partner = match_av.pop()
+        elif len(match) > 1:
+            by_name = sorted(match, key=lambda pl: pl.nick_name)
+            samples = ', '.join([p.nick_name for p in by_name][:2]) + ", etc."
+            return ajax_error(f"All matches ({samples}) for name starting with \"{picks_info}\" not available")
+        elif len(match) == 1:
+            partner = match.pop()  # will get caught as unavailable, below
         else:
             partner = None
     else:
-        return {'err': f"Cannot find player identified by \"{picks_info}\""}
+        return ajax_error(f"Cannot find player identified by \"{picks_info}\"")
 
     if not partner:
-        return {'err': f"Partner identified by \"{picks_info}\" does not exist"}
+        return ajax_error(f"Player identified by \"{picks_info}\" does not exist")
     if not partner.available:
-        return {'err': f"Partner pick \"{partner.seed_ident}\" not available"}
+        return ajax_error(f"Partner pick ({partner.nick_name}) not available")
     if partner == player:
-        return {'err': f"Cannot choose self as a partner"}
+        return ajax_error(f"Cannot choose self ({player.nick_name}) as partner")
 
     # automatic final pick(s) if 2 or 3 teams remain
     assert len(avail) not in (0, 1)
@@ -434,7 +443,7 @@ def post_partners() -> dict:
         pt_upd = True
 
     # REVISIT: return available players? (...and if so, by num or seed?)
-    return {'err': pt_err, 'upd': pt_upd}
+    return ajax_data('all')
 
 ##########
 # /teams #
@@ -472,14 +481,13 @@ def get_teams() -> dict:
         tm_props = {prop: getattr(team, prop) for prop in tm_addl_props}
         tm_data.append(team.__data__ | tm_props)
 
-    return {'data': tm_data}
+    return ajax_data(tm_data)
 
 @app.post("/teams")
 def post_teams() -> dict:
     """
     """
     tm_data = None
-    tm_upd = False
 
     data = request.form
     upd_info = {x[0]: data.get(x[0]) for x in tm_layout if x[2] == EDITABLE}
@@ -489,13 +497,15 @@ def post_teams() -> dict:
             setattr(team, col, typecast(val))
         team.save()
 
-        tm_props = {prop: getattr(team, prop) for prop in tm_addl_props}
-        tm_data = team.__data__ | tm_props
-        tm_upd = False
+        # NOTE: no need to update row data for now (LATER, may need this if denorm or
+        # derived fields are updated when saving)
+        if False:
+            tm_props = {prop: getattr(team, prop) for prop in tm_addl_props}
+            tm_data = team.__data__ | tm_props
     except IntegrityError as e:
-        abort(409, str(e))
+        return ajax_error(str(e))
 
-    return {'data': tm_data, 'upd': tm_upd}
+    return ajax_data(tm_data)
 
 ################
 # /round_robin #
@@ -532,14 +542,13 @@ def get_round_robin() -> dict:
         tg_props = {prop: getattr(game, prop) for prop in tg_addl_props}
         tg_data.append(game.__data__ | tg_props)
 
-    return {'data': tg_data}
+    return ajax_data(tg_data)
 
 @app.post("/round_robin")
 def post_round_robin() -> dict:
     """
     """
     tg_data = None
-    tg_upd = None
 
     data = request.form
     upd_info = {x[0]: data.get(x[0]) for x in tg_layout if x[2] == EDITABLE}
@@ -549,16 +558,16 @@ def post_round_robin() -> dict:
             setattr(game, col, typecast(val))
         game.save()
 
-        tg_props = {prop: getattr(game, prop) for prop in tg_addl_props}
-        tg_data = game.__data__ | tg_props
-        tg_upd = bool(game.winner)
-    except AssertionError as e:
-        abort(409, str(e))
+        if game.winner:
+            tg_props = {prop: getattr(game, prop) for prop in tg_addl_props}
+            tg_data = game.__data__ | tg_props
+    except RuntimeError as e:
+        return ajax_error(str(e))
 
-    return {'data': tg_data, 'upd': tg_upd}
+    return ajax_data(tg_data)
 
 ##########
-# /chart #
+# Charts #
 ##########
 
 CHART_FUNCS = [
@@ -1076,9 +1085,9 @@ def tabulate_tourn_results(form: dict) -> str:
     }
     return render_app(context)
 
-################
-# App Routines #
-################
+#############
+# Renderers #
+#############
 
 SEL_SEP = "----------------"
 SEL_NEW = "(create new)"
@@ -1099,26 +1108,26 @@ def render_app(context: dict) -> str:
         stage_compl = context['tourn'].stage_compl or 0
     btn_attr = [''] * len(BUTTONS)
 
-    if stage_compl != TournStage.TEAM_RANKS:
-        btn_attr[2] += ' disabled'
+    if stage_compl not in (TournStage.TEAM_RANKS,):
+        btn_attr[2] += DISABLED
     if stage_compl not in (TournStage.PLAYER_ROSTER, TournStage.PLAYER_NUMS):
-        btn_attr[4] += ' disabled'
-    if stage_compl != TournStage.PLAYER_NUMS:
-        btn_attr[5] += ' disabled'
+        btn_attr[4] += DISABLED
+    if stage_compl not in (TournStage.PLAYER_NUMS,):
+        btn_attr[5] += DISABLED
     if stage_compl not in (TournStage.SEED_BRACKET, TournStage.SEED_RESULTS):
-        btn_attr[6] += ' disabled'
-    if stage_compl != TournStage.SEED_RESULTS:
-        btn_attr[7] += ' disabled'
-    if stage_compl != TournStage.SEED_RANKS:
-        btn_attr[8] += ' disabled'
-    if stage_compl != TournStage.PARTNER_PICK:
-        btn_attr[9] += ' disabled'
-    if stage_compl != TournStage.TEAM_SEEDS:
-        btn_attr[10] += ' disabled'
+        btn_attr[6] += DISABLED
+    if stage_compl not in (TournStage.SEED_RESULTS,):
+        btn_attr[7] += DISABLED
+    if stage_compl not in (TournStage.SEED_RANKS,):
+        btn_attr[8] += DISABLED
+    if stage_compl not in (TournStage.PARTNER_PICK,):
+        btn_attr[9] += DISABLED
+    if stage_compl not in (TournStage.TEAM_SEEDS,):
+        btn_attr[10] += DISABLED
     if stage_compl not in (TournStage.TOURN_BRACKET, TournStage.TOURN_RESULTS):
-        btn_attr[11] += ' disabled'
-    if stage_compl != TournStage.TOURN_RESULTS:
-        btn_attr[12] += ' disabled'
+        btn_attr[11] += DISABLED
+    if stage_compl not in (TournStage.TOURN_RESULTS,):
+        btn_attr[12] += DISABLED
 
     base_ctx = {
         'title'    : APP_NAME,
@@ -1132,7 +1141,7 @@ def render_app(context: dict) -> str:
         'pt_layout': pt_layout,
         'tm_layout': tm_layout,
         'tg_layout': tg_layout,
-        'btn_val'  : SUBMIT_FUNCS,
+        'btn_val'  : BUTTONS,
         'btn_attr' : btn_attr,
         'help_txt' : help_txt,
         'ref_links': ref_links
@@ -1144,23 +1153,39 @@ def render_chart(context: dict) -> str:
     """
     return render_template(CHART_TEMPLATE, **context)
 
+def ajax_data(data: dict | list | str) -> dict:
+    """Wrapper for returning specified data in the structure expected by DataTables for an
+    ajax data source.  `data` must be specified.
+    """
+    return ajax_response(True, data=data)
+
+def ajax_succ(info_msg: str = None, data: dict | list | str = None) -> dict:
+    """Convenience function (slightly shorter).  `info_msg` is optional.
+    """
+    return ajax_response(True, msg=info_msg, data=data)
+
+def ajax_error(err_msg: str, data: dict | list | str = None) -> dict:
+    """Convenience function (slightly shorter).  `err_msg` must be specified.
+    """
+    return ajax_response(False, msg=err_msg, data=data)
+
 # type aliases
 RowSelector = str
 
-succ_msg = lambda x: "success" if x else "failure"
+def ajax_response(succ: bool, msg: str = None, data: dict | list | str = None) -> dict:
+    """Encapsulate response to an ajax request (GET or POST).  Note that clients can check
+    either the `succ` or `err` field to determine the result.  The return `data` is passed
+    through to the front-end, with the format being context-depedent (e.g. dict or list
+    representing JSON data, or a string directive understood by the client side).
 
-def ajax_response(succ: bool, msg: str = None, data: dict | bool = None) -> dict:
-    """Return data for ajax request (either GET or POST).  The `data` arg is passed
-    through to the front-end: it is either a dict (JSON object) representing `rowId:
-    rowData` key-value pairs, or `True` representing a directive to reload the entire
-    table data.
-
-    LATER: may want to add selectors for row and/or cell highlights (to indicate problem
-    areas), and possibly also for the cell in which to set focus upon return!
+    LATER: we may want to add UI selectors as additional return elements, indicating rows
+    and/or cells to highlight, set focus, etc.!!!
     """
+    assert succ or msg, "`msg` arg is required for errors"
     return {
         'succ'   : succ,
-        'msg'    : msg if msg else succ_msg(succ),
+        'err'    : None if succ else msg,
+        'info'   : msg if succ else None,
         'data'   : data
     }
 

@@ -525,14 +525,19 @@
              const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
              $.post('/players', post_data)
               .done(function(resp) {
-                //console.log('POST /players done: ', resp);
-                if (resp.upd) {
+                console.log('POST /players done: ', resp);
+                if (resp.err) {
+                  cell.data(orig_val).draw();
+                  $(e.target).addClass("attn");
+                  show_error(resp.err);
+                }
+                else if (resp.succ && resp.data) {
                   console.log('Updating row data: ', resp.data);
                   row.data(resp.data).draw();
                 }
               })
               .fail(function(resp) {
-                console.log('POST /players fail: ', resp.responseText);
+                console.log('POST /players fail: ', resp);
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
               });
@@ -610,14 +615,19 @@
              const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
              $.post('/seeding', post_data)
               .done(function(resp) {
-                //console.log('POST /seeding done: ', resp);
-                if (resp.upd) {
+                console.log('POST /seeding done: ', resp);
+                if (resp.err) {
+                  cell.data(orig_val).draw();
+                  $(e.target).addClass("attn");
+                  show_error(resp.err);
+                }
+                else if (resp.succ && resp.data) {
                   console.log('Updating row data: ', resp.data);
                   row.data(resp.data).draw();
                 }
               })
               .fail(function(resp) {
-                console.log('POST /seeding fail: ', resp.responseText);
+                console.log('POST /seeding fail: ', resp);
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
               });
@@ -697,22 +707,19 @@
              const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
              $.post('/partners', post_data)
               .done(function(resp) {
-                //console.log('POST /partners done: ', resp);
+                console.log('POST /partners done: ', resp);
                 if (resp.err) {
-                  console.log('POST /partners error: ', resp.err);
                   cell.data(orig_val).draw();
                   $(e.target).addClass("attn");
                   show_error(resp.err);
                 }
-                else if (resp.upd) {
-                  //console.log('Updating row data: ', resp.data);
-                  //row.data(resp.data).draw();
-                  console.log('Reloading table data (POST /partners)');
+                else if (resp.data == 'all') {
+                  console.log('Reloading table data');
                   table.ajax.reload();
                 }
               })
               .fail(function(resp) {
-                console.log('POST /partners fail: ', resp.responseText);
+                console.log('POST /partners fail: ', resp);
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
               });
@@ -792,14 +799,19 @@
              const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
              $.post('/teams', post_data)
               .done(function(resp) {
-                //console.log('POST /teams done: ', resp);
-                if (resp.upd) {
+                console.log('POST /teams done: ', resp);
+                if (resp.err) {
+                  cell.data(orig_val).draw();
+                  $(e.target).addClass("attn");
+                  show_error(resp.err);
+                }
+                else if (resp.succ && resp.data) {
                   console.log('Updating row data: ', resp.data);
                   row.data(resp.data).draw();
                 }
               })
               .fail(function(resp) {
-                console.log('POST /teams fail: ', resp.responseText);
+                console.log('POST /teams fail: ', resp);
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
               });
@@ -877,14 +889,19 @@
              const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
              $.post('/round_robin', post_data)
               .done(function(resp) {
-                //console.log('POST /round_robin done: ', resp);
-                if (resp.upd) {
+                console.log('POST /round_robin done: ', resp);
+                if (resp.err) {
+                  cell.data(orig_val).draw();
+                  $(e.target).addClass("attn");
+                  show_error(resp.err);
+                }
+                else if (resp.succ && resp.data) {
                   console.log('Updating row data: ', resp.data);
                   row.data(resp.data).draw();
                 }
               })
               .fail(function(resp) {
-                console.log('POST /round_robin fail: ', resp.responseText);
+                console.log('POST /round_robin fail: ', resp);
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
               });

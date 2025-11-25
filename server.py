@@ -391,13 +391,13 @@ def post_partners() -> dict:
 
     avail = Player.available_players(requery=True)
     if len(avail) == 0:
-        return ajax_error("No available players")
+        return ajax_error("No available players to pick")
 
     player = Player[typecast(data['id'])]
     if not player.available:
-        return ajax_error(f"Current player ({player.nick_name}) already on a team")
+        return ajax_error(f"Invalid selection; current player ({player.nick_name}) already on a team")
     if player != avail[0]:
-        return ajax_error(f"Active pick belongs to {avail[0].seed_ident}")
+        return ajax_error(f"Out of turn selection; active pick belongs to {avail[0].seed_ident}")
 
     if isinstance(picks_info, int):
         partner = Player.fetch_by_seed(picks_info)
@@ -407,13 +407,13 @@ def post_partners() -> dict:
         if len(match_av) > 1:
             av_by_name = sorted(match_av, key=lambda pl: pl.nick_name)
             samples = ', '.join([p.nick_name for p in av_by_name][:2]) + ", etc."
-            return ajax_error(f"Multiple available matches ({samples}) found for name starting with \"{picks_info}\"")
+            return ajax_error(f"Multiple available matches found for name starting with \"{picks_info}\" ({samples}); please respecify pick")
         elif len(match_av) == 1:
             partner = match_av.pop()
         elif len(match) > 1:
             by_name = sorted(match, key=lambda pl: pl.nick_name)
             samples = ', '.join([p.nick_name for p in by_name][:2]) + ", etc."
-            return ajax_error(f"All matches ({samples}) for name starting with \"{picks_info}\" not available")
+            return ajax_error(f"All matches for name starting with \"{picks_info}\" ({samples}) already on a team")
         elif len(match) == 1:
             partner = match.pop()  # will get caught as unavailable, below
         else:
@@ -424,9 +424,9 @@ def post_partners() -> dict:
     if not partner:
         return ajax_error(f"Player identified by \"{picks_info}\" does not exist")
     if not partner.available:
-        return ajax_error(f"Partner pick ({partner.nick_name}) not available")
+        return ajax_error(f"Specified pick ({partner.nick_name}) already on a team")
     if partner == player:
-        return ajax_error(f"Cannot choose self ({player.nick_name}) as partner")
+        return ajax_error(f"Cannot pick self ({player.nick_name}) as partner")
 
     # automatic final pick(s) if 2 or 3 teams remain
     assert len(avail) not in (0, 1)
@@ -817,7 +817,10 @@ def create_tourn(form: dict) -> str:
             # TEMP: prompt for uploaded in the UI!!!
             err_msg = "Roster file not specified"
     except OperationalError as e:
-        err_msg = cap_first(str(e))
+        if re.fullmatch(r'table "(\w+)" already exists', str(e)):
+            err_msg = f"Tournament \"{tourn_name}\" already exists; either check \"Overwrite Existing\" or specify a new name"
+        else:
+            err_msg = cap_first(str(e))
         tourn = TournInfo(name=tourn_name, timeframe=timeframe, venue=venue)
         new_tourn = True
 
@@ -1061,8 +1064,6 @@ BUTTON_MAP = {
 def render_app(context: dict) -> str:
     """Common post-processing of context before rendering the main app page through Jinja
     """
-    if 'err_msg' not in context:
-        context['err_msg'] = None
     view_name = None
     view_chk = [''] * len(View)
     view = context.get('view')
@@ -1085,6 +1086,7 @@ def render_app(context: dict) -> str:
         'sel_new'  : SEL_NEW,
         'view_name': view_name,
         'view_chk' : view_chk,
+        'err_msg'  : None,       # context may contain override
         'pl_layout': pl_layout,
         'sg_layout': sg_layout,
         'pt_layout': pt_layout,

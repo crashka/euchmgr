@@ -13,6 +13,8 @@
 
 ## Bugs
 
+- detect end of stage for manual updates (entering player nums, seeding round play,
+  partner picking, round robin play)
 - make bye rows readonly, for seeding and round robin views
 - set focus on currently active picker in partner view (and disable picks on other rows)
 - selector for partner picks (not sure we really need this)?

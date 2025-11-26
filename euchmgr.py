@@ -181,22 +181,21 @@ def fake_seed_games(clear_existing: bool = False) -> None:
             game.add_scores(loser_pts, winner_pts)
         game.save()
 
+        if game.winner:
+            game.update_player_stats()
+            game.insert_player_games()
+
     TournInfo.mark_stage_complete(TournStage.SEED_RESULTS)
+
+def validate_seed_round() -> None:
+    """
+    """
+    pass
 
 def tabulate_seed_round() -> None:
     """
     """
     pl_map = Player.get_player_map(requery=True)
-
-    for player in pl_map.values():
-        assert player.seed_wins is None
-        assert player.seed_losses is None
-        assert player.seed_pts_for is None
-        assert player.seed_pts_against is None
-        player.seed_wins = 0
-        player.seed_losses = 0
-        player.seed_pts_for = 0
-        player.seed_pts_against = 0
 
     for game in SeedGame.iter_games():
         player1 = pl_map[game.player1_num]
@@ -428,22 +427,21 @@ def fake_tourn_games(clear_existing: bool = False) -> None:
             game.add_scores(loser_pts, winner_pts)
         game.save()
 
+        if game.winner:
+            game.update_team_stats()
+            game.insert_team_games()
+
     TournInfo.mark_stage_complete(TournStage.TOURN_RESULTS)
+
+def validate_tourn() -> None:
+    """
+    """
+    pass
 
 def tabulate_tourn() -> None:
     """
     """
     tm_map = Team.get_team_map(requery=True)
-
-    for team in tm_map.values():
-        assert team.tourn_wins is None
-        assert team.tourn_losses is None
-        assert team.tourn_pts_for is None
-        assert team.tourn_pts_against is None
-        team.tourn_wins = 0
-        team.tourn_losses = 0
-        team.tourn_pts_for = 0
-        team.tourn_pts_against = 0
 
     for game in TournGame.iter_games():
         team1 = tm_map[game.team1_seed]

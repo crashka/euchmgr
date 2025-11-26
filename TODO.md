@@ -2,22 +2,21 @@
 
 ## Features/Enhancements
 
-- compute intermediary results/stats when scores are entered
-- maintain player\_game and team\_game tables properly when updating scores
-  - ...or invalidate, then regenerate when needed
-- create teams as picks are made?
 - auto-updating monitor view (e.g. charts with fading highlights for updates)
+- detect end of stage for manual updates (entering player nums, seeding round play,
+  partner picking, round robin play)
+- handle updates/revisions to completed game scores (i.e. manage stats and denorm)
 
 - use head-to-head record for tie-breakers
 - implement playoff rounds (or at least, generate playoff brackets)
 
-## Bugs
+## Bugs/Nits
 
-- detect end of stage for manual updates (entering player nums, seeding round play,
-  partner picking, round robin play)
+- neatly flag and/or rectify duplicate player nick names
+- create teams as picks are made (would only be to support active charting)
 - make bye rows readonly, for seeding and round robin views
-- set focus on currently active picker in partner view (and disable picks on other rows)
-- selector for partner picks (not sure we really need this)?
+- set focus on currently active picker, for partner view (and disable picks on other rows)
+- selector for partner picks (nice to see list of available picks)
 
 ## Refactoring
 
@@ -33,7 +32,8 @@
 
 ## Framework
 
-- security (flask-login?), if considering non-local hosting
+- security (e.g. flask-login), if considering non-local hosting
+- dockerize the server
 - created/updated timestamps for database records?
 - audit trailing (and/or snapshotting)?
 - optimistic locking (or other concurrency control)?

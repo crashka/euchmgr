@@ -195,11 +195,11 @@ class Player(BaseModel):
     reigning_champ = BooleanField(default=False)
     player_num     = IntegerField(unique=True, null=True)  # 1-based, must be contiguous
     # seeding round
-    seed_wins      = IntegerField(null=True)
-    seed_losses    = IntegerField(null=True)
+    seed_wins      = IntegerField(default=0)
+    seed_losses    = IntegerField(default=0)
     seed_win_pct   = FloatField(null=True)
-    seed_pts_for   = IntegerField(null=True)
-    seed_pts_against = IntegerField(null=True)
+    seed_pts_for   = IntegerField(default=0)
+    seed_pts_against = IntegerField(default=0)
     seed_pts_diff  = IntegerField(null=True)
     seed_pts_pct   = FloatField(null=True)
     player_seed    = IntegerField(unique=True, null=True)  # 1-based
@@ -474,17 +474,52 @@ class SeedGame(BaseModel):
         return [pl.player_tag for pl in pl_list]
 
     def add_scores(self, team1_pts: int, team2_pts: int) -> None:
-        """Record scores for completed (or incomplete) game.  Scores should not be updated
-        directly in model object, since denormalizations (e.g. in PlayerGame) will not be
-        maintained (without some more involved pre-save logic).
-
-        TODO: check to see if this overwrites a completed game result, in which case the
-        denorms need to be properly managed!!!
+        """Record scores for completed (or incomplete) game.  It is no longer required
+        that score updates come through here (since denorms are now managed elsewhere),
+        but there is a little bit of integrity checking here that is slightly useful
         """
+        if self.winner:
+            raise RuntimeError("Completed game score cannot be changed (coming soon...)")
+        if not (0 <= team1_pts <= GAME_PTS and 0 <= team2_pts <= GAME_PTS):
+            raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points")
+
         self.team1_pts = team1_pts
         self.team2_pts = team2_pts
 
-        # insert records into PlayerGame for each player
+    def update_player_stats(self) -> int:
+        """Update stats for all players involved in the game; returns number of records
+        updated.  Called by front-end after the game is complete (i.e. winner determined).
+        There is no need to support partial-game stats.
+        """
+        players     = [self.player1, self.player2, self.player3, self.player4]
+        team_scores = [self.team1_pts, self.team2_pts]
+
+        upd = 0
+        for pl_idx, player in enumerate(players):
+            tm_idx   = pl_idx // 2
+            op_idx   = tm_idx ^ 0x01
+            team_pts = team_scores[tm_idx]
+            opp_pts  = team_scores[op_idx]
+
+            player.seed_wins        += int(team_pts > opp_pts)
+            player.seed_losses      += int(team_pts < opp_pts)
+            player.seed_pts_for     += team_pts
+            player.seed_pts_against += opp_pts
+
+            ngames = player.seed_wins + player.seed_losses
+            totpts = player.seed_pts_for + player.seed_pts_against
+            player.seed_win_pct = player.seed_wins / ngames * 100.0
+            player.seed_pts_diff = player.seed_pts_for - player.seed_pts_against
+            player.seed_pts_pct = player.seed_pts_for / totpts * 100.0
+            upd += player.save()
+
+        return upd
+
+    def insert_player_games(self) -> int:
+        """Insert a record into the PlayerGame denorm for all players involved in the
+        game; returns number of records inserted.  Called by front-end after the game is
+        complete (i.e. winner determined)
+        """
         players     = [self.player1, self.player2, self.player3, self.player4]
         partners    = [self.player2, self.player1, self.player4, self.player3]
         opps_tups   = [(self.player3, self.player4), (self.player1, self.player2)]
@@ -492,12 +527,12 @@ class SeedGame(BaseModel):
 
         pl_games = []
         for pl_idx, player in enumerate(players):
-            tm_idx    = pl_idx // 2
-            op_idx    = tm_idx ^ 0x01
-            partner   = partners[pl_idx]
-            opps_tup  = opps_tups[tm_idx]
-            team_pts  = team_scores[tm_idx]
-            opp_pts   = team_scores[op_idx]
+            tm_idx   = pl_idx // 2
+            op_idx   = tm_idx ^ 0x01
+            partner  = partners[pl_idx]
+            opps_tup = opps_tups[tm_idx]
+            team_pts = team_scores[tm_idx]
+            opp_pts  = team_scores[op_idx]
 
             pg_info = {'bracket'      : BRACKET_SEED,
                        'round_num'    : self.round_num,
@@ -513,8 +548,10 @@ class SeedGame(BaseModel):
             pl_game = PlayerGame.create(**pg_info)
             pl_games.append(pl_game)
 
+        return len(pl_games)
+
     def save(self, *args, **kwargs):
-        """Compute winner if both scores have been entered
+        """Determine (and set) winner if game is complete
         """
         if set(self._dirty) & {'team1_pts', 'team2_pts'}:
             if None not in {self.team1_pts, self.team2_pts}:
@@ -549,11 +586,11 @@ class Team(BaseModel):
     div_num        = IntegerField(null=True)
     div_seed       = IntegerField(null=True)
     # tournament play
-    tourn_wins     = IntegerField(null=True)
-    tourn_losses   = IntegerField(null=True)
+    tourn_wins     = IntegerField(default=0)
+    tourn_losses   = IntegerField(default=0)
     tourn_win_pct  = FloatField(null=True)
-    tourn_pts_for  = IntegerField(null=True)
-    tourn_pts_against = IntegerField(null=True)
+    tourn_pts_for  = IntegerField(default=0)
+    tourn_pts_against = IntegerField(default=0)
     tourn_pts_diff = IntegerField(null=True)
     tourn_pts_pct  = FloatField(null=True)
     tourn_rank     = IntegerField(null=True)
@@ -687,17 +724,51 @@ class TournGame(BaseModel):
         return self.team1.team_tag
 
     def add_scores(self, team1_pts: int, team2_pts: int) -> None:
-        """Record scores for completed (or incomplete) game.  Scores should not be updated
-        directly in model object, since denormalizations (e.g. in TeamGame) will not be
-        maintained (without some more involved pre-save logic).
-
-        TODO: check to see if this overwrites a completed game result, in which case the
-        denorms need to be properly managed!!!
+        """Record scores for completed (or incomplete) game.  It is no longer required
+        that score updates come through here (since denorms are now managed elsewhere),
+        but there is a little bit of integrity checking here that is slightly useful
         """
+        if self.winner:
+            raise RuntimeError("Completed game score cannot be changed (coming soon...)")
+        if not (0 <= team1_pts <= GAME_PTS and 0 <= team2_pts <= GAME_PTS):
+            raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points")
+
         self.team1_pts = team1_pts
         self.team2_pts = team2_pts
 
-        # insert records into TeamGame for each team
+    def update_team_stats(self) -> int:
+        """Update stats for teams involved in the game; returns number of records updated.
+        Called by front-end after the game is complete (i.e. winner determined).  There is
+        no need to support partial-game stats.
+        """
+        teams       = [self.team1, self.team2]
+        team_scores = [self.team1_pts, self.team2_pts]
+
+        upd = 0
+        for tm_idx, team in enumerate([self.team1, self.team2]):
+            op_idx   = tm_idx ^ 0x01
+            team_pts = team_scores[tm_idx]
+            opp_pts  = team_scores[op_idx]
+
+            team.tourn_wins        += int(team_pts > opp_pts)
+            team.tourn_losses      += int(team_pts < opp_pts)
+            team.tourn_pts_for     += team_pts
+            team.tourn_pts_against += opp_pts
+
+            ngames = team.tourn_wins + team.tourn_losses
+            totpts = team.tourn_pts_for + team.tourn_pts_against
+            team.tourn_win_pct = team.tourn_wins / ngames * 100.0
+            team.tourn_pts_diff = team.tourn_pts_for - team.tourn_pts_against
+            team.tourn_pts_pct = team.tourn_pts_for / totpts * 100.0
+            upd += team.save()
+
+        return upd
+
+    def insert_team_games(self) -> int:
+        """Insert a record into the TeamGame denorm for teams involved in the game;
+        returns number of records inserted.  Called by front-end after the game is
+        complete (i.e. winner determined)
+        """
         teams       = [self.team1, self.team2]
         team_scores = [self.team1_pts, self.team2_pts]
 
@@ -720,6 +791,8 @@ class TournGame(BaseModel):
             tm_game = TeamGame.create(**tg_info)
             tm_games.append(tm_game)
 
+        return len(tm_games)
+    
     def save(self, *args, **kwargs):
         """Compute winner if both scores have been entered
         """

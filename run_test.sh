@@ -17,9 +17,9 @@ python -m euchmgr "${TOURN}" build_seed_bracket
 echo -n "Creating fake seeding results..."
 echo "done"
 python -m euchmgr "${TOURN}" fake_seed_games
-echo -n "Tabulating seeding results..."
+echo -n "Validating seeding results..."
 echo "done"
-python -m euchmgr "${TOURN}" tabulate_seed_round
+python -m euchmgr "${TOURN}" validate_seed_round
 echo -n "Computing player rankings..."
 echo "done"
 python -m euchmgr "${TOURN}" compute_player_seeds
@@ -41,9 +41,9 @@ python -m euchmgr "${TOURN}" build_tourn_bracket
 echo -n "Creating fake tournament results..."
 echo "done"
 python -m euchmgr "${TOURN}" fake_tourn_games
-echo -n "Tabulating tournament results..."
+echo -n "Validating tournament results..."
 echo "done"
-python -m euchmgr "${TOURN}" tabulate_tourn
+python -m euchmgr "${TOURN}" validate_tourn
 echo -n "Computing tournament rankings..."
 echo "done"
 python -m euchmgr "${TOURN}" compute_team_ranks

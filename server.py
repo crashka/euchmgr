@@ -35,10 +35,10 @@ from database import DB_FILETYPE
 from schema import (GAME_PTS, TournStage, TournInfo, Player, SeedGame, Team, TournGame,
                     PlayerGame, TeamGame)
 from euchmgr import (db_init, tourn_create, upload_roster, generate_player_nums,
-                     build_seed_bracket, fake_seed_games, tabulate_seed_round,
+                     build_seed_bracket, fake_seed_games, validate_seed_round,
                      compute_player_seeds, prepick_champ_partners, fake_pick_partners,
                      build_tourn_teams, compute_team_seeds, build_tourn_bracket,
-                     fake_tourn_games, tabulate_tourn, compute_team_ranks)
+                     fake_tourn_games, validate_tourn, compute_team_ranks)
 
 #############
 # app stuff #
@@ -260,11 +260,11 @@ def post_players() -> dict:
     pl_data = None
 
     data = request.form
-    upd_info = {x[0]: data.get(x[0]) for x in pl_layout if x[2] == EDITABLE}
+    upd_info = {x[0]: typecast(data.get(x[0])) for x in pl_layout if x[2] == EDITABLE}
     try:
         player = Player[data['id']]
         for col, val in upd_info.items():
-            setattr(player, col, typecast(val))
+            setattr(player, col, val)
         player.save()
 
         # NOTE: no need to update row data for now (LATER, may need this if denorm or
@@ -315,19 +315,24 @@ def get_seeding() -> dict:
 
 @app.post("/seeding")
 def post_seeding() -> dict:
-    """
+    """Post scrores to seeding round game.
     """
     sg_data = None
 
     data = request.form
-    upd_info = {x[0]: data.get(x[0]) for x in sg_layout if x[2] == EDITABLE}
+    upd_info = {x[0]: typecast(data.get(x[0])) for x in sg_layout if x[2] == EDITABLE}
+    team1_pts = upd_info.pop('team1_pts')
+    team2_pts = upd_info.pop('team2_pts')
+    assert len(upd_info) == 0
     try:
+        # TODO: wrap this entire try block in a transaction!!!
         game = SeedGame[data['id']]
-        for col, val in upd_info.items():
-            setattr(game, col, typecast(val))
+        game.add_scores(team1_pts, team2_pts)
         game.save()
 
         if game.winner:
+            game.update_player_stats()
+            game.insert_player_games()
             sg_props = {prop: getattr(game, prop) for prop in sg_addl_props}
             sg_data = game.__data__ | sg_props
     except RuntimeError as e:
@@ -384,9 +389,8 @@ def post_partners() -> dict:
     pt_upd = False
 
     data = request.form
-    upd_info = {x[0]: data.get(x[0]) for x in pt_layout if x[2] == EDITABLE}
-    picks_info = typecast(upd_info.pop('picks_info', None))
-    assert picks_info
+    upd_info = {x[0]: typecast(data.get(x[0])) for x in pt_layout if x[2] == EDITABLE}
+    picks_info = upd_info.pop('picks_info')
     assert len(upd_info) == 0
 
     avail = Player.available_players(requery=True)
@@ -397,7 +401,7 @@ def post_partners() -> dict:
     if not player.available:
         return ajax_error(f"Invalid selection; current player ({player.nick_name}) already on a team")
     if player != avail[0]:
-        return ajax_error(f"Out of turn selection; active pick belongs to {avail[0].seed_ident}")
+        return ajax_error(f"Selection out of turn; active pick belongs to {avail[0].seed_ident}")
 
     if isinstance(picks_info, int):
         partner = Player.fetch_by_seed(picks_info)
@@ -490,11 +494,11 @@ def post_teams() -> dict:
     tm_data = None
 
     data = request.form
-    upd_info = {x[0]: data.get(x[0]) for x in tm_layout if x[2] == EDITABLE}
+    upd_info = {x[0]: typecast(data.get(x[0])) for x in tm_layout if x[2] == EDITABLE}
     try:
         team = Team[data['id']]
         for col, val in upd_info.items():
-            setattr(team, col, typecast(val))
+            setattr(team, col, val)
         team.save()
 
         # NOTE: no need to update row data for now (LATER, may need this if denorm or
@@ -551,14 +555,17 @@ def post_round_robin() -> dict:
     tg_data = None
 
     data = request.form
-    upd_info = {x[0]: data.get(x[0]) for x in tg_layout if x[2] == EDITABLE}
+    upd_info = {x[0]: typecast(data.get(x[0])) for x in tg_layout if x[2] == EDITABLE}
     try:
+        # TODO: wrap this entire try block in a transaction!!!
         game = TournGame[data['id']]
         for col, val in upd_info.items():
-            setattr(game, col, typecast(val))
+            setattr(game, col, val)
         game.save()
 
         if game.winner:
+            game.update_team_stats()
+            game.insert_team_games()
             tg_props = {prop: getattr(game, prop) for prop in tg_addl_props}
             tg_data = game.__data__ | tg_props
     except RuntimeError as e:
@@ -946,7 +953,8 @@ def tabulate_seed_results(form: dict) -> str:
 
     tourn_name  = form.get('tourn_name')
     db_init(tourn_name)
-    tabulate_seed_round()
+    validate_seed_round()
+    #tabulate_seed_round()
     compute_player_seeds()
     prepick_champ_partners()
     view = View.PARTNERS
@@ -1029,7 +1037,8 @@ def tabulate_tourn_results(form: dict) -> str:
 
     tourn_name  = form.get('tourn_name')
     db_init(tourn_name)
-    tabulate_tourn()
+    validate_tourn()
+    #tabulate_tourn()
     compute_team_ranks()
     view = View.TEAMS
 

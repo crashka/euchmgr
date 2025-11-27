@@ -480,7 +480,7 @@ class SeedGame(BaseModel):
         """
         if self.winner:
             raise RuntimeError("Completed game score cannot be changed (coming soon...)")
-        if not (0 <= team1_pts <= GAME_PTS and 0 <= team2_pts <= GAME_PTS):
+        if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
             raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points")
 
         self.team1_pts = team1_pts
@@ -730,7 +730,7 @@ class TournGame(BaseModel):
         """
         if self.winner:
             raise RuntimeError("Completed game score cannot be changed (coming soon...)")
-        if not (0 <= team1_pts <= GAME_PTS and 0 <= team2_pts <= GAME_PTS):
+        if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
             raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points")
 
         self.team1_pts = team1_pts

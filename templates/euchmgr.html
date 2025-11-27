@@ -510,6 +510,9 @@
                 console.log('POST /players fail: ', resp);
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
+                show_error(resp.statusText);
+                win = window.open('', '_blank')
+                win.document.body.innerHTML = resp.responseText;
               });
          }});
        };
@@ -600,6 +603,9 @@
                 console.log('POST /seeding fail: ', resp);
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
+                show_error(resp.statusText);
+                win = window.open('', '_blank')
+                win.document.body.innerHTML = resp.responseText;
               });
          }});
        };
@@ -692,6 +698,9 @@
                 console.log('POST /partners fail: ', resp);
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
+                show_error(resp.statusText);
+                win = window.open('', '_blank')
+                win.document.body.innerHTML = resp.responseText;
               });
          }});
        };
@@ -784,6 +793,9 @@
                 console.log('POST /teams fail: ', resp);
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
+                show_error(resp.statusText);
+                win = window.open('', '_blank')
+                win.document.body.innerHTML = resp.responseText;
               });
          }});
        };
@@ -874,6 +886,9 @@
                 console.log('POST /round_robin fail: ', resp);
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
+                show_error(resp.statusText);
+                win = window.open('', '_blank')
+                win.document.body.innerHTML = resp.responseText;
               });
          }});
        };

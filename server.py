@@ -556,11 +556,13 @@ def post_round_robin() -> dict:
 
     data = request.form
     upd_info = {x[0]: typecast(data.get(x[0])) for x in tg_layout if x[2] == EDITABLE}
+    team1_pts = upd_info.pop('team1_pts')
+    team2_pts = upd_info.pop('team2_pts')
+    assert len(upd_info) == 0
     try:
         # TODO: wrap this entire try block in a transaction!!!
         game = TournGame[data['id']]
-        for col, val in upd_info.items():
-            setattr(game, col, val)
+        game.add_scores(team1_pts, team2_pts)
         game.save()
 
         if game.winner:
@@ -953,8 +955,7 @@ def tabulate_seed_results(form: dict) -> str:
 
     tourn_name  = form.get('tourn_name')
     db_init(tourn_name)
-    validate_seed_round()
-    #tabulate_seed_round()
+    validate_seed_round(finalize=True)
     compute_player_seeds()
     prepick_champ_partners()
     view = View.PARTNERS
@@ -1037,8 +1038,7 @@ def tabulate_tourn_results(form: dict) -> str:
 
     tourn_name  = form.get('tourn_name')
     db_init(tourn_name)
-    validate_tourn()
-    #tabulate_tourn()
+    validate_tourn(finalize=True)
     compute_team_ranks()
     view = View.TEAMS
 

@@ -40,6 +40,9 @@ def fmt_team_name(player_nums: list[int]) -> str:
     nick_names = [pl_map[p].nick_name for p in player_nums]
     return ' / '.join(nick_names)
 
+# good enough floating point equivalence
+equiv = lambda x, y: round(x, 2) == round(y, 2)
+
 #####################
 # euchmgr functions #
 #####################
@@ -187,51 +190,71 @@ def fake_seed_games(clear_existing: bool = False) -> None:
 
     TournInfo.mark_stage_complete(TournStage.SEED_RESULTS)
 
-def validate_seed_round() -> None:
-    """
-    """
-    pass
-
-def tabulate_seed_round() -> None:
+def validate_seed_round(finalize: bool = False) -> None:
     """
     """
     pl_map = Player.get_player_map(requery=True)
 
-    for game in SeedGame.iter_games():
-        player1 = pl_map[game.player1_num]
-        player2 = pl_map[game.player2_num]
-        player3 = pl_map[game.player3_num]
-        player4 = pl_map[game.player4_num]
+    stats_tmpl = {
+        'seed_wins':        0,
+        'seed_losses':      0,
+        'seed_pts_for':     0,
+        'seed_pts_against': 0
+    }
+    pl_stats = {num: stats_tmpl.copy() for num in pl_map}
 
-        if game.winner == game.team1_name:
-            player1.seed_wins += 1
-            player2.seed_wins += 1
-            player3.seed_losses += 1
-            player4.seed_losses += 1
+    for gm in SeedGame.iter_games():
+        stats1 = pl_stats[gm.player1_num]
+        stats2 = pl_stats[gm.player2_num]
+        stats3 = pl_stats[gm.player3_num]
+        stats4 = pl_stats[gm.player4_num]
+
+        if gm.winner == gm.team1_name:
+            stats1['seed_wins'] += 1
+            stats2['seed_wins'] += 1
+            stats3['seed_losses'] += 1
+            stats4['seed_losses'] += 1
         else:
-            player1.seed_losses += 1
-            player2.seed_losses += 1
-            player3.seed_wins += 1
-            player4.seed_wins += 1
+            stats1['seed_losses'] += 1
+            stats2['seed_losses'] += 1
+            stats3['seed_wins'] += 1
+            stats4['seed_wins'] += 1
 
-        player1.seed_pts_for += game.team1_pts
-        player2.seed_pts_for += game.team1_pts
-        player3.seed_pts_for += game.team2_pts
-        player4.seed_pts_for += game.team2_pts
-        player1.seed_pts_against += game.team2_pts
-        player2.seed_pts_against += game.team2_pts
-        player3.seed_pts_against += game.team1_pts
-        player4.seed_pts_against += game.team1_pts
+        stats1['seed_pts_for'] += gm.team1_pts
+        stats2['seed_pts_for'] += gm.team1_pts
+        stats3['seed_pts_for'] += gm.team2_pts
+        stats4['seed_pts_for'] += gm.team2_pts
+        stats1['seed_pts_against'] += gm.team2_pts
+        stats2['seed_pts_against'] += gm.team2_pts
+        stats3['seed_pts_against'] += gm.team1_pts
+        stats4['seed_pts_against'] += gm.team1_pts
 
-    for player in pl_map.values():
-        ngames = player.seed_wins + player.seed_losses
-        totpts = player.seed_pts_for + player.seed_pts_against
-        player.seed_win_pct = player.seed_wins / ngames * 100.0
-        player.seed_pts_diff = player.seed_pts_for - player.seed_pts_against
-        player.seed_pts_pct = player.seed_pts_for / totpts * 100.0
-        player.save()
+    stats_tot = stats_tmpl.copy()
+    for num, pl in pl_map.items():
+        stats = pl_stats[num]
+        for k, v in stats.items():
+            stats_tot[k] += v
 
-    TournInfo.mark_stage_complete(TournStage.SEED_TABULATE)
+        assert pl.seed_wins        == stats['seed_wins']
+        assert pl.seed_losses      == stats['seed_losses']
+        assert pl.seed_pts_for     == stats['seed_pts_for']
+        assert pl.seed_pts_against == stats['seed_pts_against']
+
+        ngames   = stats['seed_wins'] + stats['seed_losses']
+        win_pct  = stats['seed_wins'] / ngames * 100.0
+        pts_tot  = stats['seed_pts_for'] + stats['seed_pts_against']
+        pts_diff = stats['seed_pts_for'] - stats['seed_pts_against']
+        pts_pct  = stats['seed_pts_for'] / pts_tot * 100.0
+
+        assert equiv(pl.seed_win_pct, win_pct)
+        assert pl.seed_pts_diff == pts_diff
+        assert equiv(pl.seed_pts_pct, pts_pct)
+
+    assert stats_tot['seed_wins'] == stats_tot['seed_losses']
+    assert stats_tot['seed_pts_for'] == stats_tot['seed_pts_against']
+
+    if finalize:
+        TournInfo.mark_stage_complete(TournStage.SEED_TABULATE)
 
 def compute_player_seeds() -> None:
     """
@@ -433,41 +456,61 @@ def fake_tourn_games(clear_existing: bool = False) -> None:
 
     TournInfo.mark_stage_complete(TournStage.TOURN_RESULTS)
 
-def validate_tourn() -> None:
-    """
-    """
-    pass
-
-def tabulate_tourn() -> None:
+def validate_tourn(finalize: bool = False) -> None:
     """
     """
     tm_map = Team.get_team_map(requery=True)
 
-    for game in TournGame.iter_games():
-        team1 = tm_map[game.team1_seed]
-        team2 = tm_map[game.team2_seed]
+    stats_tmpl = {
+        'tourn_wins':        0,
+        'tourn_losses':      0,
+        'tourn_pts_for':     0,
+        'tourn_pts_against': 0
+    }
+    tm_stats = {seed: stats_tmpl.copy() for seed in tm_map}
 
-        if game.winner == game.team1_name:
-            team1.tourn_wins += 1
-            team2.tourn_losses += 1
+    for gm in TournGame.iter_games():
+        stats1 = tm_stats[gm.team1_seed]
+        stats2 = tm_stats[gm.team2_seed]
+
+        if gm.winner == gm.team1_name:
+            stats1['tourn_wins'] += 1
+            stats2['tourn_losses'] += 1
         else:
-            team1.tourn_losses += 1
-            team2.tourn_wins += 1
+            stats1['tourn_losses'] += 1
+            stats2['tourn_wins'] += 1
 
-        team1.tourn_pts_for += game.team1_pts
-        team2.tourn_pts_for += game.team2_pts
-        team1.tourn_pts_against += game.team2_pts
-        team2.tourn_pts_against += game.team1_pts
+        stats1['tourn_pts_for'] += gm.team1_pts
+        stats2['tourn_pts_for'] += gm.team2_pts
+        stats1['tourn_pts_against'] += gm.team2_pts
+        stats2['tourn_pts_against'] += gm.team1_pts
 
-    for team in tm_map.values():
-        ngames = team.tourn_wins + team.tourn_losses
-        totpts = team.tourn_pts_for + team.tourn_pts_against
-        team.tourn_win_pct = team.tourn_wins / ngames * 100.0
-        team.tourn_pts_diff = team.tourn_pts_for - team.tourn_pts_against
-        team.tourn_pts_pct = team.tourn_pts_for / totpts * 100.0
-        team.save()
+    stats_tot = stats_tmpl.copy()
+    for seed, tm in tm_map.items():
+        stats = tm_stats[seed]
+        for k, v in stats.items():
+            stats_tot[k] += v
 
-    TournInfo.mark_stage_complete(TournStage.TOURN_TABULATE)
+        assert tm.tourn_wins        == stats['tourn_wins']
+        assert tm.tourn_losses      == stats['tourn_losses']
+        assert tm.tourn_pts_for     == stats['tourn_pts_for']
+        assert tm.tourn_pts_against == stats['tourn_pts_against']
+
+        ngames   = stats['tourn_wins'] + stats['tourn_losses']
+        win_pct  = stats['tourn_wins'] / ngames * 100.0
+        pts_tot  = stats['tourn_pts_for'] + stats['tourn_pts_against']
+        pts_diff = stats['tourn_pts_for'] - stats['tourn_pts_against']
+        pts_pct  = stats['tourn_pts_for'] / pts_tot * 100.0
+
+        assert equiv(tm.tourn_win_pct, win_pct)
+        assert tm.tourn_pts_diff == pts_diff
+        assert equiv(tm.tourn_pts_pct, pts_pct)
+
+    assert stats_tot['tourn_wins'] == stats_tot['tourn_losses']
+    assert stats_tot['tourn_pts_for'] == stats_tot['tourn_pts_against']
+
+    if finalize:
+        TournInfo.mark_stage_complete(TournStage.TOURN_TABULATE)
 
 def compute_team_ranks() -> None:
     """

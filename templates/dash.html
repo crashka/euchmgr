@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{{title}}</title>
+
+    <style>
+     .red {
+       background-color: #FFECEC;
+     }
+     .updated {
+       display: block;
+       float: right;
+     }
+     button {
+       margin-left: 0.8rem;
+       padding: 0.2rem 0.8rem;
+     }
+     .container {
+       display: inline-block;
+       margin-top: 2.0rem;
+       overflow-x: auto;
+       white-space: nowrap;
+     }
+     .container_lbl {
+       font-size: x-large;
+       font-weight: bold;
+     }
+     .section {
+       margin-top: 2.0rem;
+       margin-bottom: 2.0rem;
+     }
+     .section_lbl {
+       font-size: large;
+       font-weight: bold;
+     }
+     table {
+       margin-top: 1.5rem;
+       border: 2px solid darkgrey;
+       border-collapse: collapse;
+     }
+     th, td {
+       border: 1px solid darkgrey;
+       border-collapse: collapse;
+       padding: 0.75em;
+       text-align: center;
+     }
+     .score {
+       width: 1.0rem;
+     }
+     .hor_sect {
+       border-bottom: 2px solid darkgrey;
+     }
+     .vert_sect {
+       border-left: 2px solid darkgrey;
+     }
+     .plyr_lbl,
+     .team_lbl{
+       text-align: left;
+       width: 10em;
+     }
+     .tally {
+       vertical-align: bottom;
+     }
+     b {
+       font-weight: bold;
+       color: {{bold_color or "black"}};
+     }
+     u {
+       text-decoration: solid underline grey 2px;
+     }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <span class="container_lbl">{{tourn.name}} &ndash; {{title}}</span>
+      <input class="start" type="hidden" name="start" value="">
+      <span class="updated">
+        Updated: {{updated}} (<span class="elapsed">0 secs ago</span>)
+        {% if not paused %}
+        <button class="submit" value="pause_upd">Pause Updates</button>
+        {% else %}
+        <button class="submit" value="resume_upd">Resume Updates</button>
+        {% endif %}
+      </span>
+
+      {% for div in div_list %}
+      <div class="section rr_scores">
+        <span class="section_lbl">Division {{div}}</span>
+        <table>
+          <thead>
+            <tr>
+              <th class="plyr_lbl hor_sect" rowspan="2">Team (by Div Seed)</th>
+              <th class="hor_sect" rowspan="2">Wins</th>
+              <th class="hor_sect" rowspan=2>Losses</th>
+              <th class="vert_sect" colspan="{{rnds}}">Points For (by Round)</th>
+              <th class="vert_sect" colspan="{{rnds}}">Points Against (by Round)</th>
+              <th class="hor_sect vert_sect" rowspan="2">Win Pct</th>
+              <th class="hor_sect" rowspan=2>Pts Diff</th>
+              <th class="hor_sect" rowspan=2>Div Rank</th>
+              <th class="hor_sect" rowspan=2>Mvmt</th>
+            </tr>
+            <tr>
+              <th class="hor_sect vert_sect score">1</th>
+              {% for rnd in range(2, rnds + 1) %}
+              <th class="hor_sect score">{{rnd}}</th>
+              {% endfor %}
+              <th class="hor_sect vert_sect score">1</th>
+              {% for rnd in range(2, rnds + 1) %}
+              <th class="hor_sect score">{{rnd}}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for tm in div_teams[div] %}
+            <tr>
+              <td class="team_lbl">{{tm.team_tag|safe}}</td>
+              <td class="tally"><img {{win_tallies[div][tm.team_seed]|safe}} /></td>
+              <td class="tally"><img {{loss_tallies[div][tm.team_seed]|safe}} /></td>
+              <td class="vert_sect">{{team_pts[div][tm.team_seed].get(1, '')|safe}}</td>
+              {% for rnd in range(2, rnds + 1) %}
+              <td>{{team_pts[div][tm.team_seed].get(rnd, '')|safe}}</td>
+              {% endfor %}
+              <td class="vert_sect">{{opp_pts[div][tm.team_seed].get(1, '')|safe}}</td>
+              {% for rnd in range(2, rnds + 1) %}
+              <td>{{opp_pts[div][tm.team_seed].get(rnd, '')|safe}}</td>
+              {% endfor %}
+              <td class="vert_sect">{{stats[div][tm.team_seed][0]}}</td>
+              <td>{{stats[div][tm.team_seed][1]}}</td>
+              <td>{{stats[div][tm.team_seed][2]}}</td>
+              <td>{{mvmt[div][tm.team_seed]}}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endfor %}
+    </div>
+  </body>
+
+  <script src="/static/jquery-3.7.1.min.js"></script>
+  <script>
+   $(function() {
+     // document ready
+     function updElapsed(startVal) {
+       const nowVal = Math.round(Date.now() / 1000.0);
+       const elapsed = nowVal - startVal
+       $(".elapsed").text(elapsed + " secs ago");
+     };
+
+     function startElapsed() {
+       const $start = $(".start");
+       if (!$start.val()) {
+         $start.val(Math.round(Date.now() / 1000.0));
+       }
+       setInterval(updElapsed, 1000, $start.val());
+     };
+
+     startElapsed();
+     window.setTimeout(function() {
+       window.location.reload();
+     }, {{update_int}});
+   });
+  </script>
+</html>

@@ -769,6 +769,18 @@ class TournGame(BaseModel):
         returns number of records inserted.  Called by front-end after the game is
         complete (i.e. winner determined)
         """
+        if self.table_num is None:
+            assert self.bye_team is not None
+            assert self.team1 is not None
+            assert self.team2 is None
+            tg_info = {'bracket'   : BRACKET_TOURN,
+                       'round_num' : self.round_num,
+                       'game_label': self.label,
+                       'team'      : self.team1,
+                       'is_bye'    : True}
+            tm_game = TeamGame.create(**tg_info)
+            return 1
+
         teams       = [self.team1, self.team2]
         team_scores = [self.team1_pts, self.team2_pts]
 
@@ -783,8 +795,6 @@ class TournGame(BaseModel):
                        'game_label': self.label,
                        'team'      : team,
                        'opponent'  : teams[op_idx],
-                       'team_team' : team.team_name,
-                       'opp_name'  : teams[op_idx].team_name,
                        'team_pts'  : team_pts,
                        'opp_pts'   : opp_pts,
                        'is_winner' : team_pts > opp_pts}

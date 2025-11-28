@@ -431,15 +431,19 @@ def build_tourn_bracket() -> list[TournGame]:
                         tbl_k += 1
                     game = TournGame.create(**info)
                     games.append(game)
+                    if game.bye_team:
+                        game.insert_team_games()
 
     tourn.complete_stage(TournStage.TOURN_BRACKET)
     return games
 
-def fake_tourn_games(clear_existing: bool = False) -> None:
+def fake_tourn_games(clear_existing: bool = False, limit: int = None) -> None:
     """Generates random team points and determines winner for each tournament game (before
     semis/finals).  Note that `clear_existing` only clears completed games.
     """
-    for game in TournGame.iter_games():
+    nfake = 0
+    sort_key = lambda x: (x.round_num, x.table_num)
+    for game in sorted(TournGame.iter_games(), key=sort_key):
         if game.winner and not clear_existing:
             continue
         winner_pts = 10
@@ -449,10 +453,17 @@ def fake_tourn_games(clear_existing: bool = False) -> None:
         else:
             game.add_scores(loser_pts, winner_pts)
         game.save()
+        if limit:
+            print(f"{game.team1_name}: {game.team1_pts}, {game.team2_name}: {game.team2_pts}")
 
         if game.winner:
             game.update_team_stats()
             game.insert_team_games()
+
+        nfake += 1
+        if limit and nfake >= limit:
+            compute_team_ranks()
+            break
 
     TournInfo.mark_stage_complete(TournStage.TOURN_RESULTS)
 
@@ -512,23 +523,25 @@ def validate_tourn(finalize: bool = False) -> None:
     if finalize:
         TournInfo.mark_stage_complete(TournStage.TOURN_TABULATE)
 
-def compute_team_ranks() -> None:
+def compute_team_ranks(finalize: bool = False) -> None:
     """
     """
     tourn = TournInfo.get()
     ndivs = tourn.divisions
     tm_list = Team.get_team_map().values()
+    played = list(filter(lambda x: x.tourn_wins + x.tourn_losses, tm_list))
 
     div_rank = {i + 1: 0 for i in range(ndivs)}
     # TODO: break ties with points ratio, head-to-head, etc.!!!
     sort_key = lambda x: (-x.tourn_win_pct, -x.tourn_pts_diff, -x.tourn_pts_pct)
-    for i, team in enumerate(sorted(tm_list, key=sort_key)):
+    for i, team in enumerate(sorted(played, key=sort_key)):
         team.tourn_rank = i + 1
         div_rank[team.div_num] += 1
         team.div_rank = div_rank[team.div_num]
         team.save()
 
-    tourn.complete_stage(TournStage.TEAM_RANKS)
+    if finalize:
+        tourn.complete_stage(TournStage.TEAM_RANKS)
 
 ########
 # main #

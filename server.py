@@ -20,6 +20,7 @@ To do list:
 
 from enum import IntEnum
 from numbers import Number
+from datetime import datetime
 from glob import glob
 import os.path
 import re
@@ -45,22 +46,25 @@ from euchmgr import (db_init, tourn_create, upload_roster, generate_player_nums,
 #############
 
 app = Flask(__name__)
-#app.config.from_prefixed_env()
+app.config.from_prefixed_env()
 
-APP_NAME        = "Euchre Manager"
-APP_TEMPLATE    = "euchmgr.html"
-CHART_TEMPLATE  = "chart.html"
-SD_BRACKET      = "Seeding Round Bracket"
-SD_SCORES       = "Seeding Round Scores"
-RR_BRACKETS     = "Round Robin Brackets"
-RR_SCORES       = "Round Robin Scores"
+APP_NAME       = "Euchre Manager"
+APP_TEMPLATE   = "euchmgr.html"
+CHART_TEMPLATE = "chart.html"
+DASH_TEMPLATE  = "dash.html"
+SD_BRACKET     = "Seeding Round Bracket"
+SD_SCORES      = "Seeding Round Scores"
+RR_BRACKETS    = "Round Robin Brackets"
+RR_SCORES      = "Round Robin Scores"
+SD_DASH        = "Seeding Round Live Dashboard"
+RR_DASH        = "Round Robin Live Dashboard"
 
 # magic strings
 CHECKED  = ' checked'
+DISABLED = ' disabled'
 HIDDEN   = 'hidden'
 CENTERED = 'centered'
 EDITABLE = 'editable'
-DISABLED = ' disabled'
 
 # app views
 class View(IntEnum):
@@ -134,6 +138,8 @@ def fmt_score(pts: int) -> str:
 def fmt_tally(pts: int) -> str:
     """Print arguments for <img> tag for showing point tallies
     """
+    if pts == 0:
+        return ''
     tally_file = f"/static/tally_{pts}.png"
     return f'src="{tally_file}" height="15" width="50"'
 
@@ -581,7 +587,7 @@ CHART_FUNCS = [
     'sd_bracket',
     'sd_scores',
     'rr_brackets',
-    'rr_scores',
+    'rr_scores'
 ]
 
 @app.get("/chart/<path:subpath>")
@@ -789,6 +795,159 @@ def rr_scores(tourn: TournInfo) -> str:
         'bold_color'  : '#555555'
     }
     return render_chart(context)
+
+###################
+# Live Dashboards #
+###################
+
+DASH_FUNCS = [
+    'sd_dash',
+    'rr_dash'
+]
+
+TIME_FMT = '%Y-%m-%d %H:%M:%S'
+
+@app.get("/dash/<path:subpath>")
+def get_dash(subpath: str) -> str:
+    """Render specified live dashboard
+    """
+    dash, tourn_name = subpath.split('/', 1)
+    if dash not in DASH_FUNCS:
+        abort(404, f"Invalid dash func '{dash}'")
+
+    db_init(tourn_name)
+    tourn = TournInfo.get()
+    return globals()[dash](tourn)
+
+def sd_dash(tourn: TournInfo) -> str:
+    """Render seed round live dashboard
+    """
+    pl_list = sorted(Player.iter_players(), key=lambda pl: pl.player_num)
+    # sub-dict key is rnd, value is pts
+    team_pts = {pl.player_num: {} for pl in pl_list}
+    opp_pts  = {pl.player_num: {} for pl in pl_list}
+    wins     = {pl.player_num: 0 for pl in pl_list}
+    losses   = {pl.player_num: 0 for pl in pl_list}
+    pg_iter = PlayerGame.iter_games(include_byes=True)
+    for pg in pg_iter:
+        pl_num = pg.player_num
+        rnd = pg.round_num
+        assert rnd not in team_pts[pl_num]
+        assert rnd not in opp_pts[pl_num]
+        if pg.is_bye:
+            team_pts[pl_num][rnd] = None
+            opp_pts[pl_num][rnd] = None
+        else:
+            team_pts[pl_num][rnd] = fmt_score(pg.team_pts)
+            opp_pts[pl_num][rnd] = fmt_score(pg.opp_pts)
+            if pg.is_winner:
+                wins[pl_num] += 1
+            else:
+                losses[pl_num] += 1
+
+    win_tallies = {}
+    loss_tallies = {}
+    for pl in pl_list:
+        win_tallies[pl.player_num] = fmt_tally(wins[pl.player_num])
+        loss_tallies[pl.player_num] = fmt_tally(losses[pl.player_num])
+
+    context = {
+        'dash_num'    : 0,
+        'title'       : SD_DASH,
+        'tourn'       : tourn,
+        'rnds'        : tourn.seed_rounds,
+        'players'     : pl_list,
+        'team_pts'    : team_pts,
+        'opp_pts'     : opp_pts,
+        'wins'        : wins,
+        'losses'      : losses,
+        'win_tallies' : win_tallies,
+        'loss_tallies': loss_tallies,
+        'round_val'   : round_val,
+        'bold_color'  : '#555555'
+    }
+    return render_dash(context)
+
+def rr_dash(tourn: TournInfo) -> str:
+    """Render round robin live dashboard
+    """
+    update_int = 5900
+    paused = False
+
+    div_list = list(range(1, tourn.divisions + 1))
+    tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.div_rank or tourn.teams)
+    team_pts = {}
+    opp_pts  = {}
+    wins     = {}
+    losses   = {}
+    for div in div_list:
+        # sub-dict key is rnd, value is pts
+        team_pts[div] = {tm.team_seed: {} for tm in tm_list}
+        opp_pts[div]  = {tm.team_seed: {} for tm in tm_list}
+        wins[div]     = {tm.team_seed: 0 for tm in tm_list}
+        losses[div]   = {tm.team_seed: 0 for tm in tm_list}
+
+    tg_list = list(TeamGame.iter_games(include_byes=True))
+    not_bye = lambda g: not g.is_bye
+    max_rnd = lambda ls: max(g.round_num for g in ls) if ls else 0
+    cur_rnd = {div: max_rnd(list(filter(not_bye, tg_list))) for div in div_list}
+    for tg in tg_list:
+        div = tg.team.div_num
+        tm_seed = tg.team_seed
+        assert tm_seed == tg.team.team_seed
+        rnd = tg.round_num
+        assert rnd not in team_pts[div][tm_seed]
+        assert rnd not in opp_pts[div][tm_seed]
+        if not tg.is_bye:
+            team_pts[div][tm_seed][rnd] = fmt_score(tg.team_pts)
+            opp_pts[div][tm_seed][rnd] = fmt_score(tg.opp_pts)
+            if tg.is_winner:
+                wins[div][tm_seed] += 1
+            else:
+                losses[div][tm_seed] += 1
+        elif rnd <= cur_rnd[div]:
+            team_pts[div][tm_seed][rnd] = '-'
+            opp_pts[div][tm_seed][rnd] = '-'
+
+    div_teams = {div: [] for div in div_list}
+    win_tallies = {div: {} for div in div_list}
+    loss_tallies = {div: {} for div in div_list}
+    stats = {div: {} for div in div_list}
+    mvmt = {div: {} for div in div_list}
+    for div in div_list:
+        for tm in tm_list:
+            if tm.div_num == div:
+                div_teams[div].append(tm)
+            win_tallies[div][tm.team_seed] = fmt_tally(wins[div][tm.team_seed])
+            loss_tallies[div][tm.team_seed] = fmt_tally(losses[div][tm.team_seed])
+            stats[div][tm.team_seed] = (
+                f"{round_val(tm.tourn_win_pct)}%" if tm.tourn_win_pct is not None else '',
+                tm.tourn_pts_diff if tm.tourn_pts_diff is not None else '',
+                tm.div_rank or ''
+            )
+            mvmt[div][tm.team_seed] = ''
+
+    context = {
+        'dash_num'    : 1,
+        'title'       : RR_DASH,
+        'updated'     : datetime.now().strftime(TIME_FMT),
+        'update_int'  : update_int,
+        'paused'      : paused,
+        'tourn'       : tourn,
+        'rnds'        : tourn.tourn_rounds,
+        'div_list'    : div_list,
+        'div_teams'   : div_teams,
+        'team_pts'    : team_pts,
+        'opp_pts'     : opp_pts,
+        'wins'        : wins,
+        'losses'      : losses,
+        'win_tallies' : win_tallies,
+        'loss_tallies': loss_tallies,
+        'stats'       : stats,
+        'mvmt'        : mvmt,
+        'bold_color'  : '#555555'
+    }
+    return render_dash(context)
 
 ################
 # POST actions #
@@ -1025,7 +1184,7 @@ def tabulate_tourn_results(form: dict) -> str:
     tourn_name  = form.get('tourn_name')
     db_init(tourn_name)
     validate_tourn(finalize=True)
-    compute_team_ranks()
+    compute_team_ranks(finalize=True)
     view = View.TEAMS
 
     context = {
@@ -1096,6 +1255,12 @@ def render_chart(context: dict) -> str:
     """Common post-processing of context before rendering chart pages through Jinja
     """
     return render_template(CHART_TEMPLATE, **context)
+
+def render_dash(context: dict) -> str:
+    """Common post-processing of context before rendering live dashboard pages through
+    Jinja
+    """
+    return render_template(DASH_TEMPLATE, **context)
 
 def ajax_data(data: dict | list | str) -> dict:
     """Wrapper for returning specified data in the structure expected by DataTables for an

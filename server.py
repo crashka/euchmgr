@@ -144,8 +144,6 @@ def fmt_tally(pts: int) -> str:
 SUBMIT_FUNCS = [
     'create_tourn',
     'update_tourn',
-    'archive_tourn',
-    'create_roster',
     'gen_player_nums',
     'gen_seed_bracket',
     'fake_seed_results',
@@ -808,7 +806,7 @@ def create_tourn(form: dict) -> str:
     tourn_name  = form.get('tourn_name')
     timeframe   = form.get('timeframe') or None
     venue       = form.get('venue') or None
-    force       = form.get('force')
+    overwrite   = form.get('overwrite')
     roster_file = request.files.get('roster_file')
     if roster_file:
         roster_fn = secure_filename(roster_file.filename)
@@ -817,14 +815,14 @@ def create_tourn(form: dict) -> str:
 
     try:
         db_init(tourn_name)
-        tourn = tourn_create(timeframe=timeframe, venue=venue, force=bool(force))
+        tourn = tourn_create(timeframe=timeframe, venue=venue, force=bool(overwrite))
         if roster_file:
             upload_roster(roster_path)
             view = View.PLAYERS
             tourn = TournInfo.get()
         else:
             # TEMP: prompt for uploaded in the UI!!!
-            err_msg = "Roster file not specified"
+            err_msg = "Roster file required (manual roster creation not yet supported)"
     except OperationalError as e:
         if re.fullmatch(r'table "(\w+)" already exists', str(e)):
             err_msg = f"Tournament \"{tourn_name}\" already exists; either check \"Overwrite Existing\" or specify a new name"
@@ -836,6 +834,7 @@ def create_tourn(form: dict) -> str:
     context = {
         'tourn'      : tourn,
         'new_tourn'  : new_tourn,
+        'overwrite'  : overwrite,
         'roster_file': roster_fn,
         'err_msg'    : err_msg,
         'view'       : view
@@ -872,7 +871,7 @@ def update_tourn(form: dict) -> str:
             tourn = TournInfo.get()
         else:
             # TEMP: prompt for uploaded in the UI!!!
-            err_msg = "Roster file not specified"
+            err_msg = "Roster file required (manual roster creation not yet supported)"
     except OperationalError as e:
         err_msg = cap_first(str(e))
         tourn = TournInfo(name=tourn_name, timeframe=timeframe, venue=venue)
@@ -884,19 +883,6 @@ def update_tourn(form: dict) -> str:
         'roster_file': roster_fn,
         'err_msg'    : err_msg,
         'view'       : view
-    }
-    return render_app(context)
-
-def create_roster(form: dict) -> str:
-    """Manually create the player roster (NOTE: will probably never implement this!)
-    """
-    tourn_name = form.get('tourn_name')
-    db_init(tourn_name)
-    tourn = TournInfo.get()
-    raise ImplementationError("Not yet implemented!")
-
-    context = {
-        'tourn'      : tourn,
     }
     return render_app(context)
 
@@ -1058,16 +1044,15 @@ BUTTONS = SUBMIT_FUNCS
 
 # button index to tuple of stages for which button is enabled
 BUTTON_MAP = {
-    2:  (TournStage.TEAM_RANKS,),
-    4:  (TournStage.PLAYER_ROSTER, TournStage.PLAYER_NUMS),
-    5:  (TournStage.PLAYER_NUMS,),
-    6:  (TournStage.SEED_BRACKET, TournStage.SEED_RESULTS),
-    7:  (TournStage.SEED_RESULTS,),
-    8:  (TournStage.SEED_RANKS,),
-    9:  (TournStage.PARTNER_PICK,),
-    10: (TournStage.TEAM_SEEDS,),
-    11: (TournStage.TOURN_BRACKET, TournStage.TOURN_RESULTS),
-    12: (TournStage.TOURN_RESULTS,)
+    2:  (TournStage.PLAYER_ROSTER, TournStage.PLAYER_NUMS),
+    3:  (TournStage.PLAYER_NUMS,),
+    4:  (TournStage.SEED_BRACKET, TournStage.SEED_RESULTS),
+    5:  (TournStage.SEED_RESULTS,),
+    6:  (TournStage.SEED_RANKS,),
+    7:  (TournStage.PARTNER_PICK,),
+    8:  (TournStage.TEAM_SEEDS,),
+    9:  (TournStage.TOURN_BRACKET, TournStage.TOURN_RESULTS),
+    10: (TournStage.TOURN_RESULTS,)
 }
 
 def render_app(context: dict) -> str:
@@ -1103,8 +1088,7 @@ def render_app(context: dict) -> str:
         'tg_layout': tg_layout,
         'btn_val'  : BUTTONS,
         'btn_attr' : btn_attr,
-        'help_txt' : help_txt,
-        'ref_links': ref_links
+        'help_txt' : help_txt
     }
     return render_template(APP_TEMPLATE, **(base_ctx | context))
 
@@ -1154,25 +1138,7 @@ def ajax_response(succ: bool, msg: str = None, data: dict | list | str = None) -
 #########################
 
 help_txt = {
-    # tournament select
-    'tn_0': "existing database files",
-
-    # submit buttons
-    'bt_0': "Start tournament and track using the dashboard",
-
-    # download links
-    'dl_0': "directly tabulated counts (integer)",
-    'dl_1': "directly tabulated counts (integer)",
-    'dl_2': "format in Excel as 'Percent' (with decimal places = 1)",
-    'dl_3': "format in Excel as 'Percent' (with decimal places = 1)",
-    'dl_4': "stats laid out horizontally (suitable for sorting)",
-    'dl_5': "stats laid out horizontally (suitable for sorting)"
-}
-
-euchplt_pfx = "https://crashka.github.io/euchre-plt/_build/html/euchplt.html#"
-
-ref_links = {
-    "Tournament": euchplt_pfx + "module-euchplt.tournament"
+    # tag: help text
 }
 
 ############

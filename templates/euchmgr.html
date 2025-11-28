@@ -114,6 +114,9 @@
      table {
        margin-top: 0.3rem;
      }
+     .tourn_params td {
+       padding: 0.2rem;
+     }
      .pname {
        width: 10.5rem;
      }
@@ -171,7 +174,7 @@
           {% endif %}
         </select>
       </div>
-      {% if new_tourn %}
+      {% if tourn %}
       <div class="container">
         <div class="section info">
           <span class="section_lbl">New Tournament Info</span>
@@ -183,7 +186,7 @@
             <tr>
               <td class="td_lbl">Name:</td>
               <td class="td_txt">
-                <input name="tourn_name" type="text" value="{{tourn.name if tourn.name else ''}}" placeholder="required (must be unique)" required autofocus>
+                <input name="tourn_name" type="text" value="{{tourn.name if tourn.name else ''}}" placeholder="required (must be unique)" {{"required autofocus" if new_tourn else "readonly"}}>
               </td>
             </tr>
             <tr>
@@ -218,88 +221,27 @@
             </tr>
             <tr>
               <td class="td_lbl">Roster File:</td>
-              <td class="td_file">
-                <input name="roster_file" type="file" accept=".csv">
+              <td class="td_text">
+                <input name="roster_file" type="file" value="{{roster_file if roster_file else ''}}" accept=".csv">
               </td>
             </tr>
             <tr>
               <td class="td_lbl">Overwrite Existing:</td>
               <td>
-                <input type="checkbox" name="force" value="yes">
+                <input type="checkbox" name="overwrite" value="yes"{{" checked" if overwrite else ""}}{{"" if new_tourn else " disabled"}}>
               </td>
             </tr>
           </table>
         </div>
       </div>
       <div class="section buttons">
+        {% if new_tourn %}
         <button class="submit" value="{{btn_val[0]}}"{{btn_attr[0]}}>Create Tournament</button>
+        {% else %}
+        <button class="submit" value="{{btn_val[1]}}"{{btn_attr[1]}}>Create Tournament</button>
+        {% endif %}
       </div>
-      {% elif tourn %}
-      <div class="container">
-        <div class="section info">
-          <span class="section_lbl">Tournament Info</span>
-          <table class="tourn_params">
-            <colgroup>
-              <col class="pname">
-              <col class="pval">
-            </colgroup>
-            <tr>
-              <td class="td_lbl">Name:</td>
-              <td class="td_txt">
-                <input name="tourn_name" type="text" value="{{tourn.name}}" readonly>
-              </td>
-            </tr>
-            <tr>
-              <td class="td_lbl">Timeframe:</td>
-              <td class="td_txt">
-                <input name="timeframe" type="text" value="{{tourn.timeframe}}" disabled>
-              </td>
-            </tr>
-            <tr>
-              <td class="td_lbl">Venue:</td>
-              <td class="td_num">
-                <input name="venue" type="text" value="{{tourn.venue}}" disabled>
-              </td>
-            </tr>
-            <tr>
-              <td class="td_lbl">Seeding Rounds:</td>
-              <td class="td_num">
-                <input name="seed_rounds" type="number" value="{{tourn.seed_rounds}}" disabled>
-              </td>
-            </tr>
-            <tr>
-              <td class="td_lbl">Tournament Rounds:</td>
-              <td class="td_num">
-                <input name="tourn_rounds" type="number" value="{{tourn.tourn_rounds}}" disabled>
-              </td>
-            </tr>
-            <tr>
-              <td class="td_lbl">Tournament Divisions:</td>
-              <td class="td_num">
-                <input name="divisions" type="number" value="{{tourn.divisions}}" disabled>
-              </td>
-            </tr>
-            <tr>
-              <td class="td_lbl">Roster File:</td>
-              {% if roster_file %}
-              <td class="td_text">
-                <input name="roster_file" type="text" value="{{roster_file}}" disabled>
-              </td>
-              {% else %}
-              <td class="td_file">
-                <input name="roster_file" type="file" accept=".csv">
-              </td>
-              {% endif %}
-            </tr>
-          </table>
-        </div>
-      </div>
-      <div class="section buttons">
-        <button class="submit" value="{{btn_val[1]}}"{{btn_attr[1]}}>Upload Roster File</button>
-        <button class="submit" value="{{btn_val[2]}}"{{btn_attr[2]}}>Archive Tournament</button>
-        <button class="submit" value="{{btn_val[3]}}"{{btn_attr[3]}}>Manually Create Roster</button>
-      </div>
-      {% endif %}  {# new_tourn #}
+      {% endif %}  {# tourn #}
     </form>
     {% else %}  {# creating tourn #}
     <div class="container">
@@ -338,8 +280,8 @@
         <div class="subsection buttons">
           <form action="/" method="post">
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
-            <button class="submit" value="{{btn_val[4]}}"{{btn_attr[4]}}>Generate Player Nums</button>
-            <button class="submit" value="{{btn_val[5]}}"{{btn_attr[5]}}>Create Seeding Bracket</button>
+            <button class="submit" value="{{btn_val[2]}}"{{btn_attr[2]}}>Generate Player Nums</button>
+            <button class="submit" value="{{btn_val[3]}}"{{btn_attr[3]}}>Create Seeding Bracket</button>
           </form>
         </div>
       </div>
@@ -357,8 +299,8 @@
         <div class="subsection buttons">
           <form action="/" method="post">
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
-            <button class="submit demo" value="{{btn_val[6]}}"{{btn_attr[6]}}>Generate Fake Results</button>
-            <button class="submit" value="{{btn_val[7]}}"{{btn_attr[7]}}>Tabulate Results</button>
+            <button class="submit demo" value="{{btn_val[4]}}"{{btn_attr[4]}}>Generate Fake Results</button>
+            <button class="submit" value="{{btn_val[5]}}"{{btn_attr[5]}}>Tabulate Results</button>
             <span class="lnk_lbl">Display Chart:</span>
             <a href="#" onclick="window.open('/chart/sd_bracket/{{tourn.name}}', '_blank')"">Seeding Round Bracket</a>
             <a href="#" onclick="window.open('/chart/sd_scores/{{tourn.name}}', '_blank')"">Seeding Round Scores</a>
@@ -379,8 +321,8 @@
         <div class="subsection buttons">
           <form action="/" method="post">
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
-            <button class="submit demo" value="{{btn_val[8]}}"{{btn_attr[8]}}>Generate Fake Picks</button>
-            <button class="submit" value="{{btn_val[9]}}"{{btn_attr[9]}}>Compute Team Seeds</button>
+            <button class="submit demo" value="{{btn_val[6]}}"{{btn_attr[6]}}>Generate Fake Picks</button>
+            <button class="submit" value="{{btn_val[7]}}"{{btn_attr[7]}}>Compute Team Seeds</button>
           </form>
         </div>
       </div>
@@ -398,7 +340,7 @@
         <div class="subsection buttons">
           <form action="/" method="post">
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
-            <button class="submit" value="{{btn_val[10]}}"{{btn_attr[10]}}>Create Round Robin Brackets</button>
+            <button class="submit" value="{{btn_val[8]}}"{{btn_attr[8]}}>Create Round Robin Brackets</button>
           </form>
         </div>
       </div>
@@ -416,8 +358,8 @@
         <div class="subsection buttons">
           <form action="/" method="post">
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
-            <button class="submit demo" value="{{btn_val[11]}}"{{btn_attr[11]}}>Generate Fake Results</button>
-            <button class="submit" value="{{btn_val[12]}}"{{btn_attr[12]}}>Tabulate Results</button>
+            <button class="submit demo" value="{{btn_val[9]}}"{{btn_attr[9]}}>Generate Fake Results</button>
+            <button class="submit" value="{{btn_val[10]}}"{{btn_attr[10]}}>Tabulate Results</button>
             <span class="lnk_lbl">Display Chart:</span>
             <a href="#" onclick="window.open('/chart/rr_brackets/{{tourn.name}}', '_blank')"">Round Robin Brackets</a>
             <a href="#" onclick="window.open('/chart/rr_scores/{{tourn.name}}', '_blank')"">Round Robin Scores</a>

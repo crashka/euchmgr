@@ -4,8 +4,17 @@
     <title>{{title}}</title>
 
     <style>
-     .red {
+     .red_bg {
        background-color: #FFECEC;
+     }
+     .grn_bg {
+       background-color: #E1FFDC;
+     }
+     .red_fg {
+       color: #D70000;
+     }
+     .grn_fg {
+       color: #108810;
      }
      .updated {
        display: block;
@@ -69,10 +78,9 @@
      }
      b {
        font-weight: bold;
-       color: {{bold_color or "black"}};
      }
      u {
-       text-decoration: solid underline grey 2px;
+       text-decoration: solid underline 2px;
      }
     </style>
   </head>
@@ -120,22 +128,22 @@
           </thead>
           <tbody>
             {% for tm in div_teams[div] %}
-            <tr>
+            <tr class="{{colcls[div][tm.team_seed]}}">
               <td class="team_lbl">{{tm.team_tag|safe}}</td>
               <td class="tally"><img {{win_tallies[div][tm.team_seed]|safe}} /></td>
               <td class="tally"><img {{loss_tallies[div][tm.team_seed]|safe}} /></td>
               <td class="vert_sect">{{team_pts[div][tm.team_seed].get(1, '')|safe}}</td>
               {% for rnd in range(2, rnds + 1) %}
-              <td>{{team_pts[div][tm.team_seed].get(rnd, '')|safe}}</td>
+              <td class="">{{team_pts[div][tm.team_seed].get(rnd, '')|safe}}</td>
               {% endfor %}
               <td class="vert_sect">{{opp_pts[div][tm.team_seed].get(1, '')|safe}}</td>
               {% for rnd in range(2, rnds + 1) %}
-              <td>{{opp_pts[div][tm.team_seed].get(rnd, '')|safe}}</td>
+              <td class="">{{opp_pts[div][tm.team_seed].get(rnd, '')|safe}}</td>
               {% endfor %}
               <td class="vert_sect">{{stats[div][tm.team_seed][0]}}</td>
-              <td>{{stats[div][tm.team_seed][1]}}</td>
-              <td>{{stats[div][tm.team_seed][2]}}</td>
-              <td>{{mvmt[div][tm.team_seed]}}</td>
+              <td class="">{{stats[div][tm.team_seed][1]}}</td>
+              <td class=""><b>{{stats[div][tm.team_seed][2]}}</b></td>
+              <td class="">{{mvmt[div][tm.team_seed]}}</td>
             </tr>
             {% endfor %}
           </tbody>

@@ -749,7 +749,7 @@ def rr_scores(tourn: TournInfo) -> str:
     wins     = {}
     losses   = {}
     for div in div_list:
-        # sub-dict key is rnd, value is pts
+        # inner dict represents points by round {rnd: pts}
         team_pts[div] = {tm.team_seed: {} for tm in tm_list}
         opp_pts[div]  = {tm.team_seed: {} for tm in tm_list}
         wins[div]     = {tm.team_seed: 0 for tm in tm_list}
@@ -813,6 +813,9 @@ DASH_FUNCS = [
 
 TIME_FMT = '%Y-%m-%d %H:%M:%S'
 DFLT_UPDATE_INT = 5900
+
+COLCLS_UP   = 'grn_fg'
+COLCLS_DOWN = 'red_fg'
 
 @app.get("/dash/<path:subpath>")
 def get_dash(subpath: str) -> str:
@@ -892,7 +895,7 @@ def rr_dash(tourn: TournInfo) -> str:
     losses   = {}
     tot_pts  = 0
     for div in div_list:
-        # sub-dict key is rnd, value is pts
+        # inner dict represents points by round {rnd: pts}
         team_pts[div] = {tm.team_seed: {} for tm in tm_list}
         opp_pts[div]  = {tm.team_seed: {} for tm in tm_list}
         wins[div]     = {tm.team_seed: 0 for tm in tm_list}
@@ -922,18 +925,21 @@ def rr_dash(tourn: TournInfo) -> str:
             opp_pts[div][tm_seed][rnd] = '-'
 
     prev_tot_pts = 0
-    prev_stats = None
-    prev_mvmt = None
+    prev_stats   = None
+    prev_mvmt    = None
+    prev_colcls  = None
     if prev_frame := session.get('prev_frame'):
         prev_tot_pts = prev_frame['tot_pts']
-        prev_stats = prev_frame['stats']
-        prev_mvmt = prev_frame['mvmt']
+        prev_stats   = prev_frame['stats']
+        prev_mvmt    = prev_frame['mvmt']
+        prev_colcls  = prev_frame['colcls']
 
-    div_teams = {div: [] for div in div_list}
-    win_tallies = {div: {} for div in div_list}
+    div_teams    = {div: [] for div in div_list}
+    win_tallies  = {div: {} for div in div_list}
     loss_tallies = {div: {} for div in div_list}
-    stats = {div: {} for div in div_list}  # (win_pct, pts_diff, rank)
-    mvmt = {div: {} for div in div_list}
+    stats        = {div: {} for div in div_list}  # (win_pct, pts_diff, rank)
+    mvmt         = {div: {} for div in div_list}
+    colcls       = {div: {} for div in div_list}
     for div in div_list:
         for tm in tm_list:
             if tm.div_num == div:
@@ -947,15 +953,19 @@ def rr_dash(tourn: TournInfo) -> str:
             )
             if prev_stats:
                 if tot_pts == prev_tot_pts and prev_mvmt:
-                    mvmt[div][tm.team_seed] = prev_mvmt[div][tm.team_seed]
+                    mvmt[div][tm.team_seed] = prev_mvmt[div].get(tm.team_seed, '')
+                    colcls[div][tm.team_seed] = prev_colcls[div].get(tm.team_seed, '')
                 elif prev_stats[div][tm.team_seed][2]:
                     rank_diff = (prev_stats[div][tm.team_seed][2] or 0) - (tm.div_rank or 0)
                     if rank_diff > 0:
                         mvmt[div][tm.team_seed] = f'+{rank_diff}'
+                        colcls[div][tm.team_seed] = COLCLS_UP
                     elif rank_diff < 0:
                         mvmt[div][tm.team_seed] = str(rank_diff)
+                        colcls[div][tm.team_seed] = COLCLS_DOWN
                 if tm.team_seed not in mvmt[div]:
                     mvmt[div][tm.team_seed] = ''
+                    colcls[div][tm.team_seed] = ''
 
     updated = now_str()
     if tot_pts > prev_tot_pts:
@@ -968,7 +978,8 @@ def rr_dash(tourn: TournInfo) -> str:
             'opp_pts'     : opp_pts,
             'tot_pts'     : tot_pts,
             'stats'       : stats,
-            'mvmt'        : mvmt
+            'mvmt'        : mvmt,
+            'colcls'      : colcls
         }
 
     context = {
@@ -990,6 +1001,7 @@ def rr_dash(tourn: TournInfo) -> str:
         'tot_pts'     : tot_pts,
         'stats'       : stats,
         'mvmt'        : mvmt,
+        'colcls'      : colcls,
         'bold_color'  : '#555555'
     }
     return render_dash(context)

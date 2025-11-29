@@ -27,12 +27,14 @@ import re
 
 from ckautils import typecast
 from peewee import OperationalError, IntegrityError
-from flask import (Flask, Request, request, render_template, Response, abort, redirect,
-                   url_for)
+from flask import (Flask, Request, request, session, render_template, Response, abort,
+                   redirect, url_for)
+from flask_session import Session
+from cachelib.file import FileSystemCache
 from werkzeug.utils import secure_filename
 
 from core import DATA_DIR, UPLOAD_DIR, ImplementationError
-from database import DB_FILETYPE
+from database import DB_FILETYPE, now_str
 from schema import (GAME_PTS, TournStage, TournInfo, Player, SeedGame, Team, TournGame,
                     PlayerGame, TeamGame)
 from euchmgr import (db_init, tourn_create, upload_roster, generate_player_nums,
@@ -46,7 +48,11 @@ from euchmgr import (db_init, tourn_create, upload_roster, generate_player_nums,
 #############
 
 app = Flask(__name__)
-app.config.from_prefixed_env()
+
+SESSION_TYPE = 'cachelib'
+SESSION_CACHELIB = FileSystemCache(cache_dir="sessions", default_timeout=0)
+app.config.from_object(__name__)
+Session(app)
 
 APP_NAME       = "Euchre Manager"
 APP_TEMPLATE   = "euchmgr.html"
@@ -817,7 +823,10 @@ def get_dash(subpath: str) -> str:
         abort(404, f"Invalid dash func '{dash}'")
 
     db_init(tourn_name)
-    tourn = TournInfo.get()
+    tourn = TournInfo.get(requery=True)
+    if prev_frame := session.get('prev_frame'):
+        if str(tourn.created_at) > prev_frame['updated']:
+            session.pop('prev_frame')
     return globals()[dash](tourn)
 
 def sd_dash(tourn: TournInfo) -> str:
@@ -881,6 +890,7 @@ def rr_dash(tourn: TournInfo) -> str:
     opp_pts  = {}
     wins     = {}
     losses   = {}
+    tot_pts  = 0
     for div in div_list:
         # sub-dict key is rnd, value is pts
         team_pts[div] = {tm.team_seed: {} for tm in tm_list}
@@ -900,6 +910,7 @@ def rr_dash(tourn: TournInfo) -> str:
         assert rnd not in team_pts[div][tm_seed]
         assert rnd not in opp_pts[div][tm_seed]
         if not tg.is_bye:
+            tot_pts += tg.team_pts
             team_pts[div][tm_seed][rnd] = fmt_score(tg.team_pts)
             opp_pts[div][tm_seed][rnd] = fmt_score(tg.opp_pts)
             if tg.is_winner:
@@ -910,10 +921,18 @@ def rr_dash(tourn: TournInfo) -> str:
             team_pts[div][tm_seed][rnd] = '-'
             opp_pts[div][tm_seed][rnd] = '-'
 
+    prev_tot_pts = 0
+    prev_stats = None
+    prev_mvmt = None
+    if prev_frame := session.get('prev_frame'):
+        prev_tot_pts = prev_frame['tot_pts']
+        prev_stats = prev_frame['stats']
+        prev_mvmt = prev_frame['mvmt']
+
     div_teams = {div: [] for div in div_list}
     win_tallies = {div: {} for div in div_list}
     loss_tallies = {div: {} for div in div_list}
-    stats = {div: {} for div in div_list}
+    stats = {div: {} for div in div_list}  # (win_pct, pts_diff, rank)
     mvmt = {div: {} for div in div_list}
     for div in div_list:
         for tm in tm_list:
@@ -926,24 +945,49 @@ def rr_dash(tourn: TournInfo) -> str:
                 tm.tourn_pts_diff if tm.tourn_pts_diff is not None else '',
                 tm.div_rank or ''
             )
-            mvmt[div][tm.team_seed] = ''
+            if prev_stats:
+                if tot_pts == prev_tot_pts and prev_mvmt:
+                    mvmt[div][tm.team_seed] = prev_mvmt[div][tm.team_seed]
+                elif prev_stats[div][tm.team_seed][2]:
+                    rank_diff = (prev_stats[div][tm.team_seed][2] or 0) - (tm.div_rank or 0)
+                    if rank_diff > 0:
+                        mvmt[div][tm.team_seed] = f'+{rank_diff}'
+                    elif rank_diff < 0:
+                        mvmt[div][tm.team_seed] = str(rank_diff)
+                if tm.team_seed not in mvmt[div]:
+                    mvmt[div][tm.team_seed] = ''
+
+    updated = now_str()
+    if tot_pts > prev_tot_pts:
+        session['prev_frame'] = {
+            'updated'     : updated,
+            'done'        : done,
+            'wins'        : wins,
+            'losses'      : losses,
+            'team_pts'    : team_pts,
+            'opp_pts'     : opp_pts,
+            'tot_pts'     : tot_pts,
+            'stats'       : stats,
+            'mvmt'        : mvmt
+        }
 
     context = {
         'dash_num'    : 1,
         'title'       : RR_DASH,
-        'updated'     : datetime.now().strftime(TIME_FMT),
+        'updated'     : updated,
         'update_int'  : update_int,
         'done'        : done,
         'tourn'       : tourn,
         'rnds'        : tourn.tourn_rounds,
         'div_list'    : div_list,
         'div_teams'   : div_teams,
-        'team_pts'    : team_pts,
-        'opp_pts'     : opp_pts,
         'wins'        : wins,
         'losses'      : losses,
         'win_tallies' : win_tallies,
         'loss_tallies': loss_tallies,
+        'team_pts'    : team_pts,
+        'opp_pts'     : opp_pts,
+        'tot_pts'     : tot_pts,
         'stats'       : stats,
         'mvmt'        : mvmt,
         'bold_color'  : '#555555'

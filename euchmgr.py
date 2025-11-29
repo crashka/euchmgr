@@ -463,7 +463,10 @@ def fake_tourn_games(clear_existing: bool = False, limit: int = None) -> None:
         nfake += 1
         if limit and nfake >= limit:
             compute_team_ranks()
-            break
+            return
+
+    if limit and nfake and nfake < limit:
+        compute_team_ranks()
 
     TournInfo.mark_stage_complete(TournStage.TOURN_RESULTS)
 

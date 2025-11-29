@@ -1,4 +1,5 @@
 flask
+Flask-Session[cachelib]
 jinja2
 peewee
 git+https://github.com/crashka/ckautils

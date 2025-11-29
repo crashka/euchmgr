@@ -806,6 +806,7 @@ DASH_FUNCS = [
 ]
 
 TIME_FMT = '%Y-%m-%d %H:%M:%S'
+DFLT_UPDATE_INT = 5900
 
 @app.get("/dash/<path:subpath>")
 def get_dash(subpath: str) -> str:
@@ -871,8 +872,8 @@ def sd_dash(tourn: TournInfo) -> str:
 def rr_dash(tourn: TournInfo) -> str:
     """Render round robin live dashboard
     """
-    update_int = 5900
-    paused = False
+    update_int = DFLT_UPDATE_INT
+    done = False
 
     div_list = list(range(1, tourn.divisions + 1))
     tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.div_rank or tourn.teams)
@@ -932,7 +933,7 @@ def rr_dash(tourn: TournInfo) -> str:
         'title'       : RR_DASH,
         'updated'     : datetime.now().strftime(TIME_FMT),
         'update_int'  : update_int,
-        'paused'      : paused,
+        'done'        : done,
         'tourn'       : tourn,
         'rnds'        : tourn.tourn_rounds,
         'div_list'    : div_list,

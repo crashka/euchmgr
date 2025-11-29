@@ -15,6 +15,12 @@
        margin-left: 0.8rem;
        padding: 0.2rem 0.8rem;
      }
+     button[value="pause_upd"] {
+       display: inline;
+     }
+     button[value="resume_upd"] {
+       display: none;
+     }
      .container {
        display: inline-block;
        margin-top: 2.0rem;
@@ -76,12 +82,13 @@
       <span class="container_lbl">{{tourn.name}} &ndash; {{title}}</span>
       <input class="start" type="hidden" name="start" value="">
       <span class="updated">
+        {% if not done %}
         Updated: {{updated}} (<span class="elapsed">0 secs ago</span>)
-        {% if not paused %}
-        <button class="submit" value="pause_upd">Pause Updates</button>
         {% else %}
-        <button class="submit" value="resume_upd">Resume Updates</button>
+        Updated: {{updated}} (done)
         {% endif %}
+        <button value="pause_upd"{{"disabled" if done else ""}}>Pause Updates</button>
+        <button value="resume_upd">Resume Updates</button>
       </span>
 
       {% for div in div_list %}
@@ -142,6 +149,11 @@
   <script>
    $(function() {
      // document ready
+     let paused = false;
+     let done = {{'true' if done else 'false'}};
+     let intervalId;
+     let timeoutId;
+
      function updElapsed(startVal) {
        const nowVal = Math.round(Date.now() / 1000.0);
        const elapsed = nowVal - startVal
@@ -153,13 +165,42 @@
        if (!$start.val()) {
          $start.val(Math.round(Date.now() / 1000.0));
        }
-       setInterval(updElapsed, 1000, $start.val());
+       intervalId = setInterval(updElapsed, 1000, $start.val());
      };
 
+     $("button[value='pause_upd']").on('click', function() {
+       paused = true;
+       if (timeoutId) {
+         window.clearTimeout(timeoutId);
+         timeoutId = null;
+       }
+       if (intervalId) {
+         window.clearInterval(intervalId);
+         intervalId = null;
+       }
+       $(this).css('display', 'none');
+       $("button[value='resume_upd']").css('display', 'inline');
+       $(".elapsed").text("paused");
+     });
+
+     $("button[value='resume_upd']").on('click', function() {
+       paused = false;
+       $(this).css('display', 'none');
+       $("button[value='pause_upd']").css('display', 'inline');
+       window.setTimeout(function() {
+         window.location.reload();
+       }, 1000);
+       $(".elapsed").text("resuming");
+     });
+
+     {% if not done %}
      startElapsed();
-     window.setTimeout(function() {
-       window.location.reload();
-     }, {{update_int}});
+     {% endif %}
+     if (!paused && !done) {
+       timeoutId = window.setTimeout(function() {
+         window.location.reload();
+       }, {{update_int}});
+     }
    });
   </script>
 </html>

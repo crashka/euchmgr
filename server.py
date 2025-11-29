@@ -889,17 +889,12 @@ def rr_dash(tourn: TournInfo) -> str:
 
     div_list = list(range(1, tourn.divisions + 1))
     tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.div_rank or tourn.teams)
-    team_pts = {}
-    opp_pts  = {}
-    wins     = {}
-    losses   = {}
+    # inner dict represents points by round {rnd: pts}
+    team_pts = {tm.team_seed: {} for tm in tm_list}
+    opp_pts  = {tm.team_seed: {} for tm in tm_list}
+    wins     = {tm.team_seed: 0 for tm in tm_list}
+    losses   = {tm.team_seed: 0 for tm in tm_list}
     tot_pts  = 0
-    for div in div_list:
-        # inner dict represents points by round {rnd: pts}
-        team_pts[div] = {tm.team_seed: {} for tm in tm_list}
-        opp_pts[div]  = {tm.team_seed: {} for tm in tm_list}
-        wins[div]     = {tm.team_seed: 0 for tm in tm_list}
-        losses[div]   = {tm.team_seed: 0 for tm in tm_list}
 
     tg_list = list(TeamGame.iter_games(include_byes=True))
     not_bye = lambda g: not g.is_bye
@@ -910,19 +905,19 @@ def rr_dash(tourn: TournInfo) -> str:
         tm_seed = tg.team_seed
         assert tm_seed == tg.team.team_seed
         rnd = tg.round_num
-        assert rnd not in team_pts[div][tm_seed]
-        assert rnd not in opp_pts[div][tm_seed]
+        assert rnd not in team_pts[tm_seed]
+        assert rnd not in opp_pts[tm_seed]
         if not tg.is_bye:
             tot_pts += tg.team_pts
-            team_pts[div][tm_seed][rnd] = fmt_score(tg.team_pts)
-            opp_pts[div][tm_seed][rnd] = fmt_score(tg.opp_pts)
+            team_pts[tm_seed][rnd] = fmt_score(tg.team_pts)
+            opp_pts[tm_seed][rnd] = fmt_score(tg.opp_pts)
             if tg.is_winner:
-                wins[div][tm_seed] += 1
+                wins[tm_seed] += 1
             else:
-                losses[div][tm_seed] += 1
+                losses[tm_seed] += 1
         elif rnd <= cur_rnd[div]:
-            team_pts[div][tm_seed][rnd] = '-'
-            opp_pts[div][tm_seed][rnd] = '-'
+            team_pts[tm_seed][rnd] = '-'
+            opp_pts[tm_seed][rnd] = '-'
 
     prev_tot_pts = 0
     prev_stats   = None
@@ -935,37 +930,37 @@ def rr_dash(tourn: TournInfo) -> str:
         prev_colcls  = prev_frame['colcls']
 
     div_teams    = {div: [] for div in div_list}
-    win_tallies  = {div: {} for div in div_list}
-    loss_tallies = {div: {} for div in div_list}
-    stats        = {div: {} for div in div_list}  # (win_pct, pts_diff, rank)
-    mvmt         = {div: {} for div in div_list}
-    colcls       = {div: {} for div in div_list}
-    for div in div_list:
-        for tm in tm_list:
-            if tm.div_num == div:
-                div_teams[div].append(tm)
-            win_tallies[div][tm.team_seed] = fmt_tally(wins[div][tm.team_seed])
-            loss_tallies[div][tm.team_seed] = fmt_tally(losses[div][tm.team_seed])
-            stats[div][tm.team_seed] = (
-                f"{round_val(tm.tourn_win_pct)}%" if tm.tourn_win_pct is not None else '',
-                tm.tourn_pts_diff if tm.tourn_pts_diff is not None else '',
-                tm.div_rank or ''
-            )
-            if prev_stats:
-                if tot_pts == prev_tot_pts and prev_mvmt:
-                    mvmt[div][tm.team_seed] = prev_mvmt[div].get(tm.team_seed, '')
-                    colcls[div][tm.team_seed] = prev_colcls[div].get(tm.team_seed, '')
-                elif prev_stats[div][tm.team_seed][2]:
-                    rank_diff = (prev_stats[div][tm.team_seed][2] or 0) - (tm.div_rank or 0)
-                    if rank_diff > 0:
-                        mvmt[div][tm.team_seed] = f'+{rank_diff}'
-                        colcls[div][tm.team_seed] = COLCLS_UP
-                    elif rank_diff < 0:
-                        mvmt[div][tm.team_seed] = str(rank_diff)
-                        colcls[div][tm.team_seed] = COLCLS_DOWN
-                if tm.team_seed not in mvmt[div]:
-                    mvmt[div][tm.team_seed] = ''
-                    colcls[div][tm.team_seed] = ''
+    win_tallies  = {}
+    loss_tallies = {}
+    stats        = {}  # value: (win_pct, pts_diff, rank)
+    mvmt         = {}
+    colcls       = {}
+    for tm in tm_list:
+        div = tm.div_num
+        div_teams[div].append(tm)
+
+        win_tallies[tm.team_seed] = fmt_tally(wins[tm.team_seed])
+        loss_tallies[tm.team_seed] = fmt_tally(losses[tm.team_seed])
+        stats[tm.team_seed] = (
+            f"{round_val(tm.tourn_win_pct)}%" if tm.tourn_win_pct is not None else '',
+            tm.tourn_pts_diff if tm.tourn_pts_diff is not None else '',
+            tm.div_rank or ''
+        )
+        if prev_stats:
+            if tot_pts == prev_tot_pts and prev_mvmt:
+                mvmt[tm.team_seed] = prev_mvmt.get(tm.team_seed, '')
+                colcls[tm.team_seed] = prev_colcls.get(tm.team_seed, '')
+            elif prev_stats[tm.team_seed][2]:
+                rank_diff = (prev_stats[tm.team_seed][2] or 0) - (tm.div_rank or 0)
+                if rank_diff > 0:
+                    mvmt[tm.team_seed] = f'+{rank_diff}'
+                    colcls[tm.team_seed] = COLCLS_UP
+                elif rank_diff < 0:
+                    mvmt[tm.team_seed] = str(rank_diff)
+                    colcls[tm.team_seed] = COLCLS_DOWN
+            if tm.team_seed not in mvmt:
+                mvmt[tm.team_seed] = '-'
+                colcls[tm.team_seed] = ''
 
     updated = now_str()
     if tot_pts > prev_tot_pts:

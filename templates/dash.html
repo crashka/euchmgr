@@ -128,22 +128,22 @@
           </thead>
           <tbody>
             {% for tm in div_teams[div] %}
-            <tr class="{{colcls[div][tm.team_seed]}}">
+            <tr class="{{colcls[tm.team_seed]}}">
               <td class="team_lbl">{{tm.team_tag|safe}}</td>
-              <td class="tally"><img {{win_tallies[div][tm.team_seed]|safe}} /></td>
-              <td class="tally"><img {{loss_tallies[div][tm.team_seed]|safe}} /></td>
-              <td class="vert_sect">{{team_pts[div][tm.team_seed].get(1, '')|safe}}</td>
+              <td class="tally"><img {{win_tallies[tm.team_seed]|safe}} /></td>
+              <td class="tally"><img {{loss_tallies[tm.team_seed]|safe}} /></td>
+              <td class="vert_sect">{{team_pts[tm.team_seed].get(1, '')|safe}}</td>
               {% for rnd in range(2, rnds + 1) %}
-              <td class="">{{team_pts[div][tm.team_seed].get(rnd, '')|safe}}</td>
+              <td class="">{{team_pts[tm.team_seed].get(rnd, '')|safe}}</td>
               {% endfor %}
-              <td class="vert_sect">{{opp_pts[div][tm.team_seed].get(1, '')|safe}}</td>
+              <td class="vert_sect">{{opp_pts[tm.team_seed].get(1, '')|safe}}</td>
               {% for rnd in range(2, rnds + 1) %}
-              <td class="">{{opp_pts[div][tm.team_seed].get(rnd, '')|safe}}</td>
+              <td class="">{{opp_pts[tm.team_seed].get(rnd, '')|safe}}</td>
               {% endfor %}
-              <td class="vert_sect">{{stats[div][tm.team_seed][0]}}</td>
-              <td class="">{{stats[div][tm.team_seed][1]}}</td>
-              <td class=""><b>{{stats[div][tm.team_seed][2]}}</b></td>
-              <td class="">{{mvmt[div][tm.team_seed]}}</td>
+              <td class="vert_sect">{{stats[tm.team_seed][0]}}</td>
+              <td class="">{{stats[tm.team_seed][1]}}</td>
+              <td class=""><b>{{stats[tm.team_seed][2]}}</b></td>
+              <td class="">{{mvmt[tm.team_seed]}}</td>
             </tr>
             {% endfor %}
           </tbody>

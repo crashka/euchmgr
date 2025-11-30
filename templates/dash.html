@@ -140,9 +140,9 @@
               {% for rnd in range(2, rnds + 1) %}
               <td class="">{{pts_against[tm.team_seed].get(rnd, '')|safe}}</td>
               {% endfor %}
-              <td class="vert_sect">{{stats[tm.team_seed][0]}}</td>
-              <td class="">{{stats[tm.team_seed][1]}}</td>
-              <td class=""><b>{{stats[tm.team_seed][2]}}</b></td>
+              <td class="vert_sect">{{stats_fmt[tm.team_seed][0]|safe}}</td>
+              <td class="">{{stats_fmt[tm.team_seed][1]|safe}}</td>
+              <td class="">{{stats_fmt[tm.team_seed][2]|safe}}</td>
               <td class="">{{mvmt[tm.team_seed]}}</td>
             </tr>
             {% endfor %}

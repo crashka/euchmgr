@@ -121,6 +121,7 @@ def get_tourns() -> list[str]:
 #################
 
 FLOAT_PREC = 1
+UNDEF = '-- undef --'
 
 def round_val(val: Number) -> Number:
     """Provide the appropriate level of rounding for the leaderboard or stat value (does
@@ -133,10 +134,10 @@ def round_val(val: Number) -> Number:
 # do not downcase the rest of the string like str.capitalize()
 cap_first = lambda x: x[0].upper() + x[1:]
 
-def fmt_score(pts: int, prev_pts: int = -1) -> str:
-    """Markup score if game-winning (bold) and/or changed from prev (em)
+def fmt_score(pts: int) -> str:
+    """Version for scoring charts--markup score if game-winning (bold)
     """
-    # special case for byes
+    # special case for byes (no markup)
     if pts == -1:
         return '-'
 
@@ -144,11 +145,58 @@ def fmt_score(pts: int, prev_pts: int = -1) -> str:
     if pts >= GAME_PTS:
         ret = f"<b>{ret}</b>"
 
+    return ret
+
+def fmt_dash_score(pts: int, prev_pts: int = -1) -> str:
+    """Version for live dashboards--markup score if changed from prev (em); do not
+    highlight game-winner scores (too distracting)
+    """
+    # special case for byes (no markup)
+    if pts == -1:
+        return '-'
+
+    ret = str(pts)
+    #if pts >= GAME_PTS:
+    #    ret = f"<i>{ret}</i>"
+
     if prev_pts != -1 and pts != prev_pts:
         assert pts >= (prev_pts or 0)
-        ret = f"<em>{ret}</em>"
+        ret = f"<b>{ret}</b>"
 
     return ret
+
+def fmt_dash_stat(val: int | float, prev_val: int | float = UNDEF, no_style: bool = False) -> str:
+    """Version for live dashboards--markup stat if changed from prev (em), do rounding for
+    float values.  Note that float vals are assumed to represent percentages (percent sign
+    to be style along with the val itself).
+    """
+    if val is None:
+        return ''
+
+    if prev_val == UNDEF or no_style:
+        # no previous reference is treated as no change, no styling
+        if isinstance(val, float):
+            return f"{round_val(val)}%"
+        assert isinstance(val, int)
+        return str(val)
+    elif prev_val is None:
+        # previously empty represents changed value
+        if isinstance(val, float):
+            return f"<b>{round_val(val)}%</b>"
+        return f"<b>{val}</b>"
+
+    if isinstance(val, float):
+        assert isinstance(prev_val, float)
+        if round_val(val) == round_val(prev_val):
+            return f"{round_val(val)}%"
+        return f"<b>{round_val(val)}%</b>"
+    elif isinstance(val, int):
+        assert isinstance(prev_val, int)
+        if val == prev_val:
+            return str(val)
+        return f"<b>{val}</b>"
+    else:
+        assert False, f"Unexpected type '{type(val)}' for val"
 
 def fmt_tally(pts: int) -> str:
     """Print arguments for <img> tag for showing point tallies
@@ -895,6 +943,7 @@ def rr_dash(tourn: TournInfo) -> str:
     """Render round robin live dashboard
     """
     update_int = DFLT_UPDATE_INT
+    #done = check_done()
     done = False
 
     div_list = list(range(1, tourn.divisions + 1))
@@ -938,6 +987,7 @@ def rr_dash(tourn: TournInfo) -> str:
     prev_pts_for     = {}
     prev_pts_against = {}
     prev_stats       = None
+    prev_stats_fmt   = None
     prev_mvmt        = None
     prev_colcls      = None
     if prev_frame := session.get(RR_DASH_KEY):
@@ -951,6 +1001,7 @@ def rr_dash(tourn: TournInfo) -> str:
             prev_pts_for     = prev_frame['pts_for']
             prev_pts_against = prev_frame['pts_against']
             prev_stats       = prev_frame['stats']
+            prev_stats_fmt   = prev_frame['stats_fmt']
             prev_mvmt        = prev_frame['mvmt']
             prev_colcls      = prev_frame['colcls']
 
@@ -959,6 +1010,7 @@ def rr_dash(tourn: TournInfo) -> str:
     win_tallies  = {}
     loss_tallies = {}
     stats        = {}  # value: (win_pct, pts_diff, rank)
+    stats_fmt    = {}  # value: (win_pct, pts_diff, rank)
     mvmt         = {}
     colcls       = {}
     # inner dict represents points (formatted!) by round
@@ -969,32 +1021,35 @@ def rr_dash(tourn: TournInfo) -> str:
         tm_seed = tm.team_seed
         div_teams[div].append(tm)
 
-        # for now, we always (re-)format win/loss tallies and stats--LATER, need to
-        # determine changes to stats for highlighting!!!
+        # we always (re-)format win/loss tallies (for now)
         win_tallies[tm_seed] = fmt_tally(wins[tm_seed])
         loss_tallies[tm_seed] = fmt_tally(losses[tm_seed])
-        stats[tm_seed] = (
-            f"{round_val(tm.tourn_win_pct)}%" if tm.tourn_win_pct is not None else '',
-            tm.tourn_pts_diff if tm.tourn_pts_diff is not None else '',
-            tm.div_rank or ''
-        )
 
-        # conditionally, we either format or reuse string values for pts_for/_agnst, mvmt,
-        # colcls
+        # conditionally, we either format or reuse string values for pts_for/_agnst,
+        # stats, mvmt, and colcls
         if prev_stats:
             if tot_pts == prev_tot_pts:
-                # use previous values
                 pts_for[tm_seed] = prev_pts_for[tm_seed]
                 pts_against[tm_seed] = prev_pts_against[tm_seed]
+                stats_fmt[tm_seed] = prev_stats_fmt[tm_seed]
             else:
-                # format new values
                 for rnd, cur_pts in team_pts[tm_seed].items():
                     prev_pts = prev_team_pts[tm_seed].get(rnd)
-                    pts_for[tm_seed][rnd] = fmt_score(cur_pts, prev_pts)
-
+                    pts_for[tm_seed][rnd] = fmt_dash_score(cur_pts, prev_pts)
                 for rnd, cur_pts in opp_pts[tm_seed].items():
                     prev_pts = prev_opp_pts[tm_seed].get(rnd)
-                    pts_against[tm_seed][rnd] = fmt_score(cur_pts, prev_pts)
+                    pts_against[tm_seed][rnd] = fmt_dash_score(cur_pts, prev_pts)
+
+                stats[tm_seed] = (
+                    tm.tourn_win_pct,
+                    tm.tourn_pts_diff,
+                    tm.div_rank
+                )
+                stats_fmt[tm_seed] = (
+                    fmt_dash_stat(stats[tm_seed][0], prev_stats[tm_seed][0], no_style=True),
+                    fmt_dash_stat(stats[tm_seed][1], prev_stats[tm_seed][1], no_style=True),
+                    fmt_dash_stat(stats[tm_seed][2], prev_stats[tm_seed][2])
+                )
 
             if tot_pts == prev_tot_pts and prev_mvmt:
                 mvmt[tm_seed] = prev_mvmt.get(tm_seed, '')
@@ -1012,9 +1067,20 @@ def rr_dash(tourn: TournInfo) -> str:
                 colcls[tm_seed] = ''
         else:
             for rnd, cur_pts in team_pts[tm_seed].items():
-                pts_for[tm_seed][rnd] = fmt_score(cur_pts)
+                pts_for[tm_seed][rnd] = fmt_dash_score(cur_pts)
             for rnd, cur_pts in opp_pts[tm_seed].items():
-                pts_against[tm_seed][rnd] = fmt_score(cur_pts)
+                pts_against[tm_seed][rnd] = fmt_dash_score(cur_pts)
+
+            stats[tm_seed] = (
+                tm.tourn_win_pct,
+                tm.tourn_pts_diff,
+                tm.div_rank
+            )
+            stats_fmt[tm_seed] = (
+                fmt_dash_stat(stats[tm_seed][0], no_style=True),
+                fmt_dash_stat(stats[tm_seed][1], no_style=True),
+                fmt_dash_stat(stats[tm_seed][2])
+            )
 
     updated = now_str()
     if tot_pts > prev_tot_pts:
@@ -1030,6 +1096,7 @@ def rr_dash(tourn: TournInfo) -> str:
             'pts_for'    : pts_for,
             'pts_against': pts_against,
             'stats'      : stats,
+            'stats_fmt'  : stats_fmt,
             'mvmt'       : mvmt,
             'colcls'     : colcls
         }
@@ -1048,7 +1115,7 @@ def rr_dash(tourn: TournInfo) -> str:
         'loss_tallies': loss_tallies,
         'pts_for'     : pts_for,
         'pts_against' : pts_against,
-        'stats'       : stats,
+        'stats_fmt'   : stats_fmt,
         'mvmt'        : mvmt,
         'colcls'      : colcls
     }

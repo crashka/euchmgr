@@ -43,7 +43,7 @@ echo "done"
 python -m euchmgr "${TOURN}" fake_tourn_games
 read -p "Press any key to validate tournament results..." -n1 -s
 echo "done"
-python -m euchmgr "${TOURN}" validate_tourn
+python -m euchmgr "${TOURN}" validate_tourn finalize=t
 read -p "Press any key to compute tournament rankings..." -n1 -s
 echo "done"
-python -m euchmgr "${TOURN}" compute_team_ranks
+python -m euchmgr "${TOURN}" compute_team_ranks finalize=t

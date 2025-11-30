@@ -59,7 +59,7 @@ done
 
 echo -n "Validating tournament results..."
 echo "done"
-python -m euchmgr "${TOURN}" validate_tourn
+python -m euchmgr "${TOURN}" validate_tourn finalize=t
 echo -n "Computing tournament rankings..."
 echo "done"
-python -m euchmgr "${TOURN}" compute_team_ranks
+python -m euchmgr "${TOURN}" compute_team_ranks finalize=t

@@ -35,6 +35,9 @@
        padding: 0.75em;
        text-align: center;
      }
+     .score {
+       width: 1.0rem;
+     }
      .hor_sect {
        border-bottom: 2px solid darkgrey;
      }
@@ -111,13 +114,13 @@
               <th class="hor_sect" rowspan=2>Rank</th>
             </tr>
             <tr>
-              <th class="hor_sect vert_sect">1</th>
+              <th class="hor_sect vert_sect score">1</th>
               {% for rnd in range(2, rnds + 1) %}
-              <th class="hor_sect">{{rnd}}</th>
+              <th class="hor_sect score">{{rnd}}</th>
               {% endfor %}
-              <th class="hor_sect vert_sect">1</th>
+              <th class="hor_sect vert_sect score">1</th>
               {% for rnd in range(2, rnds + 1) %}
-              <th class="hor_sect">{{rnd}}</th>
+              <th class="hor_sect score">{{rnd}}</th>
               {% endfor %}
             </tr>
           </thead>
@@ -127,13 +130,13 @@
               <td class="plyr_lbl">{{pl.player_tag|safe}}</td>
               <td class="tally"><img {{win_tallies[pl.player_num]|safe}} /></td>
               <td class="tally"><img {{loss_tallies[pl.player_num]|safe}} /></td>
-              <td class="vert_sect">{{team_pts[pl.player_num].get(1, '-')|safe}}</td>
+              <td class="vert_sect">{{team_pts[pl.player_num].get(1, '')|safe}}</td>
               {% for rnd in range(2, rnds + 1) %}
-              <td>{{team_pts[pl.player_num].get(rnd, '-')|safe}}</td>
+              <td>{{team_pts[pl.player_num].get(rnd, '')|safe}}</td>
               {% endfor %}
-              <td class="vert_sect">{{opp_pts[pl.player_num].get(1, '-')|safe}}</td>
+              <td class="vert_sect">{{opp_pts[pl.player_num].get(1, '')|safe}}</td>
               {% for rnd in range(2, rnds + 1) %}
-              <td>{{opp_pts[pl.player_num].get(rnd, '-')|safe}}</td>
+              <td>{{opp_pts[pl.player_num].get(rnd, '')|safe}}</td>
               {% endfor %}
               <td class="vert_sect">{{round_val(pl.seed_win_pct)}}%</td>
               <td>{{pl.seed_pts_diff}}</td>
@@ -198,13 +201,13 @@
               <th class="hor_sect" rowspan=2>Div Rank</th>
             </tr>
             <tr>
-              <th class="hor_sect vert_sect">1</th>
+              <th class="hor_sect vert_sect score">1</th>
               {% for rnd in range(2, rnds + 1) %}
-              <th class="hor_sect">{{rnd}}</th>
+              <th class="hor_sect score">{{rnd}}</th>
               {% endfor %}
-              <th class="hor_sect vert_sect">1</th>
+              <th class="hor_sect vert_sect score">1</th>
               {% for rnd in range(2, rnds + 1) %}
-              <th class="hor_sect">{{rnd}}</th>
+              <th class="hor_sect score">{{rnd}}</th>
               {% endfor %}
             </tr>
           </thead>
@@ -214,13 +217,13 @@
               <td class="team_lbl">{{tm.team_tag|safe}}</td>
               <td class="tally"><img {{win_tallies[div][tm.team_seed]|safe}} /></td>
               <td class="tally"><img {{loss_tallies[div][tm.team_seed]|safe}} /></td>
-              <td class="vert_sect">{{team_pts[div][tm.team_seed].get(1, '-')|safe}}</td>
+              <td class="vert_sect">{{team_pts[div][tm.team_seed].get(1, '')|safe}}</td>
               {% for rnd in range(2, rnds + 1) %}
-              <td>{{team_pts[div][tm.team_seed].get(rnd, '-')|safe}}</td>
+              <td>{{team_pts[div][tm.team_seed].get(rnd, '')|safe}}</td>
               {% endfor %}
-              <td class="vert_sect">{{opp_pts[div][tm.team_seed].get(1, '-')|safe}}</td>
+              <td class="vert_sect">{{opp_pts[div][tm.team_seed].get(1, '')|safe}}</td>
               {% for rnd in range(2, rnds + 1) %}
-              <td>{{opp_pts[div][tm.team_seed].get(rnd, '-')|safe}}</td>
+              <td>{{opp_pts[div][tm.team_seed].get(rnd, '')|safe}}</td>
               {% endfor %}
               <td class="vert_sect">{{round_val(tm.tourn_win_pct)}}%</td>
               <td>{{tm.tourn_pts_diff}}</td>

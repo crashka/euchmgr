@@ -181,6 +181,12 @@ class TournInfo(BaseModel):
         if auto_save:
             self.save()
 
+    def is_done(self) -> bool:
+        """Official way to check is tournament is complete (scores validated and final
+        rankings computed)
+        """
+        return self.stage_compl == TournStage.TEAM_RANKS
+
 ##########
 # Player #
 ##########

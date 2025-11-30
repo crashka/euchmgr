@@ -27,7 +27,8 @@
      button[value="pause_upd"] {
        display: inline;
      }
-     button[value="resume_upd"] {
+     button[value="resume_upd"],
+     button[value="restart_upd"] {
        display: none;
      }
      .container {
@@ -90,13 +91,10 @@
       <span class="container_lbl">{{tourn.name}} &ndash; {{title}}</span>
       <input class="start" type="hidden" name="start" value="">
       <span class="updated">
-        {% if not done %}
         Updated: {{updated}} (<span class="elapsed">0 secs ago</span>)
-        {% else %}
-        Updated: {{updated}} (done)
-        {% endif %}
-        <button value="pause_upd"{{"disabled" if done else ""}}>Pause Updates</button>
+        <button value="pause_upd">Pause Updates</button>
         <button value="resume_upd">Resume Updates</button>
+        <button value="restart_upd">Restart Updates</button>
       </span>
 
       {% for div in div_list %}
@@ -201,7 +199,22 @@
        $(".elapsed").text("resuming");
      });
 
-     {% if not done %}
+     $("button[value='restart_upd']").on('click', function() {
+       paused = false;
+       done = false;
+       $(this).css('display', 'none');
+       $("button[value='pause_upd']").css('display', 'inline');
+       window.setTimeout(function() {
+         window.location.reload();
+       }, 1000);
+       $(".elapsed").text("restarting");
+     });
+
+     {% if done %}
+     $("button[value='pause_upd']").css('display', 'none');
+     $("button[value='restart_upd']").css('display', 'inline');
+     $(".elapsed").text("done");
+     {% else %}
      startElapsed();
      {% endif %}
      if (!paused && !done) {

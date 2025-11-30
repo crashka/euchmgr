@@ -301,9 +301,10 @@
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
             <button class="submit demo" value="{{btn_val[4]}}"{{btn_attr[4]}}>Generate Fake Results</button>
             <button class="submit" value="{{btn_val[5]}}"{{btn_attr[5]}}>Tabulate Results</button>
-            <span class="lnk_lbl">Display Chart:</span>
+            <span class="lnk_lbl">Display:</span>
             <a href="#" onclick="window.open('/chart/sd_bracket/{{tourn.name}}', '_blank')"">Seeding Round Bracket</a>
             <a href="#" onclick="window.open('/chart/sd_scores/{{tourn.name}}', '_blank')"">Seeding Round Scores</a>
+            <a href="#" onclick="window.open('/dash/sd_dash/{{tourn.name}}', '_blank')"">Live Dashboard</a>
           </form>
         </div>
       </div>
@@ -360,9 +361,10 @@
             <input name="tourn_name" type="hidden" value="{{tourn.name}}">
             <button class="submit demo" value="{{btn_val[9]}}"{{btn_attr[9]}}>Generate Fake Results</button>
             <button class="submit" value="{{btn_val[10]}}"{{btn_attr[10]}}>Tabulate Results</button>
-            <span class="lnk_lbl">Display Chart:</span>
+            <span class="lnk_lbl">Display:</span>
             <a href="#" onclick="window.open('/chart/rr_brackets/{{tourn.name}}', '_blank')"">Round Robin Brackets</a>
             <a href="#" onclick="window.open('/chart/rr_scores/{{tourn.name}}', '_blank')"">Round Robin Scores</a>
+            <a href="#" onclick="window.open('/dash/rr_dash/{{tourn.name}}', '_blank')"">Live Dashbaord</a>
           </form>
         </div>
       </div>

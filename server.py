@@ -812,24 +812,27 @@ def rr_scores(tourn: TournInfo) -> str:
         wins[div]     = {tm.team_seed: 0 for tm in tm_list}
         losses[div]   = {tm.team_seed: 0 for tm in tm_list}
 
-    tg_iter = TeamGame.iter_games(include_byes=True)
-    for tg in tg_iter:
+    tg_list = list(TeamGame.iter_games(include_byes=True))
+    not_bye = lambda g: not g.is_bye
+    max_rnd = lambda ls: max(g.round_num for g in ls) if ls else 0
+    cur_rnd = {div: max_rnd(list(filter(not_bye, tg_list))) for div in div_list}
+    for tg in tg_list:
         div = tg.team.div_num
         tm_seed = tg.team_seed
         assert tm_seed == tg.team.team_seed
         rnd = tg.round_num
         assert rnd not in team_pts[div][tm_seed]
         assert rnd not in opp_pts[div][tm_seed]
-        if tg.is_bye:
-            team_pts[div][tm_seed][rnd] = None
-            opp_pts[div][tm_seed][rnd] = None
-        else:
+        if not tg.is_bye:
             team_pts[div][tm_seed][rnd] = fmt_score(tg.team_pts)
             opp_pts[div][tm_seed][rnd] = fmt_score(tg.opp_pts)
             if tg.is_winner:
                 wins[div][tm_seed] += 1
             else:
                 losses[div][tm_seed] += 1
+        elif rnd <= cur_rnd[div]:
+            team_pts[div][tm_seed][rnd] = fmt_score(-1)
+            opp_pts[div][tm_seed][rnd] = fmt_score(-1)
 
     div_teams = {div: [] for div in div_list}
     win_tallies = {div: {} for div in div_list}
@@ -943,8 +946,7 @@ def rr_dash(tourn: TournInfo) -> str:
     """Render round robin live dashboard
     """
     update_int = DFLT_UPDATE_INT
-    #done = check_done()
-    done = False
+    done = tourn.is_done()
 
     div_list = list(range(1, tourn.divisions + 1))
     tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.div_rank or tourn.teams)

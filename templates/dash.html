@@ -132,13 +132,13 @@
               <td class="team_lbl">{{tm.team_tag|safe}}</td>
               <td class="tally"><img {{win_tallies[tm.team_seed]|safe}} /></td>
               <td class="tally"><img {{loss_tallies[tm.team_seed]|safe}} /></td>
-              <td class="vert_sect">{{team_pts[tm.team_seed].get(1, '')|safe}}</td>
+              <td class="vert_sect">{{pts_for[tm.team_seed].get(1, '')|safe}}</td>
               {% for rnd in range(2, rnds + 1) %}
-              <td class="">{{team_pts[tm.team_seed].get(rnd, '')|safe}}</td>
+              <td class="">{{pts_for[tm.team_seed].get(rnd, '')|safe}}</td>
               {% endfor %}
-              <td class="vert_sect">{{opp_pts[tm.team_seed].get(1, '')|safe}}</td>
+              <td class="vert_sect">{{pts_against[tm.team_seed].get(1, '')|safe}}</td>
               {% for rnd in range(2, rnds + 1) %}
-              <td class="">{{opp_pts[tm.team_seed].get(rnd, '')|safe}}</td>
+              <td class="">{{pts_against[tm.team_seed].get(rnd, '')|safe}}</td>
               {% endfor %}
               <td class="vert_sect">{{stats[tm.team_seed][0]}}</td>
               <td class="">{{stats[tm.team_seed][1]}}</td>

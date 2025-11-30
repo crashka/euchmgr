@@ -133,13 +133,22 @@ def round_val(val: Number) -> Number:
 # do not downcase the rest of the string like str.capitalize()
 cap_first = lambda x: x[0].upper() + x[1:]
 
-def fmt_score(pts: int) -> str:
-    """Markup score if game-winning
+def fmt_score(pts: int, prev_pts: int = -1) -> str:
+    """Markup score if game-winning (bold) and/or changed from prev (em)
     """
+    # special case for byes
+    if pts == -1:
+        return '-'
+
+    ret = str(pts)
     if pts >= GAME_PTS:
-        return f"<b>{pts}</b>"
-    else:
-        return str(pts)
+        ret = f"<b>{ret}</b>"
+
+    if prev_pts != -1 and pts != prev_pts:
+        assert pts >= (prev_pts or 0)
+        ret = f"<em>{ret}</em>"
+
+    return ret
 
 def fmt_tally(pts: int) -> str:
     """Print arguments for <img> tag for showing point tallies
@@ -817,6 +826,10 @@ DFLT_UPDATE_INT = 5900
 COLCLS_UP   = 'grn_fg'
 COLCLS_DOWN = 'red_fg'
 
+# session storage key
+SD_DASH_KEY = 'sd_dash'
+RR_DASH_KEY = 'rr_dash'
+
 @app.get("/dash/<path:subpath>")
 def get_dash(subpath: str) -> str:
     """Render specified live dashboard
@@ -827,9 +840,6 @@ def get_dash(subpath: str) -> str:
 
     db_init(tourn_name)
     tourn = TournInfo.get(requery=True)
-    if prev_frame := session.get('prev_frame'):
-        if str(tourn.created_at) > prev_frame['updated']:
-            session.pop('prev_frame')
     return globals()[dash](tourn)
 
 def sd_dash(tourn: TournInfo) -> str:
@@ -894,6 +904,7 @@ def rr_dash(tourn: TournInfo) -> str:
     opp_pts  = {tm.team_seed: {} for tm in tm_list}
     wins     = {tm.team_seed: 0 for tm in tm_list}
     losses   = {tm.team_seed: 0 for tm in tm_list}
+    tot_gms  = 0
     tot_pts  = 0
 
     tg_list = list(TeamGame.iter_games(include_byes=True))
@@ -908,73 +919,119 @@ def rr_dash(tourn: TournInfo) -> str:
         assert rnd not in team_pts[tm_seed]
         assert rnd not in opp_pts[tm_seed]
         if not tg.is_bye:
+            tot_gms += 1
             tot_pts += tg.team_pts
-            team_pts[tm_seed][rnd] = fmt_score(tg.team_pts)
-            opp_pts[tm_seed][rnd] = fmt_score(tg.opp_pts)
+            team_pts[tm_seed][rnd] = tg.team_pts
+            opp_pts[tm_seed][rnd] = tg.opp_pts
             if tg.is_winner:
                 wins[tm_seed] += 1
             else:
                 losses[tm_seed] += 1
         elif rnd <= cur_rnd[div]:
-            team_pts[tm_seed][rnd] = '-'
-            opp_pts[tm_seed][rnd] = '-'
+            team_pts[tm_seed][rnd] = -1
+            opp_pts[tm_seed][rnd] = -1
 
-    prev_tot_pts = 0
-    prev_stats   = None
-    prev_mvmt    = None
-    prev_colcls  = None
-    if prev_frame := session.get('prev_frame'):
-        prev_tot_pts = prev_frame['tot_pts']
-        prev_stats   = prev_frame['stats']
-        prev_mvmt    = prev_frame['mvmt']
-        prev_colcls  = prev_frame['colcls']
+    prev_tot_gms     = 0
+    prev_tot_pts     = 0
+    prev_team_pts    = {}
+    prev_opp_pts     = {}
+    prev_pts_for     = {}
+    prev_pts_against = {}
+    prev_stats       = None
+    prev_mvmt        = None
+    prev_colcls      = None
+    if prev_frame := session.get(RR_DASH_KEY):
+        if str(tourn.created_at) > prev_frame['updated']:
+            session.pop(RR_DASH_KEY)
+        else:
+            prev_tot_gms     = prev_frame['tot_gms']
+            prev_tot_pts     = prev_frame['tot_pts']
+            prev_team_pts    = prev_frame['team_pts']
+            prev_opp_pts     = prev_frame['opp_pts']
+            prev_pts_for     = prev_frame['pts_for']
+            prev_pts_against = prev_frame['pts_against']
+            prev_stats       = prev_frame['stats']
+            prev_mvmt        = prev_frame['mvmt']
+            prev_colcls      = prev_frame['colcls']
 
     div_teams    = {div: [] for div in div_list}
+    # the following are all keyed off of team_seed
     win_tallies  = {}
     loss_tallies = {}
     stats        = {}  # value: (win_pct, pts_diff, rank)
     mvmt         = {}
     colcls       = {}
+    # inner dict represents points (formatted!) by round
+    pts_for      = {tm.team_seed: {} for tm in tm_list}
+    pts_against  = {tm.team_seed: {} for tm in tm_list}
     for tm in tm_list:
         div = tm.div_num
+        tm_seed = tm.team_seed
         div_teams[div].append(tm)
 
-        win_tallies[tm.team_seed] = fmt_tally(wins[tm.team_seed])
-        loss_tallies[tm.team_seed] = fmt_tally(losses[tm.team_seed])
-        stats[tm.team_seed] = (
+        # for now, we always (re-)format win/loss tallies and stats--LATER, need to
+        # determine changes to stats for highlighting!!!
+        win_tallies[tm_seed] = fmt_tally(wins[tm_seed])
+        loss_tallies[tm_seed] = fmt_tally(losses[tm_seed])
+        stats[tm_seed] = (
             f"{round_val(tm.tourn_win_pct)}%" if tm.tourn_win_pct is not None else '',
             tm.tourn_pts_diff if tm.tourn_pts_diff is not None else '',
             tm.div_rank or ''
         )
+
+        # conditionally, we either format or reuse string values for pts_for/_agnst, mvmt,
+        # colcls
         if prev_stats:
+            if tot_pts == prev_tot_pts:
+                # use previous values
+                pts_for[tm_seed] = prev_pts_for[tm_seed]
+                pts_against[tm_seed] = prev_pts_against[tm_seed]
+            else:
+                # format new values
+                for rnd, cur_pts in team_pts[tm_seed].items():
+                    prev_pts = prev_team_pts[tm_seed].get(rnd)
+                    pts_for[tm_seed][rnd] = fmt_score(cur_pts, prev_pts)
+
+                for rnd, cur_pts in opp_pts[tm_seed].items():
+                    prev_pts = prev_opp_pts[tm_seed].get(rnd)
+                    pts_against[tm_seed][rnd] = fmt_score(cur_pts, prev_pts)
+
             if tot_pts == prev_tot_pts and prev_mvmt:
-                mvmt[tm.team_seed] = prev_mvmt.get(tm.team_seed, '')
-                colcls[tm.team_seed] = prev_colcls.get(tm.team_seed, '')
-            elif prev_stats[tm.team_seed][2]:
-                rank_diff = (prev_stats[tm.team_seed][2] or 0) - (tm.div_rank or 0)
+                mvmt[tm_seed] = prev_mvmt.get(tm_seed, '')
+                colcls[tm_seed] = prev_colcls.get(tm_seed, '')
+            elif prev_stats[tm_seed][2]:
+                rank_diff = (prev_stats[tm_seed][2] or 0) - (tm.div_rank or 0)
                 if rank_diff > 0:
-                    mvmt[tm.team_seed] = f'+{rank_diff}'
-                    colcls[tm.team_seed] = COLCLS_UP
+                    mvmt[tm_seed] = f'+{rank_diff}'
+                    colcls[tm_seed] = COLCLS_UP
                 elif rank_diff < 0:
-                    mvmt[tm.team_seed] = str(rank_diff)
-                    colcls[tm.team_seed] = COLCLS_DOWN
-            if tm.team_seed not in mvmt:
-                mvmt[tm.team_seed] = '-'
-                colcls[tm.team_seed] = ''
+                    mvmt[tm_seed] = str(rank_diff)
+                    colcls[tm_seed] = COLCLS_DOWN
+            if tm_seed not in mvmt:
+                mvmt[tm_seed] = '-'
+                colcls[tm_seed] = ''
+        else:
+            for rnd, cur_pts in team_pts[tm_seed].items():
+                pts_for[tm_seed][rnd] = fmt_score(cur_pts)
+            for rnd, cur_pts in opp_pts[tm_seed].items():
+                pts_against[tm_seed][rnd] = fmt_score(cur_pts)
 
     updated = now_str()
     if tot_pts > prev_tot_pts:
-        session['prev_frame'] = {
-            'updated'     : updated,
-            'done'        : done,
-            'wins'        : wins,
-            'losses'      : losses,
-            'team_pts'    : team_pts,
-            'opp_pts'     : opp_pts,
-            'tot_pts'     : tot_pts,
-            'stats'       : stats,
-            'mvmt'        : mvmt,
-            'colcls'      : colcls
+        session[RR_DASH_KEY] = {
+            'updated'    : updated,
+            'done'       : done,
+            'tot_gms'    : tot_gms,
+            'tot_pts'    : tot_pts,
+            'wins'       : wins,
+            'losses'     : losses,
+            'team_pts'   : team_pts,
+            'opp_pts'    : opp_pts,
+            'pts_for'    : pts_for,
+            'pts_against': pts_against,
+            'stats'      : stats,
+            'mvmt'       : mvmt,
+            'colcls'     : colcls
         }
 
     context = {
@@ -987,17 +1044,13 @@ def rr_dash(tourn: TournInfo) -> str:
         'rnds'        : tourn.tourn_rounds,
         'div_list'    : div_list,
         'div_teams'   : div_teams,
-        'wins'        : wins,
-        'losses'      : losses,
         'win_tallies' : win_tallies,
         'loss_tallies': loss_tallies,
-        'team_pts'    : team_pts,
-        'opp_pts'     : opp_pts,
-        'tot_pts'     : tot_pts,
+        'pts_for'     : pts_for,
+        'pts_against' : pts_against,
         'stats'       : stats,
         'mvmt'        : mvmt,
-        'colcls'      : colcls,
-        'bold_color'  : '#555555'
+        'colcls'      : colcls
     }
     return render_dash(context)
 

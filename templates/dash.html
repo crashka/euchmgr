@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
   <head>
@@ -70,7 +71,7 @@
        border-left: 2px solid darkgrey;
      }
      .plyr_lbl,
-     .team_lbl{
+     .team_lbl {
        text-align: left;
        width: 10em;
      }
@@ -97,6 +98,58 @@
         <button value="restart_upd">Restart Updates</button>
       </span>
 
+      {% if dash_num == 0 %}
+      <div class="section sd_scores">
+        <table>
+          <thead>
+            <tr>
+              <th class="plyr_lbl hor_sect" rowspan="2">Player (by Player Num)</th>
+              <th class="hor_sect" rowspan="2">Wins</th>
+              <th class="hor_sect" rowspan=2>Losses</th>
+              <th class="vert_sect" colspan="{{rnds}}">Points For (by Round)</th>
+              <th class="vert_sect" colspan="{{rnds}}">Points Against (by Round)</th>
+              <th class="hor_sect vert_sect" rowspan="2">Win Pct</th>
+              <th class="hor_sect" rowspan=2>Pts Diff</th>
+              <th class="hor_sect" rowspan=2>Rank</th>
+              <th class="hor_sect" rowspan=2>Mvmt</th>
+            </tr>
+            <tr>
+              <th class="hor_sect vert_sect score">1</th>
+              {% for rnd in range(2, rnds + 1) %}
+              <th class="hor_sect score">{{rnd}}</th>
+              {% endfor %}
+              <th class="hor_sect vert_sect score">1</th>
+              {% for rnd in range(2, rnds + 1) %}
+              <th class="hor_sect score">{{rnd}}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for pl in players %}
+            <tr class="{{colcls[pl.player_num]}}">
+              <td class="plyr_lbl">{{pl.player_tag|safe}}</td>
+              <td class="tally"><img {{win_tallies[pl.player_num]|safe}} /></td>
+              <td class="tally"><img {{loss_tallies[pl.player_num]|safe}} /></td>
+              <td class="vert_sect">{{pts_for[pl.player_num].get(1, '')|safe}}</td>
+              {% for rnd in range(2, rnds + 1) %}
+              <td class="">{{pts_for[pl.player_num].get(rnd, '')|safe}}</td>
+              {% endfor %}
+              <td class="vert_sect">{{pts_against[pl.player_num].get(1, '')|safe}}</td>
+              {% for rnd in range(2, rnds + 1) %}
+              <td class="">{{pts_against[pl.player_num].get(rnd, '')|safe}}</td>
+              {% endfor %}
+              <td class="vert_sect">{{stats_fmt[pl.player_num][0]|safe}}</td>
+              <td class="">{{stats_fmt[pl.player_num][1]|safe}}</td>
+              <td class="">{{stats_fmt[pl.player_num][2]|safe}}</td>
+              <td class="">{{mvmt[pl.player_num]}}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}  {# dash_num == 0 #}
+
+      {% if dash_num == 1 %}
       {% for div in div_list %}
       <div class="section rr_scores">
         <span class="section_lbl">Division {{div}}</span>
@@ -110,7 +163,7 @@
               <th class="vert_sect" colspan="{{rnds}}">Points Against (by Round)</th>
               <th class="hor_sect vert_sect" rowspan="2">Win Pct</th>
               <th class="hor_sect" rowspan=2>Pts Diff</th>
-              <th class="hor_sect" rowspan=2>Div Rank</th>
+              <th class="hor_sect" rowspan=2>Rank</th>
               <th class="hor_sect" rowspan=2>Mvmt</th>
             </tr>
             <tr>
@@ -148,6 +201,7 @@
         </table>
       </div>
       {% endfor %}
+      {% endif %}  {# dash_num == 1 #}
     </div>
   </body>
 

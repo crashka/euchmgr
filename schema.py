@@ -181,9 +181,15 @@ class TournInfo(BaseModel):
         if auto_save:
             self.save()
 
-    def is_done(self) -> bool:
-        """Official way to check is tournament is complete (scores validated and final
-        rankings computed)
+    def seeding_done(self) -> bool:
+        """Official way to check if seeding is complete (scores validated and final player
+        rankings computed
+        """
+        return self.stage_compl == TournStage.SEED_RANKS
+
+    def round_robin_done(self) -> bool:
+        """Official way to check if round robin is complete (scores validated and final
+        team rankings computed
         """
         return self.stage_compl == TournStage.TEAM_RANKS
 
@@ -208,7 +214,7 @@ class Player(BaseModel):
     seed_pts_against = IntegerField(default=0)
     seed_pts_diff  = IntegerField(null=True)
     seed_pts_pct   = FloatField(null=True)
-    player_seed    = IntegerField(unique=True, null=True)  # 1-based
+    player_seed    = IntegerField(null=True)  # 1-based
     # partner picks
     partner        = ForeignKeyField('self', field='player_num', column_name='partner_num',
                                      null=True)
@@ -526,7 +532,21 @@ class SeedGame(BaseModel):
         game; returns number of records inserted.  Called by front-end after the game is
         complete (i.e. winner determined)
         """
-        players     = [self.player1, self.player2, self.player3, self.player4]
+        players = [self.player1, self.player2, self.player3, self.player4]
+        if self.table_num is None:
+            assert self.bye_players is not None
+            assert players[0] is not None
+            assert players[-1] is None
+            byes = list(filter(None, players))
+            for player in byes:
+                pg_info = {'bracket'   : BRACKET_SEED,
+                           'round_num' : self.round_num,
+                           'game_label': self.label,
+                           'player'    : player,
+                           'is_bye'    : True}
+                tm_game = PlayerGame.create(**pg_info)
+            return len(byes)
+
         partners    = [self.player2, self.player1, self.player4, self.player3]
         opps_tups   = [(self.player3, self.player4), (self.player1, self.player2)]
         team_scores = [self.team1_pts, self.team2_pts]

@@ -1,5 +1,11 @@
 # To Do List
 
+## Tasks
+
+- fix empty stats formats for sd\_scores and rr\_scores
+- updates to rr\_scores (to match rr\_dash)
+- updates to sd\_scores
+
 ## Features/Enhancements
 
 - auto-updating monitor view (e.g. charts with fading highlights for updates)

@@ -19,10 +19,10 @@ echo "done"
 python -m euchmgr "${TOURN}" fake_seed_games
 echo -n "Validating seeding results..."
 echo "done"
-python -m euchmgr "${TOURN}" validate_seed_round
+python -m euchmgr "${TOURN}" validate_seed_round finalize=t
 echo -n "Computing player rankings..."
 echo "done"
-python -m euchmgr "${TOURN}" compute_player_seeds
+python -m euchmgr "${TOURN}" compute_player_seeds finalize=t
 echo -n "Prepicking champ partners..."
 echo "done"
 python -m euchmgr "${TOURN}" prepick_champ_partners

@@ -709,22 +709,26 @@ def sd_scores(tourn: TournInfo) -> str:
     opp_pts  = {pl.player_num: {} for pl in pl_list}
     wins     = {pl.player_num: 0 for pl in pl_list}
     losses   = {pl.player_num: 0 for pl in pl_list}
-    pg_iter = PlayerGame.iter_games(include_byes=True)
-    for pg in pg_iter:
+
+    pg_list = list(PlayerGame.iter_games(include_byes=True))
+    not_bye = lambda g: not g.is_bye
+    max_rnd = lambda ls: max(g.round_num for g in ls) if ls else 0
+    cur_rnd = max_rnd(list(filter(not_bye, pg_list)))
+    for pg in pg_list:
         pl_num = pg.player_num
         rnd = pg.round_num
         assert rnd not in team_pts[pl_num]
         assert rnd not in opp_pts[pl_num]
-        if pg.is_bye:
-            team_pts[pl_num][rnd] = None
-            opp_pts[pl_num][rnd] = None
-        else:
+        if not pg.is_bye:
             team_pts[pl_num][rnd] = fmt_score(pg.team_pts)
             opp_pts[pl_num][rnd] = fmt_score(pg.opp_pts)
             if pg.is_winner:
                 wins[pl_num] += 1
             else:
                 losses[pl_num] += 1
+        elif rnd <= cur_rnd:
+            team_pts[pl_num][rnd] = fmt_score(-1)
+            opp_pts[pl_num][rnd] = fmt_score(-1)
 
     win_tallies = {}
     loss_tallies = {}
@@ -896,49 +900,176 @@ def get_dash(subpath: str) -> str:
 def sd_dash(tourn: TournInfo) -> str:
     """Render seed round live dashboard
     """
-    pl_list = sorted(Player.iter_players(), key=lambda pl: pl.player_num)
-    # sub-dict key is rnd, value is pts
+    update_int = DFLT_UPDATE_INT
+    done = tourn.seeding_done()
+
+    # REVISIT: let underlying iterator do the sorting for us???
+    pl_list  = sorted(Player.iter_players(), key=lambda pl: pl.player_seed or tourn.players)
+    # inner dict represents points by round {rnd: pts}
     team_pts = {pl.player_num: {} for pl in pl_list}
     opp_pts  = {pl.player_num: {} for pl in pl_list}
     wins     = {pl.player_num: 0 for pl in pl_list}
     losses   = {pl.player_num: 0 for pl in pl_list}
-    pg_iter = PlayerGame.iter_games(include_byes=True)
-    for pg in pg_iter:
+    tot_gms  = 0
+    tot_pts  = 0
+
+    pg_list = list(PlayerGame.iter_games(include_byes=True))
+    not_bye = lambda g: not g.is_bye
+    max_rnd = lambda ls: max(g.round_num for g in ls) if ls else 0
+    cur_rnd = max_rnd(list(filter(not_bye, pg_list)))
+    for pg in pg_list:
         pl_num = pg.player_num
+        assert pl_num == pg.player.player_num
         rnd = pg.round_num
         assert rnd not in team_pts[pl_num]
         assert rnd not in opp_pts[pl_num]
-        if pg.is_bye:
-            team_pts[pl_num][rnd] = None
-            opp_pts[pl_num][rnd] = None
-        else:
-            team_pts[pl_num][rnd] = fmt_score(pg.team_pts)
-            opp_pts[pl_num][rnd] = fmt_score(pg.opp_pts)
+        if not pg.is_bye:
+            tot_gms += 1
+            tot_pts += pg.team_pts
+            team_pts[pl_num][rnd] = pg.team_pts
+            opp_pts[pl_num][rnd] = pg.opp_pts
             if pg.is_winner:
                 wins[pl_num] += 1
             else:
                 losses[pl_num] += 1
+        elif rnd <= cur_rnd:
+            team_pts[pl_num][rnd] = -1
+            opp_pts[pl_num][rnd] = -1
 
-    win_tallies = {}
+    prev_tot_gms     = 0
+    prev_tot_pts     = 0
+    prev_team_pts    = {}
+    prev_opp_pts     = {}
+    prev_pts_for     = {}
+    prev_pts_against = {}
+    prev_stats       = None
+    prev_stats_fmt   = None
+    prev_mvmt        = None
+    prev_colcls      = None
+    if prev_frame := session.get(SD_DASH_KEY):
+        if str(tourn.created_at) > prev_frame['updated']:
+            session.pop(SD_DASH_KEY)
+        else:
+            prev_tot_gms     = prev_frame['tot_gms']
+            prev_tot_pts     = prev_frame['tot_pts']
+            prev_team_pts    = prev_frame['team_pts']
+            prev_opp_pts     = prev_frame['opp_pts']
+            prev_pts_for     = prev_frame['pts_for']
+            prev_pts_against = prev_frame['pts_against']
+            prev_stats       = prev_frame['stats']
+            prev_stats_fmt   = prev_frame['stats_fmt']
+            prev_mvmt        = prev_frame['mvmt']
+            prev_colcls      = prev_frame['colcls']
+
+    # the following are all keyed off of player_num
+    win_tallies  = {}
     loss_tallies = {}
+    stats        = {}  # value: (win_pct, pts_diff, rank)
+    stats_fmt    = {}  # value: (win_pct, pts_diff, rank)
+    mvmt         = {}
+    colcls       = {}
+    # inner dict represents points (formatted!) by round
+    pts_for      = {pl.player_num: {} for pl in pl_list}
+    pts_against  = {pl.player_num: {} for pl in pl_list}
     for pl in pl_list:
-        win_tallies[pl.player_num] = fmt_tally(wins[pl.player_num])
-        loss_tallies[pl.player_num] = fmt_tally(losses[pl.player_num])
+        pl_num = pl.player_num
+
+        # we always (re-)format win/loss tallies (for now)
+        win_tallies[pl_num] = fmt_tally(wins[pl_num])
+        loss_tallies[pl_num] = fmt_tally(losses[pl_num])
+
+        # conditionally, we either format or reuse string values for pts_for/_agnst,
+        # stats, mvmt, and colcls (always recompute if not done)
+        if prev_stats:
+            if tot_pts == prev_tot_pts and not done:
+                pts_for[pl_num] = prev_pts_for[pl_num]
+                pts_against[pl_num] = prev_pts_against[pl_num]
+                stats_fmt[pl_num] = prev_stats_fmt[pl_num]
+            else:
+                for rnd, cur_pts in team_pts[pl_num].items():
+                    prev_pts = prev_team_pts[pl_num].get(rnd)
+                    pts_for[pl_num][rnd] = fmt_dash_score(cur_pts, prev_pts)
+                for rnd, cur_pts in opp_pts[pl_num].items():
+                    prev_pts = prev_opp_pts[pl_num].get(rnd)
+                    pts_against[pl_num][rnd] = fmt_dash_score(cur_pts, prev_pts)
+
+                stats[pl_num] = (
+                    pl.seed_win_pct,
+                    pl.seed_pts_diff,
+                    pl.player_seed
+                )
+                stats_fmt[pl_num] = (
+                    fmt_dash_stat(stats[pl_num][0], prev_stats[pl_num][0], no_style=True),
+                    fmt_dash_stat(stats[pl_num][1], prev_stats[pl_num][1], no_style=True),
+                    fmt_dash_stat(stats[pl_num][2], prev_stats[pl_num][2])
+                )
+
+            if tot_pts == prev_tot_pts and prev_mvmt:
+                mvmt[pl_num] = prev_mvmt.get(pl_num, '')
+                colcls[pl_num] = prev_colcls.get(pl_num, '')
+            elif prev_stats[pl_num][2]:
+                rank_diff = (prev_stats[pl_num][2] or 0) - (pl.player_seed or 0)
+                if rank_diff > 0:
+                    mvmt[pl_num] = f'+{rank_diff}'
+                    colcls[pl_num] = COLCLS_UP
+                elif rank_diff < 0:
+                    mvmt[pl_num] = str(rank_diff)
+                    colcls[pl_num] = COLCLS_DOWN
+            if pl_num not in mvmt:
+                mvmt[pl_num] = '-'
+                colcls[pl_num] = ''
+        else:
+            for rnd, cur_pts in team_pts[pl_num].items():
+                pts_for[pl_num][rnd] = fmt_dash_score(cur_pts)
+            for rnd, cur_pts in opp_pts[pl_num].items():
+                pts_against[pl_num][rnd] = fmt_dash_score(cur_pts)
+
+            stats[pl_num] = (
+                pl.seed_win_pct,
+                pl.seed_pts_diff,
+                pl.player_seed
+            )
+            stats_fmt[pl_num] = (
+                fmt_dash_stat(stats[pl_num][0], no_style=True),
+                fmt_dash_stat(stats[pl_num][1], no_style=True),
+                fmt_dash_stat(stats[pl_num][2])
+            )
+
+    updated = now_str()
+    if tot_pts > prev_tot_pts:
+        session[SD_DASH_KEY] = {
+            'updated'    : updated,
+            'done'       : done,
+            'tot_gms'    : tot_gms,
+            'tot_pts'    : tot_pts,
+            'wins'       : wins,
+            'losses'     : losses,
+            'team_pts'   : team_pts,
+            'opp_pts'    : opp_pts,
+            'pts_for'    : pts_for,
+            'pts_against': pts_against,
+            'stats'      : stats,
+            'stats_fmt'  : stats_fmt,
+            'mvmt'       : mvmt,
+            'colcls'     : colcls
+        }
 
     context = {
         'dash_num'    : 0,
         'title'       : SD_DASH,
+        'updated'     : updated,
+        'update_int'  : update_int,
+        'done'        : done,
         'tourn'       : tourn,
         'rnds'        : tourn.seed_rounds,
         'players'     : pl_list,
-        'team_pts'    : team_pts,
-        'opp_pts'     : opp_pts,
-        'wins'        : wins,
-        'losses'      : losses,
         'win_tallies' : win_tallies,
         'loss_tallies': loss_tallies,
-        'round_val'   : round_val,
-        'bold_color'  : '#555555'
+        'pts_for'     : pts_for,
+        'pts_against' : pts_against,
+        'stats_fmt'   : stats_fmt,
+        'mvmt'        : mvmt,
+        'colcls'      : colcls
     }
     return render_dash(context)
 
@@ -946,7 +1077,7 @@ def rr_dash(tourn: TournInfo) -> str:
     """Render round robin live dashboard
     """
     update_int = DFLT_UPDATE_INT
-    done = tourn.is_done()
+    done = tourn.round_robin_done()
 
     div_list = list(range(1, tourn.divisions + 1))
     tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.div_rank or tourn.teams)
@@ -1028,9 +1159,9 @@ def rr_dash(tourn: TournInfo) -> str:
         loss_tallies[tm_seed] = fmt_tally(losses[tm_seed])
 
         # conditionally, we either format or reuse string values for pts_for/_agnst,
-        # stats, mvmt, and colcls
+        # stats, mvmt, and colcls (always recompute if done)
         if prev_stats:
-            if tot_pts == prev_tot_pts:
+            if tot_pts == prev_tot_pts and not done:
                 pts_for[tm_seed] = prev_pts_for[tm_seed]
                 pts_against[tm_seed] = prev_pts_against[tm_seed]
                 stats_fmt[tm_seed] = prev_stats_fmt[tm_seed]
@@ -1275,7 +1406,7 @@ def tabulate_seed_results(form: dict) -> str:
     tourn_name  = form.get('tourn_name')
     db_init(tourn_name)
     validate_seed_round(finalize=True)
-    compute_player_seeds()
+    compute_player_seeds(finalize=True)
     prepick_champ_partners()
     view = View.PARTNERS
 

@@ -162,18 +162,22 @@ def build_seed_bracket() -> list[SeedGame]:
                         'team1_name' : team1_name,
                         'team2_name' : team2_name,
                         'bye_players': bye_players}
+                tbl_j += 1
                 game = SeedGame.create(**info)
                 games.append(game)
-                tbl_j += 1
+                if game.bye_players:
+                    game.insert_player_games()
 
     tourn.complete_stage(TournStage.SEED_BRACKET)
     return games
 
-def fake_seed_games(clear_existing: bool = False) -> None:
+def fake_seed_games(clear_existing: bool = False, limit: int = None) -> None:
     """Generates random team points and determines winner for each seed game.  Note that
     `clear_existing` only clears completed games.
     """
-    for game in SeedGame.iter_games():
+    nfake = 0
+    sort_key = lambda x: (x.round_num, x.table_num)
+    for game in sorted(SeedGame.iter_games(), key=sort_key):
         if game.winner and not clear_existing:
             continue
         winner_pts = 10
@@ -183,10 +187,20 @@ def fake_seed_games(clear_existing: bool = False) -> None:
         else:
             game.add_scores(loser_pts, winner_pts)
         game.save()
+        if limit:
+            print(f"{game.team1_name}: {game.team1_pts}, {game.team2_name}: {game.team2_pts}")
 
         if game.winner:
             game.update_player_stats()
             game.insert_player_games()
+
+        nfake += 1
+        if limit and nfake >= limit:
+            compute_player_seeds()
+            return
+
+    if limit and nfake and nfake < limit:
+        compute_player_seeds()
 
     TournInfo.mark_stage_complete(TournStage.SEED_RESULTS)
 
@@ -256,18 +270,20 @@ def validate_seed_round(finalize: bool = False) -> None:
     if finalize:
         TournInfo.mark_stage_complete(TournStage.SEED_TABULATE)
 
-def compute_player_seeds() -> None:
+def compute_player_seeds(finalize: bool = False) -> None:
     """
     """
     pl_list = Player.get_player_map().values()
+    played = list(filter(lambda x: x.seed_wins + x.seed_losses, pl_list))
 
     # TODO: break ties with points ratio, head-to-head, etc.!!!
     sort_key = lambda x: (-x.seed_win_pct, -x.seed_pts_diff, -x.seed_pts_pct)
-    for i, player in enumerate(sorted(pl_list, key=sort_key)):
+    for i, player in enumerate(sorted(played, key=sort_key)):
         player.player_seed = i + 1
         player.save()
 
-    TournInfo.mark_stage_complete(TournStage.SEED_RANKS)
+    if finalize:
+        TournInfo.mark_stage_complete(TournStage.SEED_RANKS)
 
 def prepick_champ_partners() -> None:
     """Reigning champs get paired (or tripled) as a team before general partner picking

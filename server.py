@@ -885,7 +885,7 @@ DASH_FUNCS = [
 ]
 
 TIME_FMT = '%Y-%m-%d %H:%M:%S'
-DFLT_UPDATE_INT = 5900
+DFLT_UPDATE_INT = 5000
 
 COLCLS_UP   = 'grn_fg'
 COLCLS_DOWN = 'red_fg'
@@ -909,7 +909,7 @@ def get_dash(subpath: str) -> str:
 def sd_dash(tourn: TournInfo) -> str:
     """Render seed round live dashboard
     """
-    update_int = DFLT_UPDATE_INT
+    update_int = DFLT_UPDATE_INT - 600
     done = tourn.seeding_done()
 
     # REVISIT: let underlying iterator do the sorting for us???
@@ -1085,7 +1085,7 @@ def sd_dash(tourn: TournInfo) -> str:
 def rr_dash(tourn: TournInfo) -> str:
     """Render round robin live dashboard
     """
-    update_int = DFLT_UPDATE_INT
+    update_int = DFLT_UPDATE_INT - 300
     done = tourn.round_robin_done()
 
     div_list = list(range(1, tourn.divisions + 1))

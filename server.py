@@ -147,6 +147,18 @@ def fmt_score(pts: int) -> str:
 
     return ret
 
+def fmt_stat(val: int | float) -> str:
+    """Version for scoring charts--handle empty values properly.  Note that float vals are
+    assumed to represent percentages.
+    """
+    if val is None:
+        return ''
+    elif isinstance(val, float):
+        return f"{round_val(val)}%"
+    else:
+        assert isinstance(val, int)
+        return str(val)
+
 def fmt_dash_score(pts: int, prev_pts: int = -1) -> str:
     """Version for live dashboards--markup score if changed from prev (em); do not
     highlight game-winner scores (too distracting)
@@ -748,7 +760,7 @@ def sd_scores(tourn: TournInfo) -> str:
         'losses'      : losses,
         'win_tallies' : win_tallies,
         'loss_tallies': loss_tallies,
-        'round_val'   : round_val,
+        'fmt_stat'    : fmt_stat,
         'bold_color'  : '#555555'
     }
     return render_chart(context)
@@ -805,16 +817,11 @@ def rr_scores(tourn: TournInfo) -> str:
     """
     div_list = list(range(1, tourn.divisions + 1))
     tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.team_seed)
-    team_pts = {}
-    opp_pts  = {}
-    wins     = {}
-    losses   = {}
-    for div in div_list:
-        # inner dict represents points by round {rnd: pts}
-        team_pts[div] = {tm.team_seed: {} for tm in tm_list}
-        opp_pts[div]  = {tm.team_seed: {} for tm in tm_list}
-        wins[div]     = {tm.team_seed: 0 for tm in tm_list}
-        losses[div]   = {tm.team_seed: 0 for tm in tm_list}
+    # inner dict represents points by round {rnd: pts}
+    team_pts = {tm.team_seed: {} for tm in tm_list}
+    opp_pts  = {tm.team_seed: {} for tm in tm_list}
+    wins     = {tm.team_seed: 0 for tm in tm_list}
+    losses   = {tm.team_seed: 0 for tm in tm_list}
 
     tg_list = list(TeamGame.iter_games(include_byes=True))
     not_bye = lambda g: not g.is_bye
@@ -825,28 +832,30 @@ def rr_scores(tourn: TournInfo) -> str:
         tm_seed = tg.team_seed
         assert tm_seed == tg.team.team_seed
         rnd = tg.round_num
-        assert rnd not in team_pts[div][tm_seed]
-        assert rnd not in opp_pts[div][tm_seed]
+        assert rnd not in team_pts[tm_seed]
+        assert rnd not in opp_pts[tm_seed]
         if not tg.is_bye:
-            team_pts[div][tm_seed][rnd] = fmt_score(tg.team_pts)
-            opp_pts[div][tm_seed][rnd] = fmt_score(tg.opp_pts)
+            team_pts[tm_seed][rnd] = fmt_score(tg.team_pts)
+            opp_pts[tm_seed][rnd] = fmt_score(tg.opp_pts)
             if tg.is_winner:
-                wins[div][tm_seed] += 1
+                wins[tm_seed] += 1
             else:
-                losses[div][tm_seed] += 1
+                losses[tm_seed] += 1
         elif rnd <= cur_rnd[div]:
-            team_pts[div][tm_seed][rnd] = fmt_score(-1)
-            opp_pts[div][tm_seed][rnd] = fmt_score(-1)
+            team_pts[tm_seed][rnd] = fmt_score(-1)
+            opp_pts[tm_seed][rnd] = fmt_score(-1)
 
     div_teams = {div: [] for div in div_list}
-    win_tallies = {div: {} for div in div_list}
-    loss_tallies = {div: {} for div in div_list}
-    for div in div_list:
-        for tm in tm_list:
-            if tm.div_num == div:
-                div_teams[div].append(tm)
-            win_tallies[div][tm.team_seed] = fmt_tally(wins[div][tm.team_seed])
-            loss_tallies[div][tm.team_seed] = fmt_tally(losses[div][tm.team_seed])
+    # the following are all keyed off of team_seed
+    win_tallies = {}
+    loss_tallies = {}
+    for tm in tm_list:
+        div = tm.div_num
+        tm_seed = tm.team_seed
+
+        div_teams[div].append(tm)
+        win_tallies[tm_seed] = fmt_tally(wins[tm_seed])
+        loss_tallies[tm_seed] = fmt_tally(losses[tm_seed])
 
     context = {
         'chart_num'   : 3,
@@ -861,7 +870,7 @@ def rr_scores(tourn: TournInfo) -> str:
         'losses'      : losses,
         'win_tallies' : win_tallies,
         'loss_tallies': loss_tallies,
-        'round_val'   : round_val,
+        'fmt_stat'    : fmt_stat,
         'bold_color'  : '#555555'
     }
     return render_chart(context)

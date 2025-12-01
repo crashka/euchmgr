@@ -138,9 +138,9 @@
               {% for rnd in range(2, rnds + 1) %}
               <td>{{opp_pts[pl.player_num].get(rnd, '')|safe}}</td>
               {% endfor %}
-              <td class="vert_sect">{{round_val(pl.seed_win_pct)}}%</td>
-              <td>{{pl.seed_pts_diff}}</td>
-              <td>{{pl.player_seed}}</td>
+              <td class="vert_sect">{{fmt_stat(pl.seed_win_pct)|safe}}</td>
+              <td>{{fmt_stat(pl.seed_pts_diff)|safe}}</td>
+              <td>{{fmt_stat(pl.player_seed)|safe}}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -215,19 +215,19 @@
             {% for tm in div_teams[div] %}
             <tr>
               <td class="team_lbl">{{tm.team_tag|safe}}</td>
-              <td class="tally"><img {{win_tallies[div][tm.team_seed]|safe}} /></td>
-              <td class="tally"><img {{loss_tallies[div][tm.team_seed]|safe}} /></td>
-              <td class="vert_sect">{{team_pts[div][tm.team_seed].get(1, '')|safe}}</td>
+              <td class="tally"><img {{win_tallies[tm.team_seed]|safe}} /></td>
+              <td class="tally"><img {{loss_tallies[tm.team_seed]|safe}} /></td>
+              <td class="vert_sect">{{team_pts[tm.team_seed].get(1, '')|safe}}</td>
               {% for rnd in range(2, rnds + 1) %}
-              <td>{{team_pts[div][tm.team_seed].get(rnd, '')|safe}}</td>
+              <td>{{team_pts[tm.team_seed].get(rnd, '')|safe}}</td>
               {% endfor %}
-              <td class="vert_sect">{{opp_pts[div][tm.team_seed].get(1, '')|safe}}</td>
+              <td class="vert_sect">{{opp_pts[tm.team_seed].get(1, '')|safe}}</td>
               {% for rnd in range(2, rnds + 1) %}
-              <td>{{opp_pts[div][tm.team_seed].get(rnd, '')|safe}}</td>
+              <td>{{opp_pts[tm.team_seed].get(rnd, '')|safe}}</td>
               {% endfor %}
-              <td class="vert_sect">{{round_val(tm.tourn_win_pct)}}%</td>
-              <td>{{tm.tourn_pts_diff}}</td>
-              <td>{{tm.div_rank}}</td>
+              <td class="vert_sect">{{fmt_stat(tm.tourn_win_pct)|safe}}</td>
+              <td>{{fmt_stat(tm.tourn_pts_diff)|safe}}</td>
+              <td>{{fmt_stat(tm.div_rank)|safe}}</td>
             </tr>
             {% endfor %}
           </tbody>

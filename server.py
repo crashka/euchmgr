@@ -11,7 +11,7 @@ or::
 
   $ flask --app server run [--debug]
 
-To run the application, open a browser window and navigate to ``localhost:5000``.  The
+To run the application, open a browser window and navigate to ``localhost:5050``.  The
 usage of the application should be pretty self-explanatory.
 
 To do list:
@@ -79,7 +79,6 @@ class View(IntEnum):
     PARTNERS    = 2
     TEAMS       = 3
     ROUND_ROBIN = 4
-
 
 VIEW_NAME = [
     'Players',
@@ -885,8 +884,13 @@ DASH_FUNCS = [
 ]
 
 TIME_FMT = '%Y-%m-%d %H:%M:%S'
-DFLT_UPDATE_INT = 5000
+# update intervals specified in msecs
+BASE_UPDATE_INT = 5000
+# adjustments are related to time spent processing
+SD_UPDATE_ADJ = 350
+RR_UPDATE_ADJ = 200
 
+# CSS class to use for up and down movement
 COLCLS_UP   = 'grn_fg'
 COLCLS_DOWN = 'red_fg'
 
@@ -909,7 +913,7 @@ def get_dash(subpath: str) -> str:
 def sd_dash(tourn: TournInfo) -> str:
     """Render seed round live dashboard
     """
-    update_int = DFLT_UPDATE_INT - 600
+    update_int = BASE_UPDATE_INT - SD_UPDATE_ADJ
     done = tourn.seeding_done()
 
     # REVISIT: let underlying iterator do the sorting for us???
@@ -1085,7 +1089,7 @@ def sd_dash(tourn: TournInfo) -> str:
 def rr_dash(tourn: TournInfo) -> str:
     """Render round robin live dashboard
     """
-    update_int = DFLT_UPDATE_INT - 300
+    update_int = BASE_UPDATE_INT - RR_UPDATE_ADJ
     done = tourn.round_robin_done()
 
     div_list = list(range(1, tourn.divisions + 1))

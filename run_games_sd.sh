@@ -8,29 +8,14 @@ nrounds=8
 
 LIMIT=${1:-10}
 LOOPS=${2:-$(((nplayers / 4 * nrounds - 1) / LIMIT + 1))}
-SLEEP=${3:-5}
 
 echo "LIMIT = " ${LIMIT}
 echo "LOOPS = " ${LOOPS}
-echo "SLEEP = " ${SLEEP}
-
-python -m euchmgr "${TOURN}" tourn_create force=t
-echo "Tournament \"${TOURN}\" created"
-echo -n "Uploading roster..."
-echo "done"
-python -m euchmgr "${TOURN}" upload_roster "${ROSTER}"
-echo -n "Generating player nums..."
-echo "done"
-python -m euchmgr "${TOURN}" generate_player_nums
-echo -n "Building seeding bracket..."
-echo "done"
-python -m euchmgr "${TOURN}" build_seed_bracket
 
 for i in $(seq 1 ${LOOPS}) ; do
-    echo -n "Creating ${LIMIT} fake seeding results..."
+    read -p "Press any key to create ${LIMIT} fake seeding results..." -n1 -s
     echo "done"
     python -m euchmgr "${TOURN}" fake_seed_games limit=${LIMIT}
-    sleep $SLEEP
 done
 
 echo -n "Validating seeding results..."

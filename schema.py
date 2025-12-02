@@ -273,7 +273,7 @@ class Player(BaseModel):
         """Return list of available players, sorted by player_seed
         """
         pl_list = cls.get_player_map(requery).values()
-        avail = list(filter(lambda x: x.available, pl_list))
+        avail = filter(lambda x: x.available, pl_list)
         return sorted(avail, key=lambda x: x.player_seed)
 
     @classmethod

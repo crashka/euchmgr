@@ -110,7 +110,7 @@
               <th class="vert_sect" colspan="{{rnds}}">Points For (by Round)</th>
               <th class="vert_sect" colspan="{{rnds}}">Points Against (by Round)</th>
               <th class="hor_sect vert_sect" rowspan="2">Win Pct</th>
-              <th class="hor_sect" rowspan=2>Pts Diff</th>
+              <th class="hor_sect" rowspan=2>Pts Pct</th>
               <th class="hor_sect" rowspan=2>Rank</th>
             </tr>
             <tr>
@@ -139,7 +139,7 @@
               <td>{{opp_pts[pl.player_num].get(rnd, '')|safe}}</td>
               {% endfor %}
               <td class="vert_sect">{{fmt_stat(pl.seed_win_pct)|safe}}</td>
-              <td>{{fmt_stat(pl.seed_pts_diff)|safe}}</td>
+              <td>{{fmt_stat(pl.seed_pts_pct)|safe}}</td>
               <td>{{fmt_stat(pl.player_seed)|safe}}</td>
             </tr>
             {% endfor %}
@@ -197,7 +197,7 @@
               <th class="vert_sect" colspan="{{rnds}}">Points For (by Round)</th>
               <th class="vert_sect" colspan="{{rnds}}">Points Against (by Round)</th>
               <th class="hor_sect vert_sect" rowspan="2">Win Pct</th>
-              <th class="hor_sect" rowspan=2>Pts Diff</th>
+              <th class="hor_sect" rowspan=2>Pts Pct</th>
               <th class="hor_sect" rowspan=2>Rank</th>
             </tr>
             <tr>
@@ -226,7 +226,7 @@
               <td>{{opp_pts[tm.team_seed].get(rnd, '')|safe}}</td>
               {% endfor %}
               <td class="vert_sect">{{fmt_stat(tm.tourn_win_pct)|safe}}</td>
-              <td>{{fmt_stat(tm.tourn_pts_diff)|safe}}</td>
+              <td>{{fmt_stat(tm.tourn_pts_pct)|safe}}</td>
               <td>{{fmt_stat(tm.div_rank)|safe}}</td>
             </tr>
             {% endfor %}

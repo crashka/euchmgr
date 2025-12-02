@@ -274,10 +274,10 @@ def compute_player_seeds(finalize: bool = False) -> None:
     """
     """
     pl_list = Player.get_player_map().values()
-    played = list(filter(lambda x: x.seed_wins + x.seed_losses, pl_list))
+    played = filter(lambda x: x.seed_wins + x.seed_losses, pl_list)
 
     # TODO: break ties with points ratio, head-to-head, etc.!!!
-    sort_key = lambda x: (-x.seed_win_pct, -x.seed_pts_diff, -x.seed_pts_pct)
+    sort_key = lambda x: (-x.seed_win_pct, -x.seed_pts_pct)
     for i, player in enumerate(sorted(played, key=sort_key)):
         player.player_seed = i + 1
         player.save()
@@ -290,7 +290,7 @@ def prepick_champ_partners() -> None:
     starts
     """
     pl_list = Player.get_player_map().values()
-    champs = list(filter(lambda x: x.reigning_champ, pl_list))
+    champs = filter(lambda x: x.reigning_champ, pl_list)
     by_seed = sorted(champs, key=lambda x: x.player_seed)
 
     # highest seeded champ picks fellow champ(s)
@@ -548,11 +548,11 @@ def compute_team_ranks(finalize: bool = False) -> None:
     tourn = TournInfo.get()
     ndivs = tourn.divisions
     tm_list = Team.get_team_map().values()
-    played = list(filter(lambda x: x.tourn_wins + x.tourn_losses, tm_list))
+    played = filter(lambda x: x.tourn_wins + x.tourn_losses, tm_list)
 
     div_rank = {i + 1: 0 for i in range(ndivs)}
     # TODO: break ties with points ratio, head-to-head, etc.!!!
-    sort_key = lambda x: (-x.tourn_win_pct, -x.tourn_pts_diff, -x.tourn_pts_pct)
+    sort_key = lambda x: (-x.tourn_win_pct, -x.tourn_pts_pct)
     for i, team in enumerate(sorted(played, key=sort_key)):
         team.tourn_rank = i + 1
         div_rank[team.div_num] += 1

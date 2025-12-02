@@ -883,7 +883,6 @@ DASH_FUNCS = [
     'rr_dash'
 ]
 
-TIME_FMT = '%Y-%m-%d %H:%M:%S'
 # update intervals specified in msecs
 BASE_UPDATE_INT = 5000
 # adjustments are related to time spent processing
@@ -977,8 +976,8 @@ def sd_dash(tourn: TournInfo) -> str:
     # the following are all keyed off of player_num
     win_tallies  = {}
     loss_tallies = {}
-    stats        = {}  # value: (win_pct, pts_diff, rank)
-    stats_fmt    = {}  # value: (win_pct, pts_diff, rank)
+    stats        = {}  # value: (win_pct, pts_pct, rank)
+    stats_fmt    = {}  # value: (win_pct, pts_pct, rank)
     mvmt         = {}
     colcls       = {}
     # inner dict represents points (formatted!) by round
@@ -1008,7 +1007,7 @@ def sd_dash(tourn: TournInfo) -> str:
 
                 stats[pl_num] = (
                     pl.seed_win_pct,
-                    pl.seed_pts_diff,
+                    pl.seed_pts_pct,
                     pl.player_seed
                 )
                 stats_fmt[pl_num] = (
@@ -1039,7 +1038,7 @@ def sd_dash(tourn: TournInfo) -> str:
 
             stats[pl_num] = (
                 pl.seed_win_pct,
-                pl.seed_pts_diff,
+                pl.seed_pts_pct,
                 pl.player_seed
             )
             stats_fmt[pl_num] = (
@@ -1155,8 +1154,8 @@ def rr_dash(tourn: TournInfo) -> str:
     # the following are all keyed off of team_seed
     win_tallies  = {}
     loss_tallies = {}
-    stats        = {}  # value: (win_pct, pts_diff, rank)
-    stats_fmt    = {}  # value: (win_pct, pts_diff, rank)
+    stats        = {}  # value: (win_pct, pts_pct, rank)
+    stats_fmt    = {}  # value: (win_pct, pts_pct, rank)
     mvmt         = {}
     colcls       = {}
     # inner dict represents points (formatted!) by round
@@ -1188,7 +1187,7 @@ def rr_dash(tourn: TournInfo) -> str:
 
                 stats[tm_seed] = (
                     tm.tourn_win_pct,
-                    tm.tourn_pts_diff,
+                    tm.tourn_pts_pct,
                     tm.div_rank
                 )
                 stats_fmt[tm_seed] = (
@@ -1219,7 +1218,7 @@ def rr_dash(tourn: TournInfo) -> str:
 
             stats[tm_seed] = (
                 tm.tourn_win_pct,
-                tm.tourn_pts_diff,
+                tm.tourn_pts_pct,
                 tm.div_rank
             )
             stats_fmt[tm_seed] = (

@@ -4,8 +4,8 @@
 may or may not get implemented, depending on overlap and concordance with input/feedback
 from the real stakeholders.*
 
-*See `ISSUES.md` for tracking of issues raised in/from outside discussions, which will all
-be addressed and dispositioned by general consensus.*
+*See `ISSUES.md` for tracking of issues raised in/from key outside discussions, which will
+all be addressed and dispositioned by general consensus (and/or the rules committee).*
 
 ## Tasks
 

@@ -12,28 +12,36 @@ high number for new issue entry).*
 
 ## Bugs
 
-**\#1** - Seeding and round robin bracket charts should have space for showing (and/or
+**#1** - Seeding and round robin bracket charts should have space for showing (and/or
 entering) scores after each player or team in the matchup [Struble]
 
-**\#2** - Division assignment for round robin stage should be done in a snake pattern
-based on team rank (1, 2, 2, 1, 1, 2,...), rather than alternating (1, 2, 1, 2,...)
-[Struble]
+**#2** - Division assignment for round robin stage should be done in a snake pattern based
+on team rank (1, 2, 2, 1, 1, 2,…), rather than alternating (1, 2, 1, 2,…) [Struble]
 
-**\#3** - Non-champion three-headed monster should always be seeded last in the round
-robin stage (rather than ranked by average player rank) [Struble]
+**#3** - Non-champion three-headed monster should always be seeded last in the round robin
+stage (rather than considered by average player rank) [Struble]
 
-**\#4** - Seeding and round robin final rankings should be based on: win pct, then *points
-pct* (rather than points diff) [Struble]
-- After that, ties should then be broken by head-to-head and common-opponent records,
-  followed by *[TBD] (points for(?), ...)*
+**#4** - Seeding and round robin stage rankings (and final tourament rankings) should be
+based on win pct, then established tie-breaking rules, as outlined below [Struble]
+
+- Tie-breaking rules (from Bobby):
+  - Individual head to head
+  - In three or more way ties, head to head against all other tied teams
+  - In three or more way ties still tied after head to head against all other tied teams,
+    points % within games of tied teams
+  - Overall points %
+  - Coin flip (non-virtual)
 
 ## Feature/Enhancement Requests
 
-**\#5** - Mobile app for entering game scores [Struble]
-- Players should be able to see just their own games, and enter scores for games as they
-  are completed
-- Other players for a game should be notified, and given the ability to confirm, correct,
-  or dispute a score.
-- Maybe allow players see their own stats as well
+**#5** - Mobile app for entering game scores [Struble]
+
+ - In addition to all tournament brackets and scores, players should be able to see a
+   specific list of their own games (for both seeding and round robin)
+ - Players can only enter scores for their own games as they are completed
+ - Other players in the same game should be notified in the app, and given the ability to
+   confirm, correct, or dispute
 
 ## Ideas for Further Discussion
+
+## Closed

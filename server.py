@@ -39,7 +39,7 @@ from schema import (GAME_PTS, TournStage, TournInfo, Player, SeedGame, Team, Tou
                     PlayerGame, TeamGame)
 from euchmgr import (db_init, tourn_create, upload_roster, generate_player_nums,
                      build_seed_bracket, fake_seed_games, validate_seed_round,
-                     compute_player_seeds, prepick_champ_partners, fake_pick_partners,
+                     compute_player_ranks, prepick_champ_partners, fake_pick_partners,
                      build_tourn_teams, compute_team_seeds, build_tourn_bracket,
                      fake_tourn_games, validate_tourn, compute_team_ranks)
 
@@ -313,7 +313,7 @@ pl_layout = [
     ('seed_losses',      "Seed Losses",  None),
     ('seed_pts_for',     "Seed Pts",     None),
     ('seed_pts_against', "Seed Opp Pts", None),
-    ('player_seed',      "Seed Rank",    None)
+    ('player_rank',      "Seed Rank",    None)
 ]
 
 @app.get("/players")
@@ -433,7 +433,7 @@ pt_addl_props = [
 
 pt_layout = [
     ('id',             "ID",         HIDDEN),
-    ('player_seed',    "Seed Rank",  None),
+    ('player_rank',    "Seed Rank",  None),
     ('full_name',      "Player",     None),
     ('player_num',     "Player Num", None),
     ('seed_ident',     "Pick Order", None),
@@ -450,7 +450,7 @@ def get_partners() -> dict:
     tourn_name = request.args.get('tourn')
 
     db_init(tourn_name)
-    pt_iter = Player.iter_players(by_seeding=True)
+    pt_iter = Player.iter_players(by_rank=True)
     pt_data = []
     for player in pt_iter:
         pt_props = {prop: getattr(player, prop) for prop in pt_addl_props}
@@ -482,7 +482,7 @@ def post_partners() -> dict:
         return ajax_error(f"Selection out of turn; active pick belongs to {avail[0].seed_ident}")
 
     if isinstance(picks_info, int):
-        partner = Player.fetch_by_seed(picks_info)
+        partner = Player.fetch_by_rank(picks_info)
     elif isinstance(picks_info, str):
         match = list(Player.find_by_name_pfx(picks_info))
         match_av = list(filter(lambda x: x.available, match))
@@ -916,7 +916,7 @@ def sd_dash(tourn: TournInfo) -> str:
     done = tourn.seeding_done()
 
     # REVISIT: let underlying iterator do the sorting for us???
-    pl_list  = sorted(Player.iter_players(), key=lambda pl: pl.player_seed or tourn.players)
+    pl_list  = sorted(Player.iter_players(), key=lambda pl: pl.player_rank or tourn.players)
     # inner dict represents points by round {rnd: pts}
     team_pts = {pl.player_num: {} for pl in pl_list}
     opp_pts  = {pl.player_num: {} for pl in pl_list}
@@ -1008,7 +1008,7 @@ def sd_dash(tourn: TournInfo) -> str:
                 stats[pl_num] = (
                     pl.seed_win_pct,
                     pl.seed_pts_pct,
-                    pl.player_seed
+                    pl.player_rank
                 )
                 stats_fmt[pl_num] = (
                     fmt_dash_stat(stats[pl_num][0], prev_stats[pl_num][0], no_style=True),
@@ -1020,7 +1020,7 @@ def sd_dash(tourn: TournInfo) -> str:
                 mvmt[pl_num] = prev_mvmt.get(pl_num, '')
                 colcls[pl_num] = prev_colcls.get(pl_num, '')
             elif prev_stats[pl_num][2]:
-                rank_diff = (prev_stats[pl_num][2] or 0) - (pl.player_seed or 0)
+                rank_diff = (prev_stats[pl_num][2] or 0) - (pl.player_rank or 0)
                 if rank_diff > 0:
                     mvmt[pl_num] = f'+{rank_diff}'
                     colcls[pl_num] = COLCLS_UP
@@ -1039,7 +1039,7 @@ def sd_dash(tourn: TournInfo) -> str:
             stats[pl_num] = (
                 pl.seed_win_pct,
                 pl.seed_pts_pct,
-                pl.player_seed
+                pl.player_rank
             )
             stats_fmt[pl_num] = (
                 fmt_dash_stat(stats[pl_num][0], no_style=True),
@@ -1418,7 +1418,7 @@ def tabulate_seed_results(form: dict) -> str:
     tourn_name  = form.get('tourn_name')
     db_init(tourn_name)
     validate_seed_round(finalize=True)
-    compute_player_seeds(finalize=True)
+    compute_player_ranks(finalize=True)
     prepick_champ_partners()
     view = View.PARTNERS
 

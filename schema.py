@@ -214,7 +214,7 @@ class Player(BaseModel):
     seed_pts_against = IntegerField(default=0)
     seed_pts_diff  = IntegerField(null=True)
     seed_pts_pct   = FloatField(null=True)
-    player_seed    = IntegerField(null=True)  # 1-based
+    player_rank    = IntegerField(null=True)  # 1-based
     # partner picks
     partner        = ForeignKeyField('self', field='player_num', column_name='partner_num',
                                      null=True)
@@ -270,11 +270,11 @@ class Player(BaseModel):
 
     @classmethod
     def available_players(cls, requery: bool = False) -> list[Self]:
-        """Return list of available players, sorted by player_seed
+        """Return list of available players, sorted by player_rank
         """
         pl_list = cls.get_player_map(requery).values()
         avail = filter(lambda x: x.available, pl_list)
-        return sorted(avail, key=lambda x: x.player_seed)
+        return sorted(avail, key=lambda x: x.player_rank)
 
     @classmethod
     def active_picker(cls, requery: bool = False) -> Self:
@@ -294,11 +294,11 @@ class Player(BaseModel):
         return pl_map[player_num]
 
     @classmethod
-    def fetch_by_seed(cls, player_seed: int) -> Self:
-        """Return player by player_seed (always retrieved from database), or `None` if not
+    def fetch_by_rank(cls, player_rank: int) -> Self:
+        """Return player by player_rank (always retrieved from database), or `None` if not
         found
         """
-        return cls.get_or_none(cls.player_seed == player_seed)
+        return cls.get_or_none(cls.player_rank == player_rank)
 
     @classmethod
     def find_by_name_pfx(cls, name_pfx: str) -> Iterator[Self]:
@@ -309,7 +309,7 @@ class Player(BaseModel):
             yield p
 
     @classmethod
-    def iter_players(cls, by_seeding: bool = False) -> Iterator[Self]:
+    def iter_players(cls, by_rank: bool = False) -> Iterator[Self]:
         """Iterator for players (wrap ORM details).  Note that this also clears out local
         cache, if populated.
         """
@@ -317,8 +317,8 @@ class Player(BaseModel):
             cls.player_map = None
 
         query = cls.select()
-        if by_seeding:
-            query = query.order_by(cls.player_seed)
+        if by_rank:
+            query = query.order_by(cls.player_rank)
         # see NOTE on use of iterator in `TournInfo.get`, above
         for p in query.iterator():
             yield p
@@ -351,9 +351,9 @@ class Player(BaseModel):
 
     @property
     def seed_ident(self) -> str:
-        """Player "name (seed)", for partner picking UI
+        """Player "name (rank)", for partner picking UI
         """
-        return f"{self.nick_name} ({self.player_seed})"
+        return f"{self.nick_name} ({self.player_rank})"
 
     @property
     def picks_info(self) -> str | None:
@@ -605,8 +605,8 @@ class Team(BaseModel):
                                      null=True)
     is_thm         = BooleanField(default=False)
     team_name      = TextField(unique=True)
-    avg_player_seed = FloatField()
-    top_player_seed = IntegerField()
+    avg_player_rank = FloatField()
+    top_player_rank = IntegerField()
     # tournament bracket
     team_seed      = IntegerField(unique=True, null=True)  # 1-based, from players seeds
     div_num        = IntegerField(null=True)
@@ -680,10 +680,10 @@ class Team(BaseModel):
         return ' / '.join(map(str, pl_nums))
 
     @property
-    def avg_player_seed_rnd(self) -> float:
-        """Round avg_player_seed for display purposes
+    def avg_player_rank_rnd(self) -> float:
+        """Round avg_player_rank for display purposes
         """
-        return round(self.avg_player_seed, 2)
+        return round(self.avg_player_rank, 2)
 
 #############
 # TournGame #

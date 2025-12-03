@@ -22,7 +22,7 @@ echo "done"
 python -m euchmgr "${TOURN}" validate_seed_round finalize=t
 read -p "Press any key to compute player rankings..." -n1 -s
 echo "done"
-python -m euchmgr "${TOURN}" compute_player_seeds finalize=t
+python -m euchmgr "${TOURN}" compute_player_ranks finalize=t
 read -p "Press any key to prepick champ partners..." -n1 -s
 echo "done"
 python -m euchmgr "${TOURN}" prepick_champ_partners

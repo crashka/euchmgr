@@ -196,11 +196,11 @@ def fake_seed_games(clear_existing: bool = False, limit: int = None) -> None:
 
         nfake += 1
         if limit and nfake >= limit:
-            compute_player_seeds()
+            compute_player_ranks()
             return
 
     if limit and nfake and nfake < limit:
-        compute_player_seeds()
+        compute_player_ranks()
 
     TournInfo.mark_stage_complete(TournStage.SEED_RESULTS)
 
@@ -270,7 +270,7 @@ def validate_seed_round(finalize: bool = False) -> None:
     if finalize:
         TournInfo.mark_stage_complete(TournStage.SEED_TABULATE)
 
-def compute_player_seeds(finalize: bool = False) -> None:
+def compute_player_ranks(finalize: bool = False) -> None:
     """
     """
     pl_list = Player.get_player_map().values()
@@ -279,7 +279,7 @@ def compute_player_seeds(finalize: bool = False) -> None:
     # TODO: break ties with points ratio, head-to-head, etc.!!!
     sort_key = lambda x: (-x.seed_win_pct, -x.seed_pts_pct)
     for i, player in enumerate(sorted(played, key=sort_key)):
-        player.player_seed = i + 1
+        player.player_rank = i + 1
         player.save()
 
     if finalize:
@@ -291,12 +291,12 @@ def prepick_champ_partners() -> None:
     """
     pl_list = Player.get_player_map().values()
     champs = filter(lambda x: x.reigning_champ, pl_list)
-    by_seed = sorted(champs, key=lambda x: x.player_seed)
+    by_rank = sorted(champs, key=lambda x: x.player_rank)
 
     # highest seeded champ picks fellow champ(s)
-    assert len(by_seed) in (2, 3)
-    by_seed[0].pick_partners(*by_seed[1:])
-    by_seed[0].save()
+    assert len(by_rank) in (2, 3)
+    by_rank[0].pick_partners(*by_rank[1:])
+    by_rank[0].save()
 
 def fake_pick_partners(clear_existing: bool = False) -> None:
     """Assumes champ team is pre-picked
@@ -304,7 +304,7 @@ def fake_pick_partners(clear_existing: bool = False) -> None:
     if clear_existing:
         Player.clear_partner_picks()
 
-    avail = Player.available_players()  # already sorted by player_seed
+    avail = Player.available_players()  # already sorted by player_rank
     assert len(avail) >= 2
     pickers = list(avail)  # shallow copy
     for player in pickers:
@@ -329,15 +329,15 @@ def build_tourn_teams() -> list[Team]:
     (save())--see comment for utility functions, above
     """
     pl_map = Player.get_player_map()
-    by_seed = sorted(pl_map.values(), key=lambda x: x.player_seed)
+    by_rank = sorted(pl_map.values(), key=lambda x: x.player_rank)
 
     teams = []
-    for p in by_seed:
+    for p in by_rank:
         if not p.partner_num:
             continue
         partner = pl_map[p.partner_num]
-        seed_sum = p.player_seed + partner.player_seed
-        min_seed = min(p.player_seed, partner.player_seed)
+        seed_sum = p.player_rank + partner.player_rank
+        min_seed = min(p.player_rank, partner.player_rank)
         if not p.partner2_num:
             is_thm = False
             team_name = fmt_team_name([p.player_num, p.partner_num])
@@ -346,8 +346,8 @@ def build_tourn_teams() -> list[Team]:
             partner2 = pl_map[p.partner2_num]
             is_thm = True
             team_name = fmt_team_name([p.player_num, p.partner_num, p.partner2_num])
-            seed_sum += partner2.player_seed
-            min_seed = min(min_seed, partner2.player_seed)
+            seed_sum += partner2.player_rank
+            min_seed = min(min_seed, partner2.player_rank)
             avg_seed = seed_sum / 3.0
 
         info = {'player1_num'    : p.player_num,
@@ -355,8 +355,8 @@ def build_tourn_teams() -> list[Team]:
                 'player3_num'    : p.partner2_num,
                 'is_thm'         : is_thm,
                 'team_name'      : team_name,
-                'avg_player_seed': avg_seed,
-                'top_player_seed': min_seed}
+                'avg_player_rank': avg_seed,
+                'top_player_rank': min_seed}
         team = Team.create(**info)
         teams.append(team)
 
@@ -370,7 +370,7 @@ def compute_team_seeds() -> None:
     tourn = TournInfo.get()
     ndivs = tourn.divisions
 
-    sort_key = lambda x: (x.avg_player_seed, x.top_player_seed)
+    sort_key = lambda x: (x.avg_player_rank, x.top_player_rank)
     for i, team in enumerate(sorted(tm_iter, key=sort_key)):
         team.team_seed = i + 1
         # REVISIT: see comment on seeds and preferential bye treatment below (in
@@ -582,7 +582,7 @@ def main() -> int:
       - build_seed_bracket
       - fake_seed_games
       - tabulate_seed_round
-      - compute_player_seeds
+      - compute_player_ranks
       - prepick_champ_partners
       - fake_pick_partners
       - build_tourn_teams

@@ -23,6 +23,17 @@ BYE_TEAM = '-- (bye) --'
 # utility functions #
 #####################
 
+def get_div_teams(tourn: TournInfo, requery: bool = False) -> list[int]:
+    """Return number of teams by division, where index is `div_num - 1` (not pretty, but a
+    little more expeditious)
+    """
+    div_teams = [0] * tourn.divisions
+    for tm in Team.get_team_map(requery=requery).values():
+        div_teams[tm.div_num - 1] += 1
+    assert sum(div_teams) == tourn.teams
+    assert max(div_teams) - min(div_teams) in (0, 1)
+    return div_teams
+
 # REVISIT: these functions should probably be moved into schema.py, and the denormalized
 # values for player and team names should be created upon record save!!!
 
@@ -366,39 +377,39 @@ def build_tourn_teams() -> list[Team]:
 def compute_team_seeds() -> None:
     """
     """
-    tm_iter = Team.iter_teams()
+    tm_list = list(Team.iter_teams())
     tourn = TournInfo.get()
     ndivs = tourn.divisions
+    assert len(tm_list) == tourn.teams
+
+    # we assign teams to divisions based on a snake pattern (1, 2, ..., ndivs, ndivs,
+    # ndivs - 1, ...) by creating a mapping, where the mapped value encapsulates the
+    # division and seed within the division (integer mod and quotient, respectively)
+    map_size = ((tourn.teams - 1) // ndivs + 1) * ndivs
+    seed_map = list(range(map_size))
+    for s in seed_map[ndivs::ndivs*2]:
+        seed_map[s:s+ndivs] = reversed(seed_map[s:s+ndivs])
 
     sort_key = lambda x: (x.avg_player_rank, x.top_player_rank)
-    for i, team in enumerate(sorted(tm_iter, key=sort_key)):
-        team.team_seed = i + 1
-        # REVISIT: see comment on seeds and preferential bye treatment below (in
-        # `build_tourn_bracket`)
-        team.div_num = i % ndivs + 1
-        team.div_seed = i // ndivs + 1
-        team.save()
+    for i, tm in enumerate(sorted(tm_list, key=sort_key)):
+        tm.team_seed = i + 1
+        tm.div_num = seed_map[i] % ndivs + 1
+        tm.div_seed = seed_map[i] // ndivs + 1
+        tm.save()
 
     tourn.complete_stage(TournStage.TEAM_SEEDS)
 
 def build_tourn_bracket() -> list[TournGame]:
     """
     """
-    tm_map = Team.get_team_map()
     tourn = TournInfo.get()
-    nteams = tourn.teams
     ndivs = tourn.divisions
     nrounds = tourn.tourn_rounds
-    bye_seed = nteams + 1  # below all others
 
-    # lower numbered divisions may have one extra team--REVISIT: this is probably wrong,
-    # since the highest seeded overall team (div 1, seed 1) should have preferential bye
-    # consideration over all other division top seeds!!!
-    div_teams = [nteams // ndivs] * ndivs
-    div_mod = nteams % ndivs
-    for i in range(div_mod):
-        div_teams[i - ndivs] += 1
-    assert sum(div_teams) == nteams
+    # don't make assumptions on how divisions are assigned, just get the actual count of
+    # teams in each division--ATTN: this is a little messy, but note that div_teams is
+    # 0-based, whereas div_num is 1-based (see loop below for pseudo-explanation)!
+    div_teams = get_div_teams(tourn)
 
     games = []
     for div_i in range(ndivs):

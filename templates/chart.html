@@ -35,6 +35,9 @@
        padding: 0.75em;
        text-align: center;
      }
+     .matchup {
+       width: 12.0rem;
+     }
      .score {
        width: 1.0rem;
      }
@@ -74,10 +77,10 @@
               <th class="hor_sect">Round</th>
               <th class="hor_sect vert_sect">Table 1</th>
               {% for tbl in range(2, rnd_tables + 1) %}
-              <th class="hor_sect">Table {{tbl}}</th>
+              <th class="hor_sect matchup">Table {{tbl}}</th>
               {% endfor %}
               {% if rnd_byes %}
-              <th class="hor_sect">Bye</th>
+              <th class="hor_sect matchup">Bye</th>
               {% endif %}
             </tr>
           </thead>
@@ -156,12 +159,12 @@
           <thead>
             <tr>
               <th class="hor_sect">Round</th>
-              <th class="hor_sect vert_sect">Table 1</th>
-              {% for tbl in range(2, rnd_tables[div] + 1) %}
-              <th class="hor_sect">Table {{tbl}}</th>
+              <th class="hor_sect vert_sect matchup">Table 1</th>
+              {% for tbl in range(2, div_tables[div] + 1) %}
+              <th class="hor_sect matchup">Table {{tbl}}</th>
               {% endfor %}
-              {% if rnd_byes[div] %}
-              <th class="hor_sect">Bye</th>
+              {% if div_byes[div] %}
+              <th class="hor_sect matchup">Bye</th>
               {% endif %}
             </tr>
           </thead>
@@ -170,10 +173,10 @@
             <tr>
               <td>{{rnd}}</td>
               <td class="vert_sect">{{matchups[div][rnd][1]|safe}}</td>
-              {% for tbl in range(2, rnd_tables[div] + 1) %}
+              {% for tbl in range(2, div_tables[div] + 1) %}
               <td>{{matchups[div][rnd][tbl]|safe}}</td>
               {% endfor %}
-              {% if rnd_byes[div] %}
+              {% if div_byes[div] %}
               <td>{{matchups[div][rnd].get(None)|safe}}</td>
               {% endif %}
             </tr>

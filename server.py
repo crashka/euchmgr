@@ -34,10 +34,10 @@ from cachelib.file import FileSystemCache
 from werkzeug.utils import secure_filename
 
 from core import DATA_DIR, UPLOAD_DIR, ImplementationError
-from database import DB_FILETYPE, now_str
+from database import DB_FILETYPE, now_str, db_init
 from schema import (GAME_PTS, TournStage, TournInfo, Player, SeedGame, Team, TournGame,
                     PlayerGame, TeamGame)
-from euchmgr import (db_init, tourn_create, upload_roster, generate_player_nums,
+from euchmgr import (get_div_teams, tourn_create, upload_roster, generate_player_nums,
                      build_seed_bracket, fake_seed_games, validate_seed_round,
                      compute_player_ranks, prepick_champ_partners, fake_pick_partners,
                      build_tourn_teams, compute_team_seeds, build_tourn_bracket,
@@ -673,7 +673,7 @@ def get_chart(subpath: str) -> str:
         abort(404, f"Invalid chart func '{chart}'")
 
     db_init(tourn_name)
-    tourn = TournInfo.get()
+    tourn = TournInfo.get(requery=True)
     return globals()[chart](tourn)
 
 def sd_bracket(tourn: TournInfo) -> str:
@@ -768,15 +768,13 @@ def rr_brackets(tourn: TournInfo) -> str:
     """Render round robin brackets as a chart
     """
     div_list   = list(range(1, tourn.divisions + 1))
-    div_teams  = (tourn.teams - 1) // tourn.divisions + 1  # counting byes
-    tot_byes   = tourn.teams % tourn.divisions
-    div_tables = [div_teams // 2] * tourn.divisions
-    div_byes   = [0] * tourn.divisions
-    for i in range(tot_byes):
-        div_tables[-1 - i] -= 1
-        div_byes[-1 - i] += 1
-    rnd_tables = dict(zip(div_list, div_tables))
-    rnd_byes = dict(zip(div_list, div_byes))
+    div_teams  = get_div_teams(tourn, requery=True)
+    max_teams  = max(div_teams)
+    div_tables = {}
+    div_byes   = {}
+    for i, div in enumerate(div_list):
+        div_tables[div] = div_teams[i] // 2
+        div_byes[div] = div_teams[i] % 2
 
     # key sequence for sub-dict: rnd, tbl -> matchup_html
     matchups = {div: {} for div in div_list}
@@ -796,7 +794,7 @@ def rr_brackets(tourn: TournInfo) -> str:
     for div in div_list:
         assert len(matchups[div]) == tourn.tourn_rounds
         for rnd, tbls in matchups[div].items():
-            assert len(tbls) == rnd_tables[div] + rnd_byes[div]
+            assert len(tbls) == div_tables[div] + div_byes[div]
 
     context = {
         'chart_num' : 2,
@@ -804,8 +802,8 @@ def rr_brackets(tourn: TournInfo) -> str:
         'tourn'     : tourn,
         'rnds'      : tourn.tourn_rounds,
         'div_list'  : div_list,
-        'rnd_tables': rnd_tables,
-        'rnd_byes'  : rnd_byes,
+        'div_tables': div_tables,
+        'div_byes'  : div_byes,
         'matchups'  : matchups,
         'bold_color': '#555555'
     }

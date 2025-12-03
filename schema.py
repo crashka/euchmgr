@@ -664,6 +664,15 @@ class Team(BaseModel):
             yield t
 
     @property
+    def is_champ(self) -> bool:
+        """Note that the property (i.e. return) value is different than Player.champ
+        """
+        assert self.player2.champ == self.player1.champ
+        if self.player3:
+            assert self.player3.champ == self.player1.champ
+        return bool(self.player1.champ)
+
+    @property
     def team_tag(self) -> str:
         """Combination of div_seed and team_name with embedded HTML annotation (used for
         bracket and scores/results displays)

@@ -390,7 +390,8 @@ def compute_team_seeds() -> None:
     for s in seed_map[ndivs::ndivs*2]:
         seed_map[s:s+ndivs] = reversed(seed_map[s:s+ndivs])
 
-    sort_key = lambda x: (x.avg_player_rank, x.top_player_rank)
+    # note that non-champ THM is always sorted to last postion
+    sort_key = lambda x: (x.is_thm and not x.is_champ, x.avg_player_rank, x.top_player_rank)
     for i, tm in enumerate(sorted(tm_list, key=sort_key)):
         tm.team_seed = i + 1
         tm.div_num = seed_map[i] % ndivs + 1

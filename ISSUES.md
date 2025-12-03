@@ -15,9 +15,6 @@ high number for new issue entry).*
 **#1** - Seeding and round robin bracket charts should have space for showing (and/or
 entering) scores after each player or team in the matchup [Struble]
 
-**#3** - Non-champion three-headed monster should always be seeded last in the round robin
-stage (rather than considered by average player rank) [Struble]
-
 **#4** - Seeding and round robin stage rankings (and final tourament rankings) should be
 based on win pct, then established tie-breaking rules, as outlined below [Struble]
 
@@ -45,4 +42,8 @@ based on win pct, then established tie-breaking rules, as outlined below [Strubl
 
 **#2** - Division assignment for round robin stage should be done in a snake pattern based
 on team rank (1, 2, 2, 1, 1, 2,…), rather than alternating (1, 2, 1, 2,…) [Struble]
+- Fixed - Dec 03, 2025
+
+**#3** - Non-champion three-headed monster should always be seeded last in the round robin
+stage (rather than considered by average player rank) [Struble]
 - Fixed - Dec 03, 2025

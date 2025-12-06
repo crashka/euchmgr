@@ -15,6 +15,7 @@
      }
      .section {
        margin-top: 0.5rem;
+       position: relative;
      }
      .section_lbl {
        font-size: x-large;
@@ -42,16 +43,19 @@
      .sel_tourn {
        width: 12rem;
      }
-     .view {
+     .view_sel {
        margin-left: 1.5rem;
-     }
-     .view_lbl {
-       margin-right: 0.1rem;
        font-weight: bold;
      }
-     .view label {
+     .view_sel label {
        margin-left: 0.6rem;
        font-weight: bold;
+     }
+     .view_title {
+       font-size: x-large;
+       font-weight: bold;
+       position: absolute;
+       top: 0.3rem;
      }
      .info_blk {
        padding: 0.8rem 0 0.5rem 1.0rem;
@@ -68,24 +72,12 @@
        margin-left: 0.3rem;
        padding: 0.1rem 0.35rem;
      }
-     .players {
-       display: {{"block;" if view_chk[0] else "none;"}}
-       width: 80rem;
-     }
-     .seeding {
-       display: {{"block;" if view_chk[1] else "none;"}}
-       width: 80rem;
-     }
-     .partners {
-       display: {{"block;" if view_chk[2] else "none;"}}
-       width: 80rem;
-     }
-     .teams {
-       display: {{"block;" if view_chk[3] else "none;"}}
-       width: 80rem;
-     }
+     .players,
+     .seeding,
+     .partners,
+     .teams,
      .round_robin {
-       display: {{"block;" if view_chk[4] else "none;"}}
+       display: none;
        width: 80rem;
      }
      form {
@@ -246,9 +238,9 @@
     {% else %}  {# creating tourn #}
     <div class="container">
       <div class="section">
-        <span class="section_lbl">{{tourn.name}} &ndash; <span class="hdr_view">{{view_name}}</span></span>
-        <span class="view">
-          <span class="view_lbl">View:</span>
+        <span class="section_lbl">{{tourn.name}}</span>
+        <span class="view_sel">
+          View:
           <label>Players<input type="radio" name="view_rdo" value="0"{{view_chk[0]}}></label>
           <label>Seeding<input type="radio" name="view_rdo" value="1"{{view_chk[1]}}></label>
           <label>Partners<input type="radio" name="view_rdo" value="2"{{view_chk[2]}}></label>
@@ -267,7 +259,9 @@
         </div>
       </div>
 
+      {% if view_chk[0] %}
       <div class="section players">
+        <span class="view_title">{{view_name}}</span>
         <table id="plyr_tbl" class="display" spellcheck="false">
           <thead>
             <tr>
@@ -285,8 +279,11 @@
           </form>
         </div>
       </div>
+      {% endif %}
 
+      {% if view_chk[1] %}
       <div class="section seeding">
+        <span class="view_title">{{view_name}}</span>
         <table id="seed_tbl" class="display" spellcheck="false">
           <thead>
             <tr>
@@ -308,8 +305,11 @@
           </form>
         </div>
       </div>
+      {% endif %}
 
+      {% if view_chk[2] %}
       <div class="section partners">
+        <span class="view_title">{{view_name}}</span>
         <table id="ptnr_tbl" class="display" spellcheck="false">
           <thead>
             <tr>
@@ -327,8 +327,11 @@
           </form>
         </div>
       </div>
+      {% endif %}
 
+      {% if view_chk[3] %}
       <div class="section teams">
+        <span class="view_title">{{view_name}}</span>
         <table id="team_tbl" class="display" spellcheck="false">
           <thead>
             <tr>
@@ -345,8 +348,11 @@
           </form>
         </div>
       </div>
+      {% endif %}
 
+      {% if view_chk[4] %}
       <div class="section round_robin">
+        <span class="view_title">{{view_name}}</span>
         <table id="rr_tbl" class="display" spellcheck="false">
           <thead>
             <tr>
@@ -368,6 +374,7 @@
           </form>
         </div>
       </div>
+      {% endif %}
     </div>
     {% endif %}  {# creating tourn #}
   </body>
@@ -400,9 +407,9 @@
      });
 
      // tournament views
-     $(".view input").on('change', function() {
+     $(".view_sel input").on('change', function() {
        const tourn    = $('.info_blk input[name="tourn_name"]').val();
-       const view     = $(".view input:checked").val();
+       const view     = $(".view_sel input:checked").val();
        const tournStr = "?tourn=" + encodeURIComponent(tourn);
        const viewStr  = "&view=" + encodeURIComponent(view);
        const curpage  = window.location.origin + window.location.pathname;
@@ -478,6 +485,7 @@
            url: '/players?tourn=' + encodeURIComponent(tourn),
            dataSrc: 'data'
          },
+         deferRender: true,
          columns: [
            {% for col in pl_layout %}
            {data: '{{col[0]}}'},
@@ -498,6 +506,7 @@
          ],
          //order: [[0, 'asc']],  // player.id
          initComplete: function(settings, json) {
+           $(".players").css('display', 'block');
            table.columns.adjust().draw();
          }
        });
@@ -571,6 +580,7 @@
            url: '/seeding?tourn=' + encodeURIComponent(tourn),
            dataSrc: 'data'
          },
+         deferRender: true,
          columns: [
            {% for col in sg_layout %}
            {data: '{{col[0]}}'},
@@ -591,6 +601,7 @@
          ],
          //order: [[0, 'asc']],  // seed_game.id
          initComplete: function(settings, json) {
+           $(".seeding").css('display', 'block');
            table.columns.adjust().draw();
          }
        });
@@ -666,6 +677,7 @@
            url: '/partners?tourn=' + encodeURIComponent(tourn),
            dataSrc: 'data'
          },
+         deferRender: true,
          columns: [
            {% for col in pt_layout %}
            {data: '{{col[0]}}'},
@@ -686,6 +698,7 @@
          ],
          order: [[1, 'asc']],  // player_rank
          initComplete: function(settings, json) {
+           $(".partners").css('display', 'block');
            table.columns.adjust().draw();
          }
        });
@@ -761,6 +774,7 @@
            url: '/teams?tourn=' + encodeURIComponent(tourn),
            dataSrc: 'data'
          },
+         deferRender: true,
          columns: [
            {% for col in tm_layout %}
            {data: '{{col[0]}}'},
@@ -781,6 +795,7 @@
          ],
          order: [[1, 'asc']],  // teem_seed
          initComplete: function(settings, json) {
+           $(".teams").css('display', 'block');
            table.columns.adjust().draw();
          }
        });
@@ -854,6 +869,7 @@
            url: '/round_robin?tourn=' + encodeURIComponent(tourn),
            dataSrc: 'data'
          },
+         deferRender: true,
          columns: [
            {% for col in tg_layout %}
            {data: '{{col[0]}}'},
@@ -874,6 +890,7 @@
          ],
          //order: [[0, 'asc']],  // tourn_game.id
          initComplete: function(settings, json) {
+           $(".round_robin").css('display', 'block');
            table.columns.adjust().draw();
          }
        });

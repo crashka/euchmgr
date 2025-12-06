@@ -82,8 +82,8 @@ class View(IntEnum):
 
 VIEW_NAME = [
     'Players',
-    'Seeding Round',
-    'Picking Partners',
+    'Seeding',
+    'Partners',
     'Teams',
     'Round Robin'
 ]

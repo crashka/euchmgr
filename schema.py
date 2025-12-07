@@ -197,6 +197,13 @@ class TournInfo(BaseModel):
 # Player #
 ##########
 
+EMPTY_PLYR_STATS = {
+    'seed_wins'       : None,
+    'seed_losses'     : None,
+    'seed_pts_for'    : None,
+    'seed_pts_against': None
+}
+
 class Player(BaseModel):
     """
     """
@@ -335,6 +342,15 @@ class Player(BaseModel):
         bracket and scores/results displays)
         """
         return f"<b>{self.player_num}</b>&nbsp;&nbsp;<u>{self.nick_name}</u>"
+
+    @property
+    def player_data(self) -> dict:
+        """Return player data as a dict, removing distracting default values if not relevant
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.SEED_BRACKET:
+            return self.__data__ | EMPTY_PLYR_STATS
+        return self.__data__
 
     @property
     def champ(self) -> str | None:
@@ -595,6 +611,13 @@ class SeedGame(BaseModel):
 # Team #
 ########
 
+EMPTY_TEAM_STATS = {
+    'tourn_wins'       : None,
+    'tourn_losses'     : None,
+    'tourn_pts_for'    : None,
+    'tourn_pts_against': None
+}
+
 class Team(BaseModel):
     """
     """
@@ -662,6 +685,15 @@ class Team(BaseModel):
         # see NOTE on use of iterator in `TournInfo.get`, above
         for t in cls.select().iterator():
             yield t
+
+    @property
+    def team_data(self) -> dict:
+        """Return team data as a dict, removing distracting default values if not relevant
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.TOURN_BRACKET:
+            return self.__data__ | EMPTY_TEAM_STATS
+        return self.__data__
 
     @property
     def is_champ(self) -> bool:

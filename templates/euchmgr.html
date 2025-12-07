@@ -4,22 +4,27 @@
     <title>{{title}}</title>
 
     <style>
+     form {
+       overflow: hidden;
+     }
+     table {
+       margin-top: 0.3rem;
+     }
+     input[readonly] {
+       border: thin solid grey;
+       background-color: #F0F0F0;
+     }
+     input[type="text"] {
+       width: 12rem;
+     }
+     input[type="number"] {
+       width: 3rem;
+     }
      .attn {
        background-color: #FFE4E1;
      }
      .demo {
        background-color: #AFEEEE;
-     }
-     .container {
-       overflow: hidden;
-     }
-     .section {
-       margin-top: 0.5rem;
-       position: relative;
-     }
-     .section_lbl {
-       font-size: x-large;
-       font-weight: bold;
      }
      .err_dlg {
        padding: 1.1rem 1.4rem;
@@ -32,9 +37,16 @@
      .err_dlg button {
        margin-top: 1.2rem;
      }
-     .hdr_view {
-       display: inline-block;
-       width: 11rem;
+     .container {
+       overflow: hidden;
+     }
+     .section {
+       margin-top: 0.5rem;
+       position: relative;
+     }
+     .section_lbl {
+       font-size: x-large;
+       font-weight: bold;
      }
      .subsect {
        margin-top: 0.5rem;
@@ -67,10 +79,14 @@
      .stage_blk span {
        margin-right: 1.5rem;
      }
-     .info_blk input,
+     .info_blk input {
+       margin-left: 0.3rem;
+       padding: 0.1rem 0.35rem;
+     }
      .stage_blk input {
        margin-left: 0.3rem;
        padding: 0.1rem 0.35rem;
+       width: 13rem;
      }
      .players,
      .seeding,
@@ -79,9 +95,6 @@
      .round_robin {
        display: none;
        width: 80rem;
-     }
-     form {
-       overflow: hidden;
      }
      .info {
        width: 27rem;
@@ -97,14 +110,11 @@
      }
      .buttons a {
        margin-right: 0.5rem;
-       #padding: 0.2rem 0.2rem;
+       /* padding: 0.2rem 0.2rem; */
      }
      .lnk_lbl {
        margin-left: 1.0rem;
        margin-right: 0.3rem;
-     }
-     table {
-       margin-top: 0.3rem;
      }
      .tourn_params td {
        padding: 0.2rem;
@@ -121,21 +131,6 @@
      .td_dec {
        text-align: left;
      }
-     input[readonly] {
-       border: thin solid grey;
-       background-color: #F0F0F0;
-     }
-     input[type="text"] {
-       width: 12rem;
-     }
-     input[type="number"] {
-       width: 3rem;
-     }
-     input::-webkit-outer-spin-button,
-     input::-webkit-inner-spin-button {
-       -webkit-appearance: none;
-       margin: 0;
-     }
     </style>
     <link href="/static/datatables.min.css" rel="stylesheet">
   </head>
@@ -146,10 +141,10 @@
       <button autofocus>Close</button>
     </dialog>
     {% if not tourn or (tourn.stage_compl or 0) < 2 %}
-    <form action="/" method="post" enctype="multipart/form-data">
+    <form action="/tourn" method="post" enctype="multipart/form-data">
       <div class="section">
         <span>Pick tournament:</span>
-        <select name="tourn" class="sel_tourn">
+        <select name="tourn" class="sel_tourn" onchange="this.form.submit();">
           {% if new_tourn %}
           {% for tourn_name in tourn_sel %}
           <option value="{{tourn_name}}"{{" selected" if tourn_name == sel_new else ""}}{{" disabled" if tourn_name == sel_sep else ""}}>{{tourn_name}}</option>
@@ -241,14 +236,14 @@
         <span class="section_lbl">{{tourn.name}}</span>
         <span class="view_sel">
           View:
-          <label>Players<input type="radio" name="view_rdo" value="0"{{view_chk[0]}}></label>
-          <label>Seeding<input type="radio" name="view_rdo" value="1"{{view_chk[1]}}></label>
-          <label>Partners<input type="radio" name="view_rdo" value="2"{{view_chk[2]}}></label>
-          <label>Teams<input type="radio" name="view_rdo" value="3"{{view_chk[3]}}></label>
-          <label>Round Robin<input type="radio" name="view_rdo" value="4"{{view_chk[4]}}></label>
+          <label>Players<input type="radio" name="view_rdo" value="/players"{{view_chk[0]}}></label>
+          <label>Seeding<input type="radio" name="view_rdo" value="/seeding"{{view_chk[1]}}></label>
+          <label>Partners<input type="radio" name="view_rdo" value="/partners"{{view_chk[2]}}></label>
+          <label>Teams<input type="radio" name="view_rdo" value="/teams"{{view_chk[3]}}></label>
+          <label>Round Robin<input type="radio" name="view_rdo" value="/round_robin"{{view_chk[4]}}></label>
         </span>
         <div class="subsect info_blk">
-          <input name="tourn_name" type="text" value="{{tourn.name}}" hidden>
+          <input name="tourn_name" type="hidden" value="{{tourn.name}}">
           <span>Players:<input name="players" type="number" value="{{tourn.players}}" disabled></span>
           <span>Teams:<input name="teams" type="number" value="{{tourn.teams}}" disabled></span>
           <span>THM Teams:<input name="thm_teams" type="number" value="{{tourn.thm_teams}}" disabled></span>
@@ -261,7 +256,7 @@
 
       {% if view_chk[0] %}
       <div class="section players">
-        <span class="view_title">{{view_name}}</span>
+        <span class="view_title">{{view_name[0]}}</span>
         <table id="plyr_tbl" class="display" spellcheck="false">
           <thead>
             <tr>
@@ -272,8 +267,7 @@
           </thead>
         </table>
         <div class="subsection buttons">
-          <form action="/" method="post">
-            <input name="tourn_name" type="hidden" value="{{tourn.name}}">
+          <form action="/players" method="post">
             <button class="submit" value="{{btn_val[2]}}"{{btn_attr[2]}}>Generate Player Nums</button>
             <button class="submit" value="{{btn_val[3]}}"{{btn_attr[3]}}>Create Seeding Bracket</button>
           </form>
@@ -283,7 +277,7 @@
 
       {% if view_chk[1] %}
       <div class="section seeding">
-        <span class="view_title">{{view_name}}</span>
+        <span class="view_title">{{view_name[1]}}</span>
         <table id="seed_tbl" class="display" spellcheck="false">
           <thead>
             <tr>
@@ -294,8 +288,7 @@
           </thead>
         </table>
         <div class="subsection buttons">
-          <form action="/" method="post">
-            <input name="tourn_name" type="hidden" value="{{tourn.name}}">
+          <form action="/seeding" method="post">
             <button class="submit demo" value="{{btn_val[4]}}"{{btn_attr[4]}}>Generate Fake Results</button>
             <button class="submit" value="{{btn_val[5]}}"{{btn_attr[5]}}>Tabulate Results</button>
             <span class="lnk_lbl">Display:</span>
@@ -309,7 +302,7 @@
 
       {% if view_chk[2] %}
       <div class="section partners">
-        <span class="view_title">{{view_name}}</span>
+        <span class="view_title">{{view_name[2]}}</span>
         <table id="ptnr_tbl" class="display" spellcheck="false">
           <thead>
             <tr>
@@ -320,8 +313,7 @@
           </thead>
         </table>
         <div class="subsection buttons">
-          <form action="/" method="post">
-            <input name="tourn_name" type="hidden" value="{{tourn.name}}">
+          <form action="/partners" method="post">
             <button class="submit demo" value="{{btn_val[6]}}"{{btn_attr[6]}}>Generate Fake Picks</button>
             <button class="submit" value="{{btn_val[7]}}"{{btn_attr[7]}}>Compute Team Seeds</button>
           </form>
@@ -331,7 +323,7 @@
 
       {% if view_chk[3] %}
       <div class="section teams">
-        <span class="view_title">{{view_name}}</span>
+        <span class="view_title">{{view_name[3]}}</span>
         <table id="team_tbl" class="display" spellcheck="false">
           <thead>
             <tr>
@@ -342,8 +334,7 @@
           </thead>
         </table>
         <div class="subsection buttons">
-          <form action="/" method="post">
-            <input name="tourn_name" type="hidden" value="{{tourn.name}}">
+          <form action="/teams" method="post">
             <button class="submit" value="{{btn_val[8]}}"{{btn_attr[8]}}>Create Round Robin Brackets</button>
           </form>
         </div>
@@ -352,7 +343,7 @@
 
       {% if view_chk[4] %}
       <div class="section round_robin">
-        <span class="view_title">{{view_name}}</span>
+        <span class="view_title">{{view_name[4]}}</span>
         <table id="rr_tbl" class="display" spellcheck="false">
           <thead>
             <tr>
@@ -363,8 +354,7 @@
           </thead>
         </table>
         <div class="subsection buttons">
-          <form action="/" method="post">
-            <input name="tourn_name" type="hidden" value="{{tourn.name}}">
+          <form action="/round_robin" method="post">
             <button class="submit demo" value="{{btn_val[9]}}"{{btn_attr[9]}}>Generate Fake Results</button>
             <button class="submit" value="{{btn_val[10]}}"{{btn_attr[10]}}>Tabulate Results</button>
             <span class="lnk_lbl">Display:</span>
@@ -388,7 +378,7 @@
        type: 'submit',
        name: "submit_func"
      });
-
+     // type="radio" name="view_rdo"
      // error dialog
      $('.err_dlg button').on('click', function() {
        $('.err_dlg')[0].close();
@@ -398,24 +388,13 @@
        $('.err_dlg')[0].showModal();
      };
 
-     // tournament section
-     $(".sel_tourn").on('change', function() {
-       const tourn    = $(this).val();
-       const tournStr = "?tourn=" + encodeURIComponent(tourn);
-       const curpage  = window.location.origin + window.location.pathname;
-       window.location.href = curpage + tournStr
-     });
-
-     // tournament views
+     // view selection
      $(".view_sel input").on('change', function() {
-       const tourn    = $('.info_blk input[name="tourn_name"]').val();
-       const view     = $(".view_sel input:checked").val();
-       const tournStr = "?tourn=" + encodeURIComponent(tourn);
-       const viewStr  = "&view=" + encodeURIComponent(view);
-       const curpage  = window.location.origin + window.location.pathname;
-       window.location.href = curpage + tournStr + viewStr;
+       const path = $(".view_sel input:checked").val();
+       window.location.href = window.location.origin + path;
      });
 
+     {% if view_chk[0] %}
      // players view
      if ("{{view_chk[0]}}") {
        const editable = function(node) {
@@ -444,9 +423,9 @@
              cell.data(e.target.textContent).draw();
 
              const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
-             $.post('/players', post_data)
+             $.post('/players/data', post_data)
               .done(function(resp) {
-                console.log('POST /players done: ', resp);
+                console.log('POST /players/data done: ', resp);
                 if (resp.err) {
                   cell.data(orig_val).draw();
                   $(e.target).addClass("attn");
@@ -458,7 +437,7 @@
                 }
               })
               .fail(function(resp) {
-                console.log('POST /players fail: ', resp);
+                console.log('POST /players/data fail: ', resp);
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
                 show_error(resp.statusText);
@@ -482,7 +461,7 @@
            content: ['search']
          },
          ajax: {
-           url: '/players?tourn=' + encodeURIComponent(tourn),
+           url: '/players/data?tourn=' + encodeURIComponent(tourn),
            dataSrc: 'data'
          },
          deferRender: true,
@@ -511,7 +490,9 @@
          }
        });
      }
+     {% endif %}
 
+     {% if view_chk[1] %}
      // seeding view
      if ("{{view_chk[1]}}") {
        const editable = function(node) {
@@ -539,9 +520,9 @@
              cell.data(e.target.textContent).draw();
 
              const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
-             $.post('/seeding', post_data)
+             $.post('/seeding/data', post_data)
               .done(function(resp) {
-                console.log('POST /seeding done: ', resp);
+                console.log('POST /seeding/data done: ', resp);
                 if (resp.err) {
                   cell.data(orig_val).draw();
                   $(e.target).addClass("attn");
@@ -553,7 +534,7 @@
                 }
               })
               .fail(function(resp) {
-                console.log('POST /seeding fail: ', resp);
+                console.log('POST /seeding/data fail: ', resp);
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
                 show_error(resp.statusText);
@@ -577,7 +558,7 @@
            content: ['search']
          },
          ajax: {
-           url: '/seeding?tourn=' + encodeURIComponent(tourn),
+           url: '/seeding/data?tourn=' + encodeURIComponent(tourn),
            dataSrc: 'data'
          },
          deferRender: true,
@@ -606,7 +587,9 @@
          }
        });
      }
+     {% endif %}
 
+     {% if view_chk[2] %}
      // partners view
      if ("{{view_chk[2]}}") {
        const editable = function(node) {
@@ -636,9 +619,9 @@
              cell.data(e.target.textContent).draw();
 
              const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
-             $.post('/partners', post_data)
+             $.post('/partners/data', post_data)
               .done(function(resp) {
-                console.log('POST /partners done: ', resp);
+                console.log('POST /partners/data done: ', resp);
                 if (resp.err) {
                   cell.data(orig_val).draw();
                   $(e.target).addClass("attn");
@@ -650,7 +633,7 @@
                 }
               })
               .fail(function(resp) {
-                console.log('POST /partners fail: ', resp);
+                console.log('POST /partners/data fail: ', resp);
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
                 show_error(resp.statusText);
@@ -674,7 +657,7 @@
            content: ['search']
          },
          ajax: {
-           url: '/partners?tourn=' + encodeURIComponent(tourn),
+           url: '/partners/data?tourn=' + encodeURIComponent(tourn),
            dataSrc: 'data'
          },
          deferRender: true,
@@ -705,7 +688,9 @@
 
        // TODO: set initial focus (and/or highlight) here!!!
      }
+     {% endif %}
 
+     {% if view_chk[3] %}
      // teams view
      if ("{{view_chk[3]}}") {
        const editable = function(node) {
@@ -733,9 +718,9 @@
              cell.data(e.target.textContent).draw();
 
              const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
-             $.post('/teams', post_data)
+             $.post('/teams/data', post_data)
               .done(function(resp) {
-                console.log('POST /teams done: ', resp);
+                console.log('POST /teams/data done: ', resp);
                 if (resp.err) {
                   cell.data(orig_val).draw();
                   $(e.target).addClass("attn");
@@ -747,7 +732,7 @@
                 }
               })
               .fail(function(resp) {
-                console.log('POST /teams fail: ', resp);
+                console.log('POST /teams/data fail: ', resp);
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
                 show_error(resp.statusText);
@@ -771,7 +756,7 @@
            content: ['search']
          },
          ajax: {
-           url: '/teams?tourn=' + encodeURIComponent(tourn),
+           url: '/teams/data?tourn=' + encodeURIComponent(tourn),
            dataSrc: 'data'
          },
          deferRender: true,
@@ -800,7 +785,9 @@
          }
        });
      }
+     {% endif %}
 
+     {% if view_chk[4] %}
      // round_robin view
      if ("{{view_chk[4]}}") {
        const editable = function(node) {
@@ -828,9 +815,9 @@
              cell.data(e.target.textContent).draw();
 
              const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
-             $.post('/round_robin', post_data)
+             $.post('/round_robin/data', post_data)
               .done(function(resp) {
-                console.log('POST /round_robin done: ', resp);
+                console.log('POST /round_robin/data done: ', resp);
                 if (resp.err) {
                   cell.data(orig_val).draw();
                   $(e.target).addClass("attn");
@@ -842,7 +829,7 @@
                 }
               })
               .fail(function(resp) {
-                console.log('POST /round_robin fail: ', resp);
+                console.log('POST /round_robin/data fail: ', resp);
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
                 show_error(resp.statusText);
@@ -866,7 +853,7 @@
            content: ['search']
          },
          ajax: {
-           url: '/round_robin?tourn=' + encodeURIComponent(tourn),
+           url: '/round_robin/data?tourn=' + encodeURIComponent(tourn),
            dataSrc: 'data'
          },
          deferRender: true,
@@ -895,6 +882,7 @@
          }
        });
      }
+     {% endif %}
 
      {% if err_msg %}
      show_error('{{err_msg|safe}}');

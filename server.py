@@ -88,6 +88,16 @@ VIEW_NAME = [
     'Round Robin'
 ]
 
+VIEW_PATH = [
+    '/players',
+    '/seeding',
+    '/partners',
+    '/teams',
+    '/round_robin'
+]
+
+PATH_VIEW = dict(zip(VIEW_PATH, View))
+
 ###############
 # tourn stuff #
 ###############
@@ -221,19 +231,20 @@ def fmt_tally(pts: int) -> str:
 # Flask Routes #
 ################
 
-SUBMIT_FUNCS = [
-    'create_tourn',
-    'update_tourn',
-    'gen_player_nums',
-    'gen_seed_bracket',
-    'fake_seed_results',
-    'tabulate_seed_results',
-    'fake_partner_picks',
-    'comp_team_seeds',
-    'gen_tourn_brackets',
-    'fake_tourn_results',
-    'tabulate_tourn_results'
-]
+# value represents the submit target
+SUBMIT_FUNCS = {
+    'create_tourn'          : None,
+    'update_tourn'          : None,
+    'gen_player_nums'       : View.PLAYERS,
+    'gen_seed_bracket'      : View.PLAYERS,
+    'fake_seed_results'     : View.SEEDING,
+    'tabulate_seed_results' : View.SEEDING,
+    'fake_partner_picks'    : View.PARTNERS,
+    'comp_team_seeds'       : View.PARTNERS,
+    'gen_tourn_brackets'    : View.TEAMS,
+    'fake_tourn_results'    : View.ROUND_ROBIN,
+    'tabulate_tourn_results': View.ROUND_ROBIN
+}
 
 STAGE_MAPPING = [
     (TournStage.TEAM_RANKS,    View.TEAMS),
@@ -258,40 +269,70 @@ def dflt_view(tourn: TournInfo) -> View:
 def index() -> str:
     """
     """
-    tourn     = None
-    new_tourn = None
-    view      = None
+    session.clear()
+    return render_app({})
 
-    tourn_name = request.args.get('tourn')
-    if tourn_name:
+@app.get("/tourn")
+def tourn() -> str:
+    """
+    """
+    tourn_name = session.get('tourn')
+    if tourn_name is None:
+        abort(400, "Tournament not specified")
+
+    if tourn_name != SEL_NEW:
+        # resume managing previously active tournament
         db_init(tourn_name)
-        if tourn_name == SEL_NEW:
-            tourn = TournInfo()
-            new_tourn = True
-        else:
-            tourn = TournInfo.get()
-            new_tourn = False
-
-    if 'view' in request.args:
-        view = typecast(request.args['view'])
-    elif tourn:
+        tourn = TournInfo.get()
         view = dflt_view(tourn)
+        return render_view(view)
 
     context = {
-        'tourn'    : tourn,
-        'new_tourn': new_tourn,
-        'view'     : view
+        'tourn'    : TournInfo(),
+        'new_tourn': True
+    }
+    return render_app(context)
+
+@app.get("/players")
+@app.get("/seeding")
+@app.get("/partners")
+@app.get("/teams")
+@app.get("/round_robin")
+def view() -> str:
+    """
+    """
+    tourn_name = session.get('tourn')
+    db_init(tourn_name)
+    tourn = TournInfo.get()
+    view = PATH_VIEW[request.path]
+    context = {
+        'tourn': tourn,
+        'view' : view
     }
     return render_app(context)
 
 @app.post("/")
+@app.post("/tourn")
+@app.post("/players")
+@app.post("/seeding")
+@app.post("/partners")
+@app.post("/teams")
+@app.post("/round_robin")
 def submit() -> str:
     """Process submitted form, switch on ``submit_func``, which is validated against
     values in ``SUBMIT_FUNCS``
     """
+    if 'submit_func' not in request.form:
+        if 'tourn' not in request.form:
+            abort(400, "Invalid request, tournament not specified")
+        session['tourn'] = request.form['tourn']
+        return redirect(url_for('tourn'))
     func = request.form['submit_func']
     if func not in SUBMIT_FUNCS:
-        abort(404, f"Invalid submit func '{func}'")
+        abort(400, f"Invalid submit func '{func}'")
+    target = SUBMIT_FUNCS[func]
+    if target and request.path != VIEW_PATH[target]:
+        abort(400, f"Submit func '{func}' not registered for {request.path}")
     return globals()[func](request.form)
 
 ############
@@ -316,22 +357,22 @@ pl_layout = [
     ('player_rank',      "Seed Rank",    None)
 ]
 
-@app.get("/players")
+@app.get("/players/data")
 def get_players() -> dict:
     """
     """
-    tourn_name = request.args.get('tourn')
+    tourn_name = session.get('tourn')
 
     db_init(tourn_name)
     pl_iter = Player.iter_players()
     pl_data = []
     for player in pl_iter:
         pl_props = {prop: getattr(player, prop) for prop in pl_addl_props}
-        pl_data.append(player.__data__ | pl_props)
+        pl_data.append(player.player_data | pl_props)
 
     return ajax_data(pl_data)
 
-@app.post("/players")
+@app.post("/players/data")
 def post_players() -> dict:
     """
     """
@@ -376,11 +417,11 @@ sg_layout = [
     ('winner',      "Winner",      None)
 ]
 
-@app.get("/seeding")
+@app.get("/seeding/data")
 def get_seeding() -> dict:
     """
     """
-    tourn_name = request.args.get('tourn')
+    tourn_name = session.get('tourn')
 
     db_init(tourn_name)
     sg_iter = SeedGame.iter_games(True)
@@ -391,7 +432,7 @@ def get_seeding() -> dict:
 
     return ajax_data(sg_data)
 
-@app.post("/seeding")
+@app.post("/seeding/data")
 def post_seeding() -> dict:
     """Post scrores to seeding round game.
     """
@@ -443,11 +484,11 @@ pt_layout = [
     ('picked_by_info', "Picked By",  None)
 ]
 
-@app.get("/partners")
+@app.get("/partners/data")
 def get_partners() -> dict:
     """Ajax call to load datatable for partners view.
     """
-    tourn_name = request.args.get('tourn')
+    tourn_name = session.get('tourn')
 
     db_init(tourn_name)
     pt_iter = Player.iter_players(by_rank=True)
@@ -458,7 +499,7 @@ def get_partners() -> dict:
 
     return ajax_data(pt_data)
 
-@app.post("/partners")
+@app.post("/partners/data")
 def post_partners() -> dict:
     """Handle POST of partner pick data--the entire row is submitted, but we only look at
     the `id` and `picks_info` fields.
@@ -550,22 +591,22 @@ tm_layout = [
     ('div_rank',          "Div Rank",      None)
 ]
 
-@app.get("/teams")
+@app.get("/teams/data")
 def get_teams() -> dict:
     """
     """
-    tourn_name = request.args.get('tourn')
+    tourn_name = session.get('tourn')
 
     db_init(tourn_name)
     tm_iter = Team.iter_teams()
     tm_data = []
     for team in tm_iter:
         tm_props = {prop: getattr(team, prop) for prop in tm_addl_props}
-        tm_data.append(team.__data__ | tm_props)
+        tm_data.append(team.team_data | tm_props)
 
     return ajax_data(tm_data)
 
-@app.post("/teams")
+@app.post("/teams/data")
 def post_teams() -> dict:
     """
     """
@@ -611,11 +652,11 @@ tg_layout = [
     ('winner',     "Winner",     None)
 ]
 
-@app.get("/round_robin")
+@app.get("/round_robin/data")
 def get_round_robin() -> dict:
     """
     """
-    tourn_name = request.args.get('tourn')
+    tourn_name = session.get('tourn')
 
     db_init(tourn_name)
     tg_iter = TournGame.iter_games(True)
@@ -626,7 +667,7 @@ def get_round_robin() -> dict:
 
     return ajax_data(tg_data)
 
-@app.post("/round_robin")
+@app.post("/round_robin/data")
 def post_round_robin() -> dict:
     """
     """
@@ -1269,33 +1310,33 @@ def rr_dash(tourn: TournInfo) -> str:
 ################
 
 def create_tourn(form: dict) -> str:
+    """Create new tournament from form data.
     """
-    """
-    err_msg   = None
-    tourn     = None
-    new_tourn = False
-    roster_fn = None
-    view      = None
+    tourn       = None
+    new_tourn   = False
+    roster_file = None
+    err_msg     = None
 
+    assert session['tourn'] == SEL_NEW
     tourn_name  = form.get('tourn_name')
     timeframe   = form.get('timeframe') or None
     venue       = form.get('venue') or None
     overwrite   = form.get('overwrite')
-    roster_file = request.files.get('roster_file')
-    if roster_file:
-        roster_fn = secure_filename(roster_file.filename)
-        roster_path = os.path.join(UPLOAD_DIR, roster_fn)
-        roster_file.save(roster_path)
+    req_file    = request.files.get('roster_file')
+    if req_file:
+        roster_file = secure_filename(req_file.filename)
+        roster_path = os.path.join(UPLOAD_DIR, roster_file)
+        req_file.save(roster_path)
 
     try:
         db_init(tourn_name)
         tourn = tourn_create(timeframe=timeframe, venue=venue, force=bool(overwrite))
-        if roster_file:
+        if req_file:
             upload_roster(roster_path)
-            view = View.PLAYERS
             tourn = TournInfo.get()
+            session['tourn'] = tourn.name
+            return render_view(View.PLAYERS)
         else:
-            # TEMP: prompt for uploaded in the UI!!!
             err_msg = "Roster file required (manual roster creation not yet supported)"
     except OperationalError as e:
         if re.fullmatch(r'table "(\w+)" already exists', str(e)):
@@ -1309,42 +1350,43 @@ def create_tourn(form: dict) -> str:
         'tourn'      : tourn,
         'new_tourn'  : new_tourn,
         'overwrite'  : overwrite,
-        'roster_file': roster_fn,
-        'err_msg'    : err_msg,
-        'view'       : view
+        'roster_file': roster_file,
+        'err_msg'    : err_msg
     }
     return render_app(context)
 
 def update_tourn(form: dict) -> str:
+    """Similar to `create_tourn` except that new TournInfo record has been created, so we
+    only need to make sure roster file is uploaded.  We also support the updating of other
+    field information.
     """
-    """
-    err_msg   = None
-    tourn     = None
-    new_tourn = False
-    roster_fn = None
-    view      = None
+    tourn       = None
+    new_tourn   = False
+    roster_file = None
+    err_msg     = None
 
+    assert session['tourn'] == SEL_NEW
     tourn_name  = form.get('tourn_name')
     timeframe   = form.get('timeframe') or None
     venue       = form.get('venue') or None
-    roster_file = request.files.get('roster_file')
-    if roster_file:
-        roster_fn = secure_filename(roster_file.filename)
-        roster_path = os.path.join(UPLOAD_DIR, roster_fn)
-        roster_file.save(roster_path)
+    req_file    = request.files.get('roster_file')
+    if req_file:
+        roster_file = secure_filename(req_file.filename)
+        roster_path = os.path.join(UPLOAD_DIR, roster_file)
+        req_file.save(roster_path)
 
     try:
         db_init(tourn_name)
-        tourn = TournInfo.get(True)
+        tourn = TournInfo.get(requery=True)
         tourn.timeframe = timeframe
         tourn.venue = venue
         tourn.save()
-        if roster_file:
+        if req_file:
             upload_roster(roster_path)
-            view = View.PLAYERS
             tourn = TournInfo.get()
+            session['tourn'] = tourn.name
+            return render_view(View.PLAYERS)
         else:
-            # TEMP: prompt for uploaded in the UI!!!
             err_msg = "Roster file required (manual roster creation not yet supported)"
     except OperationalError as e:
         err_msg = cap_first(str(e))
@@ -1354,159 +1396,86 @@ def update_tourn(form: dict) -> str:
     context = {
         'tourn'      : tourn,
         'new_tourn'  : new_tourn,
-        'roster_file': roster_fn,
-        'err_msg'    : err_msg,
-        'view'       : view
+        'roster_file': roster_file,
+        'err_msg'    : err_msg
     }
     return render_app(context)
 
 def gen_player_nums(form: dict) -> str:
     """
     """
-    view        = None
-
-    tourn_name  = form.get('tourn_name')
+    tourn_name = session.get('tourn')
     db_init(tourn_name)
     generate_player_nums()
-    view = View.PLAYERS
-
-    context = {
-        'tourn'      : TournInfo.get(),
-        'view'       : view
-    }
-    return render_app(context)
+    return render_view(View.PLAYERS)
 
 def gen_seed_bracket(form: dict) -> str:
     """
     """
-    view        = None
-
-    tourn_name  = form.get('tourn_name')
+    tourn_name = session.get('tourn')
     db_init(tourn_name)
     build_seed_bracket()
-    view = View.SEEDING
-
-    context = {
-        'tourn'      : TournInfo.get(),
-        'view'       : view
-    }
-    return render_app(context)
+    return render_view(View.SEEDING)
 
 def fake_seed_results(form: dict) -> str:
     """
     """
-    view        = None
-
-    tourn_name  = form.get('tourn_name')
+    tourn_name = session.get('tourn')
     db_init(tourn_name)
     fake_seed_games()
-    view = View.SEEDING
-
-    context = {
-        'tourn'      : TournInfo.get(),
-        'view'       : view
-    }
-    return render_app(context)
+    return render_view(View.SEEDING)
 
 def tabulate_seed_results(form: dict) -> str:
     """
     """
-    view        = None
-
-    tourn_name  = form.get('tourn_name')
+    tourn_name = session.get('tourn')
     db_init(tourn_name)
     validate_seed_round(finalize=True)
     compute_player_ranks(finalize=True)
     prepick_champ_partners()
-    view = View.PARTNERS
-
-    context = {
-        'tourn'      : TournInfo.get(),
-        'view'       : view
-    }
-    return render_app(context)
+    return render_view(View.PARTNERS)
 
 def fake_partner_picks(form: dict) -> str:
     """
     """
-    view        = None
-
-    tourn_name  = form.get('tourn_name')
+    tourn_name = session.get('tourn')
     db_init(tourn_name)
     fake_pick_partners()
-    view = View.PARTNERS
-
-    context = {
-        'tourn'      : TournInfo.get(),
-        'view'       : view
-    }
-    return render_app(context)
+    return render_view(View.PARTNERS)
 
 def comp_team_seeds(form: dict) -> str:
     """
     """
-    view        = None
-
-    tourn_name  = form.get('tourn_name')
+    tourn_name = session.get('tourn')
     db_init(tourn_name)
     build_tourn_teams()
     compute_team_seeds()
-    view = View.TEAMS
-
-    context = {
-        'tourn'      : TournInfo.get(),
-        'view'       : view
-    }
-    return render_app(context)
+    return render_view(View.TEAMS)
 
 def gen_tourn_brackets(form: dict) -> str:
     """
     """
-    view        = None
-
-    tourn_name  = form.get('tourn_name')
+    tourn_name = session.get('tourn')
     db_init(tourn_name)
     build_tourn_bracket()
-    view = View.ROUND_ROBIN
-
-    context = {
-        'tourn'      : TournInfo.get(),
-        'view'       : view
-    }
-    return render_app(context)
+    return render_view(View.ROUND_ROBIN)
 
 def fake_tourn_results(form: dict) -> str:
     """
     """
-    view        = None
-
-    tourn_name  = form.get('tourn_name')
+    tourn_name = session.get('tourn')
     db_init(tourn_name)
     fake_tourn_games()
-    view = View.ROUND_ROBIN
-
-    context = {
-        'tourn'      : TournInfo.get(),
-        'view'       : view
-    }
-    return render_app(context)
+    return render_view(View.ROUND_ROBIN)
 
 def tabulate_tourn_results(form: dict) -> str:
     """
     """
-    view        = None
-
-    tourn_name  = form.get('tourn_name')
+    tourn_name = session.get('tourn')
     db_init(tourn_name)
     validate_tourn(finalize=True)
     compute_team_ranks(finalize=True)
-    view = View.TEAMS
-
-    context = {
-        'tourn'      : TournInfo.get(),
-        'view'       : view
-    }
-    return render_app(context)
+    return render_view(View.TEAMS)
 
 #############
 # Renderers #
@@ -1514,7 +1483,7 @@ def tabulate_tourn_results(form: dict) -> str:
 
 SEL_SEP = "----------------"
 SEL_NEW = "(create new)"
-BUTTONS = SUBMIT_FUNCS
+BUTTONS = list(SUBMIT_FUNCS.keys())
 
 # button index to tuple of stages for which button is enabled
 BUTTON_MAP = {
@@ -1529,14 +1498,20 @@ BUTTON_MAP = {
     10: (TournStage.TOURN_RESULTS,)
 }
 
+def render_view(view: View) -> str:
+    """Render the specified view using redirect (to be called from POST action handlers).
+    Note that we are not passing any context information as query string params, so all
+    information must be conveyed through the session object.
+    """
+    path = VIEW_PATH[view]
+    return redirect(path)
+
 def render_app(context: dict) -> str:
     """Common post-processing of context before rendering the main app page through Jinja
     """
-    view_name = None
     view_chk = [''] * len(View)
     view = context.get('view')
     if isinstance(view, int):
-        view_name = VIEW_NAME[view]
         view_chk[view] = CHECKED
 
     stage_compl = 0
@@ -1552,9 +1527,11 @@ def render_app(context: dict) -> str:
         'tourn_sel': get_tourns() + [SEL_SEP, SEL_NEW],
         'sel_sep'  : SEL_SEP,
         'sel_new'  : SEL_NEW,
-        'view_name': view_name,
+        'view_name': VIEW_NAME,
         'view_chk' : view_chk,
-        'err_msg'  : None,       # context may contain override
+        'tourn'    : None,       # context may contain override
+        'new_tourn': None,       # ditto
+        'err_msg'  : None,       # ditto
         'pl_layout': pl_layout,
         'sg_layout': sg_layout,
         'pt_layout': pt_layout,

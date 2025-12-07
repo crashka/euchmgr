@@ -33,17 +33,23 @@ pragmas = {'journal_mode'            : 'wal',
 
 db = SqliteExtDatabase(None, pragmas=pragmas)
 
-def db_init(db_name: str) -> None:
-    """Initialize database for specified name.
+def db_init(name: str) -> bool:
+    """Initialize database for specified name (return True if operation executed; False if
+    database already set).
     """
-    db_file = f'{db_name}{DB_FILETYPE}'
-    db.init(DataFile(db_file))
-    db.db_name = db_name  # little hack to remember name
+    cur_db = db_name()
+    if cur_db and name == cur_db:
+        return False
 
-def db_name() -> str:
+    db_file = f'{name}{DB_FILETYPE}'
+    db.init(DataFile(db_file))
+    setattr(db, 'db_name', name)  # little hack to remember name
+    return True
+
+def db_name() -> str | None:
     """Second half of little hack (see above)
     """
-    return db.db_name
+    return getattr(db, 'db_name', None)
 
 def db_connect() -> None:
     """Connect to database (needed before any database operations)

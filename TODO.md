@@ -29,8 +29,9 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 
 ## Refactoring
 
-- redirect to appropriate view after handling submit_func POST
-  - need to handle error messages correctly (and no redirect?)
+- break /chart, /dash, and /mobile out as separate blueprints
+- get rid of schema level caching (and fix requery flags)
+- consolidate javascript for DataTable handling across views
 - improve HTML and CSS design
   - use \<section\>, \<div\>, \<span\>, \<h1\>, \<h2\>, etc. properly
   - prettier styling in general

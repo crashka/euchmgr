@@ -223,7 +223,8 @@ class Player(BaseModel):
     seed_pts_pct   = FloatField(null=True)
     player_rank    = IntegerField(null=True)  # 1-based
     # tie-breaker stuff
-    tb_data        = JSONField(null=True)
+    tb_stats       = JSONField(null=True)  # stats used to compute final rank
+    tb_data        = JSONField(null=True)  # raw data for reference
     player_rank_final = IntegerField(null=True)
     # partner picks
     partner        = ForeignKeyField('self', field='player_num', column_name='partner_num',
@@ -667,7 +668,8 @@ class Team(BaseModel):
     tourn_rank     = IntegerField(null=True)
     div_rank       = IntegerField(null=True)
     # tie-breaker stuff
-    tb_data        = JSONField(null=True)
+    tb_stats       = JSONField(null=True)  # stats used to compute final rank
+    tb_data        = JSONField(null=True)  # raw data for reference
     div_rank_final = IntegerField(null=True)
 
     # class variables

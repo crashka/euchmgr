@@ -283,31 +283,45 @@ def validate_seed_round(finalize: bool = False) -> None:
     if finalize:
         TournInfo.mark_stage_complete(TournStage.SEED_TABULATE)
 
-def rank_player_cohort(players: list[Player]) -> list[tuple[Player, tuple]]:
+def rank_player_cohort(players: list[Player]) -> list[tuple[Player, tuple, dict]]:
     """Given a list of players (generally with the same record, though we are not checking
-    here, since we don't really care), return list ranked by the following stats tuple:
+    here, since we don't really care), return list ranked by the following stats tuple
+    (with number of games used to add weight to the win pct):
 
-      (coh_win_pct, coh_games, coh_pts_pct, seed_pts_pct)
+      (cohrt_win_pct, cohrt_games, cohrt_pts_pct, seed_pts_pct)
 
-    Note: we use `coh_games` to favor players who have played more head-to-head games
+    The dict also returned is the raw data relevant to the tie-breaking.
     """
     stats = {}
+    data = {}
     for pl in players:
         st = pl.get_game_stats(players)
-        coh_games = st['games']
-        if coh_games == 0:
-            coh_win_pct = 0.0
-            coh_pts_pct = 0.0
+        cohrt_games = st['games']
+        if cohrt_games == 0:
+            cohrt_win_pct = 0.0
+            cohrt_pts_pct = 0.0
+            data[pl.player_num] = {
+                'wins'       : 0,
+                'losses'     : 0,
+                'pts_for'    : 0,
+                'pts_against': 0,
+            }
         else:
-            coh_tot_pts = st['team_pts'] + st['opp_pts']
-            coh_win_pct = st['wins'] / st['games'] * 100.0
-            coh_pts_pct = st['team_pts'] / coh_tot_pts * 100.0
-        stats[pl.player_num] = (coh_win_pct, coh_games, coh_pts_pct, pl.seed_pts_pct)
+            cohrt_tot_pts = st['team_pts'] + st['opp_pts']
+            cohrt_win_pct = st['wins'] / st['games'] * 100.0
+            cohrt_pts_pct = st['team_pts'] / cohrt_tot_pts * 100.0
+            data[pl.player_num] = {
+                'wins'       : st['wins'],
+                'losses'     : cohrt_games - st['wins'],
+                'pts_for'    : st['team_pts'],
+                'pts_against': st['opp_pts'],
+            }
+        stats[pl.player_num] = (cohrt_win_pct, cohrt_games, cohrt_pts_pct, pl.seed_pts_pct)
 
     # larger is better for all stats components
     sort_key = lambda pl: tuple(-x for x in stats[pl.player_num])
     ranked = sorted(players, key=sort_key)
-    return [(pl, stats[pl.player_num]) for pl in ranked]
+    return [(pl, stats[pl.player_num], data[pl.player_num]) for pl in ranked]
 
 def compute_player_ranks(finalize: bool = False) -> None:
     """Note that we use `rankdata` to do the computation here, and `rank_player_cohort` to
@@ -331,8 +345,9 @@ def compute_player_ranks(finalize: bool = False) -> None:
             continue
         cohort_rank = cohort[0].player_rank
         ranked = rank_player_cohort(cohort)
-        for i, (pl, stats) in enumerate(ranked):
-            pl.tb_data = stats
+        for i, (pl, stats, data) in enumerate(ranked):
+            pl.tb_stats = stats
+            pl.tb_data = data
             pl.player_rank_final = cohort_rank + i
             pl.save()
 
@@ -597,31 +612,45 @@ def validate_tourn(finalize: bool = False) -> None:
     if finalize:
         TournInfo.mark_stage_complete(TournStage.TOURN_TABULATE)
 
-def rank_team_cohort(teams: list[Team]) -> list[tuple[Team, tuple]]:
+def rank_team_cohort(teams: list[Team]) -> list[tuple[Team, tuple, dict]]:
     """Given a list of teams (generally with the same record, though we are not checking
-    here, since we don't really care), return list ranked by the following stats tuple:
+    here, since we don't really care), return list ranked by the following stats tuple
+    (with number of games used to add weight to the win pct):
 
-      (coh_win_pct, coh_games, coh_pts_pct, tourn_pts_pct)
+      (cohrt_win_pct, cohrt_games, cohrt_pts_pct, seed_pts_pct)
 
-    Note: we use `coh_games` to favor teams who have played more head-to-head games
+    The dict also returned is the raw data relevant to the tie-breaking.
     """
     stats = {}
+    data = {}
     for tm in teams:
         st = tm.get_game_stats(teams)
-        coh_games = st['games']
-        if coh_games == 0:
-            coh_win_pct = 0.0
-            coh_pts_pct = 0.0
+        cohrt_games = st['games']
+        if cohrt_games == 0:
+            cohrt_win_pct = 0.0
+            cohrt_pts_pct = 0.0
+            data[tm.team_seed] = {
+                'wins'       : 0,
+                'losses'     : 0,
+                'pts_for'    : 0,
+                'pts_against': 0
+            }
         else:
-            coh_tot_pts = st['team_pts'] + st['opp_pts']
-            coh_win_pct = st['wins'] / st['games'] * 100.0
-            coh_pts_pct = st['team_pts'] / coh_tot_pts * 100.0
-        stats[tm.team_seed] = (coh_win_pct, coh_games, coh_pts_pct, tm.tourn_pts_pct)
+            cohrt_tot_pts = st['team_pts'] + st['opp_pts']
+            cohrt_win_pct = st['wins'] / st['games'] * 100.0
+            cohrt_pts_pct = st['team_pts'] / cohrt_tot_pts * 100.0
+            data[tm.team_seed] = {
+                'wins'       : st['wins'],
+                'losses'     : cohrt_games - st['wins'],
+                'pts_for'    : st['team_pts'],
+                'pts_against': st['opp_pts'],
+            }
+        stats[tm.team_seed] = (cohrt_win_pct, cohrt_games, cohrt_pts_pct, tm.tourn_pts_pct)
 
     # larger is better for all stats components
     sort_key = lambda tm: tuple(-x for x in stats[tm.team_seed])
     ranked = sorted(teams, key=sort_key)
-    return [(tm, stats[tm.team_seed]) for tm in ranked]
+    return [(tm, stats[tm.team_seed], data[tm.team_seed]) for tm in ranked]
 
 def compute_team_ranks(finalize: bool = False) -> None:
     """Note that we use `rankdata` to do the computation here, and `rank_team_cohort` to
@@ -655,8 +684,9 @@ def compute_team_ranks(finalize: bool = False) -> None:
                 continue
             cohort_rank = cohort[0].div_rank
             ranked = rank_team_cohort(cohort)
-            for i, (tm, stats) in enumerate(ranked):
-                tm.tb_data = stats
+            for i, (tm, stats, data) in enumerate(ranked):
+                tm.tb_stats = stats
+                tm.tb_data = data
                 tm.div_rank_final = cohort_rank + i
                 tm.save()
 

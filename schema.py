@@ -222,6 +222,9 @@ class Player(BaseModel):
     seed_pts_diff  = IntegerField(null=True)
     seed_pts_pct   = FloatField(null=True)
     player_rank    = IntegerField(null=True)  # 1-based
+    # tie-breaker stuff
+    tb_data        = JSONField(null=True)
+    player_rank_final = IntegerField(null=True)
     # partner picks
     partner        = ForeignKeyField('self', field='player_num', column_name='partner_num',
                                      null=True)
@@ -644,6 +647,9 @@ class Team(BaseModel):
     tourn_pts_pct  = FloatField(null=True)
     tourn_rank     = IntegerField(null=True)
     div_rank       = IntegerField(null=True)
+    # tie-breaker stuff
+    tb_data        = JSONField(null=True)
+    div_rank_final = IntegerField(null=True)
 
     # class variables
     team_map: ClassVar[dict[int, Self]] = None  # indexed by team_seed

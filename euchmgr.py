@@ -9,9 +9,11 @@ The To Do List has been moved to TODO.md.
 """
 
 import random
-from itertools import islice
+from itertools import islice, groupby
 import csv
 import os
+
+from ckautils import rankdata
 
 from core import DataFile
 from database import db_init, db_name
@@ -281,17 +283,42 @@ def validate_seed_round(finalize: bool = False) -> None:
     if finalize:
         TournInfo.mark_stage_complete(TournStage.SEED_TABULATE)
 
-def compute_player_ranks(finalize: bool = False) -> None:
+def rank_player_cohort(players: list[Player]) -> list[tuple[Player, float, float]]:
+    """Given a list of players (generally with the same record, though we are not checking
+    here, since we don't really care), return ranked list by head-to-head win and point
+    percentages.
     """
+    # TEMP: dummy implementation!!!
+    sort_key = lambda x: (-x.seed_win_pct, -x.seed_pts_pct)
+    ranked = sorted(players, key=sort_key)
+    return [(pl, pl.seed_win_pct, pl.seed_pts_pct) for pl in ranked]
+
+def compute_player_ranks(finalize: bool = False) -> None:
+    """Note that we use `rankdata` to do the computation here, and `rank_player_cohort` to
+    break ties.
     """
     pl_list = Player.get_player_map().values()
-    played = filter(lambda x: x.seed_wins + x.seed_losses, pl_list)
+    played = list(filter(lambda x: x.seed_wins + x.seed_losses, pl_list))
 
-    # TODO: break ties with points ratio, head-to-head, etc.!!!
-    sort_key = lambda x: (-x.seed_win_pct, -x.seed_pts_pct)
-    for i, player in enumerate(sorted(played, key=sort_key)):
-        player.player_rank = i + 1
-        player.save()
+    seed_win_pcts = [pl.seed_win_pct for pl in played]
+    seed_ranks = rankdata(seed_win_pcts, method='min')
+    for i, pl in enumerate(played):
+        pl.player_rank = seed_ranks[i]
+
+    played.sort(key=lambda x: -x.seed_win_pct)
+    for k, g in groupby(played, key=lambda x: x.seed_win_pct):
+        cohort = list(g)
+        if len(cohort) == 1:
+            pl = cohort[0]
+            pl.player_rank_final = pl.player_rank
+            pl.save()
+            continue
+        cohort_rank = cohort[0].player_rank
+        ranked = rank_player_cohort(cohort)
+        for i, (pl, win_pct, pts_pct) in enumerate(ranked):
+            pl.tb_data = [win_pct, pts_pct]
+            pl.player_rank_final = cohort_rank + i
+            pl.save()
 
     if finalize:
         TournInfo.mark_stage_complete(TournStage.SEED_RANKS)
@@ -554,22 +581,52 @@ def validate_tourn(finalize: bool = False) -> None:
     if finalize:
         TournInfo.mark_stage_complete(TournStage.TOURN_TABULATE)
 
-def compute_team_ranks(finalize: bool = False) -> None:
+def rank_team_cohort(teams: list[Team]) -> list[tuple[Team, float, float]]:
+    """Given a list of teams (generally with the same record, though we are not checking
+    here, since we don't really care), return ranked list by head-to-head win and point
+    percentages.
     """
+    # TEMP: dummy implementation!!!
+    sort_key = lambda x: (-x.tourn_win_pct, -x.tourn_pts_pct)
+    ranked = sorted(teams, key=sort_key)
+    return [(tm, tm.tourn_win_pct, tm.tourn_pts_pct) for tm in ranked]
+
+def compute_team_ranks(finalize: bool = False) -> None:
+    """Note that we use `rankdata` to do the computation here, and `rank_team_cohort` to
+    break ties.
     """
     tourn = TournInfo.get()
     ndivs = tourn.divisions
     tm_list = Team.get_team_map().values()
-    played = filter(lambda x: x.tourn_wins + x.tourn_losses, tm_list)
+    played = list(filter(lambda x: x.tourn_wins + x.tourn_losses, tm_list))
 
-    div_rank = {i + 1: 0 for i in range(ndivs)}
-    # TODO: break ties with points ratio, head-to-head, etc.!!!
-    sort_key = lambda x: (-x.tourn_win_pct, -x.tourn_pts_pct)
-    for i, team in enumerate(sorted(played, key=sort_key)):
-        team.tourn_rank = i + 1
-        div_rank[team.div_num] += 1
-        team.div_rank = div_rank[team.div_num]
-        team.save()
+    tourn_win_pcts = [tm.tourn_win_pct for tm in played]
+    tourn_ranks = rankdata(tourn_win_pcts, method='min')
+    div_teams = {i + 1: [] for i in range(ndivs)}
+    for i, tm in enumerate(played):
+        tm.tourn_rank = tourn_ranks[i]
+        div_teams[tm.div_num].append(tm)
+
+    for div, teams in div_teams.items():
+        div_win_pcts = [tm.tourn_win_pct for tm in teams]
+        div_ranks = rankdata(div_win_pcts, method='min')
+        for i, tm in enumerate(teams):
+            tm.div_rank = div_ranks[i]
+
+        teams.sort(key=lambda x: -x.tourn_win_pct)
+        for k, g in groupby(teams, key=lambda x: x.tourn_win_pct):
+            cohort = list(g)
+            if len(cohort) == 1:
+                tm = cohort[0]
+                tm.div_rank_final = tm.div_rank
+                tm.save()
+                continue
+            cohort_rank = cohort[0].div_rank
+            ranked = rank_team_cohort(cohort)
+            for i, (tm, win_pct, pts_pct) in enumerate(ranked):
+                tm.tb_data = [win_pct, pts_pct]
+                tm.div_rank_final = cohort_rank + i
+                tm.save()
 
     if finalize:
         tourn.complete_stage(TournStage.TEAM_RANKS)

@@ -12,12 +12,11 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 
 ## Features/Enhancements
 
+- compute (and maintain?) head-to-head stats (win and pts pct) for tie-breaking
 - detect end of stage for manual updates (entering player nums, seeding round play,
   partner picking, round robin play)
 - handle updates/revisions to completed game scores (i.e. manage stats and denorm)
-- compute/maintain head-to-head and common-opponent stats, for possible use in
-  tie-breaking
-- implement playoff rounds (or at least, generate playoff brackets)
+- implement playoff rounds? (or at least, generate playoff brackets)
 
 ## Bugs/Nits
 
@@ -41,7 +40,9 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 
 ## Framework
 
-- security (e.g. flask-login), if considering non-local hosting
+- user identities/logins
+  - mobile support (context)
+  - security (for shared network)
 - dockerize the server
 - audit trailing (and/or snapshotting)?
 - optimistic locking (or other concurrency control)?

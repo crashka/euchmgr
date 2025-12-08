@@ -295,16 +295,18 @@ def rank_player_cohort(players: list[Player]) -> list[tuple[Player, tuple, dict]
     stats = {}
     data = {}
     for pl in players:
-        st = pl.get_game_stats(players)
+        # no need to exclude self from opps
+        st = pl.get_game_stats(opps=players)
         cohrt_games = st['games']
         if cohrt_games == 0:
-            cohrt_win_pct = 0.0
-            cohrt_pts_pct = 0.0
+            # REVISIT: should this be 0.0 instead???
+            cohrt_win_pct = 50.0
+            cohrt_pts_pct = 50.0
             data[pl.player_num] = {
                 'wins'       : 0,
                 'losses'     : 0,
                 'pts_for'    : 0,
-                'pts_against': 0,
+                'pts_against': 0
             }
         else:
             cohrt_tot_pts = st['team_pts'] + st['opp_pts']
@@ -314,7 +316,7 @@ def rank_player_cohort(players: list[Player]) -> list[tuple[Player, tuple, dict]
                 'wins'       : st['wins'],
                 'losses'     : cohrt_games - st['wins'],
                 'pts_for'    : st['team_pts'],
-                'pts_against': st['opp_pts'],
+                'pts_against': st['opp_pts']
             }
         stats[pl.player_num] = (cohrt_win_pct, cohrt_games, cohrt_pts_pct, pl.seed_pts_pct)
 
@@ -335,20 +337,23 @@ def compute_player_ranks(finalize: bool = False) -> None:
     for i, pl in enumerate(played):
         pl.player_rank = seed_ranks[i]
 
+    # high-level ranking based on win percentage, before tie-breaking
     played.sort(key=lambda x: -x.seed_win_pct)
     for k, g in groupby(played, key=lambda x: x.seed_win_pct):
         cohort = list(g)
         if len(cohort) == 1:
             pl = cohort[0]
-            pl.player_rank_final = pl.player_rank
+            pl.player_rank_tb = pl.player_rank
+            pl.tb_crit = None
+            pl.tb_data = None
             pl.save()
             continue
         cohort_rank = cohort[0].player_rank
         ranked = rank_player_cohort(cohort)
-        for i, (pl, stats, data) in enumerate(ranked):
-            pl.tb_stats = stats
+        for i, (pl, crit, data) in enumerate(ranked):
+            pl.player_rank_tb = cohort_rank + i
+            pl.tb_crit = crit
             pl.tb_data = data
-            pl.player_rank_final = cohort_rank + i
             pl.save()
 
     if finalize:
@@ -624,11 +629,13 @@ def rank_team_cohort(teams: list[Team]) -> list[tuple[Team, tuple, dict]]:
     stats = {}
     data = {}
     for tm in teams:
-        st = tm.get_game_stats(teams)
+        # no need to exclude self from opps
+        st = tm.get_game_stats(opps=teams)
         cohrt_games = st['games']
         if cohrt_games == 0:
-            cohrt_win_pct = 0.0
-            cohrt_pts_pct = 0.0
+            # REVISIT: should this be 0.0 instead???
+            cohrt_win_pct = 50.0
+            cohrt_pts_pct = 50.0
             data[tm.team_seed] = {
                 'wins'       : 0,
                 'losses'     : 0,
@@ -643,7 +650,7 @@ def rank_team_cohort(teams: list[Team]) -> list[tuple[Team, tuple, dict]]:
                 'wins'       : st['wins'],
                 'losses'     : cohrt_games - st['wins'],
                 'pts_for'    : st['team_pts'],
-                'pts_against': st['opp_pts'],
+                'pts_against': st['opp_pts']
             }
         stats[tm.team_seed] = (cohrt_win_pct, cohrt_games, cohrt_pts_pct, tm.tourn_pts_pct)
 
@@ -674,20 +681,23 @@ def compute_team_ranks(finalize: bool = False) -> None:
         for i, tm in enumerate(teams):
             tm.div_rank = div_ranks[i]
 
+        # high-level ranking based on win percentage, before tie-breaking
         teams.sort(key=lambda x: -x.tourn_win_pct)
         for k, g in groupby(teams, key=lambda x: x.tourn_win_pct):
             cohort = list(g)
             if len(cohort) == 1:
                 tm = cohort[0]
-                tm.div_rank_final = tm.div_rank
+                tm.div_rank_tb = tm.div_rank
+                tm.tb_crit = None
+                tm.tb_data = None
                 tm.save()
                 continue
             cohort_rank = cohort[0].div_rank
             ranked = rank_team_cohort(cohort)
-            for i, (tm, stats, data) in enumerate(ranked):
-                tm.tb_stats = stats
+            for i, (tm, crit, data) in enumerate(ranked):
+                tm.div_rank_tb = cohort_rank + i
+                tm.tb_crit = crit
                 tm.tb_data = data
-                tm.div_rank_final = cohort_rank + i
                 tm.save()
 
     if finalize:

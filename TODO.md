@@ -12,11 +12,13 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 
 ## Features/Enhancements
 
-- update scores charts and live dashboards to reflect new ranking algorithm
+- head-to-head report for seeding and round robin (new blueprint)
+  - flag any conflicts (lower-rank wins)
 - detect end of stage for manual updates (entering player nums, seeding round play,
   partner picking, round robin play)
 - handle updates/revisions to completed game scores (i.e. manage stats and denorm)
 - implement playoff rounds? (or at least, generate playoff brackets)
+- tournament-level rankings?
 
 ## Bugs/Nits
 

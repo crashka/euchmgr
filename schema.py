@@ -221,11 +221,12 @@ class Player(BaseModel):
     seed_pts_against = IntegerField(default=0)
     seed_pts_diff  = IntegerField(null=True)
     seed_pts_pct   = FloatField(null=True)
-    player_rank    = IntegerField(null=True)  # 1-based
+    player_rank    = IntegerField(null=True)  # based on win_pct, ties possible
     # tie-breaker stuff
-    tb_stats       = JSONField(null=True)  # stats used to compute final rank
-    tb_data        = JSONField(null=True)  # raw data for reference
-    player_rank_final = IntegerField(null=True)
+    tb_crit        = JSONField(null=True)     # stats criteria used to compute final rank
+    tb_data        = JSONField(null=True)     # raw data for reference
+    player_rank_tb = IntegerField(null=True)  # stack-ranked, no ties
+    player_rank_adj = IntegerField(null=True) # manual override or adjustment
     # partner picks
     partner        = ForeignKeyField('self', field='player_num', column_name='partner_num',
                                      null=True)
@@ -391,6 +392,46 @@ class Player(BaseModel):
         """For partner picking UI
         """
         return self.picked_by.seed_ident if self.picked_by else None
+
+    @property
+    def player_pos(self) -> str | None:
+        """Same as player_rank, except annotate if tied with others
+        """
+        if self.player_rank is None:
+            return None
+        elif not self.tb_data:
+            return str(self.player_rank)
+        return f"{self.player_rank}*"
+
+    @property
+    def tb_win_rec(self) -> str | None:
+        """Tie-breaker (head-to-head) win-loss record as a string
+        """
+        if not self.tb_data:
+            return None
+        return f"{self.tb_data['wins']}-{self.tb_data['losses']}"
+
+    @property
+    def tb_pts_rec(self) -> str | None:
+        """Tie-breaker (head-to-head) points for-and-against record as a string
+        """
+        if not self.tb_data:
+            return None
+        return f"{self.tb_data['pts_for']}-{self.tb_data['pts_against']}"
+
+    @property
+    def player_rank_final(self, annotated: bool = False) -> int | str:
+        """The official value for player ranking (defaults to rank_tb, with override from
+        rank_adj).  String value is returned if `annotated` is specified as True, with
+        override indicated (if present).
+        """
+        if annotated:
+            if self.player_rank_adj:
+                return f"{self.player_rank_adj} ({self.player_rank_tb})"
+            else:
+                return str(self.player_rank_tb)
+
+        return self.player_rank_adj or self.player_rank_tb
 
     def get_game_stats(self, opps: list[Self] = None) -> dict:
         """Get stats for player's games (all, or versus specified opponents)
@@ -665,12 +706,13 @@ class Team(BaseModel):
     tourn_pts_against = IntegerField(default=0)
     tourn_pts_diff = IntegerField(null=True)
     tourn_pts_pct  = FloatField(null=True)
-    tourn_rank     = IntegerField(null=True)
-    div_rank       = IntegerField(null=True)
+    tourn_rank     = IntegerField(null=True)  # PLACEHOLDER: algorithm TBD!!!
+    div_rank       = IntegerField(null=True)  # based on win_pct, ties possible
     # tie-breaker stuff
-    tb_stats       = JSONField(null=True)  # stats used to compute final rank
-    tb_data        = JSONField(null=True)  # raw data for reference
-    div_rank_final = IntegerField(null=True)
+    tb_crit        = JSONField(null=True)     # stats criteria used to compute final rank
+    tb_data        = JSONField(null=True)     # raw data for reference
+    div_rank_tb    = IntegerField(null=True)  # stack-ranked, no ties
+    div_rank_adj   = IntegerField(null=True)  # manual override or adjustment
 
     # class variables
     team_map: ClassVar[dict[int, Self]] = None  # indexed by team_seed
@@ -752,6 +794,46 @@ class Team(BaseModel):
         """Round avg_player_rank for display purposes
         """
         return round(self.avg_player_rank, 2)
+
+    @property
+    def div_pos(self) -> str | None:
+        """Same as div_rank, except annotate if tied with others
+        """
+        if self.div_rank is None:
+            return None
+        elif not self.tb_data:
+            return str(self.div_rank)
+        return f"{self.div_rank}*"
+
+    @property
+    def tb_win_rec(self) -> str | None:
+        """Tie-breaker (head-to-head) win-loss record as a string
+        """
+        if not self.tb_data:
+            return None
+        return f"{self.tb_data['wins']}-{self.tb_data['losses']}"
+
+    @property
+    def tb_pts_rec(self) -> str | None:
+        """Tie-breaker (head-to-head) points for-and-against record as a string
+        """
+        if not self.tb_data:
+            return None
+        return f"{self.tb_data['pts_for']}-{self.tb_data['pts_against']}"
+
+    @property
+    def div_rank_final(self, annotated: bool = False) -> int | str:
+        """The official value for division ranking (defaults to rank_tb, with override
+        from rank_adj).  String value is returned if `annotated` is specified as True,
+        with override indicated (if present).
+        """
+        if annotated:
+            if self.div_rank_adj:
+                return f"{self.div_rank_adj} ({self.div_rank_tb})"
+            else:
+                return str(self.div_rank_tb)
+
+        return self.div_rank_adj or self.div_rank_tb
 
     def get_game_stats(self, opps: list[Self] = None) -> dict:
         """Get stats for team's games (all, or versus specified opponents)

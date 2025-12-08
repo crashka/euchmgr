@@ -14,6 +14,7 @@ from chart import Numeric, round_val, fmt_tally
 # utility stuff #
 #################
 
+DashStat = Numeric | str
 UNDEF = '-- undef --'
 
 def fmt_dash_score(pts: int, prev_pts: int = -1) -> str:
@@ -34,7 +35,7 @@ def fmt_dash_score(pts: int, prev_pts: int = -1) -> str:
 
     return ret
 
-def fmt_dash_stat(val: Numeric, prev_val: Numeric = UNDEF, no_style: bool = False) -> str:
+def fmt_dash_stat(val: DashStat, prev_val: DashStat = UNDEF, no_style: bool = False) -> str:
     """Version for live dashboards--markup stat if changed from prev (em), do rounding for
     float values.  Note that float vals are assumed to represent percentages (percent sign
     to be style along with the val itself).
@@ -46,8 +47,10 @@ def fmt_dash_stat(val: Numeric, prev_val: Numeric = UNDEF, no_style: bool = Fals
         # no previous reference is treated as no change, no styling
         if isinstance(val, float):
             return f"{round_val(val)}%"
-        assert isinstance(val, int)
-        return str(val)
+        elif isinstance(val, int):
+            return str(val)
+        assert isinstance(val, str)
+        return val
     elif prev_val is None:
         # previously empty represents changed value
         if isinstance(val, float):
@@ -64,8 +67,11 @@ def fmt_dash_stat(val: Numeric, prev_val: Numeric = UNDEF, no_style: bool = Fals
         if val == prev_val:
             return str(val)
         return f"<b>{val}</b>"
-    else:
-        assert False, f"Unexpected type '{type(val)}' for val"
+    assert isinstance(val, str)
+    assert isinstance(prev_val, str)
+    if val == prev_val:
+        return val
+    return f"<b>{val}</b>"
 
 ###################
 # blueprint stuff #
@@ -124,8 +130,8 @@ def sd_dash(tourn: TournInfo) -> str:
     update_int = BASE_UPDATE_INT - SD_UPDATE_ADJ
     done = tourn.seeding_done()
 
-    # REVISIT: let underlying iterator do the sorting for us???
-    pl_list  = sorted(Player.iter_players(), key=lambda pl: pl.player_rank or tourn.players)
+    sort_key = lambda pl: pl.player_rank_final or tourn.players
+    pl_list  = sorted(Player.iter_players(), key=sort_key)
     # inner dict represents points by round {rnd: pts}
     team_pts = {pl.player_num: {} for pl in pl_list}
     opp_pts  = {pl.player_num: {} for pl in pl_list}
@@ -216,20 +222,26 @@ def sd_dash(tourn: TournInfo) -> str:
 
                 stats[pl_num] = (
                     pl.seed_win_pct,
+                    pl.player_pos,
                     pl.seed_pts_pct,
-                    pl.player_rank
+                    pl.tb_win_rec,
+                    pl.tb_pts_rec,
+                    pl.player_rank_final
                 )
                 stats_fmt[pl_num] = (
                     fmt_dash_stat(stats[pl_num][0], prev_stats[pl_num][0], no_style=True),
                     fmt_dash_stat(stats[pl_num][1], prev_stats[pl_num][1], no_style=True),
-                    fmt_dash_stat(stats[pl_num][2], prev_stats[pl_num][2])
+                    fmt_dash_stat(stats[pl_num][2], prev_stats[pl_num][2], no_style=True),
+                    fmt_dash_stat(stats[pl_num][3], prev_stats[pl_num][3], no_style=True),
+                    fmt_dash_stat(stats[pl_num][4], prev_stats[pl_num][4], no_style=True),
+                    fmt_dash_stat(stats[pl_num][5], prev_stats[pl_num][5])
                 )
 
             if tot_pts == prev_tot_pts and prev_mvmt:
                 mvmt[pl_num] = prev_mvmt.get(pl_num, '')
                 colcls[pl_num] = prev_colcls.get(pl_num, '')
-            elif prev_stats[pl_num][2]:
-                rank_diff = (prev_stats[pl_num][2] or 0) - (pl.player_rank or 0)
+            elif prev_stats[pl_num][5]:
+                rank_diff = (prev_stats[pl_num][5] or 0) - (pl.player_rank_final or 0)
                 if rank_diff > 0:
                     mvmt[pl_num] = f'+{rank_diff}'
                     colcls[pl_num] = COLCLS_UP
@@ -247,13 +259,19 @@ def sd_dash(tourn: TournInfo) -> str:
 
             stats[pl_num] = (
                 pl.seed_win_pct,
+                pl.player_pos,
                 pl.seed_pts_pct,
-                pl.player_rank
+                pl.tb_win_rec,
+                pl.tb_pts_rec,
+                pl.player_rank_final
             )
             stats_fmt[pl_num] = (
                 fmt_dash_stat(stats[pl_num][0], no_style=True),
                 fmt_dash_stat(stats[pl_num][1], no_style=True),
-                fmt_dash_stat(stats[pl_num][2])
+                fmt_dash_stat(stats[pl_num][2], no_style=True),
+                fmt_dash_stat(stats[pl_num][3], no_style=True),
+                fmt_dash_stat(stats[pl_num][4], no_style=True),
+                fmt_dash_stat(stats[pl_num][5])
             )
 
     updated = now_str()
@@ -305,7 +323,8 @@ def rr_dash(tourn: TournInfo) -> str:
     done = tourn.round_robin_done()
 
     div_list = list(range(1, tourn.divisions + 1))
-    tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.div_rank or tourn.teams)
+    sort_key = lambda tm: tm.div_rank_final or tourn.teams
+    tm_list  = sorted(Team.iter_teams(), key=sort_key)
     # inner dict represents points by round {rnd: pts}
     team_pts = {tm.team_seed: {} for tm in tm_list}
     opp_pts  = {tm.team_seed: {} for tm in tm_list}
@@ -400,20 +419,26 @@ def rr_dash(tourn: TournInfo) -> str:
 
                 stats[tm_seed] = (
                     tm.tourn_win_pct,
+                    tm.div_pos,
                     tm.tourn_pts_pct,
-                    tm.div_rank
+                    tm.tb_win_rec,
+                    tm.tb_pts_rec,
+                    tm.div_rank_final
                 )
                 stats_fmt[tm_seed] = (
                     fmt_dash_stat(stats[tm_seed][0], prev_stats[tm_seed][0], no_style=True),
                     fmt_dash_stat(stats[tm_seed][1], prev_stats[tm_seed][1], no_style=True),
-                    fmt_dash_stat(stats[tm_seed][2], prev_stats[tm_seed][2])
+                    fmt_dash_stat(stats[tm_seed][2], prev_stats[tm_seed][2], no_style=True),
+                    fmt_dash_stat(stats[tm_seed][3], prev_stats[tm_seed][3], no_style=True),
+                    fmt_dash_stat(stats[tm_seed][4], prev_stats[tm_seed][4], no_style=True),
+                    fmt_dash_stat(stats[tm_seed][5], prev_stats[tm_seed][5])
                 )
 
             if tot_pts == prev_tot_pts and prev_mvmt:
                 mvmt[tm_seed] = prev_mvmt.get(tm_seed, '')
                 colcls[tm_seed] = prev_colcls.get(tm_seed, '')
-            elif prev_stats[tm_seed][2]:
-                rank_diff = (prev_stats[tm_seed][2] or 0) - (tm.div_rank or 0)
+            elif prev_stats[tm_seed][5]:
+                rank_diff = (prev_stats[tm_seed][5] or 0) - (tm.div_rank_final or 0)
                 if rank_diff > 0:
                     mvmt[tm_seed] = f'+{rank_diff}'
                     colcls[tm_seed] = COLCLS_UP
@@ -431,13 +456,19 @@ def rr_dash(tourn: TournInfo) -> str:
 
             stats[tm_seed] = (
                 tm.tourn_win_pct,
+                tm.div_pos,
                 tm.tourn_pts_pct,
-                tm.div_rank
+                tm.tb_win_rec,
+                tm.tb_pts_rec,
+                tm.div_rank_final
             )
             stats_fmt[tm_seed] = (
                 fmt_dash_stat(stats[tm_seed][0], no_style=True),
                 fmt_dash_stat(stats[tm_seed][1], no_style=True),
-                fmt_dash_stat(stats[tm_seed][2])
+                fmt_dash_stat(stats[tm_seed][2], no_style=True),
+                fmt_dash_stat(stats[tm_seed][3], no_style=True),
+                fmt_dash_stat(stats[tm_seed][4], no_style=True),
+                fmt_dash_stat(stats[tm_seed][5])
             )
 
     updated = now_str()

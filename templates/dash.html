@@ -105,11 +105,11 @@
               <th class="plyr_lbl hor_sect" rowspan="2">Player (by Player Num)</th>
               <th class="hor_sect" rowspan="2">Wins</th>
               <th class="hor_sect" rowspan=2>Losses</th>
-              <th class="vert_sect" colspan="{{rnds}}">Points For (by Round)</th>
-              <th class="vert_sect" colspan="{{rnds}}">Points Against (by Round)</th>
-              <th class="hor_sect vert_sect" rowspan="2">Win Pct</th>
-              <th class="hor_sect" rowspan=2>Pts Pct</th>
-              <th class="hor_sect" rowspan=2>Rank</th>
+              <th class="hor_sect vert_sect" colspan="{{rnds}}">Points For (by Round)</th>
+              <th class="hor_sect vert_sect" colspan="{{rnds}}">Points Against (by Round)</th>
+              <th class="hor_sect vert_sect" colspan="3">Overall</th>
+              <th class="hor_sect vert_sect" colspan="2">Head-to-Head</th>
+              <th class="hor_sect vert_sect" rowspan=2>Rank</th>
               <th class="hor_sect" rowspan=2>Mvmt</th>
             </tr>
             <tr>
@@ -121,6 +121,11 @@
               {% for rnd in range(2, rnds + 1) %}
               <th class="hor_sect score">{{rnd}}</th>
               {% endfor %}
+              <th class="hor_sect vert_sect">Win Pct</th>
+              <th class="hor_sect">Pos</th>
+              <th class="hor_sect">Pts Pct</th>
+              <th class="hor_sect vert_sect">W-L</th>
+              <th class="hor_sect">PF-PA</th>
             </tr>
           </thead>
           <tbody>
@@ -140,6 +145,9 @@
               <td class="vert_sect">{{stats_fmt[pl.player_num][0]|safe}}</td>
               <td class="">{{stats_fmt[pl.player_num][1]|safe}}</td>
               <td class="">{{stats_fmt[pl.player_num][2]|safe}}</td>
+              <td class="vert_sect">{{stats_fmt[pl.player_num][3]|safe}}</td>
+              <td class="">{{stats_fmt[pl.player_num][4]|safe}}</td>
+              <td class="vert_sect">{{stats_fmt[pl.player_num][5]|safe}}</td>
               <td class="">{{mvmt[pl.player_num]}}</td>
             </tr>
             {% endfor %}
@@ -158,11 +166,11 @@
               <th class="plyr_lbl hor_sect" rowspan="2">Team (by Div Seed)</th>
               <th class="hor_sect" rowspan="2">Wins</th>
               <th class="hor_sect" rowspan=2>Losses</th>
-              <th class="vert_sect" colspan="{{rnds}}">Points For (by Round)</th>
-              <th class="vert_sect" colspan="{{rnds}}">Points Against (by Round)</th>
-              <th class="hor_sect vert_sect" rowspan="2">Win Pct</th>
-              <th class="hor_sect" rowspan=2>Pts Pct</th>
-              <th class="hor_sect" rowspan=2>Rank</th>
+              <th class="hor_sect vert_sect" colspan="{{rnds}}">Points For (by Round)</th>
+              <th class="hor_sect vert_sect" colspan="{{rnds}}">Points Against (by Round)</th>
+              <th class="hor_sect vert_sect" colspan="3">Overall</th>
+              <th class="hor_sect vert_sect" colspan="2">Head-to-Head</th>
+              <th class="hor_sect vert_sect" rowspan=2>Rank</th>
               <th class="hor_sect" rowspan=2>Mvmt</th>
             </tr>
             <tr>
@@ -174,6 +182,11 @@
               {% for rnd in range(2, rnds + 1) %}
               <th class="hor_sect score">{{rnd}}</th>
               {% endfor %}
+              <th class="hor_sect vert_sect">Win Pct</th>
+              <th class="hor_sect">Pos</th>
+              <th class="hor_sect">Pts Pct</th>
+              <th class="hor_sect vert_sect">W-L</th>
+              <th class="hor_sect">PF-PA</th>
             </tr>
           </thead>
           <tbody>
@@ -193,6 +206,9 @@
               <td class="vert_sect">{{stats_fmt[tm.team_seed][0]|safe}}</td>
               <td class="">{{stats_fmt[tm.team_seed][1]|safe}}</td>
               <td class="">{{stats_fmt[tm.team_seed][2]|safe}}</td>
+              <td class="vert_sect">{{stats_fmt[tm.team_seed][3]|safe}}</td>
+              <td class="">{{stats_fmt[tm.team_seed][4]|safe}}</td>
+              <td class="vert_sect">{{stats_fmt[tm.team_seed][5]|safe}}</td>
               <td class="">{{mvmt[tm.team_seed]}}</td>
             </tr>
             {% endfor %}

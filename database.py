@@ -37,6 +37,8 @@ def db_init(name: str) -> bool:
     """Initialize database for specified name (return True if operation executed; False if
     database already set).
     """
+    if not name:
+        raise RuntimeError("Database name not specified")
     cur_db = db_name()
     if cur_db and name == cur_db:
         return False

@@ -12,7 +12,7 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 
 ## Features/Enhancements
 
-- compute (and maintain?) head-to-head stats (win and pts pct) for tie-breaking
+- update scores charts and live dashboards to reflect new ranking algorithm
 - detect end of stage for manual updates (entering player nums, seeding round play,
   partner picking, round robin play)
 - handle updates/revisions to completed game scores (i.e. manage stats and denorm)

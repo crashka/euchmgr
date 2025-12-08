@@ -283,15 +283,31 @@ def validate_seed_round(finalize: bool = False) -> None:
     if finalize:
         TournInfo.mark_stage_complete(TournStage.SEED_TABULATE)
 
-def rank_player_cohort(players: list[Player]) -> list[tuple[Player, float, float]]:
+def rank_player_cohort(players: list[Player]) -> list[tuple[Player, tuple]]:
     """Given a list of players (generally with the same record, though we are not checking
-    here, since we don't really care), return ranked list by head-to-head win and point
-    percentages.
+    here, since we don't really care), return list ranked by the following stats tuple:
+
+      (coh_win_pct, coh_games, coh_pts_pct, seed_pts_pct)
+
+    Note: we use `coh_games` to favor players who have played more head-to-head games
     """
-    # TEMP: dummy implementation!!!
-    sort_key = lambda x: (-x.seed_win_pct, -x.seed_pts_pct)
+    stats = {}
+    for pl in players:
+        st = pl.get_game_stats(players)
+        coh_games = st['games']
+        if coh_games == 0:
+            coh_win_pct = 0.0
+            coh_pts_pct = 0.0
+        else:
+            coh_tot_pts = st['team_pts'] + st['opp_pts']
+            coh_win_pct = st['wins'] / st['games'] * 100.0
+            coh_pts_pct = st['team_pts'] / coh_tot_pts * 100.0
+        stats[pl.player_num] = (coh_win_pct, coh_games, coh_pts_pct, pl.seed_pts_pct)
+
+    # larger is better for all stats components
+    sort_key = lambda pl: tuple(-x for x in stats[pl.player_num])
     ranked = sorted(players, key=sort_key)
-    return [(pl, pl.seed_win_pct, pl.seed_pts_pct) for pl in ranked]
+    return [(pl, stats[pl.player_num]) for pl in ranked]
 
 def compute_player_ranks(finalize: bool = False) -> None:
     """Note that we use `rankdata` to do the computation here, and `rank_player_cohort` to
@@ -315,8 +331,8 @@ def compute_player_ranks(finalize: bool = False) -> None:
             continue
         cohort_rank = cohort[0].player_rank
         ranked = rank_player_cohort(cohort)
-        for i, (pl, win_pct, pts_pct) in enumerate(ranked):
-            pl.tb_data = [win_pct, pts_pct]
+        for i, (pl, stats) in enumerate(ranked):
+            pl.tb_data = stats
             pl.player_rank_final = cohort_rank + i
             pl.save()
 
@@ -581,15 +597,31 @@ def validate_tourn(finalize: bool = False) -> None:
     if finalize:
         TournInfo.mark_stage_complete(TournStage.TOURN_TABULATE)
 
-def rank_team_cohort(teams: list[Team]) -> list[tuple[Team, float, float]]:
+def rank_team_cohort(teams: list[Team]) -> list[tuple[Team, tuple]]:
     """Given a list of teams (generally with the same record, though we are not checking
-    here, since we don't really care), return ranked list by head-to-head win and point
-    percentages.
+    here, since we don't really care), return list ranked by the following stats tuple:
+
+      (coh_win_pct, coh_games, coh_pts_pct, tourn_pts_pct)
+
+    Note: we use `coh_games` to favor teams who have played more head-to-head games
     """
-    # TEMP: dummy implementation!!!
-    sort_key = lambda x: (-x.tourn_win_pct, -x.tourn_pts_pct)
+    stats = {}
+    for tm in teams:
+        st = tm.get_game_stats(teams)
+        coh_games = st['games']
+        if coh_games == 0:
+            coh_win_pct = 0.0
+            coh_pts_pct = 0.0
+        else:
+            coh_tot_pts = st['team_pts'] + st['opp_pts']
+            coh_win_pct = st['wins'] / st['games'] * 100.0
+            coh_pts_pct = st['team_pts'] / coh_tot_pts * 100.0
+        stats[tm.team_seed] = (coh_win_pct, coh_games, coh_pts_pct, tm.tourn_pts_pct)
+
+    # larger is better for all stats components
+    sort_key = lambda tm: tuple(-x for x in stats[tm.team_seed])
     ranked = sorted(teams, key=sort_key)
-    return [(tm, tm.tourn_win_pct, tm.tourn_pts_pct) for tm in ranked]
+    return [(tm, stats[tm.team_seed]) for tm in ranked]
 
 def compute_team_ranks(finalize: bool = False) -> None:
     """Note that we use `rankdata` to do the computation here, and `rank_team_cohort` to
@@ -623,8 +655,8 @@ def compute_team_ranks(finalize: bool = False) -> None:
                 continue
             cohort_rank = cohort[0].div_rank
             ranked = rank_team_cohort(cohort)
-            for i, (tm, win_pct, pts_pct) in enumerate(ranked):
-                tm.tb_data = [win_pct, pts_pct]
+            for i, (tm, stats) in enumerate(ranked):
+                tm.tb_data = stats
                 tm.div_rank_final = cohort_rank + i
                 tm.save()
 
@@ -638,6 +670,25 @@ def compute_team_ranks(finalize: bool = False) -> None:
 import sys
 
 from ckautils import parse_argv
+
+# excludes utility and helper functions
+MOD_FUNCS = {
+    'tourn_create',
+    'upload_roster',
+    'generate_player_nums',
+    'build_seed_bracket',
+    'fake_seed_games',
+    'validate_seed_round',
+    'compute_player_ranks',
+    'prepick_champ_partners',
+    'fake_pick_partners',
+    'build_tourn_teams',
+    'compute_team_seeds',
+    'build_tourn_bracket',
+    'fake_tourn_games',
+    'validate_tourn',
+    'compute_team_ranks'
+}
 
 def main() -> int:
     """Built-in driver to invoke module functions
@@ -669,16 +720,16 @@ def main() -> int:
         print(main.__doc__)
         print(f"Module function not specified", file=sys.stderr)
         return -1
-    elif sys.argv[2] not in globals():
+    elif sys.argv[2] not in MOD_FUNCS:
         print(f"Unknown module function '{sys.argv[2]}'", file=sys.stderr)
         return -1
 
     tourn_name = sys.argv[1]
-    util_func = globals()[sys.argv[2]]
+    mod_func = globals()[sys.argv[2]]
     args, kwargs = parse_argv(sys.argv[3:])
 
     db_init(tourn_name)
-    util_func(*args, **kwargs)  # will throw exceptions on error
+    mod_func(*args, **kwargs)  # will throw exceptions on error
     return 0
 
 if __name__ == '__main__':

@@ -6,7 +6,7 @@ from typing import ClassVar, Self, Iterator, NamedTuple
 import re
 
 from peewee import (TextField, IntegerField, BooleanField, ForeignKeyField, FloatField,
-                    OperationalError, DoesNotExist)
+                    OperationalError, DoesNotExist, fn)
 from playhouse.sqlite_ext import JSONField
 
 from core import ImplementationError
@@ -391,6 +391,25 @@ class Player(BaseModel):
         """
         return self.picked_by.seed_ident if self.picked_by else None
 
+    def get_game_stats(self, opps: list[Self] = None) -> dict:
+        """Get stats for player's games (all, or versus specified opponents)
+        """
+        stat_keys = ('games', 'wins', 'team_pts', 'opp_pts')
+        query = (PlayerGame
+                 .select(fn.count(PlayerGame.id),
+                         fn.sum(PlayerGame.is_winner),
+                         fn.sum(PlayerGame.team_pts),
+                         fn.sum(PlayerGame.opp_pts))
+                 .where(PlayerGame.player == self))
+        if opps:
+            # since we are not able to declare `opponents` with any kind of foreign key
+            # declaration, we have to explicitly extract the right comparison keys from
+            # the `opps` list
+            opps_nums = [pl.player_num for pl in opps]
+            query = query.where((PlayerGame.opponents.extract_text('0').in_(opps_nums)) |
+                                (PlayerGame.opponents.extract_text('1').in_(opps_nums)))
+        return dict(zip(stat_keys, query[0].__data__.values()))
+
     def pick_partners(self, partner: Self, partner2: Self = None) -> None:
         """
         """
@@ -732,6 +751,22 @@ class Team(BaseModel):
         """
         return round(self.avg_player_rank, 2)
 
+    def get_game_stats(self, opps: list[Self] = None) -> dict:
+        """Get stats for team's games (all, or versus specified opponents)
+        """
+        stat_keys = ('games', 'wins', 'team_pts', 'opp_pts')
+        query = (TeamGame
+                 .select(fn.count(TeamGame.id),
+                         fn.sum(TeamGame.is_winner),
+                         fn.sum(TeamGame.team_pts),
+                         fn.sum(TeamGame.opp_pts))
+                 .where(TeamGame.team == self))
+        if opps:
+            # note that `opponent` is defined as a foreign key, so the ORM will extract
+            # the right column in `opps` for the `in_` operator
+            query = query.where(TeamGame.opponent.in_(opps))
+        return dict(zip(stat_keys, query[0].__data__.values()))
+
 #############
 # TournGame #
 #############
@@ -904,10 +939,10 @@ class PlayerGame(BaseModel):
     game_label     = TextField()            # seed-rnd-tbl or rr-div-rnd-tbl
     player         = ForeignKeyField(Player, field='player_num', column_name='player_num')
     player_name    = TextField()            # automatic denorm
-    partners       = JSONField(default=[])  # array of partner player_num(s)
-    opponents      = JSONField(default=[])  # array of opposing player_nums
-    partner_names  = JSONField(default=[])  # denorm
-    opp_names      = JSONField(default=[])  # denorm
+    partners       = JSONField(null=True)   # array of partner player_num(s)
+    opponents      = JSONField(null=True)   # array of opposing player_nums
+    partner_names  = JSONField(null=True)   # denorm
+    opp_names      = JSONField(null=True)   # denorm
     is_bye         = BooleanField(default=False)
     # results
     team_pts       = IntegerField(null=True)

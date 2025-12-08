@@ -318,6 +318,11 @@ def rank_player_cohort(players: list[Player]) -> list[tuple[Player, tuple, dict]
                 'pts_for'    : st['team_pts'],
                 'pts_against': st['opp_pts']
             }
+            # penalize losses if no wins (REVISIT: otherwise, do we still consider 2-4 to
+            # be better than 1-2???)--BE CAREFUL not to use `cohrt_games` beyond building
+            # the stats tuple
+            if st['wins'] == 0:
+                cohrt_games *= -1
         stats[pl.player_num] = (cohrt_win_pct, cohrt_games, cohrt_pts_pct, pl.seed_pts_pct)
 
     # larger is better for all stats components
@@ -652,6 +657,11 @@ def rank_team_cohort(teams: list[Team]) -> list[tuple[Team, tuple, dict]]:
                 'pts_for'    : st['team_pts'],
                 'pts_against': st['opp_pts']
             }
+            # penalize losses if no wins (REVISIT: otherwise, do we still consider 2-4 to
+            # be better than 1-2???)--BE CAREFUL not to use `cohrt_games` beyond building
+            # the stats tuple
+            if st['wins'] == 0:
+                cohrt_games *= -1
         stats[tm.team_seed] = (cohrt_win_pct, cohrt_games, cohrt_pts_pct, tm.tourn_pts_pct)
 
     # larger is better for all stats components

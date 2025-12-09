@@ -92,6 +92,16 @@ VIEW_PATH = [
 
 PATH_VIEW = dict(zip(VIEW_PATH, View))
 
+@app.before_request
+def _db_init():
+    """Make sure we're connected to the right database on the way in (`db_init` is smart
+    about switching when the db_name changes).  Note that we optimistically do not tear
+    down this connection on the way out.
+    """
+    tourn_name = session.get('tourn')
+    if tourn_name and tourn_name != SEL_NEW:
+        db_init(tourn_name)
+
 ###############
 # tourn stuff #
 ###############
@@ -164,8 +174,6 @@ def index() -> str:
 def view() -> str:
     """
     """
-    tourn_name = session.get('tourn')
-    db_init(tourn_name)
     tourn = TournInfo.get()
     view = PATH_VIEW[request.path]
     context = {
@@ -231,7 +239,6 @@ def tourn() -> str:
 
     if tourn_name != SEL_NEW:
         # resume managing previously active tournament
-        db_init(tourn_name)
         tourn = TournInfo.get()
         view = dflt_view(tourn)
         return render_view(view)
@@ -395,16 +402,12 @@ def post_players() -> dict:
 def gen_player_nums(form: dict) -> str:
     """
     """
-    tourn_name = session.get('tourn')
-    db_init(tourn_name)
     generate_player_nums()
     return render_view(View.PLAYERS)
 
 def gen_seed_bracket(form: dict) -> str:
     """
     """
-    tourn_name = session.get('tourn')
-    db_init(tourn_name)
     build_seed_bracket()
     return render_view(View.SEEDING)
 
@@ -471,16 +474,12 @@ def post_seeding() -> dict:
 def fake_seed_results(form: dict) -> str:
     """
     """
-    tourn_name = session.get('tourn')
-    db_init(tourn_name)
     fake_seed_games()
     return render_view(View.SEEDING)
 
 def tabulate_seed_results(form: dict) -> str:
     """
     """
-    tourn_name = session.get('tourn')
-    db_init(tourn_name)
     validate_seed_round(finalize=True)
     compute_player_ranks(finalize=True)
     prepick_champ_partners()
@@ -595,16 +594,12 @@ def post_partners() -> dict:
 def fake_partner_picks(form: dict) -> str:
     """
     """
-    tourn_name = session.get('tourn')
-    db_init(tourn_name)
     fake_pick_partners()
     return render_view(View.PARTNERS)
 
 def comp_team_seeds(form: dict) -> str:
     """
     """
-    tourn_name = session.get('tourn')
-    db_init(tourn_name)
     build_tourn_teams()
     compute_team_seeds()
     return render_view(View.TEAMS)
@@ -671,8 +666,6 @@ def post_teams() -> dict:
 def gen_tourn_brackets(form: dict) -> str:
     """
     """
-    tourn_name = session.get('tourn')
-    db_init(tourn_name)
     build_tourn_bracket()
     return render_view(View.ROUND_ROBIN)
 
@@ -740,16 +733,12 @@ def post_round_robin() -> dict:
 def fake_tourn_results(form: dict) -> str:
     """
     """
-    tourn_name = session.get('tourn')
-    db_init(tourn_name)
     fake_tourn_games()
     return render_view(View.ROUND_ROBIN)
 
 def tabulate_tourn_results(form: dict) -> str:
     """
     """
-    tourn_name = session.get('tourn')
-    db_init(tourn_name)
     validate_tourn(finalize=True)
     compute_team_ranks(finalize=True)
     return render_view(View.TEAMS)

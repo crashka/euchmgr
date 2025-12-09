@@ -6,7 +6,7 @@
 
 from flask import Blueprint, session, render_template, abort
 
-from database import now_str, db_init
+from database import now_str
 from schema import GAME_PTS, TournInfo, Player, PlayerGame, Team, TeamGame
 from chart import Numeric, round_val, fmt_tally
 
@@ -109,8 +109,6 @@ def get_dash(dash: str) -> str:
     if dash not in DASH_FUNCS:
         abort(404, f"Invalid dash '{dash}'")
 
-    tourn_name = session.get('tourn')
-    db_init(tourn_name)
     tourn = TournInfo.get(requery=True)
     return globals()[dash](tourn)
 

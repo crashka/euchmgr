@@ -6,7 +6,6 @@
 
 from flask import Blueprint, session, render_template, abort
 
-from database import db_init
 from schema import (GAME_PTS, TournInfo, Player, SeedGame, Team, TournGame, PlayerGame,
                     TeamGame)
 from euchmgr import get_div_teams
@@ -85,8 +84,6 @@ def get_chart(chart: str) -> str:
     if chart not in CHART_FUNCS:
         abort(404, f"Invalid chart '{chart}'")
 
-    tourn_name = session.get('tourn')
-    db_init(tourn_name)
     tourn = TournInfo.get(requery=True)
     return globals()[chart](tourn)
 

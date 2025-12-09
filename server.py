@@ -48,7 +48,7 @@ from dash import dash
 
 app = Flask(__name__)
 APP_NAME = "Euchre Manager"
-APP_TEMPLATE = "euchmgr.html"
+APP_TEMPLATE = "app.html"
 LOGIN_TEMPLATE = "login.html"
 TOURN_TEMPLATE = "tourn.html"
 SESSION_TYPE = 'cachelib'

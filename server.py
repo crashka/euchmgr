@@ -360,9 +360,6 @@ pl_layout = [
 def get_players() -> dict:
     """
     """
-    tourn_name = session.get('tourn')
-
-    db_init(tourn_name)
     pl_iter = Player.iter_players()
     pl_data = []
     for player in pl_iter:
@@ -436,9 +433,6 @@ sg_layout = [
 def get_seeding() -> dict:
     """
     """
-    tourn_name = session.get('tourn')
-
-    db_init(tourn_name)
     sg_iter = SeedGame.iter_games(True)
     sg_data = []
     for game in sg_iter:
@@ -521,9 +515,6 @@ pt_layout = [
 def get_partners() -> dict:
     """Ajax call to load datatable for partners view.
     """
-    tourn_name = session.get('tourn')
-
-    db_init(tourn_name)
     pt_iter = Player.iter_players(by_rank=True)
     pt_data = []
     for player in pt_iter:
@@ -645,9 +636,6 @@ tm_layout = [
 def get_teams() -> dict:
     """
     """
-    tourn_name = session.get('tourn')
-
-    db_init(tourn_name)
     tm_iter = Team.iter_teams()
     tm_data = []
     for team in tm_iter:
@@ -714,9 +702,6 @@ tg_layout = [
 def get_round_robin() -> dict:
     """
     """
-    tourn_name = session.get('tourn')
-
-    db_init(tourn_name)
     tg_iter = TournGame.iter_games(True)
     tg_data = []
     for game in tg_iter:
@@ -799,13 +784,9 @@ def render_view(view: View) -> str:
     return redirect(path)
 
 def render_tourn(context: dict) -> str:
-    """Common post-processing of context before rendering the main app page through Jinja
+    """Common post-processing of context before rendering the tournament selector and
+    creation page through Jinja
     """
-    view_chk = [''] * len(View)
-    view = context.get('view')
-    if isinstance(view, int):
-        view_chk[view] = CHECKED
-
     stage_compl = 0
     if context.get('tourn'):
         stage_compl = context['tourn'].stage_compl or 0

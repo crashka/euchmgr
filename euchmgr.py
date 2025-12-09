@@ -347,7 +347,7 @@ def compute_player_ranks(finalize: bool = False) -> None:
     seed_win_pcts = [pl.seed_win_pct for pl in played]
     seed_ranks = rankdata(seed_win_pcts, method='min')
     for i, pl in enumerate(played):
-        pl.player_rank = seed_ranks[i]
+        pl.player_pos = seed_ranks[i]
 
     # high-level ranking based on win percentage, before tie-breaking
     played.sort(key=lambda x: -x.seed_win_pct)
@@ -355,15 +355,15 @@ def compute_player_ranks(finalize: bool = False) -> None:
         cohort = list(g)
         if len(cohort) == 1:
             pl = cohort[0]
-            pl.player_rank_tb = pl.player_rank
+            pl.player_rank = pl.player_pos
             pl.tb_crit = None
             pl.tb_data = None
             pl.save()
             continue
-        cohort_rank = cohort[0].player_rank
+        cohort_pos = cohort[0].player_pos
         ranked = rank_player_cohort(cohort)
         for i, (pl, crit, data) in enumerate(ranked):
-            pl.player_rank_tb = cohort_rank + i
+            pl.player_rank = cohort_pos + i
             pl.tb_crit = crit
             pl.tb_data = data
             pl.save()
@@ -703,7 +703,7 @@ def compute_team_ranks(finalize: bool = False) -> None:
         div_win_pcts = [tm.tourn_win_pct for tm in teams]
         div_ranks = rankdata(div_win_pcts, method='min')
         for i, tm in enumerate(teams):
-            tm.div_rank = div_ranks[i]
+            tm.div_pos = div_ranks[i]
 
         # high-level ranking based on win percentage, before tie-breaking
         teams.sort(key=lambda x: -x.tourn_win_pct)
@@ -711,15 +711,15 @@ def compute_team_ranks(finalize: bool = False) -> None:
             cohort = list(g)
             if len(cohort) == 1:
                 tm = cohort[0]
-                tm.div_rank_tb = tm.div_rank
+                tm.div_rank = tm.div_pos
                 tm.tb_crit = None
                 tm.tb_data = None
                 tm.save()
                 continue
-            cohort_rank = cohort[0].div_rank
+            cohort_pos = cohort[0].div_pos
             ranked = rank_team_cohort(cohort)
             for i, (tm, crit, data) in enumerate(ranked):
-                tm.div_rank_tb = cohort_rank + i
+                tm.div_rank = cohort_pos + i
                 tm.tb_crit = crit
                 tm.tb_data = data
                 tm.save()

@@ -36,6 +36,8 @@ db = SqliteExtDatabase(None, pragmas=pragmas)
 def db_init(name: str) -> bool:
     """Initialize database for specified name (return True if operation executed; False if
     database already set).
+
+    Note that we are using autoconnect for now, so no explicit `connect` calls are needed.
     """
     if not name:
         raise RuntimeError("Database name not specified")
@@ -52,12 +54,6 @@ def db_name() -> str | None:
     """Second half of little hack (see above)
     """
     return getattr(db, 'db_name', None)
-
-def db_connect() -> None:
-    """Connect to database (needed before any database operations)
-    """
-    if db.is_closed():
-        db.connect()
 
 #############
 # BaseModel #

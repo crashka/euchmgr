@@ -179,9 +179,9 @@
             <button class="submit demo" value="{{btn_val[4]}}"{{btn_attr[4]}}>Generate Fake Results</button>
             <button class="submit" value="{{btn_val[5]}}"{{btn_attr[5]}}>Tabulate Results</button>
             <span class="lnk_lbl">Display:</span>
-            <a href="#" onclick="window.open('/chart/sd_bracket/{{tourn.name}}', '_blank')"">Seeding Round Bracket</a>
-            <a href="#" onclick="window.open('/chart/sd_scores/{{tourn.name}}', '_blank')"">Seeding Round Scores</a>
-            <a href="#" onclick="window.open('/dash/sd_dash/{{tourn.name}}', '_blank')"">Live Dashboard</a>
+            <a href="#" onclick="window.open('/chart/sd_bracket', '_blank')"">Seeding Round Bracket</a>
+            <a href="#" onclick="window.open('/chart/sd_scores', '_blank')"">Seeding Round Scores</a>
+            <a href="#" onclick="window.open('/dash/sd_dash', '_blank')"">Live Dashboard</a>
           </form>
         </div>
       </div>
@@ -245,9 +245,9 @@
             <button class="submit demo" value="{{btn_val[9]}}"{{btn_attr[9]}}>Generate Fake Results</button>
             <button class="submit" value="{{btn_val[10]}}"{{btn_attr[10]}}>Tabulate Results</button>
             <span class="lnk_lbl">Display:</span>
-            <a href="#" onclick="window.open('/chart/rr_brackets/{{tourn.name}}', '_blank')"">Round Robin Brackets</a>
-            <a href="#" onclick="window.open('/chart/rr_scores/{{tourn.name}}', '_blank')"">Round Robin Scores</a>
-            <a href="#" onclick="window.open('/dash/rr_dash/{{tourn.name}}', '_blank')"">Live Dashbaord</a>
+            <a href="#" onclick="window.open('/chart/rr_brackets', '_blank')"">Round Robin Brackets</a>
+            <a href="#" onclick="window.open('/chart/rr_scores', '_blank')"">Round Robin Scores</a>
+            <a href="#" onclick="window.open('/dash/rr_dash', '_blank')"">Live Dashbaord</a>
           </form>
         </div>
       </div>
@@ -347,7 +347,7 @@
            content: ['search']
          },
          ajax: {
-           url: '/players/data?tourn=' + encodeURIComponent(tourn),
+           url: '/players/data',
            dataSrc: 'data'
          },
          deferRender: true,
@@ -444,7 +444,7 @@
            content: ['search']
          },
          ajax: {
-           url: '/seeding/data?tourn=' + encodeURIComponent(tourn),
+           url: '/seeding/data',
            dataSrc: 'data'
          },
          deferRender: true,
@@ -543,7 +543,7 @@
            content: ['search']
          },
          ajax: {
-           url: '/partners/data?tourn=' + encodeURIComponent(tourn),
+           url: '/partners/data',
            dataSrc: 'data'
          },
          deferRender: true,
@@ -642,7 +642,7 @@
            content: ['search']
          },
          ajax: {
-           url: '/teams/data?tourn=' + encodeURIComponent(tourn),
+           url: '/teams/data',
            dataSrc: 'data'
          },
          deferRender: true,
@@ -739,7 +739,7 @@
            content: ['search']
          },
          ajax: {
-           url: '/round_robin/data?tourn=' + encodeURIComponent(tourn),
+           url: '/round_robin/data',
            dataSrc: 'data'
          },
          deferRender: true,

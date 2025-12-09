@@ -4,7 +4,7 @@
 """Blueprint for chart rendering
 """
 
-from flask import Blueprint, render_template, abort
+from flask import Blueprint, session, render_template, abort
 
 from database import db_init
 from schema import (GAME_PTS, TournInfo, Player, SeedGame, Team, TournGame, PlayerGame,
@@ -78,14 +78,14 @@ CHART_FUNCS = [
     'rr_scores'
 ]
 
-@chart.get("/<path:chart_path>")
-def get_chart(chart_path: str) -> str:
+@chart.get("/<chart>")
+def get_chart(chart: str) -> str:
     """Render specified chart
     """
-    chart, tourn_name = chart_path.split('/', 1)
     if chart not in CHART_FUNCS:
-        abort(404, f"Invalid chart func '{chart}'")
+        abort(404, f"Invalid chart '{chart}'")
 
+    tourn_name = session.get('tourn')
     db_init(tourn_name)
     tourn = TournInfo.get(requery=True)
     return globals()[chart](tourn)

@@ -102,14 +102,14 @@ COLCLS_DOWN = 'red_fg'
 SD_DASH_KEY = 'sd_dash'
 RR_DASH_KEY = 'rr_dash'
 
-@dash.get("/<path:dash_path>")
-def get_dash(dash_path: str) -> str:
+@dash.get("/<dash>")
+def get_dash(dash: str) -> str:
     """Render specified live dashboard
     """
-    dash, tourn_name = dash_path.split('/', 1)
     if dash not in DASH_FUNCS:
-        abort(404, f"Invalid dash func '{dash}'")
+        abort(404, f"Invalid dash '{dash}'")
 
+    tourn_name = session.get('tourn')
     db_init(tourn_name)
     tourn = TournInfo.get(requery=True)
     return globals()[dash](tourn)

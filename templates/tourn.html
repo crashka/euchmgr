@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{{title}}</title>
+
+    <style>
+     form {
+       overflow: hidden;
+     }
+     table {
+       margin-top: 0.3rem;
+     }
+     input[readonly] {
+       border: thin solid grey;
+       background-color: #F0F0F0;
+     }
+     input[type="text"] {
+       width: 12rem;
+     }
+     input[type="number"] {
+       width: 3rem;
+     }
+     .attn {
+       background-color: #FFE4E1;
+     }
+     .demo {
+       background-color: #AFEEEE;
+     }
+     .err_dlg {
+       padding: 1.1rem 1.4rem;
+     }
+     .err_dlg div {
+       width: 22rem;
+       color: #D10000;
+       overflow: auto;
+     }
+     .err_dlg button {
+       margin-top: 1.2rem;
+     }
+     .container {
+       overflow: hidden;
+     }
+     .section {
+       margin-top: 0.5rem;
+       position: relative;
+     }
+     .section_lbl {
+       font-size: x-large;
+       font-weight: bold;
+     }
+     .sel_tourn {
+       width: 12rem;
+     }
+     .info {
+       width: 27rem;
+       float: left;
+     }
+     .buttons {
+       clear: both;
+       padding: 1.0rem 0;
+     }
+     .buttons button {
+       margin-right: 0.8rem;
+       padding: 0.2rem 0.8rem;
+     }
+     .buttons a {
+       margin-right: 0.5rem;
+       /* padding: 0.2rem 0.2rem; */
+     }
+     .tourn_params td {
+       padding: 0.2rem;
+     }
+     .pname {
+       width: 10.5rem;
+     }
+     .td_lbl {
+       text-align: right;
+     }
+     .td_txt,
+     .td_file,
+     .td_num,
+     .td_dec {
+       text-align: left;
+     }
+    </style>
+  </head>
+
+  <body>
+    <dialog class="err_dlg">
+      <div></div>
+      <button autofocus>Close</button>
+    </dialog>
+    <form action="/tourn" method="post" enctype="multipart/form-data">
+      <div class="section">
+        <span>Pick tournament:</span>
+        <select name="tourn" class="sel_tourn" onchange="this.form.submit();">
+          {% if new_tourn %}
+          {% for tourn_name in tourn_sel %}
+          <option value="{{tourn_name}}"{{" selected" if tourn_name == sel_new else ""}}{{" disabled" if tourn_name == sel_sep else ""}}>{{tourn_name}}</option>
+          {% endfor %}
+          {% elif tourn %}
+          {% for tourn_name in tourn_sel %}
+          <option value="{{tourn_name}}"{{" selected" if tourn_name == tourn.name else ""}}{{" disabled" if tourn_name == sel_sep else ""}}>{{tourn_name}}</option>
+          {% endfor %}
+          {% else %}
+          <option value="" disabled selected></option>
+          {% for tourn_name in tourn_sel %}
+          <option value="{{tourn_name}}"{{" disabled" if tourn_name == sel_sep else ""}}>{{tourn_name}}</option>
+          {% endfor %}
+          {% endif %}
+        </select>
+      </div>
+      {% if tourn %}
+      <div class="container">
+        <div class="section info">
+          <span class="section_lbl">New Tournament Info</span>
+          <table class="tourn_params">
+            <colgroup>
+              <col class="pname">
+              <col class="pval">
+            </colgroup>
+            <tr>
+              <td class="td_lbl">Name:</td>
+              <td class="td_txt">
+                <input name="tourn_name" type="text" value="{{tourn.name if tourn.name else ''}}" placeholder="required (must be unique)" {{"required autofocus" if new_tourn else "readonly"}}>
+              </td>
+            </tr>
+            <tr>
+              <td class="td_lbl">Timeframe:</td>
+              <td class="td_txt">
+                <input name="timeframe" type="text" value="{{tourn.timeframe if tourn.timeframe else ''}}">
+              </td>
+            </tr>
+            <tr>
+              <td class="td_lbl">Venue:</td>
+              <td class="td_num">
+                <input name="venue" type="text" value="{{tourn.venue if tourn.venue else ''}}">
+              </td>
+            </tr>
+            <tr>
+              <td class="td_lbl">Seeding Rounds:</td>
+              <td class="td_num">
+                <input name="seed_rounds" type="number" value="{{tourn.seed_rounds}}" disabled>
+              </td>
+            </tr>
+            <tr>
+              <td class="td_lbl">Tournament Rounds:</td>
+              <td class="td_num">
+                <input name="tourn_rounds" type="number" value="{{tourn.tourn_rounds}}" disabled>
+              </td>
+            </tr>
+            <tr>
+              <td class="td_lbl">Tournament Divisions:</td>
+              <td class="td_num">
+                <input name="divisions" type="number" value="{{tourn.divisions}}" disabled>
+              </td>
+            </tr>
+            <tr>
+              <td class="td_lbl">Roster File:</td>
+              <td class="td_text">
+                <input name="roster_file" type="file" value="{{roster_file if roster_file else ''}}" accept=".csv">
+              </td>
+            </tr>
+            <tr>
+              <td class="td_lbl">Overwrite Existing:</td>
+              <td>
+                <input type="checkbox" name="overwrite" value="yes"{{" checked" if overwrite else ""}}{{"" if new_tourn else " disabled"}}>
+              </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+      <div class="section buttons">
+        {% if new_tourn %}
+        <button class="submit" value="{{btn_val[0]}}"{{btn_attr[0]}}>Create Tournament</button>
+        {% else %}
+        <button class="submit" value="{{btn_val[1]}}"{{btn_attr[1]}}>Create Tournament</button>
+        {% endif %}
+      </div>
+      {% endif %}  {# tourn #}
+    </form>
+  </body>
+
+  <script src="/static/jquery-3.7.1.min.js"></script>
+  <script>
+   $(function() {
+     // add css and attributes
+     $(".submit").attr({
+       type: 'submit',
+       name: "submit_func"
+     });
+
+     // error dialog
+     $('.err_dlg button').on('click', function() {
+       $('.err_dlg')[0].close();
+     });
+     const show_error = function(err_text) {
+       $('.err_dlg div').text(err_text);
+       $('.err_dlg')[0].showModal();
+     };
+
+     {% if err_msg %}
+     show_error('{{err_msg|safe}}');
+     {% endif %}
+   });
+  </script>
+</html>

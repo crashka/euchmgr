@@ -49,6 +49,8 @@ from dash import dash
 app = Flask(__name__)
 APP_NAME = "Euchre Manager"
 APP_TEMPLATE = "euchmgr.html"
+LOGIN_TEMPLATE = "login.html"
+TOURN_TEMPLATE = "tourn.html"
 SESSION_TYPE = 'cachelib'
 SESSION_CACHELIB = FileSystemCache(cache_dir="sessions", default_timeout=0)
 
@@ -152,7 +154,7 @@ def index() -> str:
     """
     """
     session.clear()
-    return render_app({})
+    return render_tourn({})
 
 @app.get("/players")
 @app.get("/seeding")
@@ -238,7 +240,7 @@ def tourn() -> str:
         'tourn'    : TournInfo(),
         'new_tourn': True
     }
-    return render_app(context)
+    return render_tourn(context)
 
 def create_tourn(form: dict) -> str:
     """Create new tournament from form data.
@@ -284,7 +286,7 @@ def create_tourn(form: dict) -> str:
         'roster_file': roster_file,
         'err_msg'    : err_msg
     }
-    return render_app(context)
+    return render_tourn(context)
 
 def update_tourn(form: dict) -> str:
     """Similar to `create_tourn` except that new TournInfo record has been created, so we
@@ -330,7 +332,7 @@ def update_tourn(form: dict) -> str:
         'roster_file': roster_file,
         'err_msg'    : err_msg
     }
-    return render_app(context)
+    return render_tourn(context)
 
 ############
 # /players #
@@ -796,7 +798,7 @@ def render_view(view: View) -> str:
     path = VIEW_PATH[view]
     return redirect(path)
 
-def render_app(context: dict) -> str:
+def render_tourn(context: dict) -> str:
     """Common post-processing of context before rendering the main app page through Jinja
     """
     view_chk = [''] * len(View)
@@ -817,10 +819,36 @@ def render_app(context: dict) -> str:
         'tourn_sel': get_tourns() + [SEL_SEP, SEL_NEW],
         'sel_sep'  : SEL_SEP,
         'sel_new'  : SEL_NEW,
+        'tourn'    : None,       # context may contain override
+        'new_tourn': None,       # ditto
+        'err_msg'  : None,       # ditto
+        'btn_val'  : BUTTONS,
+        'btn_attr' : btn_attr,
+        'help_txt' : help_txt
+    }
+    return render_template(TOURN_TEMPLATE, **(base_ctx | context))
+
+def render_app(context: dict) -> str:
+    """Common post-processing of context before rendering the main app page through Jinja
+    """
+    view_chk = [''] * len(View)
+    view = context.get('view')
+    if isinstance(view, int):
+        view_chk[view] = CHECKED
+
+    stage_compl = 0
+    if context.get('tourn'):
+        stage_compl = context['tourn'].stage_compl or 0
+    btn_attr = [''] * len(BUTTONS)
+    for btn_idx, btn_stages in BUTTON_MAP.items():
+        if stage_compl not in btn_stages:
+            btn_attr[btn_idx] += DISABLED
+
+    base_ctx = {
+        'title'    : APP_NAME,
         'view_name': VIEW_NAME,
         'view_chk' : view_chk,
         'tourn'    : None,       # context may contain override
-        'new_tourn': None,       # ditto
         'err_msg'  : None,       # ditto
         'pl_layout': pl_layout,
         'sg_layout': sg_layout,

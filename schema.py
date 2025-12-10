@@ -433,6 +433,19 @@ class Player(BaseModel):
 
         return self.player_rank_adj or self.player_rank
 
+    def get_opps_games(self, opps: list[Self]) -> list[BaseModel]:
+        """Get SeedGame records for all games versus specified opponents
+        """
+        query = (SeedGame
+                 .select()
+                 .join(PlayerGame, on=(PlayerGame.game_label == SeedGame.label))
+                 .where(PlayerGame.player == self))
+        # see NOTE below (in get_game_stats())
+        opps_nums = [pl.player_num for pl in opps]
+        query = query.where((PlayerGame.opponents.extract_text('0').in_(opps_nums)) |
+                            (PlayerGame.opponents.extract_text('1').in_(opps_nums)))
+        return list(query)
+
     def get_game_stats(self, opps: list[Self] = None) -> dict:
         """Get stats for player's games (all, or versus specified opponents)
         """
@@ -444,9 +457,9 @@ class Player(BaseModel):
                          fn.sum(PlayerGame.opp_pts))
                  .where(PlayerGame.player == self))
         if opps:
-            # since we are not able to declare `opponents` with any kind of foreign key
-            # declaration, we have to explicitly extract the right comparison keys from
-            # the `opps` list
+            # NOTE: since we are not able to declare `opponents` with any kind of foreign
+            # key declaration, we have to explicitly extract the right comparison keys
+            # from the `opps` list
             opps_nums = [pl.player_num for pl in opps]
             query = query.where((PlayerGame.opponents.extract_text('0').in_(opps_nums)) |
                                 (PlayerGame.opponents.extract_text('1').in_(opps_nums)))
@@ -564,6 +577,61 @@ class SeedGame(BaseModel):
                                      self.player4)))
         assert len(pl_list) < 4  # ...or return None?
         return [pl.player_tag for pl in pl_list]
+
+    @property
+    def winner_info(self) -> tuple[str, int, int]:
+        """Returns tuple(team_name, team_pts)
+        """
+        if self.team1_name == self.winner:
+            return self.team1_tag, self.team1_pts
+        else:
+            return self.team2_tag, self.team2_pts
+
+    @property
+    def loser_info(self) -> tuple[str, int, int]:
+        """Returns tuple(team_name, team_pts)
+        """
+        if self.team1_name == self.winner:
+            return self.team2_tag, self.team2_pts
+        else:
+            return self.team1_tag, self.team1_pts
+
+    @property
+    def team1_tag(self) -> str:
+        """REVISIT: need to reconcile this with fmt_team_name (in euchmgr.py)!!!
+        """
+        pl_tag = lambda x: f"{x.nick_name} ({x.player_num})"
+        return f"{pl_tag(self.player1)} / {pl_tag(self.player2)}"
+
+    @property
+    def team2_tag(self) -> str:
+        """REVISIT: need to reconcile this with fmt_team_name (in euchmgr.py)!!!
+        """
+        pl_tag = lambda x: f"{x.nick_name} ({x.player_num})"
+        return f"{pl_tag(self.player3)} / {pl_tag(self.player4)}"
+
+    def team_info(self, player: Player) -> tuple[str, int, int]:
+        """Returns tuple(team_name, team_pts)
+        """
+        if self.is_winner(player):
+            return self.winner_info
+        else:
+            return self.loser_info
+
+    def opp_info(self, player: Player) -> tuple[str, int, int]:
+        """Returns tuple(team_name, team_pts)
+        """
+        if self.is_winner(player):
+            return self.loser_info
+        else:
+            return self.winner_info
+
+    def is_winner(self, player: Player) -> bool:
+        """Cleaner interface for use in templates
+        """
+        pg = PlayerGame.get(PlayerGame.player == player,
+                            PlayerGame.game_label == self.label)
+        return pg.is_winner
 
     def add_scores(self, team1_pts: int, team2_pts: int) -> None:
         """Record scores for completed (or incomplete) game.  It is no longer required
@@ -946,18 +1014,18 @@ class TournGame(BaseModel):
     def team_info(self, team: Team) -> tuple[str, int, int]:
         """Returns tuple(name, div_seed, pts)
         """
-        if self.team1 == team:
-            return self.team1_name, self.team1_div_seed, self.team1_pts
+        if self.is_winner(team):
+            return self.winner_info
         else:
-            return self.team2_name, self.team2_div_seed, self.team2_pts
+            return self.loser_info
 
     def opp_info(self, team: Team) -> tuple[str, int, int]:
         """Returns tuple(name, div_seed, pts)
         """
-        if self.team1 == team:
-            return self.team2_name, self.team2_div_seed, self.team2_pts
+        if self.is_winner(team):
+            return self.loser_info
         else:
-            return self.team1_name, self.team1_div_seed, self.team1_pts
+            return self.winner_info
 
     def is_winner(self, team: Team) -> bool:
         """Cleaner interface for use in templates

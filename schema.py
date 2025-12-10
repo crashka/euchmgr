@@ -835,6 +835,16 @@ class Team(BaseModel):
 
         return self.div_rank_adj or self.div_rank
 
+    def get_opps_games(self, opps: list[Self]) -> list[BaseModel]:
+        """Get TournGame records for all games versus specified opponents
+        """
+        query = (TournGame
+                 .select()
+                 .join(TeamGame, on=(TeamGame.game_label == TournGame.label))
+                 .where(TeamGame.team == self,
+                        TeamGame.opponent.in_(opps)))
+        return list(query)
+
     def get_game_stats(self, opps: list[Self] = None) -> dict:
         """Get stats for team's games (all, or versus specified opponents)
         """
@@ -914,6 +924,45 @@ class TournGame(BaseModel):
         """
         assert self.team1 and self.team2 is None  # ...or return None?
         return self.team1.team_tag
+
+    @property
+    def winner_info(self) -> tuple[str, int, int]:
+        """Returns tuple(name, div_seed, pts)
+        """
+        if self.team1_name == self.winner:
+            return self.team1_name, self.team1_div_seed, self.team1_pts
+        else:
+            return self.team2_name, self.team2_div_seed, self.team2_pts
+
+    @property
+    def loser_info(self) -> tuple[str, int, int]:
+        """Returns tuple(name, div_seed, pts)
+        """
+        if self.team1_name == self.winner:
+            return self.team2_name, self.team2_div_seed, self.team2_pts
+        else:
+            return self.team1_name, self.team1_div_seed, self.team1_pts
+
+    def team_info(self, team: Team) -> tuple[str, int, int]:
+        """Returns tuple(name, div_seed, pts)
+        """
+        if self.team1 == team:
+            return self.team1_name, self.team1_div_seed, self.team1_pts
+        else:
+            return self.team2_name, self.team2_div_seed, self.team2_pts
+
+    def opp_info(self, team: Team) -> tuple[str, int, int]:
+        """Returns tuple(name, div_seed, pts)
+        """
+        if self.team1 == team:
+            return self.team2_name, self.team2_div_seed, self.team2_pts
+        else:
+            return self.team1_name, self.team1_div_seed, self.team1_pts
+
+    def is_winner(self, team: Team) -> bool:
+        """Cleaner interface for use in templates
+        """
+        return team.team_name == self.winner
 
     def add_scores(self, team1_pts: int, team2_pts: int) -> None:
         """Record scores for completed (or incomplete) game.  It is no longer required

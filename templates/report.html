@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{{title}}</title>
+    <style>
+     .winner {
+       color: #108810;
+       font-weight: bold;
+     }
+     .loser {
+       color: #D70000;
+     }
+     .division {
+       margin-top: 1.0rem;
+       margin-bottom: 0.5rem;
+       display: flex;
+       flex-direction: column;
+     }
+     .cohort {
+       padding-left: 1.5rem;
+       margin-top: 0.5rem;
+       margin-bottom: 0.5rem;
+       display: flex;
+       flex-direction: column;
+     }
+     .cohort > p {
+       font-size: 1.25rem;
+     }
+     .cohort > p > span {
+       font-weight: bold;
+     }
+     .team {
+       padding-left: 1.5rem;
+       margin-top: 0.75rem;
+       margin-bottom: 0.5rem;
+     }
+     .team > p > span {
+       margin-right: 1.0rem;
+       font-weight: bold;
+     }
+     h1 {
+       font-size: 2.0rem;
+       margin-block-start: 1.0rem;
+       margin-block-end: 0.0rem;
+     }
+     h2 {
+       font-size: 1.75rem;
+       margin-block-start: 1.0rem;
+       margin-block-end: 0.0rem;
+     }
+     h3 {
+       font-size: 1.5rem;
+       margin-block-start: 0.5rem;
+       margin-block-end: 0.5rem;
+       display: inline-block;
+     }
+     h4 {
+       font-size: 1.25rem;
+       margin-block-start: 0.75rem;
+       margin-block-end: 0.5rem;
+       /*display: inline-block;*/
+     }
+     p {
+       margin-block-start: 0.0rem;
+       margin-block-end: 0.0rem;
+       display: inline;
+     }
+     table {
+       border: 2px solid darkgrey;
+       border-collapse: collapse;
+       margin-top: 0.5rem;
+     }
+     th, td {
+       border: 1px solid darkgrey;
+       border-collapse: collapse;
+       padding: 0.25rem 0.50rem;
+       text-align: center;
+     }
+    </style>
+  </head>
+
+  <body>
+    <h1>{{tourn.name}} &ndash; {{title}}</h1>
+    {% for div, cohorts in div_reports.items() %}
+    <article class="division">
+      <h2>Division {{div}}</h2>
+      {% for pos, cohort in cohorts.items() %}
+      <article class="cohort">
+        <h3>Position {{pos}}</h3>
+        {% for team, games in cohort.items() %}
+        {% if loop.first %}
+        <p>
+          ({{len(cohort)}} teams tied with Total Win Percent:
+          <span>{{round(team.tourn_win_pct, 2)}}%</span>)
+        </p>
+        {% endif %}
+        <article class="team">
+          <h4>{{team.team_name}} ({{team.div_seed}})</h4>
+          <p>
+            TB Rank: <span>{{team.div_rank}}</span>
+            Win-Loss: <span>{{team.tb_data['wins']}}-{{team.tb_data['losses']}}</span>
+            PF-PA: <span>{{team.tb_data['pts_for']}}-{{team.tb_data['pts_against']}}</span>
+            Pts Pct (total): <span>{{round(team.tourn_pts_pct, 2)}}%</span>
+          </p>
+          <table>
+            <thead>
+              <tr>
+                {% if report_by == "team" %}
+                <th>Round</th>
+                <th>Team</th>
+                <th>Opponent</th>
+                <th>Team Pts</th>
+                <th>Opp Pts</th>
+                {% elif report_by == "winner" %}
+                <th>Round</th>
+                <th>Winner</th>
+                <th>Loser</th>
+                <th>Winner Pts</th>
+                <th>Loser Pts</th>
+                {% else %}
+                <th>Round</th>
+                <th>Team 1</th>
+                <th>Team 2</th>
+                <th>Team 1 Pts</th>
+                <th>Team 2 Pts</th>
+                {% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for game in games %}
+              <tr class="{{'winner' if game.is_winner(team) else 'loser'}}">
+                {% if report_by == 'team' %}
+                <td>{{game.round_num}}</td>
+                <td>{{game.team_info(team)[0]}} ({{game.team_info(team)[1]}})</td>
+                <td>{{game.opp_info(team)[0]}} ({{game.opp_info(team)[1]}})</td>
+                <td>{{game.team_info(team)[2]}}</td>
+                <td>{{game.opp_info(team)[2]}}</td>
+                {% elif report_by == 'winner' %}
+                <td>{{game.round_num}}</td>
+                <td>{{game.winner_info[0]}} ({{game.winner_info[1]}})</td>
+                <td>{{game.loser_info[0]}} ({{game.loser_info[1]}})</td>
+                <td>{{game.winner_info[2]}}</td>
+                <td>{{game.loser_info[2]}}</td>
+                {% else %}
+                <td>{{game.round_num}}</td>
+                <td>{{game.team1_name}} ({{game.team1_div_seed}})</td>
+                <td>{{game.team2_name}} ({{game.team2_div_seed}})</td>
+                <td>{{game.team1_pts}}</td>
+                <td>{{game.team2_pts}}</td>
+                {% endif %}
+              </tr>
+              {% endfor %}  {# game #}
+            </tbody>
+          </table>
+        </article>
+        {% endfor %}  {# team #}
+      </article>
+      {% endfor %}  {# cohort #}
+    </article>
+    {% endfor %}  {# division #}
+  </body>
+</html>

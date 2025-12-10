@@ -34,10 +34,11 @@ pragmas = {'journal_mode'            : 'wal',
 db = SqliteExtDatabase(None, pragmas=pragmas)
 
 def db_init(name: str) -> bool:
-    """Initialize database for specified name (return True if operation executed; False if
-    database already set).
+    """Initialize database for the specified name (if not already bound); return True if
+    we actually do the binding, or False if this is a no-op.
 
-    Note that we are using autoconnect for now, so no explicit `connect` calls are needed.
+    Note that we are using autoconnect, since there is no reason to explicitly open or
+    close connections (as long as we are not switching databases).
     """
     if not name:
         raise RuntimeError("Database name not specified")

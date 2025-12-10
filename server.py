@@ -41,6 +41,7 @@ from euchmgr import (get_div_teams, tourn_create, upload_roster, generate_player
                      fake_tourn_games, validate_tourn, compute_team_ranks)
 from chart import chart
 from dash import dash
+from report import report
 
 #############
 # app stuff #
@@ -57,6 +58,7 @@ SESSION_CACHELIB = FileSystemCache(cache_dir="sessions", default_timeout=0)
 app.config.from_object(__name__)
 app.register_blueprint(chart, url_prefix="/chart")
 app.register_blueprint(dash, url_prefix="/dash")
+app.register_blueprint(report, url_prefix="/report")
 Session(app)
 
 # magic strings
@@ -880,4 +882,4 @@ help_txt = {
 ############
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5050)
+    app.run(debug=True, host='0.0.0.0', port=5050)

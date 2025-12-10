@@ -688,13 +688,14 @@ def compute_team_ranks(finalize: bool = False) -> None:
     break ties.
     """
     tourn = TournInfo.get()
-    ndivs = tourn.divisions
+    div_iter = range(1, tourn.divisions + 1)
     tm_list = Team.get_team_map().values()
     played = list(filter(lambda x: x.tourn_wins + x.tourn_losses, tm_list))
 
     tourn_win_pcts = [tm.tourn_win_pct for tm in played]
     tourn_ranks = rankdata(tourn_win_pcts, method='min')
-    div_teams = {i + 1: [] for i in range(ndivs)}
+
+    div_teams = {div: [] for div in div_iter}
     for i, tm in enumerate(played):
         tm.tourn_rank = tourn_ranks[i]
         div_teams[tm.div_num].append(tm)

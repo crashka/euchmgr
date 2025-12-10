@@ -104,7 +104,7 @@ def sd_tb_report(tourn: TournInfo) -> str:
 ################
 
 # HORRIBLY HACKY: same as above (for sd_tb_report)!!!
-team_tag = lambda x: f"{x.team_name} ({x.team_seed})"
+team_tag = lambda x: f"{x.team_name} ({x.div_seed})"
 
 def rr_tb_report(tourn: TournInfo) -> str:
     """Render round robin tie-breaker report

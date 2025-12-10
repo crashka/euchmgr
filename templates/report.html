@@ -102,7 +102,7 @@
         <h3>Position {{pos}}&nbsp;&nbsp;<span class="h3_info">({{pos_info[pos]}})</span></h3>
         {% for player, games in cohort.items() %}
         {% if loop.first %}
-        <p>{{len(cohort)}} players: {{', '.join(pos_plyrs[pos])}}</p>
+        <p>{{len(cohort)}} players tied: {{', '.join(pos_plyrs[pos])}}</p>
         {% endif %}
         <article class="player">
           <h4>{{player.nick_name}} ({{player.player_num}})</h4>
@@ -182,7 +182,7 @@
         <h3>Position {{pos}}&nbsp;&nbsp;<span class="h3_info">({{div_info[div][pos]}})</span></h3>
         {% for team, games in cohort.items() %}
         {% if loop.first %}
-        <p>{{len(cohort)}} teams: {{'; '.join(div_cohort[div][pos])}}</p>
+        <p>{{len(cohort)}} teams tied: {{'; '.join(div_cohort[div][pos])}}</p>
         {% endif %}
         <article class="team">
           <h4>{{team.team_name}} ({{team.div_seed}})</h4>

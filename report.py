@@ -59,10 +59,10 @@ def sd_tb_report(tourn: TournInfo) -> str:
     pl_list = Player.get_player_map().values()
     by_rank = sorted(pl_list, key=lambda x: x.player_rank)
 
-    # report keys for each layer: cohort_pos (int), team (Team) -> SeedGames
-    pos_rpt = {}
-    pos_info = {}
-    pos_plyrs = {}
+    # dict keys: cohort_pos (int), team (Team)
+    pos_rpt: dict[int, dict[Team, list[SeedGame]]] = {}
+    pos_info: dict[int, str] = {}
+    pos_cohort: dict[int, list[str]] = {}
     for k, g in groupby(by_rank, key=lambda x: x.player_pos):
         cohort = list(g)
         if len(cohort) == 1:
@@ -73,18 +73,15 @@ def sd_tb_report(tourn: TournInfo) -> str:
         plyr_list = []
         pos_rpt[cohort_pos] = cohort_rpt
         pos_info[cohort_pos] = f"Win Pct: {round(cohort_win_pct, 2)}%"
-        pos_plyrs[cohort_pos] = plyr_list
+        pos_cohort[cohort_pos] = plyr_list
         for pl in cohort:
-            plyr_list.append(player_tag(pl))
-            # get player PlayerGame.join(SeedGame) records vs. cohort opps
-            games = pl.get_opps_games(cohort)
+            games = pl.get_opps_games(cohort)  # list[SeedGame]
             cohort_rpt[pl] = games
+            plyr_list.append(player_tag(pl))
 
-            # format games data (highlight current player)
-
-            # check for/flag conflicts (loss to lower-ranked cohort)
-
-            # check for/flag absolute ties (identical tb_crit values)
+            # now check for and flag the following:
+            # - conflicts (loss to lower-ranked cohort)
+            # - absolute ties (identical tb_crit values)
 
     context = {
         'report_num' : 0,
@@ -94,7 +91,7 @@ def sd_tb_report(tourn: TournInfo) -> str:
         'round'      : round,
         'pos_rpt'    : pos_rpt,
         'pos_info'   : pos_info,
-        'pos_plyrs'  : pos_plyrs,
+        'pos_cohort' : pos_cohort,
         'report_by'  : 'team'
     }
     return render_report(context)
@@ -112,6 +109,11 @@ def rr_tb_report(tourn: TournInfo) -> str:
     div_iter = range(1, tourn.divisions + 1)
     tm_list = Team.get_team_map().values()
     by_rank = sorted(tm_list, key=lambda x: x.div_rank)
+
+    # dict keys: div (int), cohort_pos (int), team (Team)
+    div_rpt: dict[int, dict[int, dict[Team, list[SeedGame]]]] = {}
+    div_info: dict[int, dict[int, str]] = {}
+    div_cohort: dict[int, dict[int, list[str]]] = {}
 
     # report keys for each layer: div (int), cohort_pos (int), team (Team) -> TournGames
     div_rpt = {}
@@ -138,16 +140,13 @@ def rr_tb_report(tourn: TournInfo) -> str:
             pos_info[cohort_pos] = f"Win Pct: {round(cohort_win_pct, 2)}%"
             pos_cohort[cohort_pos] = team_list
             for tm in cohort:
-                team_list.append(team_tag(tm))
-                # get player TeamGame.join(TournGame) records vs. cohort opps
-                games = tm.get_opps_games(cohort)
+                games = tm.get_opps_games(cohort)  # list[TournGame]
                 cohort_rpt[tm] = games
+                team_list.append(team_tag(tm))
 
-                # format games data (highlight current team)
-                
-                # check for/flag conflicts (loss to lower-ranked cohort)
-
-                # check for/flag absolute ties (identical tb_crit values)
+                # now check for and flag the following:
+                # - conflicts (loss to lower-ranked cohort)
+                # - absolute ties (identical tb_crit values)
 
     context = {
         'report_num' : 1,

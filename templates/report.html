@@ -102,7 +102,7 @@
         <h3>Position {{pos}}&nbsp;&nbsp;<span class="h3_info">({{pos_info[pos]}})</span></h3>
         {% for player, games in cohort.items() %}
         {% if loop.first %}
-        <p>{{len(cohort)}} players tied: {{', '.join(pos_plyrs[pos])}}</p>
+        <p>{{len(cohort)}} players tied: {{', '.join(pos_cohort[pos])}}</p>
         {% endif %}
         <article class="player">
           <h4>{{player.nick_name}} ({{player.player_num}})</h4>

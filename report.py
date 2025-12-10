@@ -114,11 +114,6 @@ def rr_tb_report(tourn: TournInfo) -> str:
     div_rpt: dict[int, dict[int, dict[Team, list[SeedGame]]]] = {}
     div_info: dict[int, dict[int, str]] = {}
     div_cohort: dict[int, dict[int, list[str]]] = {}
-
-    # report keys for each layer: div (int), cohort_pos (int), team (Team) -> TournGames
-    div_rpt = {}
-    div_info = {}
-    div_cohort = {}
     for div in div_iter:
         pos_rpt = {}
         pos_info = {}

@@ -45,7 +45,8 @@ Here is the high-level outline of the approach:
 
 More detail and some discussion on these evaluation steps is provided below.  For what
 it's worth, we note that some of the more arcane scenarios are much more likely to occur
-for tie-breaking in the seeding round rather than tounament play.  I don't think different
+for tie-breaking in the seeding round rather than tounament play, especially as related to
+unequal numbers of games played within a cohort (including none).  I don't think different
 rules and/or algorithms are needed between the two stages, but that would be up to the
 rules committee.
 
@@ -143,3 +144,8 @@ for this.  Here are a few notes:
 
 For anyone interested, a little more exploration of this math problem here: [Ratio
 Math](https://github.com/crashka/ratio-math/).
+
+### Overall Tournament Rankings
+
+Need to specify the rules for incoporation of game and match results from semi-final and
+final round play.

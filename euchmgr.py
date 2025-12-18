@@ -291,14 +291,14 @@ def rank_player_cohort(players: list[Player]) -> list[tuple[Player, tuple, dict]
     """Given a list of players (generally with the same record, though we are not checking
     here, since we don't really care), return list ranked by the following stats tuple:
 
-      (seed_win_pct, seed_pts_pct)
+      (seed_pts_pct,)
 
     The `data` dict (last return element) is no longer used for the seeding round.
     """
     # larger is better for all stats components
-    sort_key = lambda x: (-x.seed_win_pct, -x.seed_pts_pct)
+    sort_key = lambda x: (-x.seed_pts_pct,)
     ranked = sorted(players, key=sort_key)
-    return [(pl, (pl.seed_win_pct, pl.seed_pts_pct), None) for pl in ranked]
+    return [(pl, (pl.seed_pts_pct,), None) for pl in ranked]
 
 def compute_player_ranks(finalize: bool = False) -> None:
     """Note that we use `rankdata` to do the computation here, and `rank_player_cohort` to

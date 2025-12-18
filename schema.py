@@ -8,7 +8,7 @@ from peewee import (TextField, IntegerField, BooleanField, ForeignKeyField, Floa
                     OperationalError, DoesNotExist, fn)
 from playhouse.sqlite_ext import JSONField
 
-from core import ImplementationError
+from core import DEBUG, ImplementationError
 from database import BaseModel
 
 DFLT_SEED_ROUNDS  = 8
@@ -467,15 +467,17 @@ class Player(BaseModel):
     def pick_partners(self, partner: Self, partner2: Self = None) -> None:
         """
         """
-        print(f"player: {self.player_num} ({self.nick_name})")
-        print(f"  - picks partner {partner.player_num} ({partner.nick_name})")
+        if DEBUG:
+            print(f"player: {self.player_num} ({self.nick_name})")
+            print(f"  - picks partner {partner.player_num} ({partner.nick_name})")
         assert self.partner is None
         assert partner.picked_by is None
         self.partner = partner
         partner.picked_by = self
 
         if partner2:
-            print(f"  - picks partner {partner2.player_num} ({partner2.nick_name})")
+            if DEBUG:
+                print(f"  - picks partner {partner2.player_num} ({partner2.nick_name})")
             assert self.partner2 is None
             assert partner2.picked_by is None
             self.partner2 = partner2

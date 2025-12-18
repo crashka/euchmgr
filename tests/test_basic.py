@@ -18,6 +18,7 @@ from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_se
 
 TOURN_NAME = "test"
 ROSTER_FILE = DataFile("test_roster.csv", TEST_DIR)
+RAND_SEEDS = list(x * 10 for x in range(10))
 
 @pytest.fixture
 def tourn_db() -> Generator[SqliteDatabase]:
@@ -36,7 +37,7 @@ def test_end_to_end(tourn_db: SqliteDatabase) -> None:
     tourn_info = TournInfo.get()
     assert tourn_info.stage_compl == TournStage.PLAYER_ROSTER
 
-    generate_player_nums()
+    generate_player_nums(rand_seed=RAND_SEEDS[0])
     tourn_info = TournInfo.get()
     assert tourn_info.stage_compl == TournStage.PLAYER_NUMS
 
@@ -44,7 +45,7 @@ def test_end_to_end(tourn_db: SqliteDatabase) -> None:
     tourn_info = TournInfo.get()
     assert tourn_info.stage_compl == TournStage.SEED_BRACKET
 
-    fake_seed_games()
+    fake_seed_games(rand_seed=RAND_SEEDS[1])
     tourn_info = TournInfo.get()
     assert tourn_info.stage_compl == TournStage.SEED_RESULTS
 
@@ -61,7 +62,7 @@ def test_end_to_end(tourn_db: SqliteDatabase) -> None:
     assert tourn_info.stage_compl == TournStage.SEED_RANKS
     # TODO: assert action taken!
 
-    fake_pick_partners()
+    fake_pick_partners(rand_seed=RAND_SEEDS[2])
     tourn_info = TournInfo.get()
     assert tourn_info.stage_compl == TournStage.PARTNER_PICK
 
@@ -77,7 +78,7 @@ def test_end_to_end(tourn_db: SqliteDatabase) -> None:
     tourn_info = TournInfo.get()
     assert tourn_info.stage_compl == TournStage.TOURN_BRACKET
 
-    fake_tourn_games()
+    fake_tourn_games(rand_seed=RAND_SEEDS[3])
     tourn_info = TournInfo.get()
     assert tourn_info.stage_compl == TournStage.TOURN_RESULTS
 

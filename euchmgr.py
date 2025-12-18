@@ -15,7 +15,7 @@ import os
 
 from ckautils import rankdata
 
-from core import DataFile
+from core import DataFile, DEBUG
 from database import db_init, db_name
 from schema import schema_create, TournStage, TournInfo, Player, SeedGame, Team, TournGame
 
@@ -119,13 +119,13 @@ def generate_player_nums(rand_seed: int = None) -> None:
     # work around contiguousness
     Player.clear_player_nums()
 
-    my_rand = random.Random
+    my_rand = random.Random()
     if isinstance(rand_seed, int):
         my_rand.seed(rand_seed)  # for reproducible debugging only
 
     pl_list = list(Player.iter_players())
     nplayers = len(pl_list)
-    ords = iter(random.sample(range(nplayers), nplayers))
+    ords = iter(my_rand.sample(range(nplayers), nplayers))
     for player in pl_list:
         player.player_num = next(ords) + 1
         player.save()
@@ -184,23 +184,27 @@ def build_seed_bracket() -> list[SeedGame]:
     tourn.complete_stage(TournStage.SEED_BRACKET)
     return games
 
-def fake_seed_games(clear_existing: bool = False, limit: int = None) -> None:
+def fake_seed_games(clear_existing: bool = False, limit: int = None, rand_seed: int = None) -> None:
     """Generates random team points and determines winner for each seed game.  Note that
     `clear_existing` only clears completed games.
     """
+    my_rand = random.Random()
+    if isinstance(rand_seed, int):
+        my_rand.seed(rand_seed)  # for reproducible debugging only
+
     nfake = 0
     sort_key = lambda x: (x.round_num, x.table_num)
     for game in sorted(SeedGame.iter_games(), key=sort_key):
         if game.winner and not clear_existing:
             continue
         winner_pts = 10
-        loser_pts = random.randrange(10)
-        if random.randrange(2) > 0:
+        loser_pts = my_rand.randrange(10)
+        if my_rand.randrange(2) > 0:
             game.add_scores(winner_pts, loser_pts)
         else:
             game.add_scores(loser_pts, winner_pts)
         game.save()
-        if limit:
+        if limit and DEBUG:
             print(f"{game.team1_name}: {game.team1_pts}, {game.team2_name}: {game.team2_pts}")
 
         if game.winner:
@@ -384,9 +388,13 @@ def prepick_champ_partners() -> None:
     by_rank[0].pick_partners(*by_rank[1:])
     by_rank[0].save()
 
-def fake_pick_partners(clear_existing: bool = False) -> None:
+def fake_pick_partners(clear_existing: bool = False, rand_seed: int = None) -> None:
     """Assumes champ team is pre-picked
     """
+    my_rand = random.Random()
+    if isinstance(rand_seed, int):
+        my_rand.seed(rand_seed)  # for reproducible debugging only
+
     if clear_existing:
         Player.clear_partner_picks()
 
@@ -400,7 +408,7 @@ def fake_pick_partners(clear_existing: bool = False) -> None:
             continue
         avail.remove(player)
 
-        partners = [random.choice(avail)]
+        partners = [my_rand.choice(avail)]
         avail.remove(partners[0])
         if len(avail) == 1:  # three-headed monster
             partners.append(avail.pop(0))
@@ -540,23 +548,27 @@ def build_tourn_bracket() -> list[TournGame]:
     tourn.complete_stage(TournStage.TOURN_BRACKET)
     return games
 
-def fake_tourn_games(clear_existing: bool = False, limit: int = None) -> None:
+def fake_tourn_games(clear_existing: bool = False, limit: int = None, rand_seed: int = None) -> None:
     """Generates random team points and determines winner for each tournament game (before
     semis/finals).  Note that `clear_existing` only clears completed games.
     """
+    my_rand = random.Random()
+    if isinstance(rand_seed, int):
+        my_rand.seed(rand_seed)  # for reproducible debugging only
+
     nfake = 0
     sort_key = lambda x: (x.round_num, x.table_num)
     for game in sorted(TournGame.iter_games(), key=sort_key):
         if game.winner and not clear_existing:
             continue
         winner_pts = 10
-        loser_pts = random.randrange(10)
-        if random.randrange(2) > 0:
+        loser_pts = my_rand.randrange(10)
+        if my_rand.randrange(2) > 0:
             game.add_scores(winner_pts, loser_pts)
         else:
             game.add_scores(loser_pts, winner_pts)
         game.save()
-        if limit:
+        if limit and DEBUG:
             print(f"{game.team1_name}: {game.team1_pts}, {game.team2_name}: {game.team2_pts}")
 
         if game.winner:

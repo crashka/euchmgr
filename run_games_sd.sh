@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 TOURN="${TOURN:-nola_2025}"
 ROSTER="${ROSTER:-nola_2025_roster.csv}"
 

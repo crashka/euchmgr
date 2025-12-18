@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 TOURN="${TOURN:-nola_2025}"
 ROSTER="${ROSTER:-nola_2025_roster.csv}"
 
@@ -12,8 +14,9 @@ LOOPS=${2:-$(((nplayers / 4 * nrounds - 1) / LIMIT + 1))}
 echo "LIMIT = " ${LIMIT}
 echo "LOOPS = " ${LOOPS}
 
+echo -n "Creating tournament \"${TOURN}\"..."
+echo "done"
 python -m euchmgr "${TOURN}" tourn_create force=t
-echo "Tournament \"${TOURN}\" created"
 read -p "Press any key to upload roster..." -n1 -s
 echo "done"
 python -m euchmgr "${TOURN}" upload_roster "${ROSTER}"

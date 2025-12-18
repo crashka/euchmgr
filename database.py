@@ -34,12 +34,11 @@ pragmas = {'journal_mode'            : 'wal',
 db = CSqliteExtDatabase(None, pragmas=pragmas, c_extensions=True)
 
 def db_init(name: str) -> SqliteDatabase:
-    """Initialize database for the specified name (if not already bound); return the
-    Peewee `Database` object.
+    """Initialize database for the specified name (if not already bound); return the ORM
+    `Database` object (discourage importin `db` directly).
 
     Note that we are using autoconnect, since there is no reason to explicitly open or
     close connections (as long as we are not switching databases).
-
     """
     if not name:
         raise RuntimeError("Database name not specified")
@@ -49,6 +48,13 @@ def db_init(name: str) -> SqliteDatabase:
 
     db.init(build_filename(name))
     setattr(db, 'db_name', name)  # little hack to remember name
+    return db
+
+def db_close() -> SqliteDatabase:
+    """Ensure that the current database is closed (e.g. for checkpointing the WAL).
+    Return the ORM `Database` object (as above)
+    """
+    db.close()  # idenpotent
     return db
 
 def db_name() -> str | None:

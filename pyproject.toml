@@ -1,5 +1,5 @@
 [tool.pytest.ini_options]
-pythonpath = "."
+pythonpath = ". tests"
 addopts = [
     "--import-mode=importlib",
     "--ignore=save"

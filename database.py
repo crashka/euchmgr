@@ -33,23 +33,24 @@ pragmas = {'journal_mode'            : 'wal',
 
 db = SqliteExtDatabase(None, pragmas=pragmas)
 
-def db_init(name: str) -> bool:
-    """Initialize database for the specified name (if not already bound); return True if
-    we actually do the binding, or False if this is a no-op.
+def db_init(name: str) -> SqliteDatabase:
+    """Initialize database for the specified name (if not already bound); return the
+    Peewee `Database` object.
 
     Note that we are using autoconnect, since there is no reason to explicitly open or
     close connections (as long as we are not switching databases).
+
     """
     if not name:
         raise RuntimeError("Database name not specified")
     cur_db = db_name()
     if cur_db and name == cur_db:
-        return False
+        return db
 
     db_file = f'{name}{DB_FILETYPE}'
     db.init(DataFile(db_file))
     setattr(db, 'db_name', name)  # little hack to remember name
-    return True
+    return db
 
 def db_name() -> str | None:
     """Second half of little hack (see above)

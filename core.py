@@ -19,6 +19,7 @@ BASE_DIR   = FILE_DIR
 DATA_DIR   = os.path.join(BASE_DIR, 'data')
 LOG_DIR    = os.path.join(BASE_DIR, 'log')
 UPLOAD_DIR = os.path.join(BASE_DIR, 'uploads')
+TEST_DIR   = os.path.join(BASE_DIR, 'tests')
 
 def DataFile(file_name: str, rel_path: str | list[str] = DATA_DIR) -> str:
     """Given name of file, return full path name (in DATA_DIR, or specified list of path

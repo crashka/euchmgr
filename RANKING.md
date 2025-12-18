@@ -2,9 +2,9 @@
 
 ## General Rules for Ranking
 
-These rules apply in a general fashing to the seeding round, round robin divisional (and
-inter-divisional) play, and overall tournament rankings.  Special considerations for any
-of these stages/purposes will be called out below.
+These rules apply in a general fashion to the seeding round, round robin play (for playoff
+qualification), and final overall tournament rankings.  Special divergence for any of the
+stages (and/or specific objectives therein) will be called out below.
 
 The first consideration is always **win percentage**.  If players (for seeding) or teams
 (for round robin play) have identical win percentages at the end of the stage, they are

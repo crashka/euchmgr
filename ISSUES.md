@@ -17,11 +17,6 @@ entering) scores after each player or team in the matchup [Struble]
 
 - *Created - Dec 01, 2025*
 
-**#6** - Seeding round should not use head-to-head matchups for ranking/tie-breaking; only
-criteria should be: win pct, points pct, then (virtual?) coin flip [Struble]
-
-- *Created - Dec 15, 2025*
-
 ## Feature/Enhancement Requests
 
 **#5** - Mobile app for entering game scores [Struble]
@@ -32,7 +27,6 @@ criteria should be: win pct, points pct, then (virtual?) coin flip [Struble]
 - Players can only enter scores for their own games as they are completed
 - Other players in the same game should be notified in the app, and given the ability to
   confirm, correct, or dispute
-
 
 **#7** - Final tournament rankings need to include playoff results [Struble]
 
@@ -71,3 +65,9 @@ based on win pct, then established tie-breaking rules, as outlined below [Strubl
   - Overall points %
   - Coin flip (non-virtual)
 - *Fixed - Dec 08, 2025*
+
+**#6** - Seeding round should not use head-to-head matchups for ranking/tie-breaking; only
+criteria should be: win pct, points pct, then (virtual?) coin flip [Struble]
+
+- *Created - Dec 15, 2025*
+- *Fixed - Dec 18, 2025*

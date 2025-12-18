@@ -291,55 +291,14 @@ def rank_player_cohort(players: list[Player]) -> list[tuple[Player, tuple, dict]
     """Given a list of players (generally with the same record, though we are not checking
     here, since we don't really care), return list ranked by the following stats tuple:
 
-      (cohrt_win_pct, wl_factor, cohrt_pts_pct, seed_pts_pct)
+      (seed_win_pct, seed_pts_pct)
 
-    where `wl_factor` (win-loss factor) is used to ensure that more wins is better (if all
-    wins), more losses is worse (if all losses), and 0-0 sorts below 1-1, 2-2, etc.
-
-    The `data` dict (last return element) is the raw head-to-head data for the cohort.
+    The `data` dict (last return element) is no longer used for the seeding round.
     """
-    stats = {}
-    data = {}
-    for pl in players:
-        wl_factor = 0
-        # no need to exclude self from opps
-        st = pl.get_game_stats(opps=players)
-        cohrt_games = st['games']
-        if cohrt_games == 0:
-            # REVISIT: should this be 0.0 instead???
-            cohrt_win_pct = 50.0
-            cohrt_pts_pct = 50.0
-            data[pl.player_num] = {
-                'wins'       : 0,
-                'losses'     : 0,
-                'pts_for'    : 0,
-                'pts_against': 0
-            }
-            # REVISIT: we currently sort this below other tied records!!!
-            wl_factor = -1
-        else:
-            cohrt_tot_pts = st['team_pts'] + st['opp_pts']
-            cohrt_win_pct = st['wins'] / st['games'] * 100.0
-            cohrt_pts_pct = st['team_pts'] / cohrt_tot_pts * 100.0
-            data[pl.player_num] = {
-                'wins'       : st['wins'],
-                'losses'     : cohrt_games - st['wins'],
-                'pts_for'    : st['team_pts'],
-                'pts_against': st['opp_pts']
-            }
-            # add weight (positive or negative) to all winning or all losing records,
-            # based on number of cohort head-to-head games; otherwise treat all other
-            # records as a pure percentage
-            if st['wins'] == cohrt_games:
-                wl_factor = cohrt_games
-            elif st['wins'] == 0:
-                wl_factor = -cohrt_games
-        stats[pl.player_num] = (cohrt_win_pct, wl_factor, cohrt_pts_pct, pl.seed_pts_pct)
-
     # larger is better for all stats components
-    sort_key = lambda pl: tuple(-x for x in stats[pl.player_num])
+    sort_key = lambda x: (-x.seed_win_pct, -x.seed_pts_pct)
     ranked = sorted(players, key=sort_key)
-    return [(pl, stats[pl.player_num], data[pl.player_num]) for pl in ranked]
+    return [(pl, (pl.seed_win_pct, pl.seed_pts_pct), None) for pl in ranked]
 
 def compute_player_ranks(finalize: bool = False) -> None:
     """Note that we use `rankdata` to do the computation here, and `rank_player_cohort` to

@@ -398,25 +398,9 @@ class Player(BaseModel):
         """
         if self.player_pos is None:
             return None
-        elif not self.tb_data:
+        elif not self.tb_crit:
             return str(self.player_pos)
         return f"{self.player_pos}*"
-
-    @property
-    def tb_win_rec(self) -> str | None:
-        """Tie-breaker (head-to-head) win-loss record as a string
-        """
-        if not self.tb_data:
-            return None
-        return f"{self.tb_data['wins']}-{self.tb_data['losses']}"
-
-    @property
-    def tb_pts_rec(self) -> str | None:
-        """Tie-breaker (head-to-head) points for-and-against record as a string
-        """
-        if not self.tb_data:
-            return None
-        return f"{self.tb_data['pts_for']}-{self.tb_data['pts_against']}"
 
     @property
     def player_rank_final(self, annotated: bool = False) -> int | str:
@@ -870,7 +854,7 @@ class Team(BaseModel):
         """
         if self.div_pos is None:
             return None
-        elif not self.tb_data:
+        elif not self.tb_crit:
             return str(self.div_pos)
         return f"{self.div_pos}*"
 

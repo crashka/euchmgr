@@ -108,7 +108,6 @@
               <th class="hor_sect vert_sect" colspan="{{rnds}}">Points For (by Round)</th>
               <th class="hor_sect vert_sect" colspan="{{rnds}}">Points Against (by Round)</th>
               <th class="hor_sect vert_sect" colspan="3">Overall</th>
-              <th class="hor_sect vert_sect" colspan="2">Head-to-Head</th>
               <th class="hor_sect vert_sect" rowspan=2>Rank</th>
               <th class="hor_sect" rowspan=2>Mvmt</th>
             </tr>
@@ -124,8 +123,6 @@
               <th class="hor_sect vert_sect">Win Pct</th>
               <th class="hor_sect">Pos</th>
               <th class="hor_sect">Pts Pct</th>
-              <th class="hor_sect vert_sect">W-L</th>
-              <th class="hor_sect">PF-PA</th>
             </tr>
           </thead>
           <tbody>
@@ -146,8 +143,6 @@
               <td class="">{{stats_fmt[pl.player_num][1]|safe}}</td>
               <td class="">{{stats_fmt[pl.player_num][2]|safe}}</td>
               <td class="vert_sect">{{stats_fmt[pl.player_num][3]|safe}}</td>
-              <td class="">{{stats_fmt[pl.player_num][4]|safe}}</td>
-              <td class="vert_sect">{{stats_fmt[pl.player_num][5]|safe}}</td>
               <td class="">{{mvmt[pl.player_num]}}</td>
             </tr>
             {% endfor %}

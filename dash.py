@@ -221,24 +221,20 @@ def sd_dash(tourn: TournInfo) -> str:
                     pl.seed_win_pct,
                     pl.player_pos_str,
                     pl.seed_pts_pct,
-                    pl.tb_win_rec,
-                    pl.tb_pts_rec,
                     pl.player_rank_final
                 )
                 stats_fmt[pl_num] = (
                     fmt_dash_stat(stats[pl_num][0], prev_stats[pl_num][0], no_style=True),
                     fmt_dash_stat(stats[pl_num][1], prev_stats[pl_num][1], no_style=True),
                     fmt_dash_stat(stats[pl_num][2], prev_stats[pl_num][2], no_style=True),
-                    fmt_dash_stat(stats[pl_num][3], prev_stats[pl_num][3], no_style=True),
-                    fmt_dash_stat(stats[pl_num][4], prev_stats[pl_num][4], no_style=True),
-                    fmt_dash_stat(stats[pl_num][5], prev_stats[pl_num][5])
+                    fmt_dash_stat(stats[pl_num][3], prev_stats[pl_num][3])
                 )
 
             if tot_pts == prev_tot_pts and prev_mvmt:
                 mvmt[pl_num] = prev_mvmt.get(pl_num, '')
                 colcls[pl_num] = prev_colcls.get(pl_num, '')
-            elif prev_stats[pl_num][5]:
-                rank_diff = (prev_stats[pl_num][5] or 0) - (pl.player_rank_final or 0)
+            elif prev_stats[pl_num][3]:
+                rank_diff = (prev_stats[pl_num][3] or 0) - (pl.player_rank_final or 0)
                 if rank_diff > 0:
                     mvmt[pl_num] = f'+{rank_diff}'
                     colcls[pl_num] = COLCLS_UP
@@ -258,17 +254,13 @@ def sd_dash(tourn: TournInfo) -> str:
                 pl.seed_win_pct,
                 pl.player_pos_str,
                 pl.seed_pts_pct,
-                pl.tb_win_rec,
-                pl.tb_pts_rec,
                 pl.player_rank_final
             )
             stats_fmt[pl_num] = (
                 fmt_dash_stat(stats[pl_num][0], no_style=True),
                 fmt_dash_stat(stats[pl_num][1], no_style=True),
                 fmt_dash_stat(stats[pl_num][2], no_style=True),
-                fmt_dash_stat(stats[pl_num][3], no_style=True),
-                fmt_dash_stat(stats[pl_num][4], no_style=True),
-                fmt_dash_stat(stats[pl_num][5])
+                fmt_dash_stat(stats[pl_num][3])
             )
 
     updated = now_str()

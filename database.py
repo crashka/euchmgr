@@ -35,7 +35,7 @@ db = CSqliteExtDatabase(None, pragmas=pragmas, c_extensions=True)
 
 def db_init(name: str) -> SqliteDatabase:
     """Initialize database for the specified name (if not already bound); return the ORM
-    `Database` object (discourage importin `db` directly).
+    `Database` object (discourage importing `db` directly).
 
     Note that we are using autoconnect, since there is no reason to explicitly open or
     close connections (as long as we are not switching databases).
@@ -51,10 +51,11 @@ def db_init(name: str) -> SqliteDatabase:
     return db
 
 def db_close() -> SqliteDatabase:
-    """Ensure that the current database is closed (e.g. for checkpointing the WAL).
-    Return the ORM `Database` object (as above)
+    """Ensure that the current database is closed (e.g. for checkpointing the WAL); return
+    the ORM `Database` object (as above).  Note that this call is idempotent.
     """
-    db.close()  # idenpotent
+    if not db.is_closed():
+        db.close()
     return db
 
 def db_name() -> str | None:

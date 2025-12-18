@@ -16,7 +16,7 @@ import os
 from ckautils import rankdata
 
 from core import DataFile, DEBUG
-from database import db_init, db_name
+from database import db_init, db_close, db_name
 from schema import schema_create, TournStage, TournInfo, Player, SeedGame, Team, TournGame
 
 BYE_TEAM = '-- (bye) --'
@@ -766,6 +766,7 @@ def main() -> int:
 
     db_init(tourn_name)
     mod_func(*args, **kwargs)  # will throw exceptions on error
+    db_close()
     return 0
 
 if __name__ == '__main__':

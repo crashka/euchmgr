@@ -32,7 +32,7 @@ from cachelib.file import FileSystemCache
 from werkzeug.utils import secure_filename
 
 from core import DATA_DIR, UPLOAD_DIR, ImplementationError
-from database import DB_FILETYPE, now_str, db_init
+from database import DB_FILETYPE, now_str, db_init, db_close
 from schema import GAME_PTS, TournStage, TournInfo, Player, SeedGame, Team, TournGame
 from euchmgr import (get_div_teams, tourn_create, upload_roster, generate_player_nums,
                      build_seed_bracket, fake_seed_games, validate_seed_round,

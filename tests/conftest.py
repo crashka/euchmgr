@@ -120,6 +120,9 @@ def stage_14_db() -> SqliteDatabase:
 
 @pytest.fixture
 def test_db() -> Generator[SqliteDatabase]:
+    """Note that the yield value for this function can easily be ignored (e.g. we can use
+    this with the `usefixtures` marker).
+    """
     db = db_init(TEST_DB)
     yield db
-    db.close()
+    db_close()

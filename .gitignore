@@ -1,4 +1,5 @@
 /*.html
+*.tourn_db
 log/
 save/
 sessions/

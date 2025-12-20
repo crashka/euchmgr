@@ -20,6 +20,7 @@ GAME_PTS          = 10
 BRACKET_SEED      = 'seed'
 BRACKET_TOURN     = 'rr'
 BRACKET_PLAYOFF   = 'playoff'
+BRACKET_TEST      = 'test'
 
 # stage values are chronologically sequenced
 TournStage = IntEnum('TournStage',
@@ -898,6 +899,16 @@ class Team(BaseModel):
                         TeamGame.opponent.in_(opps)))
         return list(query)
 
+    def get_wins(self, opps: list[Self]) -> list[BaseModel]:
+        """Get TeamGame records for all wins versus specified opponents
+        """
+        query = (TeamGame
+                 .select()
+                 .where(TeamGame.team == self,
+                        TeamGame.opponent.in_(opps),
+                        TeamGame.is_winner == True))
+        return list(query)
+
     def get_game_stats(self, opps: list[Self] = None) -> dict:
         """Get stats for team's games (all, or versus specified opponents)
         """
@@ -1058,16 +1069,17 @@ class TournGame(BaseModel):
 
         return upd
 
-    def insert_team_games(self) -> int:
+    def insert_team_games(self, testing: bool = False) -> int:
         """Insert a record into the TeamGame denorm for teams involved in the game;
         returns number of records inserted.  Called by front-end after the game is
         complete (i.e. winner determined)
         """
+        bracket = BRACKET_TOURN if not testing else BRACKET_TEST
         if self.table_num is None:
             assert self.bye_team is not None
             assert self.team1 is not None
             assert self.team2 is None
-            tg_info = {'bracket'   : BRACKET_TOURN,
+            tg_info = {'bracket'   : bracket,
                        'round_num' : self.round_num,
                        'game_label': self.label,
                        'team'      : self.team1,

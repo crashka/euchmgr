@@ -3,12 +3,13 @@
 """Common constants, fixtures, etc.
 """
 from collections.abc import Generator
+import shutil
 
 import pytest
 from peewee import SqliteDatabase
 
 from core import TEST_DIR
-from database import db_init, db_close, db_name, build_filename
+from database import db_init, db_close, build_filename
 from schema import TournStage
 
 #############
@@ -24,7 +25,7 @@ TEST_DB = "test"
 def stage_db_path(stage_num: int) -> str:
     """Build full pathname for stage-level database snapshot.
     """
-    name = f"{db_name()}-stage-{stage_num}"
+    name = f"{TEST_DB}-stage-{stage_num}"
     return build_filename(name, TEST_DIR)
 
 def save_stage_db(stage: TournStage) -> SqliteDatabase:
@@ -41,7 +42,8 @@ def restore_stage_db(stage: TournStage) -> SqliteDatabase:
     knowledge).
     """
     db = db_close()  # checkpoint the WAL (idempotent)
-    shutil.copy2(stage_db_path(stage), db.database)
+    shutil.copy2(stage_db_path(stage), build_filename(TEST_DB))
+    db = db_init(TEST_DB, force=True)
     return db
 
 ############
@@ -49,74 +51,102 @@ def restore_stage_db(stage: TournStage) -> SqliteDatabase:
 ############
 
 @pytest.fixture
-def stage_1_db() -> SqliteDatabase:
+def stage_1_db() -> Generator[SqliteDatabase]:
+    """TOURN_CREATE"""
     db = restore_stage_db(TournStage(1))
-    return db
+    yield db
+    db_close()
 
 @pytest.fixture
-def stage_2_db() -> SqliteDatabase:
+def stage_2_db() -> Generator[SqliteDatabase]:
+    """PLAYER_ROSTER"""
     db = restore_stage_db(TournStage(2))
-    return db
+    yield db
+    db_close()
 
 @pytest.fixture
-def stage_3_db() -> SqliteDatabase:
+def stage_3_db() -> Generator[SqliteDatabase]:
+    """PLAYER_NUMS"""
     db = restore_stage_db(TournStage(3))
-    return db
+    yield db
+    db_close()
 
 @pytest.fixture
-def stage_4_db() -> SqliteDatabase:
+def stage_4_db() -> Generator[SqliteDatabase]:
+    """SEED_BRACKET"""
     db = restore_stage_db(TournStage(4))
-    return db
+    yield db
+    db_close()
 
 @pytest.fixture
-def stage_5_db() -> SqliteDatabase:
+def stage_5_db() -> Generator[SqliteDatabase]:
+    """SEED_RESULTS"""
     db = restore_stage_db(TournStage(5))
-    return db
+    yield db
+    db_close()
 
 @pytest.fixture
-def stage_6_db() -> SqliteDatabase:
+def stage_6_db() -> Generator[SqliteDatabase]:
+    """SEED_TABULATE"""
     db = restore_stage_db(TournStage(6))
-    return db
+    yield db
+    db_close()
 
 @pytest.fixture
-def stage_7_db() -> SqliteDatabase:
+def stage_7_db() -> Generator[SqliteDatabase]:
+    """SEED_RANKS"""
     db = restore_stage_db(TournStage(7))
-    return db
+    yield db
+    db_close()
 
 @pytest.fixture
-def stage_8_db() -> SqliteDatabase:
+def stage_8_db() -> Generator[SqliteDatabase]:
+    """PARTNER_PICK"""
     db = restore_stage_db(TournStage(8))
-    return db
+    yield db
+    db_close()
 
 @pytest.fixture
-def stage_9_db() -> SqliteDatabase:
+def stage_9_db() -> Generator[SqliteDatabase]:
+    """TOURN_TEAMS"""
     db = restore_stage_db(TournStage(9))
-    return db
+    yield db
+    db_close()
 
 @pytest.fixture
-def stage_10_db() -> SqliteDatabase:
+def stage_10_db() -> Generator[SqliteDatabase]:
+    """TEAM_SEEDS"""
     db = restore_stage_db(TournStage(10))
-    return db
+    yield db
+    db_close()
 
 @pytest.fixture
-def stage_11_db() -> SqliteDatabase:
+def stage_11_db() -> Generator[SqliteDatabase]:
+    """TOURN_BRACKET"""
     db = restore_stage_db(TournStage(11))
-    return db
+    yield db
+    db_close()
 
 @pytest.fixture
-def stage_12_db() -> SqliteDatabase:
+def stage_12_db() -> Generator[SqliteDatabase]:
+    """TOURN_RESULTS"""
     db = restore_stage_db(TournStage(12))
-    return db
+    yield db
+    db_close()
 
 @pytest.fixture
-def stage_13_db() -> SqliteDatabase:
+def stage_13_db() -> Generator[SqliteDatabase]:
+    """TOURN_TABULATE"""
     db = restore_stage_db(TournStage(13))
-    return db
+    yield db
+    db_close()
 
 @pytest.fixture
-def stage_14_db() -> SqliteDatabase:
+def stage_14_db() -> Generator[SqliteDatabase]:
+    """TEAMS_RANKS"""
     db = restore_stage_db(TournStage(14))
-    return db
+    yield db
+    db_close()
 
 @pytest.fixture
 def test_db() -> Generator[SqliteDatabase]:

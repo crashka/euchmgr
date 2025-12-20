@@ -1,0 +1,129 @@
+# -*- coding: utf-8 -*-
+
+"""Test team ranking process, including tie-breaking logic.
+"""
+from collections.abc import Generator
+
+import pytest
+
+from database import db_close
+from schema import Team, TournGame
+from euchmgr import cyclic_win_groups
+
+# (nteams, ref_cycle_grps), where groups are represented by team seeds
+CycleFixture = tuple[int, list[set[int]]]
+
+def add_games(gm_defs: list[tuple]) -> None:
+    """Add TournGame entries (and associated TeamGame records) based on specified game
+    definitions.  `gm_defs` tuples have the following fields: (team1_seed, team2_seed,
+    team1_pts, team2_pts)
+    """
+    tm_map = Team.get_team_map()
+
+    for i, gm_def in enumerate(gm_defs):
+        team1 = tm_map[gm_def[0]]
+        team2 = tm_map[gm_def[1]]
+        pts1  = gm_def[2]
+        pts2  = gm_def[3]
+        info = {'div_num'       : 0,
+                'round_num'     : i,
+                'table_num'     : 0,
+                'label'         : f"test-{i}",
+                'team1'         : team1,
+                'team2'         : team2,
+                'team1_name'    : team1.team_name,
+                'team2_name'    : team2.team_name,
+                'bye_team'      : None,
+                'team1_div_seed': team1.div_seed,
+                'team2_div_seed': team2.div_seed,
+                'team1_pts'     : pts1,
+                'team2_pts'     : pts2}
+        game = TournGame.create(**info)
+        game.insert_team_games(testing=True)
+
+@pytest.fixture
+def non_cycle(stage_10_db) -> Generator[CycleFixture]:
+    """No cyclical win groups"""
+    gm_defs = [(1, 2, 10, 5),
+               (1, 3, 10, 5),
+               (2, 3, 10, 5),
+               (4, 3, 10, 5)]
+    add_games(gm_defs)
+    nteams = max(map(lambda x: max(x[0], x[1]), gm_defs))
+    yield nteams, []
+    db_close()
+
+@pytest.fixture
+def simple_cycle(stage_10_db) -> Generator[CycleFixture]:
+    """Simplest example of a cycle"""
+    gm_defs = [(1, 2, 10, 5),
+               (2, 3, 10, 5),
+               (3, 1, 10, 5)]
+    add_games(gm_defs)
+    nteams = max(map(lambda x: max(x[0], x[1]), gm_defs))
+    yield nteams, [{1, 2, 3}]
+    db_close()
+
+@pytest.fixture
+def simple_cycle2(stage_10_db) -> Generator[CycleFixture]:
+    """Cycle where starting node does not participate"""
+    gm_defs = [(1, 2, 10, 5),
+               (1, 3, 10, 5),
+               (2, 3, 10, 5),
+               (4, 2, 10, 5),
+               (3, 4, 10, 5)]
+    add_games(gm_defs)
+    nteams = max(map(lambda x: max(x[0], x[1]), gm_defs))
+    yield nteams, [{2, 3, 4}]
+    db_close()
+
+@pytest.fixture
+def double_cycle(stage_10_db) -> Generator[CycleFixture]:
+    """Team participating in two cycle"""
+    gm_defs = [(1, 2, 10, 5),
+               (2, 3, 10, 5),
+               (3, 1, 10, 5),
+               (1, 4, 10, 5),
+               (4, 5, 10, 5),
+               (5, 1, 10, 5)]
+    add_games(gm_defs)
+    nteams = max(map(lambda x: max(x[0], x[1]), gm_defs))
+    yield nteams, [{1, 2, 3}, {1, 4, 5}]
+    db_close()
+
+@pytest.fixture
+def double_cycle2(stage_10_db) -> Generator[CycleFixture]:
+    """Cycle within a cycle"""
+    gm_defs = [(1, 2, 10, 5),
+               (2, 3, 10, 5),
+               (3, 4, 10, 5),
+               (4, 1, 10, 5),
+               (2, 4, 10, 5)]
+    add_games(gm_defs)
+    nteams = max(map(lambda x: max(x[0], x[1]), gm_defs))
+    yield nteams, [{1, 2, 3, 4}, {1, 2, 4}]
+    db_close()
+
+def validate_cycle_grps(result: CycleFixture) -> None:
+    nteams, ref_cycle_grps = result
+    tm_map = Team.get_team_map()
+    teams = [tm_map[i] for i in range(1, nteams + 1)]
+    cycle_grps = cyclic_win_groups(teams)
+    assert len(cycle_grps) == len(ref_cycle_grps)
+    for grp in cycle_grps:
+        assert set(tm.team_seed for tm in grp) in ref_cycle_grps
+
+def test_non_cycle(non_cycle) -> None:
+    validate_cycle_grps(non_cycle)
+
+def test_simple_cycle(simple_cycle) -> None:
+    validate_cycle_grps(simple_cycle)
+
+def test_simple_cycle2(simple_cycle2) -> None:
+    validate_cycle_grps(simple_cycle2)
+
+def test_double_cycle(double_cycle) -> None:
+    validate_cycle_grps(double_cycle)
+
+def test_double_cycle2(double_cycle2) -> None:
+    validate_cycle_grps(double_cycle2)

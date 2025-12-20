@@ -33,7 +33,7 @@ pragmas = {'journal_mode'            : 'wal',
 
 db = CSqliteExtDatabase(None, pragmas=pragmas, c_extensions=True)
 
-def db_init(name: str) -> SqliteDatabase:
+def db_init(name: str, force: bool = False) -> SqliteDatabase:
     """Initialize database for the specified name (if not already bound); return the ORM
     `Database` object (discourage importing `db` directly).
 
@@ -44,7 +44,10 @@ def db_init(name: str) -> SqliteDatabase:
         raise RuntimeError("Database name not specified")
     cur_db = db_name()
     if cur_db and name == cur_db:
-        return db
+        if not force:
+            return db
+        else:
+            db_close()
 
     db.init(build_filename(name))
     setattr(db, 'db_name', name)  # little hack to remember name
@@ -56,6 +59,8 @@ def db_close() -> SqliteDatabase:
     """
     if not db.is_closed():
         db.close()
+        if hasattr(db, 'db_name'):
+            delattr(db, 'db_name')
     return db
 
 def db_name() -> str | None:

@@ -654,6 +654,49 @@ def rank_team_cohort(teams: list[Team]) -> list[tuple[Team, tuple, dict]]:
     ranked = sorted(teams, key=sort_key)
     return [(tm, stats[tm.team_seed], data[tm.team_seed]) for tm in ranked]
 
+def cyclic_win_groups(teams: list[Team]) -> list[set[Team]]:
+    """Identify cyclic win groups within the specified cohort (list of teams).
+    """
+    seen: set[Team] = set()
+    team_wins: dict[Team, list[Team]] = {}  # map of teams with wins to losing opps
+    cycle_grps: list[set[Team]] = []
+
+    for tm in teams:
+        # tm is included in opps, but will be ignored
+        games: list[TeamGame] = tm.get_wins(opps=teams)
+        if games:
+            team_wins[tm] = [gm.opponent for gm in games]
+
+    def check_for_cycle(team: Team, cycle_set: set[Team], cycle_seq: list[Team]) -> None:
+        """Tree traversal of all sequences of winners, looking for cycles (repeated team
+        in a branch); note that the cycle may not involve the team at the starting node.
+        """
+        nonlocal seen, team_wins, cycle_grps
+        seen.add(team)
+        cycle_set.add(team)
+        cycle_seq.append(team)
+
+        for opp in team_wins[team]:
+            if opp in cycle_set:
+                # cycle found
+                assert opp in seen
+                idx = cycle_seq.index(opp)
+                grp = set(cycle_seq[idx:])
+                if grp not in cycle_grps:
+                    cycle_grps.append(grp)
+            elif opp not in team_wins:
+                # no cycle if opp has no wins
+                pass
+            else:
+                # keep traversing
+                check_for_cycle(opp, cycle_set.copy(), cycle_seq.copy())
+        return
+
+    for tm in team_wins:
+        if tm not in seen:  # may have already been covered by prior starting node
+            check_for_cycle(tm, set(), list())
+    return cycle_grps
+
 def compute_team_ranks(finalize: bool = False) -> None:
     """Note that we use `rankdata` to do the computation here, and `rank_team_cohort` to
     break ties.

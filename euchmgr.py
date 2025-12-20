@@ -600,16 +600,18 @@ def validate_tourn(finalize: bool = False) -> None:
     if finalize:
         TournInfo.mark_stage_complete(TournStage.TOURN_TABULATE)
 
-def rank_team_cohort(teams: list[Team]) -> list[tuple[Team, tuple, dict]]:
+def rank_team_cohort(teams: list[Team]) -> tuple[list[Team], dict[tuple], dict[dict]]:
     """Given a list of teams (generally with the same record, though we are not checking
-    here, since we don't really care), return list ranked by the following stats tuple:
+    here, since we don't really care), return list of teams ranked by the following stats
+    tuple:
 
       (cohrt_win_pct, wl_factor, cohrt_pts_pct, seed_pts_pct)
 
     where `wl_factor` (win-loss factor) is used to ensure that more wins is better (if all
     wins), more losses is worse (if all losses), and 0-0 sorts below 1-1, 2-2, etc.
 
-    The `data` dict (last return element) is the raw head-to-head data for the cohort.
+    The other two return elements are the actual stats tuples and aggregated head-to-head
+    game data for the cohort teams, both indexed by team seed.
     """
     stats = {}
     data = {}
@@ -652,7 +654,7 @@ def rank_team_cohort(teams: list[Team]) -> list[tuple[Team, tuple, dict]]:
     # larger is better for all stats components
     sort_key = lambda tm: tuple(-x for x in stats[tm.team_seed])
     ranked = sorted(teams, key=sort_key)
-    return [(tm, stats[tm.team_seed], data[tm.team_seed]) for tm in ranked]
+    return ranked, stats, data
 
 def cyclic_win_groups(teams: list[Team]) -> list[set[Team]]:
     """Identify cyclic win groups within the specified cohort (list of teams).
@@ -732,11 +734,17 @@ def compute_team_ranks(finalize: bool = False) -> None:
                 tm.save()
                 continue
             cohort_pos = cohort[0].div_pos
-            ranked = rank_team_cohort(cohort)
-            for i, (tm, crit, data) in enumerate(ranked):
+            win_grps = cyclic_win_groups(cohort)
+            if win_grps and DEBUG:
+                # only print the first group, since it is too fantastical to expect more
+                # than one for the cohort
+                grp_seeds = set(tm.div_seed for tm in win_grps[0])
+                print(f"Cyclic win group for div {div}, pos {cohort_pos}, seeds {grp_seeds}")
+            ranked, stats, data = rank_team_cohort(cohort)
+            for i, tm in enumerate(ranked):
                 tm.div_rank = cohort_pos + i
-                tm.tb_crit = crit
-                tm.tb_data = data
+                tm.tb_crit = stats[tm.team_seed]
+                tm.tb_data = data[tm.team_seed]
                 tm.save()
 
     if finalize:

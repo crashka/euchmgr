@@ -661,11 +661,12 @@ class SeedGame(BaseModel):
 
         return upd
 
-    def insert_player_games(self) -> int:
+    def insert_player_games(self, testing: bool = False) -> int:
         """Insert a record into the PlayerGame denorm for all players involved in the
         game; returns number of records inserted.  Called by front-end after the game is
         complete (i.e. winner determined)
         """
+        bracket = BRACKET_SEED if not testing else BRACKET_TEST
         players = [self.player1, self.player2, self.player3, self.player4]
         if self.table_num is None:
             assert self.bye_players is not None
@@ -673,7 +674,7 @@ class SeedGame(BaseModel):
             assert players[-1] is None
             byes = list(filter(None, players))
             for player in byes:
-                pg_info = {'bracket'   : BRACKET_SEED,
+                pg_info = {'bracket'   : bracket,
                            'round_num' : self.round_num,
                            'game_label': self.label,
                            'player'    : player,
@@ -694,7 +695,7 @@ class SeedGame(BaseModel):
             team_pts = team_scores[tm_idx]
             opp_pts  = team_scores[op_idx]
 
-            pg_info = {'bracket'      : BRACKET_SEED,
+            pg_info = {'bracket'      : bracket,
                        'round_num'    : self.round_num,
                        'game_label'   : self.label,
                        'player'       : player,
@@ -1096,7 +1097,7 @@ class TournGame(BaseModel):
             team_pts = team_scores[tm_idx]
             opp_pts  = team_scores[op_idx]
 
-            tg_info = {'bracket'   : BRACKET_TOURN,
+            tg_info = {'bracket'   : bracket,
                        'round_num' : self.round_num,
                        'game_label': self.label,
                        'team'      : team,

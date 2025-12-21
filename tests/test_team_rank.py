@@ -116,6 +116,18 @@ def simple_elevate(stage_10_db) -> Generator[CycleFixture]:
     yield nteams, [(4, 1)]
     db_close()
 
+@pytest.fixture
+def identical_tb(stage_14_db) -> tuple[tuple[int, int], list[float], int]:
+    """Simple elevation example (no cycles)"""
+    test_crit = [1.1, 2.2, 3.3, 4.4]
+    upd = (Team
+           .update(tb_crit=test_crit)
+           .where(Team.div_num == 1,
+                  Team.div_pos == 2))
+    res = upd.execute()
+    yield (1, 2), test_crit, res
+    db_close()
+
 def validate_cycle_grps(result: CycleFixture) -> None:
     nteams, ref_cycle_grps = result
     tm_map = Team.get_team_map()
@@ -148,3 +160,9 @@ def test_simple_elevate(simple_elevate) -> None:
     assert len(elevs) == len(ref_elevs)
     for i, elev in enumerate(elevs):
         assert tuple(tm.team_seed for tm in elev) == ref_elevs[i]
+
+def test_identical_tb(identical_tb) -> None:
+    div_pos, ref_tb_crit, nteams = identical_tb
+    teams = Team.identical_tbs(div_pos[0], div_pos[1])
+    assert len(teams) == nteams
+    assert teams[0].tb_crit == ref_tb_crit

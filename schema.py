@@ -22,6 +22,11 @@ BRACKET_TOURN     = 'rr'
 BRACKET_PLAYOFF   = 'playoff'
 BRACKET_TEST      = 'test'
 
+# hard-wired floating point precision (depending on field type), helpful for neater
+# display as well as equivalence determination (without additional rounding)
+rnd_pct = lambda x: round(x, 3)
+rnd_avg = lambda x: round(x, 2)
+
 # stage values are chronologically sequenced
 TournStage = IntEnum('TournStage',
                      ['TOURN_CREATE',   # 1
@@ -654,9 +659,9 @@ class SeedGame(BaseModel):
 
             ngames = player.seed_wins + player.seed_losses
             totpts = player.seed_pts_for + player.seed_pts_against
-            player.seed_win_pct = player.seed_wins / ngames * 100.0
+            player.seed_win_pct = rnd_pct(player.seed_wins / ngames * 100.0)
             player.seed_pts_diff = player.seed_pts_for - player.seed_pts_against
-            player.seed_pts_pct = player.seed_pts_for / totpts * 100.0
+            player.seed_pts_pct = rnd_pct(player.seed_pts_for / totpts * 100.0)
             upd += player.save()
 
         return upd
@@ -810,6 +815,26 @@ class Team(BaseModel):
         for t in cls.select().iterator():
             yield t
 
+    @classmethod
+    def identical_tbs(cls, div_num: int, div_pos: int) -> list[Self]:
+        """Report teams with identical tie-break criteria for a cohort (identical overall
+        win percentage
+        """
+        query = (Team
+                 .select(Team.tb_crit,
+                         fn.group_concat(Team.id))
+                 .where(Team.div_num == div_num,
+                        Team.div_pos == div_pos,
+                        Team.team_seed.is_null(False))
+                 .group_by(Team.tb_crit)
+                 .having(fn.count() > 1))
+        res = list(query)
+        if not res:
+            return []
+        assert len(res) == 1
+        ids: list[str] = res[0].__data__['id'].split(',')
+        return [Team.get(int(x)) for x in ids]
+
     @property
     def team_data(self) -> dict:
         """Return team data as a dict, removing distracting default values if not relevant
@@ -843,12 +868,6 @@ class Team(BaseModel):
                                      self.player2_num,
                                      self.player3_num)))
         return ' / '.join(map(str, pl_nums))
-
-    @property
-    def avg_player_rank_rnd(self) -> float:
-        """Round avg_player_rank for display purposes
-        """
-        return round(self.avg_player_rank, 2)
 
     @property
     def div_pos_str(self) -> str | None:
@@ -1063,9 +1082,9 @@ class TournGame(BaseModel):
 
             ngames = team.tourn_wins + team.tourn_losses
             totpts = team.tourn_pts_for + team.tourn_pts_against
-            team.tourn_win_pct = team.tourn_wins / ngames * 100.0
+            team.tourn_win_pct = rnd_pct(team.tourn_wins / ngames * 100.0)
             team.tourn_pts_diff = team.tourn_pts_for - team.tourn_pts_against
-            team.tourn_pts_pct = team.tourn_pts_for / totpts * 100.0
+            team.tourn_pts_pct = rnd_pct(team.tourn_pts_for / totpts * 100.0)
             upd += team.save()
 
         return upd

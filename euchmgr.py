@@ -17,9 +17,8 @@ from ckautils import rankdata
 
 from core import DataFile, DEBUG
 from database import db_init, db_close, db_name
-from schema import schema_create, TournStage, TournInfo, Player, SeedGame, Team, TournGame
-
-BYE_TEAM = '-- (bye) --'
+from schema import (rnd_pct, TournStage, TournInfo, Player, SeedGame, Team, TournGame,
+                    schema_create)
 
 #####################
 # utility functions #
@@ -52,9 +51,6 @@ def fmt_team_name(player_nums: list[int]) -> str:
     pl_map = Player.get_player_map()
     nick_names = [pl_map[p].nick_name for p in player_nums]
     return ' / '.join(nick_names)
-
-# good enough floating point equivalence
-equiv = lambda x, y: round(x, 2) == round(y, 2)
 
 #####################
 # euchmgr functions #
@@ -272,14 +268,17 @@ def validate_seed_round(finalize: bool = False) -> None:
         assert pl.seed_pts_against == stats['seed_pts_against']
 
         ngames   = stats['seed_wins'] + stats['seed_losses']
-        win_pct  = stats['seed_wins'] / ngames * 100.0
+        win_pct  = rnd_pct(stats['seed_wins'] / ngames * 100.0)
         pts_tot  = stats['seed_pts_for'] + stats['seed_pts_against']
         pts_diff = stats['seed_pts_for'] - stats['seed_pts_against']
-        pts_pct  = stats['seed_pts_for'] / pts_tot * 100.0
+        pts_pct  = rnd_pct(stats['seed_pts_for'] / pts_tot * 100.0)
 
-        assert equiv(pl.seed_win_pct, win_pct)
+        # note that floating point values should have been similarly rounded, so using
+        # `==` should be robust (for equivalence) as well as help validate consistent
+        # rounding in code
+        assert pl.seed_win_pct == win_pct
         assert pl.seed_pts_diff == pts_diff
-        assert equiv(pl.seed_pts_pct, pts_pct)
+        assert pl.seed_pts_pct == pts_pct
 
     assert stats_tot['seed_wins'] == stats_tot['seed_losses']
     assert stats_tot['seed_pts_for'] == stats_tot['seed_pts_against']
@@ -585,14 +584,17 @@ def validate_tourn(finalize: bool = False) -> None:
         assert tm.tourn_pts_against == stats['tourn_pts_against']
 
         ngames   = stats['tourn_wins'] + stats['tourn_losses']
-        win_pct  = stats['tourn_wins'] / ngames * 100.0
+        win_pct  = rnd_pct(stats['tourn_wins'] / ngames * 100.0)
         pts_tot  = stats['tourn_pts_for'] + stats['tourn_pts_against']
         pts_diff = stats['tourn_pts_for'] - stats['tourn_pts_against']
-        pts_pct  = stats['tourn_pts_for'] / pts_tot * 100.0
+        pts_pct  = rnd_pct(stats['tourn_pts_for'] / pts_tot * 100.0)
 
-        assert equiv(tm.tourn_win_pct, win_pct)
+        # note that floating point values should have been similarly rounded, so using
+        # `==` should be robust (for equivalence) as well as help validate consistent
+        # rounding in code
+        assert tm.tourn_win_pct == win_pct
         assert tm.tourn_pts_diff == pts_diff
-        assert equiv(tm.tourn_pts_pct, pts_pct)
+        assert tm.tourn_pts_pct == pts_pct
 
     assert stats_tot['tourn_wins'] == stats_tot['tourn_losses']
     assert stats_tot['tourn_pts_for'] == stats_tot['tourn_pts_against']
@@ -634,8 +636,8 @@ def rank_team_cohort(teams: list[Team]) -> tuple[list[Team], dict[tuple], dict[d
             wl_factor = -1
         else:
             cohrt_tot_pts = st['team_pts'] + st['opp_pts']
-            cohrt_win_pct = st['wins'] / st['games'] * 100.0
-            cohrt_pts_pct = st['team_pts'] / cohrt_tot_pts * 100.0
+            cohrt_win_pct = rnd_pct(st['wins'] / st['games'] * 100.0)
+            cohrt_pts_pct = rnd_pct(st['team_pts'] / cohrt_tot_pts * 100.0)
             data[tm.team_seed] = {
                 'wins'       : st['wins'],
                 'losses'     : cohrt_games - st['wins'],

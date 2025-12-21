@@ -144,7 +144,7 @@ def test_simple_elevate(simple_elevate) -> None:
     nteams, ref_elevs = simple_elevate
     tm_map = Team.get_team_map()
     teams = [tm_map[i] for i in range(1, nteams + 1)]
-    ranked, elevs = elevate_winners(teams)
+    _, elevs, _, _ = elevate_winners(teams)
     assert len(elevs) == len(ref_elevs)
     for i, elev in enumerate(elevs):
         assert tuple(tm.team_seed for tm in elev) == ref_elevs[i]

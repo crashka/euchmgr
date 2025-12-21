@@ -706,21 +706,17 @@ def cyclic_win_groups(teams: list[Team]) -> tuple[TeamGrps, TeamWins]:
 
 Elevs = list[tuple[Team, Team]]  # tuple(winner, loser)
 
-def elevate_winners(ranked: list[Team], div: int = 0, pos: int = 0) -> tuple[list[Team], Elevs]:
+def elevate_winners(ranked: list[Team]) -> tuple[list[Team], Elevs, TeamGrps, TeamWins]:
     """Walk list of ranked teams from the bottom up, elevating head-to-head winners above
     their highest ranked losing opponent.  Elevation is skipped if the two teams are part
     of the same cyclic win group.  Note that (in the spirit of immutabile) a new list is
     created/returned even if no changes.
 
-    `div` and `pos` are provided as arguments purely for informational purposes (not
-    pretty, but no harm done).
+    We also return win_grps and team_wins (as passthroughs) since the caller may want the
+    intermediary data/computation behind the reranking (e.g. for tie-breaking reports).
     """
     reranked = ranked.copy()
     win_grps, team_wins = cyclic_win_groups(reranked)
-    if win_grps and DEBUG:
-        for grp in win_grps:
-            grp_seeds = set(tm.div_seed for tm in grp)
-            print(f"Cyclic win group for div {div}, pos {pos}, seeds {grp_seeds}")
 
     elevs: Elevs = []
     grp_mates: bool = lambda x, y: sum({x, y} < grp for grp in win_grps) > 0
@@ -741,9 +737,8 @@ def elevate_winners(ranked: list[Team], div: int = 0, pos: int = 0) -> tuple[lis
             assert popped == tm
             reranked.insert(elev[1], tm)
             elevs.append((tm, elev[0]))
-            DEBUG and print(f"Elevating {tm} above {elev[0]} for div {div}, pos {pos}")
 
-    return reranked, elevs
+    return reranked, elevs, win_grps, team_wins
 
 def compute_team_ranks(finalize: bool = False) -> None:
     """Note that we use `rankdata` to do the computation here, and `rank_team_cohort` to
@@ -781,7 +776,15 @@ def compute_team_ranks(finalize: bool = False) -> None:
                 continue
             cohort_pos = cohort[0].div_pos
             ranked, stats, data = rank_team_cohort(cohort)
-            ranked, _ = elevate_winners(ranked, div, cohort_pos)
+            ranked, elevs, win_grps, _ = elevate_winners(ranked)
+            if win_grps and DEBUG:
+                for grp in win_grps:
+                    grp_seeds = set(tm.div_seed for tm in grp)
+                    print(f"Cyclic win group for div {div}, pos {cohort_pos}, seeds {grp_seeds}")
+            if elevs and DEBUG:
+                for tm, opp in elevs:
+                    print(f"Elevating {tm.div_seed} above {opp.div_seed} for div {div}, "
+                          f"pos {cohort_pos}")
             for i, tm in enumerate(ranked):
                 tm.div_rank = cohort_pos + i
                 tm.tb_crit = stats[tm.team_seed]

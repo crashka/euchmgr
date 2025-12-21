@@ -12,8 +12,8 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 
 ## Features/Enhancements
 
-- implement cyclic win group detection for round robin tie-breaking
-- flag conflicts (lower-rank wins) and absolute ties in tie-breaker reports
+- report cyclic win groups, head-to-head elevations, and absolute ties in tie-breaker
+  reports
 - detect end of stage for manual updates (entering player nums, seeding round play,
   partner picking, round robin play)
 - handle updates/revisions to completed game scores (i.e. manage stats and denorm)

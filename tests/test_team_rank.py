@@ -8,7 +8,7 @@ import pytest
 
 from database import db_close
 from schema import Team, TournGame
-from euchmgr import cyclic_win_groups
+from euchmgr import cyclic_win_groups, elevate_winners
 
 # (nteams, ref_cycle_grps), where groups are represented by team seeds
 CycleFixture = tuple[int, list[set[int]]]
@@ -104,11 +104,23 @@ def double_cycle2(stage_10_db) -> Generator[CycleFixture]:
     yield nteams, [{1, 2, 3, 4}, {1, 2, 4}]
     db_close()
 
+@pytest.fixture
+def simple_elevate(stage_10_db) -> Generator[CycleFixture]:
+    """Simple elevation example (no cycles)"""
+    gm_defs = [(1, 2, 10, 0),
+               (1, 3, 10, 0),
+               (4, 1, 10, 5),
+               (4, 2, 10, 5)]
+    add_games(gm_defs)
+    nteams = max(map(lambda x: max(x[0], x[1]), gm_defs))
+    yield nteams, [(4, 1)]
+    db_close()
+
 def validate_cycle_grps(result: CycleFixture) -> None:
     nteams, ref_cycle_grps = result
     tm_map = Team.get_team_map()
     teams = [tm_map[i] for i in range(1, nteams + 1)]
-    cycle_grps = cyclic_win_groups(teams)
+    cycle_grps, _ = cyclic_win_groups(teams)
     assert len(cycle_grps) == len(ref_cycle_grps)
     for grp in cycle_grps:
         assert set(tm.team_seed for tm in grp) in ref_cycle_grps
@@ -127,3 +139,12 @@ def test_double_cycle(double_cycle) -> None:
 
 def test_double_cycle2(double_cycle2) -> None:
     validate_cycle_grps(double_cycle2)
+
+def test_simple_elevate(simple_elevate) -> None:
+    nteams, ref_elevs = simple_elevate
+    tm_map = Team.get_team_map()
+    teams = [tm_map[i] for i in range(1, nteams + 1)]
+    ranked, elevs = elevate_winners(teams)
+    assert len(elevs) == len(ref_elevs)
+    for i, elev in enumerate(elevs):
+        assert tuple(tm.team_seed for tm in elev) == ref_elevs[i]

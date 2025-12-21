@@ -42,6 +42,8 @@ def restore_stage_db(stage: TournStage) -> SqliteDatabase:
     knowledge).
     """
     db = db_close()  # checkpoint the WAL (idempotent)
+    # REVISIT: it might be better (i.e. more robust if open connections on TEST_DB) to use
+    # `db.backup` here!!!
     shutil.copy2(stage_db_path(stage), build_filename(TEST_DB))
     db = db_init(TEST_DB, force=True)
     return db

@@ -656,12 +656,16 @@ def rank_team_cohort(teams: list[Team]) -> tuple[list[Team], dict[tuple], dict[d
     ranked = sorted(teams, key=sort_key)
     return ranked, stats, data
 
-def cyclic_win_groups(teams: list[Team]) -> list[set[Team]]:
-    """Identify cyclic win groups within the specified cohort (list of teams).
+TeamGrps = list[set[Team]]
+TeamWins = dict[Team, list[Team]]
+
+def cyclic_win_groups(teams: list[Team]) -> tuple[TeamGrps, TeamWins]:
+    """Identify/return cyclic win groups within the specified cohort (list of teams).
+    Note that `team_wins` is also returned as a convenience for resuse by the caller.
     """
     seen: set[Team] = set()
-    team_wins: dict[Team, list[Team]] = {}  # map of teams with wins to losing opps
-    cycle_grps: list[set[Team]] = []
+    team_wins: TeamWins = {}  # map of teams with wins to losing opps
+    cycle_grps: TeamGrps = []
 
     for tm in teams:
         # tm is included in opps, but will be ignored
@@ -697,7 +701,49 @@ def cyclic_win_groups(teams: list[Team]) -> list[set[Team]]:
     for tm in team_wins:
         if tm not in seen:  # may have already been covered by prior starting node
             check_for_cycle(tm, set(), list())
-    return cycle_grps
+
+    return cycle_grps, team_wins
+
+Elevs = list[tuple[Team, Team]]  # tuple(winner, loser)
+
+def elevate_winners(ranked: list[Team], div: int = 0, pos: int = 0) -> tuple[list[Team], Elevs]:
+    """Walk list of ranked teams from the bottom up, elevating head-to-head winners above
+    their highest ranked losing opponent.  Elevation is skipped if the two teams are part
+    of the same cyclic win group.  Note that (in the spirit of immutabile) a new list is
+    created/returned even if no changes.
+
+    `div` and `pos` are provided as arguments purely for informational purposes (not
+    pretty, but no harm done).
+    """
+    reranked = ranked.copy()
+    win_grps, team_wins = cyclic_win_groups(reranked)
+    if win_grps and DEBUG:
+        for grp in win_grps:
+            grp_seeds = set(tm.div_seed for tm in grp)
+            print(f"Cyclic win group for div {div}, pos {pos}, seeds {grp_seeds}")
+
+    elevs: Elevs = []
+    grp_mates: bool = lambda x, y: sum({x, y} < grp for grp in win_grps) > 0
+    for tm in reversed(ranked):  # NOTE: using unmutated input list here
+        if tm not in team_wins:
+            continue
+        elev = None  # tuple(opp, opp_idx)
+        for opp in team_wins[tm]:
+            if not grp_mates(tm, opp):
+                opp_idx = reranked.index(opp)
+                if not elev or opp_idx < elev[1]:
+                    elev = (opp, opp_idx)
+        if not elev:
+            continue
+        tm_idx = reranked.index(tm)
+        if elev[1] < tm_idx:
+            popped = reranked.pop(tm_idx)
+            assert popped == tm
+            reranked.insert(elev[1], tm)
+            elevs.append((tm, elev[0]))
+            DEBUG and print(f"Elevating {tm} above {elev[0]} for div {div}, pos {pos}")
+
+    return reranked, elevs
 
 def compute_team_ranks(finalize: bool = False) -> None:
     """Note that we use `rankdata` to do the computation here, and `rank_team_cohort` to
@@ -734,13 +780,8 @@ def compute_team_ranks(finalize: bool = False) -> None:
                 tm.save()
                 continue
             cohort_pos = cohort[0].div_pos
-            win_grps = cyclic_win_groups(cohort)
-            if win_grps and DEBUG:
-                # only print the first group, since it is too fantastical to expect more
-                # than one for the cohort
-                grp_seeds = set(tm.div_seed for tm in win_grps[0])
-                print(f"Cyclic win group for div {div}, pos {cohort_pos}, seeds {grp_seeds}")
             ranked, stats, data = rank_team_cohort(cohort)
+            ranked, _ = elevate_winners(ranked, div, cohort_pos)
             for i, tm in enumerate(ranked):
                 tm.div_rank = cohort_pos + i
                 tm.tb_crit = stats[tm.team_seed]

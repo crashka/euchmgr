@@ -31,9 +31,17 @@
      }
      .cohort > p {
        font-size: 1.25rem;
+       margin-top: 0.5rem;
+       margin-bottom: 0.0rem;
      }
      .cohort > p > span {
        font-weight: bold;
+     }
+     .cohort ul {
+       list-style: square outside none;
+       font-size: 1.25rem;
+       margin-top: 0.25rem;
+       margin-bottom: 0.0rem;
      }
      .team,
      .player {
@@ -182,8 +190,36 @@
         <h3>Position {{pos}}&nbsp;&nbsp;<span class="h3_info">({{div_info[div][pos]}})</span></h3>
         {% for team, games in cohort.items() %}
         {% if loop.first %}
-        <p>{{len(cohort)}} teams tied: {{'; '.join(div_cohort[div][pos])}}</p>
-        {% endif %}
+        <p>[<b>{{len(cohort)}} teams tied</b>] {{'; '.join(div_cohort[div][pos])}}</p>
+
+        {% if div_elevs[div][pos] %}
+        <p>Head-to-head wins (for ranking) [{{len(div_elevs[div][pos])}}]:</p>
+        <ul>
+          {% for tm, opp in div_elevs[div][pos] %}
+          <li>{{tm.team_name}} ({{tm.div_seed}}) beats {{opp.team_name}} ({{opp.div_seed}})</li>
+          {% endfor %}
+        </ul>
+        {% endif %}  {# div_elevs #}
+
+        {% if div_win_grps[div][pos] %}
+        <p>Cyclic win groups (head-to-head wins cancel out for ranking) [{{len(div_win_grps[div][pos])}}]:</p>
+        <ul>
+          {% for grp in div_win_grps[div][pos] %}
+          <li>[<b>{{concat_seeds(grp)}}</b>] {{concat_teams(grp)}}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}  {# div_win_grps #}
+
+        {% if div_idents[div][pos] %}
+        <p>Identical tie-breakers [{{len(div_idents[div][pos])}}]:</p>
+        <ul>
+          {% for equals in div_idents[div][pos] %}
+          <li>[<b>{{concat_seeds(equals)}}</b>] {{concat_teams(equals)}}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}  {# div_idents #}
+        {% endif %}  {# loop.first #}
+
         <article class="team">
           <h4>{{team.team_name}} ({{team.div_seed}})</h4>
           <p>

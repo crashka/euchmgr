@@ -779,14 +779,14 @@ def compute_team_ranks(finalize: bool = False) -> None:
             cohort_pos = cohort[0].div_pos
             ranked, stats, data = rank_team_cohort(cohort)
             ranked, elevs, win_grps, _ = elevate_winners(ranked)
-            if win_grps and DEBUG:
-                for grp in win_grps:
-                    grp_seeds = set(tm.div_seed for tm in grp)
-                    print(f"Cyclic win group for div {div}, pos {cohort_pos}, seeds {grp_seeds}")
             if elevs and DEBUG:
                 for tm, opp in elevs:
                     print(f"Elevating {tm.div_seed} above {opp.div_seed} for div {div}, "
                           f"pos {cohort_pos}")
+            if win_grps and DEBUG:
+                for grp in win_grps:
+                    grp_seeds = set(tm.div_seed for tm in grp)
+                    print(f"Cyclic win group for div {div}, pos {cohort_pos}, seeds {grp_seeds}")
             for i, tm in enumerate(ranked):
                 tm.div_rank = cohort_pos + i
                 tm.tb_crit = stats[tm.team_seed]

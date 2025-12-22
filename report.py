@@ -7,6 +7,7 @@ from itertools import groupby
 from flask import Blueprint, session, render_template, abort
 
 from schema import GAME_PTS, TournInfo, Player, PlayerGame, Team, TeamGame
+from euchmgr import Elevs, TeamGrps, rank_team_cohort, elevate_winners
 from chart import Numeric, round_val, fmt_tally
 
 #################
@@ -113,13 +114,22 @@ def rr_tb_report(tourn: TournInfo) -> str:
     div_rpt: dict[int, dict[int, dict[Team, list[SeedGame]]]] = {}
     div_info: dict[int, dict[int, str]] = {}
     div_cohort: dict[int, dict[int, list[str]]] = {}
+    div_elevs: dict[int, dict[int, Elevs]] = {}
+    div_win_grps: dict[int, dict[int, TeamGrps]] = {}
+    div_idents: dict[int, dict[int, list[Team]]] = {}
     for div in div_iter:
         pos_rpt = {}
         pos_info = {}
         pos_cohort = {}
+        pos_elevs = {}
+        pos_win_grps = {}
+        pos_idents = {}
         div_rpt[div] = pos_rpt
         div_info[div] = pos_info
         div_cohort[div] = pos_cohort
+        div_elevs[div] = pos_elevs
+        div_win_grps[div] = pos_win_grps
+        div_idents[div] = pos_idents
 
         div_teams = list(filter(lambda x: x.div_num == div, by_rank))
         for k, g in groupby(div_teams, key=lambda x: x.div_pos):
@@ -138,19 +148,38 @@ def rr_tb_report(tourn: TournInfo) -> str:
                 cohort_rpt[tm] = games
                 team_list.append(team_tag(tm))
 
-                # now check for and flag the following:
-                # - conflicts (loss to lower-ranked cohort)
-                # - absolute ties (identical tb_crit values)
+            # this is stupid, but we have to rederive the ranking results just to get
+            # access to the intermediary results (i.e. `elevs` and `win_grps`)--but at
+            # least we can validate against the initially computed (and saved) rankings,
+            # to make sure this is right
+            ranked, _, _ = rank_team_cohort(cohort)  # returns with elevations undone
+            ranked, elevs, win_grps, _ = elevate_winners(ranked)
+            for i, tm in enumerate(ranked):
+                assert cohort_pos + i == tm.div_rank
+            idents = Team.identical_tbs(div, cohort_pos)
+            pos_elevs[cohort_pos] = elevs
+            pos_win_grps[cohort_pos] = win_grps
+            pos_idents[cohort_pos] = idents
+
+    # REVISIT: still not sure where all of this formatting stuff should be consolidated
+    # (but this is okay for now)!!!
+    concat_seeds = lambda x: ' - '.join(f"{tm.div_seed}" for tm in x)
+    concat_teams = lambda x: ' - '.join(f"{tm.team_name} ({tm.div_seed})" for tm in x)
 
     context = {
-        'report_num' : 1,
-        'title'      : RR_TB_REPORT,
-        'tourn'      : tourn,
-        'len'        : len,
-        'round'      : round,
-        'div_rpt'    : div_rpt,
-        'div_info'   : div_info,
-        'div_cohort' : div_cohort,
-        'report_by'  : 'team'
+        'report_num'  : 1,
+        'title'       : RR_TB_REPORT,
+        'tourn'       : tourn,
+        'len'         : len,
+        'round'       : round,
+        'div_rpt'     : div_rpt,
+        'div_info'    : div_info,
+        'div_cohort'  : div_cohort,
+        'div_elevs'   : div_elevs,
+        'div_win_grps': div_win_grps,
+        'div_idents'  : div_idents,
+        'concat_seeds': concat_seeds,
+        'concat_teams': concat_teams,
+        'report_by'   : 'team'
     }
     return render_report(context)

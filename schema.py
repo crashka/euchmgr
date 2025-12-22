@@ -816,10 +816,11 @@ class Team(BaseModel):
             yield t
 
     @classmethod
-    def identical_tbs(cls, div_num: int, div_pos: int) -> list[Self]:
+    def identical_tbs(cls, div_num: int, div_pos: int) -> list[list[Self]]:
         """Report teams with identical tie-break criteria for a cohort (identical overall
         win percentage
         """
+        tbs = []
         query = (Team
                  .select(Team.tb_crit,
                          fn.group_concat(Team.id))
@@ -828,12 +829,11 @@ class Team(BaseModel):
                         Team.team_seed.is_null(False))
                  .group_by(Team.tb_crit)
                  .having(fn.count() > 1))
-        res = list(query)
-        if not res:
-            return []
-        assert len(res) == 1
-        ids: list[str] = res[0].__data__['id'].split(',')
-        return [Team.get(int(x)) for x in ids]
+        for grp in query:
+            ids: list[str] = grp.__data__['id'].split(',')
+            teams: list[Team] = [Team.get(int(x)) for x in ids]
+            tbs.append(teams)
+        return tbs
 
     @property
     def team_data(self) -> dict:
@@ -1191,9 +1191,9 @@ class PlayerGame(BaseModel):
             self.player_name = self.player.nick_name
         return super().save(*args, **kwargs)
 
-##############
+############
 # TeamGame #
-##############
+############
 
 class TeamGame(BaseModel):
     """Denormalization of TournGame data, for use in computing stats, determining

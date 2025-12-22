@@ -125,7 +125,7 @@ def identical_tb(stage_14_db) -> tuple[tuple[int, int], list[float], int]:
            .where(Team.div_num == 1,
                   Team.div_pos == 2))
     res = upd.execute()
-    yield (1, 2), test_crit, res
+    yield (1, 2), [test_crit], [res]
     db_close()
 
 def validate_cycle_grps(result: CycleFixture) -> None:
@@ -162,7 +162,9 @@ def test_simple_elevate(simple_elevate) -> None:
         assert tuple(tm.team_seed for tm in elev) == ref_elevs[i]
 
 def test_identical_tb(identical_tb) -> None:
-    div_pos, ref_tb_crit, nteams = identical_tb
-    teams = Team.identical_tbs(div_pos[0], div_pos[1])
-    assert len(teams) == nteams
-    assert teams[0].tb_crit == ref_tb_crit
+    div_pos, ref_tb_crits, team_cts = identical_tb
+    tbs = Team.identical_tbs(div_pos[0], div_pos[1])
+    assert len(tbs) == len(ref_tb_crits)
+    for i, teams in enumerate(tbs):
+        assert len(teams) == team_cts[i]
+        assert teams[0].tb_crit == ref_tb_crits[i]

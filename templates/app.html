@@ -310,9 +310,9 @@
              cell.data(e.target.textContent).draw();
 
              const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
-             $.post('/players/data', post_data)
+             $.post('/data/players', post_data)
               .done(function(resp) {
-                console.log('POST /players/data done: ', resp);
+                console.log('POST /data/players done: ', resp);
                 if (resp.err) {
                   cell.data(orig_val).draw();
                   $(e.target).addClass("attn");
@@ -324,7 +324,7 @@
                 }
               })
               .fail(function(resp) {
-                console.log('POST /players/data fail: ', resp);
+                console.log('POST /data/players fail: ', resp);
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
                 show_error(resp.statusText);
@@ -348,7 +348,7 @@
            content: ['search']
          },
          ajax: {
-           url: '/players/data',
+           url: '/data/players',
            dataSrc: 'data'
          },
          deferRender: true,
@@ -407,9 +407,9 @@
              cell.data(e.target.textContent).draw();
 
              const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
-             $.post('/seeding/data', post_data)
+             $.post('/data/seeding', post_data)
               .done(function(resp) {
-                console.log('POST /seeding/data done: ', resp);
+                console.log('POST /data/seeding done: ', resp);
                 if (resp.err) {
                   cell.data(orig_val).draw();
                   $(e.target).addClass("attn");
@@ -421,7 +421,7 @@
                 }
               })
               .fail(function(resp) {
-                console.log('POST /seeding/data fail: ', resp);
+                console.log('POST /data/seeding fail: ', resp);
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
                 show_error(resp.statusText);
@@ -445,7 +445,7 @@
            content: ['search']
          },
          ajax: {
-           url: '/seeding/data',
+           url: '/data/seeding',
            dataSrc: 'data'
          },
          deferRender: true,
@@ -506,9 +506,9 @@
              cell.data(e.target.textContent).draw();
 
              const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
-             $.post('/partners/data', post_data)
+             $.post('/data/partners', post_data)
               .done(function(resp) {
-                console.log('POST /partners/data done: ', resp);
+                console.log('POST /data/partners done: ', resp);
                 if (resp.err) {
                   cell.data(orig_val).draw();
                   $(e.target).addClass("attn");
@@ -520,7 +520,7 @@
                 }
               })
               .fail(function(resp) {
-                console.log('POST /partners/data fail: ', resp);
+                console.log('POST /data/partners fail: ', resp);
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
                 show_error(resp.statusText);
@@ -544,7 +544,7 @@
            content: ['search']
          },
          ajax: {
-           url: '/partners/data',
+           url: '/data/partners',
            dataSrc: 'data'
          },
          deferRender: true,
@@ -605,9 +605,9 @@
              cell.data(e.target.textContent).draw();
 
              const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
-             $.post('/teams/data', post_data)
+             $.post('/data/teams', post_data)
               .done(function(resp) {
-                console.log('POST /teams/data done: ', resp);
+                console.log('POST /data/teams done: ', resp);
                 if (resp.err) {
                   cell.data(orig_val).draw();
                   $(e.target).addClass("attn");
@@ -619,7 +619,7 @@
                 }
               })
               .fail(function(resp) {
-                console.log('POST /teams/data fail: ', resp);
+                console.log('POST /data/teams fail: ', resp);
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
                 show_error(resp.statusText);
@@ -643,7 +643,7 @@
            content: ['search']
          },
          ajax: {
-           url: '/teams/data',
+           url: '/data/teams',
            dataSrc: 'data'
          },
          deferRender: true,
@@ -702,9 +702,9 @@
              cell.data(e.target.textContent).draw();
 
              const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
-             $.post('/round_robin/data', post_data)
+             $.post('/data/round_robin', post_data)
               .done(function(resp) {
-                console.log('POST /round_robin/data done: ', resp);
+                console.log('POST /data/round_robin done: ', resp);
                 if (resp.err) {
                   cell.data(orig_val).draw();
                   $(e.target).addClass("attn");
@@ -716,7 +716,7 @@
                 }
               })
               .fail(function(resp) {
-                console.log('POST /round_robin/data fail: ', resp);
+                console.log('POST /data/round_robin fail: ', resp);
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
                 show_error(resp.statusText);
@@ -740,7 +740,7 @@
            content: ['search']
          },
          ajax: {
-           url: '/round_robin/data',
+           url: '/data/round_robin',
            dataSrc: 'data'
          },
          deferRender: true,

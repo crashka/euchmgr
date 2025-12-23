@@ -365,7 +365,7 @@ pl_layout = [
     ('player_rank',      "Seed Rank",    None)
 ]
 
-@app.get("/players/data")
+@app.get("/data/players")
 def get_players() -> dict:
     """
     """
@@ -377,7 +377,7 @@ def get_players() -> dict:
 
     return ajax_data(pl_data)
 
-@app.post("/players/data")
+@app.post("/data/players")
 def post_players() -> dict:
     """
     """
@@ -434,7 +434,7 @@ sg_layout = [
     ('winner',      "Winner",      None)
 ]
 
-@app.get("/seeding/data")
+@app.get("/data/seeding")
 def get_seeding() -> dict:
     """
     """
@@ -446,7 +446,7 @@ def get_seeding() -> dict:
 
     return ajax_data(sg_data)
 
-@app.post("/seeding/data")
+@app.post("/data/seeding")
 def post_seeding() -> dict:
     """Post scrores to seeding round game.
     """
@@ -512,7 +512,7 @@ pt_layout = [
     ('picked_by_info', "Picked By",  None)
 ]
 
-@app.get("/partners/data")
+@app.get("/data/partners")
 def get_partners() -> dict:
     """Ajax call to load datatable for partners view.
     """
@@ -524,7 +524,7 @@ def get_partners() -> dict:
 
     return ajax_data(pt_data)
 
-@app.post("/partners/data")
+@app.post("/data/partners")
 def post_partners() -> dict:
     """Handle POST of partner pick data--the entire row is submitted, but we only look at
     the `id` and `picks_info` fields.
@@ -629,7 +629,7 @@ tm_layout = [
     ('div_rank',          "Div Rank",      None)
 ]
 
-@app.get("/teams/data")
+@app.get("/data/teams")
 def get_teams() -> dict:
     """
     """
@@ -641,7 +641,7 @@ def get_teams() -> dict:
 
     return ajax_data(tm_data)
 
-@app.post("/teams/data")
+@app.post("/data/teams")
 def post_teams() -> dict:
     """
     """
@@ -693,7 +693,7 @@ tg_layout = [
     ('winner',     "Winner",     None)
 ]
 
-@app.get("/round_robin/data")
+@app.get("/data/round_robin")
 def get_round_robin() -> dict:
     """
     """
@@ -705,7 +705,7 @@ def get_round_robin() -> dict:
 
     return ajax_data(tg_data)
 
-@app.post("/round_robin/data")
+@app.post("/data/round_robin")
 def post_round_robin() -> dict:
     """
     """

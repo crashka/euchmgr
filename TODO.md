@@ -12,8 +12,6 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 
 ## Features/Enhancements
 
-- report cyclic win groups, head-to-head elevations, and absolute ties in tie-breaker
-  reports
 - detect end of stage for manual updates (entering player nums, seeding round play,
   partner picking, round robin play)
 - handle updates/revisions to completed game scores (i.e. manage stats and denorm)
@@ -22,7 +20,6 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 
 ## Bugs/Nits
 
-- round all pct stats (both internal and external) to 3 decimal places
 - neatly flag and/or rectify duplicate player nick names
 - create teams as picks are made (to support active charting)
 - make bye rows readonly, for seeding and round robin views

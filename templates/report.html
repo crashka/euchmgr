@@ -193,7 +193,7 @@
         <p>[<b>{{len(cohort)}} teams tied</b>] {{'; '.join(div_cohort[div][pos])}}</p>
 
         {% if div_elevs[div][pos] %}
-        <p>Head-to-head wins (for ranking) [{{len(div_elevs[div][pos])}}]:</p>
+        <p>Head-to-Head Wins (for ranking) [{{len(div_elevs[div][pos])}}]:</p>
         <ul>
           {% for tm, opp in div_elevs[div][pos] %}
           <li>{{tm.team_name}} ({{tm.div_seed}}) beats {{opp.team_name}} ({{opp.div_seed}})</li>
@@ -202,7 +202,7 @@
         {% endif %}  {# div_elevs #}
 
         {% if div_win_grps[div][pos] %}
-        <p>Cyclic win groups (head-to-head wins cancel out for ranking) [{{len(div_win_grps[div][pos])}}]:</p>
+        <p>Cyclic Win Groups (head-to-head wins offset) [{{len(div_win_grps[div][pos])}}]:</p>
         <ul>
           {% for grp in div_win_grps[div][pos] %}
           <li>[<b>{{concat_seeds(grp)}}</b>] {{concat_teams(grp)}}</li>
@@ -211,7 +211,7 @@
         {% endif %}  {# div_win_grps #}
 
         {% if div_idents[div][pos] %}
-        <p>Identical tie-breakers [{{len(div_idents[div][pos])}}]:</p>
+        <p>Identical Tie-Breakers [{{len(div_idents[div][pos])}}]:</p>
         <ul>
           {% for equals in div_idents[div][pos] %}
           <li>[<b>{{concat_seeds(equals)}}</b>] {{concat_teams(equals)}}</li>

@@ -1,5 +1,7 @@
 /*.html
 *.tourn_db
+*.tourn_db-shm
+*.tourn_db-wal
 log/
 save/
 sessions/

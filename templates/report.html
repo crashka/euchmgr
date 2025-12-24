@@ -116,8 +116,8 @@
           <h4>{{player.nick_name}} ({{player.player_num}})</h4>
           <p>
             TB Rank: <span>{{player.player_rank}}</span>
-            Win-Loss: <span>{{player.tb_data['wins']}}-{{player.tb_data['losses']}}</span>
-            PF-PA: <span>{{player.tb_data['pts_for']}}-{{player.tb_data['pts_against']}}</span>
+            Win-Loss: <span>{{player.seed_tb_data['wins']}}-{{player.seed_tb_data['losses']}}</span>
+            PF-PA: <span>{{player.seed_tb_data['pts_for']}}-{{player.seed_tb_data['pts_against']}}</span>
             Pts Pct (total): <span>{{round(player.seed_pts_pct, 2)}}%</span>
           </p>
           {% if len(games) > 0 %}
@@ -224,8 +224,8 @@
           <h4>{{team.team_name}} ({{team.div_seed}})</h4>
           <p>
             TB Rank: <span>{{team.div_rank}}</span>
-            Win-Loss: <span>{{team.tb_data['wins']}}-{{team.tb_data['losses']}}</span>
-            PF-PA: <span>{{team.tb_data['pts_for']}}-{{team.tb_data['pts_against']}}</span>
+            Win-Loss: <span>{{team.div_tb_data['wins']}}-{{team.div_tb_data['losses']}}</span>
+            PF-PA: <span>{{team.div_tb_data['pts_for']}}-{{team.div_tb_data['pts_against']}}</span>
             Pts Pct (total): <span>{{round(team.tourn_pts_pct, 2)}}%</span>
           </p>
           <table>

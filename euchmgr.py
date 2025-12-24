@@ -17,8 +17,8 @@ from ckautils import rankdata
 
 from core import DataFile, DEBUG
 from database import db_init, db_close, db_name
-from schema import (rnd_pct, TournStage, TournInfo, Player, SeedGame, Team, TournGame,
-                    schema_create)
+from schema import (rnd_pct, rnd_avg, TournStage, TournInfo, Player, SeedGame, Team,
+                    TournGame, schema_create)
 
 #####################
 # utility functions #
@@ -267,17 +267,15 @@ def validate_seed_round(finalize: bool = False) -> None:
         assert pl.seed_pts_for     == stats['seed_pts_for']
         assert pl.seed_pts_against == stats['seed_pts_against']
 
-        ngames   = stats['seed_wins'] + stats['seed_losses']
-        win_pct  = rnd_pct(stats['seed_wins'] / ngames * 100.0)
-        pts_tot  = stats['seed_pts_for'] + stats['seed_pts_against']
-        pts_diff = stats['seed_pts_for'] - stats['seed_pts_against']
-        pts_pct  = rnd_pct(stats['seed_pts_for'] / pts_tot * 100.0)
+        ngames  = stats['seed_wins'] + stats['seed_losses']
+        win_pct = rnd_pct(stats['seed_wins'] / ngames * 100.0)
+        pts_tot = stats['seed_pts_for'] + stats['seed_pts_against']
+        pts_pct = rnd_pct(stats['seed_pts_for'] / pts_tot * 100.0)
 
         # note that floating point values should have been similarly rounded, so using
         # `==` should be robust (for equivalence) as well as help validate consistent
         # rounding in code
         assert pl.seed_win_pct == win_pct
-        assert pl.seed_pts_diff == pts_diff
         assert pl.seed_pts_pct == pts_pct
 
     assert stats_tot['seed_wins'] == stats_tot['seed_losses']
@@ -318,16 +316,16 @@ def compute_player_ranks(finalize: bool = False) -> None:
         if len(cohort) == 1:
             pl = cohort[0]
             pl.player_rank = pl.player_pos
-            pl.tb_crit = None
-            pl.tb_data = None
+            pl.seed_tb_crit = None
+            pl.seed_tb_data = None
             pl.save()
             continue
         cohort_pos = cohort[0].player_pos
         ranked = rank_player_cohort(cohort)
         for i, (pl, crit, data) in enumerate(ranked):
             pl.player_rank = cohort_pos + i
-            pl.tb_crit = crit
-            pl.tb_data = data
+            pl.seed_tb_crit = crit
+            pl.seed_tb_data = data
             pl.save()
 
     if finalize:
@@ -393,14 +391,14 @@ def build_tourn_teams() -> list[Team]:
         if not p.partner2_num:
             is_thm = False
             team_name = fmt_team_name([p.player_num, p.partner_num])
-            avg_seed = seed_sum / 2.0
+            avg_seed = rnd_avg(seed_sum / 2.0)
         else:
             partner2 = pl_map[p.partner2_num]
             is_thm = True
             team_name = fmt_team_name([p.player_num, p.partner_num, p.partner2_num])
             seed_sum += partner2.player_rank
             min_seed = min(min_seed, partner2.player_rank)
-            avg_seed = seed_sum / 3.0
+            avg_seed = rnd_avg(seed_sum / 3.0)
 
         info = {'player1_num'    : p.player_num,
                 'player2_num'    : p.partner_num,
@@ -583,17 +581,15 @@ def validate_tourn(finalize: bool = False) -> None:
         assert tm.tourn_pts_for     == stats['tourn_pts_for']
         assert tm.tourn_pts_against == stats['tourn_pts_against']
 
-        ngames   = stats['tourn_wins'] + stats['tourn_losses']
-        win_pct  = rnd_pct(stats['tourn_wins'] / ngames * 100.0)
-        pts_tot  = stats['tourn_pts_for'] + stats['tourn_pts_against']
-        pts_diff = stats['tourn_pts_for'] - stats['tourn_pts_against']
-        pts_pct  = rnd_pct(stats['tourn_pts_for'] / pts_tot * 100.0)
+        ngames  = stats['tourn_wins'] + stats['tourn_losses']
+        win_pct = rnd_pct(stats['tourn_wins'] / ngames * 100.0)
+        pts_tot = stats['tourn_pts_for'] + stats['tourn_pts_against']
+        pts_pct = rnd_pct(stats['tourn_pts_for'] / pts_tot * 100.0)
 
         # note that floating point values should have been similarly rounded, so using
         # `==` should be robust (for equivalence) as well as help validate consistent
         # rounding in code
         assert tm.tourn_win_pct == win_pct
-        assert tm.tourn_pts_diff == pts_diff
         assert tm.tourn_pts_pct == pts_pct
 
     assert stats_tot['tourn_wins'] == stats_tot['tourn_losses']
@@ -756,8 +752,36 @@ def compute_team_ranks(finalize: bool = False) -> None:
 
     div_teams = {div: [] for div in div_iter}
     for i, tm in enumerate(played):
-        tm.tourn_rank = tourn_ranks[i]
+        tm.tourn_pos = tourn_ranks[i]
         div_teams[tm.div_num].append(tm)
+
+    # tournament ranking based on win percentage, before tie-breaking
+    played.sort(key=lambda x: -x.tourn_win_pct)
+    for k, g in groupby(played, key=lambda x: x.tourn_win_pct):
+        cohort = list(g)
+        if len(cohort) == 1:
+            tm = cohort[0]
+            tm.tourn_rank = tm.tourn_pos
+            tm.tourn_tb_crit = None
+            tm.tourn_tb_data = None
+            tm.save()
+            continue
+        cohort_pos = cohort[0].tourn_pos
+        ranked, stats, data = rank_team_cohort(cohort)
+        ranked, elevs, win_grps, _ = elevate_winners(ranked)
+        if elevs and DEBUG:
+            for tm, opp in elevs:
+                print(f"Elevating {tm.team_seed} above {opp.team_seed} for tourn rank, "
+                      f"pos {cohort_pos}")
+        if win_grps and DEBUG:
+            for grp in win_grps:
+                grp_seeds = set(tm.team_seed for tm in grp)
+                print(f"Cyclic win group for tourn rank, pos {cohort_pos}, seeds {grp_seeds}")
+        for i, tm in enumerate(ranked):
+            tm.tourn_rank = cohort_pos + i
+            tm.tourn_tb_crit = stats[tm.team_seed]
+            tm.tourn_tb_data = data[tm.team_seed]
+            tm.save()
 
     for div, teams in div_teams.items():
         div_win_pcts = [tm.tourn_win_pct for tm in teams]
@@ -765,15 +789,15 @@ def compute_team_ranks(finalize: bool = False) -> None:
         for i, tm in enumerate(teams):
             tm.div_pos = div_ranks[i]
 
-        # high-level ranking based on win percentage, before tie-breaking
+        # division ranking based on win percentage, before tie-breaking
         teams.sort(key=lambda x: -x.tourn_win_pct)
         for k, g in groupby(teams, key=lambda x: x.tourn_win_pct):
             cohort = list(g)
             if len(cohort) == 1:
                 tm = cohort[0]
                 tm.div_rank = tm.div_pos
-                tm.tb_crit = None
-                tm.tb_data = None
+                tm.div_tb_crit = None
+                tm.div_tb_data = None
                 tm.save()
                 continue
             cohort_pos = cohort[0].div_pos
@@ -781,16 +805,16 @@ def compute_team_ranks(finalize: bool = False) -> None:
             ranked, elevs, win_grps, _ = elevate_winners(ranked)
             if elevs and DEBUG:
                 for tm, opp in elevs:
-                    print(f"Elevating {tm.div_seed} above {opp.div_seed} for div {div}, "
+                    print(f"Elevating {tm.div_seed} above {opp.div_seed} for div {div} rank, "
                           f"pos {cohort_pos}")
             if win_grps and DEBUG:
                 for grp in win_grps:
                     grp_seeds = set(tm.div_seed for tm in grp)
-                    print(f"Cyclic win group for div {div}, pos {cohort_pos}, seeds {grp_seeds}")
+                    print(f"Cyclic win group for div {div} rank, pos {cohort_pos}, seeds {grp_seeds}")
             for i, tm in enumerate(ranked):
                 tm.div_rank = cohort_pos + i
-                tm.tb_crit = stats[tm.team_seed]
-                tm.tb_data = data[tm.team_seed]
+                tm.div_tb_crit = stats[tm.team_seed]
+                tm.div_tb_data = data[tm.team_seed]
                 tm.save()
 
     if finalize:

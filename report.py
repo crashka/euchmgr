@@ -79,10 +79,6 @@ def sd_tb_report(tourn: TournInfo) -> str:
             cohort_rpt[pl] = games
             plyr_list.append(player_tag(pl))
 
-            # now check for and flag the following:
-            # - conflicts (loss to lower-ranked cohort)
-            # - absolute ties (identical tb_crit values)
-
     context = {
         'report_num' : 0,
         'title'      : SD_TB_REPORT,
@@ -156,7 +152,7 @@ def rr_tb_report(tourn: TournInfo) -> str:
             ranked, elevs, win_grps, _ = elevate_winners(ranked)
             for i, tm in enumerate(ranked):
                 assert cohort_pos + i == tm.div_rank
-            idents = Team.identical_tbs(div, cohort_pos)
+            idents = Team.ident_div_tbs(div, cohort_pos)
             pos_elevs[cohort_pos] = elevs
             pos_win_grps[cohort_pos] = win_grps
             pos_idents[cohort_pos] = idents

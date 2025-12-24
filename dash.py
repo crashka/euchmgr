@@ -410,8 +410,8 @@ def rr_dash(tourn: TournInfo) -> str:
                     tm.tourn_win_pct,
                     tm.div_pos_str,
                     tm.tourn_pts_pct,
-                    tm.tb_win_rec,
-                    tm.tb_pts_rec,
+                    tm.div_tb_win_rec,
+                    tm.div_tb_pts_rec,
                     tm.div_rank_final
                 )
                 stats_fmt[tm_seed] = (
@@ -447,8 +447,8 @@ def rr_dash(tourn: TournInfo) -> str:
                 tm.tourn_win_pct,
                 tm.div_pos_str,
                 tm.tourn_pts_pct,
-                tm.tb_win_rec,
-                tm.tb_pts_rec,
+                tm.div_tb_win_rec,
+                tm.div_tb_pts_rec,
                 tm.div_rank_final
             )
             stats_fmt[tm_seed] = (

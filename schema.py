@@ -224,14 +224,13 @@ class Player(BaseModel):
     seed_win_pct   = FloatField(null=True)
     seed_pts_for   = IntegerField(default=0)
     seed_pts_against = IntegerField(default=0)
-    seed_pts_diff  = IntegerField(null=True)
     seed_pts_pct   = FloatField(null=True)
     player_pos     = IntegerField(null=True)  # based on win_pct, ties possible
     # tie-breaker stuff
-    tb_crit        = JSONField(null=True)     # stats criteria used to compute final rank
-    tb_data        = JSONField(null=True)     # raw data for reference
+    seed_tb_crit   = JSONField(null=True)     # stats criteria used to compute final rank
+    seed_tb_data   = JSONField(null=True)     # raw data for reference
     player_rank    = IntegerField(null=True)  # stack-ranked, no ties
-    player_rank_adj = IntegerField(null=True) # manual override or adjustment
+    player_rank_adj = IntegerField(null=True) # partner picking determination overrides
     # partner picks
     partner        = ForeignKeyField('self', field='player_num', column_name='partner_num',
                                      null=True)
@@ -404,7 +403,7 @@ class Player(BaseModel):
         """
         if self.player_pos is None:
             return None
-        elif not self.tb_crit:
+        elif not self.seed_tb_crit:
             return str(self.player_pos)
         return f"{self.player_pos}*"
 
@@ -660,7 +659,6 @@ class SeedGame(BaseModel):
             ngames = player.seed_wins + player.seed_losses
             totpts = player.seed_pts_for + player.seed_pts_against
             player.seed_win_pct = rnd_pct(player.seed_wins / ngames * 100.0)
-            player.seed_pts_diff = player.seed_pts_for - player.seed_pts_against
             player.seed_pts_pct = rnd_pct(player.seed_pts_for / totpts * 100.0)
             upd += player.save()
 
@@ -764,15 +762,29 @@ class Team(BaseModel):
     tourn_win_pct  = FloatField(null=True)
     tourn_pts_for  = IntegerField(default=0)
     tourn_pts_against = IntegerField(default=0)
-    tourn_pts_diff = IntegerField(null=True)
     tourn_pts_pct  = FloatField(null=True)
-    tourn_rank     = IntegerField(null=True)  # PLACEHOLDER: algorithm TBD!!!
-    div_pos        = IntegerField(null=True)  # based on win_pct, ties possible
+    tourn_pos      = IntegerField(null=True)  # based on win_pct, ties possible
+    div_pos        = IntegerField(null=True)  # same
+    # playoff play
+    playoff_match_wins = IntegerField(default=0)
+    playoff_match_losses = IntegerField(default=0)
+    playoff_wins   = IntegerField(default=0)
+    playoff_losses = IntegerField(default=0)
+    playoff_win_pct = FloatField(null=True)
+    playoff_pts_for = IntegerField(default=0)
+    playoff_pts_against = IntegerField(default=0)
+    playoff_pts_pct = FloatField(null=True)
+    playoff_pos    = IntegerField(default=0)  # REVISIT: probably don't need this!!!
+    playoff_rank   = IntegerField(default=0)  # apply to top four tourn_rank_adj
     # tie-breaker stuff
-    tb_crit        = JSONField(null=True)     # stats criteria used to compute final rank
-    tb_data        = JSONField(null=True)     # raw data for reference
+    div_tb_crit    = JSONField(null=True)     # stats criteria used to compute final rank
+    div_tb_data    = JSONField(null=True)     # raw data for reference
     div_rank       = IntegerField(null=True)  # stack-ranked, no ties
-    div_rank_adj   = IntegerField(null=True)  # manual override or adjustment
+    div_rank_adj   = IntegerField(null=True)  # playoff determination overrides
+    tourn_tb_crit  = JSONField(null=True)     # stats criteria used to compute final rank
+    tourn_tb_data  = JSONField(null=True)     # raw data for reference
+    tourn_rank     = IntegerField(null=True)  # stack-ranked, no ties
+    tourn_rank_adj = IntegerField(null=True)  # includes playoff_rank overwrite
 
     # class variables
     team_map: ClassVar[dict[int, Self]] = None  # indexed by team_seed
@@ -816,18 +828,18 @@ class Team(BaseModel):
             yield t
 
     @classmethod
-    def identical_tbs(cls, div_num: int, div_pos: int) -> list[list[Self]]:
-        """Report teams with identical tie-break criteria for a cohort (identical overall
-        win percentage
+    def ident_div_tbs(cls, div_num: int, div_pos: int) -> list[list[Self]]:
+        """Report teams with identical tie-break criteria for a divisional cohort
+        (identical overall win percentage)
         """
         tbs = []
         query = (Team
-                 .select(Team.tb_crit,
+                 .select(Team.div_tb_crit,
                          fn.group_concat(Team.id))
                  .where(Team.div_num == div_num,
                         Team.div_pos == div_pos,
                         Team.team_seed.is_null(False))
-                 .group_by(Team.tb_crit)
+                 .group_by(Team.div_tb_crit)
                  .having(fn.count() > 1))
         for grp in query:
             ids: list[str] = grp.__data__['id'].split(',')
@@ -875,25 +887,25 @@ class Team(BaseModel):
         """
         if self.div_pos is None:
             return None
-        elif not self.tb_crit:
+        elif not self.div_tb_crit:
             return str(self.div_pos)
         return f"{self.div_pos}*"
 
     @property
-    def tb_win_rec(self) -> str | None:
+    def div_tb_win_rec(self) -> str | None:
         """Tie-breaker (head-to-head) win-loss record as a string
         """
-        if not self.tb_data:
+        if not self.div_tb_data:
             return None
-        return f"{self.tb_data['wins']}-{self.tb_data['losses']}"
+        return f"{self.div_tb_data['wins']}-{self.div_tb_data['losses']}"
 
     @property
-    def tb_pts_rec(self) -> str | None:
+    def div_tb_pts_rec(self) -> str | None:
         """Tie-breaker (head-to-head) points for-and-against record as a string
         """
-        if not self.tb_data:
+        if not self.div_tb_data:
             return None
-        return f"{self.tb_data['pts_for']}-{self.tb_data['pts_against']}"
+        return f"{self.div_tb_data['pts_for']}-{self.div_tb_data['pts_against']}"
 
     @property
     def div_rank_final(self, annotated: bool = False) -> int | str:
@@ -1083,7 +1095,6 @@ class TournGame(BaseModel):
             ngames = team.tourn_wins + team.tourn_losses
             totpts = team.tourn_pts_for + team.tourn_pts_against
             team.tourn_win_pct = rnd_pct(team.tourn_wins / ngames * 100.0)
-            team.tourn_pts_diff = team.tourn_pts_for - team.tourn_pts_against
             team.tourn_pts_pct = rnd_pct(team.tourn_pts_for / totpts * 100.0)
             upd += team.save()
 

@@ -29,7 +29,6 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 ## Refactoring
 
 - get rid of schema level caching (and fix requery flags)
-- consolidate javascript for DataTable handling across views
 - improve HTML and CSS design
   - use \<section\>, \<div\>, \<span\>, \<h1\>, \<h2\>, etc. properly
   - prettier styling in general

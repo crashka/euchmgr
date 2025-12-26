@@ -142,12 +142,12 @@
       </div>
 
       {% if view_chk[0] %}
-      <div class="section players">
-        <span class="view_title">{{view_name[0]}}</span>
-        <table id="plyr_tbl" class="display" spellcheck="false">
+      <div class="section {{view_info.div_class}}">
+        <span class="view_title">{{view_info.name}}</span>
+        <table id="{{view_info.table_id}}" class="display" spellcheck="false">
           <thead>
             <tr>
-              {% for col in pl_layout %}
+              {% for col in layout %}
               <th>{{col[1]}}</th>
               {% endfor %}
             </tr>
@@ -163,12 +163,12 @@
       {% endif %}
 
       {% if view_chk[1] %}
-      <div class="section seeding">
-        <span class="view_title">{{view_name[1]}}</span>
-        <table id="seed_tbl" class="display" spellcheck="false">
+      <div class="section {{view_info.div_class}}">
+        <span class="view_title">{{view_info.name}}</span>
+        <table id="{{view_info.table_id}}" class="display" spellcheck="false">
           <thead>
             <tr>
-              {% for col in sg_layout %}
+              {% for col in layout %}
               <th>{{col[1]}}</th>
               {% endfor %}
             </tr>
@@ -188,12 +188,12 @@
       {% endif %}
 
       {% if view_chk[2] %}
-      <div class="section partners">
-        <span class="view_title">{{view_name[2]}}</span>
-        <table id="ptnr_tbl" class="display" spellcheck="false">
+      <div class="section {{view_info.div_class}}">
+        <span class="view_title">{{view_info.name}}</span>
+        <table id="{{view_info.table_id}}" class="display" spellcheck="false">
           <thead>
             <tr>
-              {% for col in pt_layout %}
+              {% for col in layout %}
               <th>{{col[1]}}</th>
               {% endfor %}
             </tr>
@@ -209,12 +209,12 @@
       {% endif %}
 
       {% if view_chk[3] %}
-      <div class="section teams">
-        <span class="view_title">{{view_name[3]}}</span>
-        <table id="team_tbl" class="display" spellcheck="false">
+      <div class="section {{view_info.div_class}}">
+        <span class="view_title">{{view_info.name}}</span>
+        <table id="{{view_info.table_id}}" class="display" spellcheck="false">
           <thead>
             <tr>
-              {% for col in tm_layout %}
+              {% for col in layout %}
               <th>{{col[1]}}</th>
               {% endfor %}
             </tr>
@@ -229,12 +229,12 @@
       {% endif %}
 
       {% if view_chk[4] %}
-      <div class="section round_robin">
-        <span class="view_title">{{view_name[4]}}</span>
-        <table id="rr_tbl" class="display" spellcheck="false">
+      <div class="section {{view_info.div_class}}">
+        <span class="view_title">{{view_info.name}}</span>
+        <table id="{{view_info.table_id}}" class="display" spellcheck="false">
           <thead>
             <tr>
-              {% for col in tg_layout %}
+              {% for col in layout %}
               <th>{{col[1]}}</th>
               {% endfor %}
             </tr>
@@ -281,495 +281,108 @@
        window.location.href = window.location.origin + path;
      });
 
-     {% if view_chk[0] %}
-     // players view
-     if ("{{view_chk[0]}}") {
-       const editable = function(node) {
-         let orig_val;
+     // view stuff
+     const editable = function(node) {
+       let orig_val;
 
-         node.classList.add("pick");
-         node.setAttribute('contenteditable', true);
-         node.addEventListener('keypress', function(e) {
-           if (e.which == 13) {
-             e.preventDefault();
-             $(this).trigger('blur');
-             $(this).next('td').focus();
-             //return false;
-           }
-         });
-
-         node.addEventListener('focus', function(e) {
-           orig_val = e.target.textContent;
-           $(e.target).removeClass("attn");
-         });
-
-         node.addEventListener('blur', function(e) {
-           if (e.target.textContent !== orig_val) {
-             const cell = table.cell(e.target)
-             const row = table.row(e.target.parentElement);
-             cell.data(e.target.textContent).draw();
-
-             const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
-             $.post('/data/players', post_data)
-              .done(function(resp) {
-                console.log('POST /data/players done: ', resp);
-                if (resp.err) {
-                  cell.data(orig_val).draw();
-                  $(e.target).addClass("attn");
-                  show_error(resp.err);
-                }
-                else if (resp.succ && resp.data) {
-                  console.log('Updating row data: ', resp.data);
-                  row.data(resp.data).draw();
-                }
-              })
-              .fail(function(resp) {
-                console.log('POST /data/players fail: ', resp);
-                cell.data(orig_val).draw();
-                $(e.target).addClass("attn");
-                show_error(resp.statusText);
-                win = window.open('', '_blank')
-                win.document.body.innerHTML = resp.responseText;
-              });
-         }});
-       };
-
-       const tourn = $('.info_blk input[name="tourn_name"]').val();
-       const table = $('#plyr_tbl').DataTable({
-         rowId: 'nick_name',
-         paging: false,
-         scrollX: true,
-         scrollY: '35rem',
-         //fixedColumns: {
-         //  start: 3
-         //},
-         columnControl: {
-           target: 1,
-           content: ['search']
-         },
-         ajax: {
-           url: '/data/players',
-           dataSrc: 'data'
-         },
-         deferRender: true,
-         columns: [
-           {% for col in pl_layout %}
-           {data: '{{col[0]}}'},
-           {% endfor %}
-         ],
-         columnDefs: [
-           {% for col in pl_layout %}
-           {% if col[2] == 'hidden' %}
-           {target: {{loop.index0}}, visible: false, searchable: false},
-           {% elif col[2] == 'centered' %}
-           {target: {{loop.index0}}, className: 'dt-center'},
-           {% elif col[2] == 'editable' %}
-           {target: {{loop.index0}}, createdCell: editable},
-           {% else %}
-           {target: {{loop.index0}}},
-           {% endif %}
-           {% endfor %}
-         ],
-         //order: [[0, 'asc']],  // player.id
-         initComplete: function(settings, json) {
-           $(".players").css('display', 'block');
-           table.columns.adjust().draw();
+       node.setAttribute('contenteditable', true);
+       node.addEventListener('keypress', function(e) {
+         if (e.which == 13) {
+           e.preventDefault();
+           $(this).trigger('blur');
+           $(this).next('td').focus();
+           //return false;
          }
        });
-     }
-     {% endif %}
 
-     {% if view_chk[1] %}
-     // seeding view
-     if ("{{view_chk[1]}}") {
-       const editable = function(node) {
-         let orig_val;
+       node.addEventListener('focus', function(e) {
+         orig_val = e.target.textContent;
+         $('td[contenteditable].attn').removeClass("attn");
+         window.getSelection().selectAllChildren(e.target);
+       });
 
-         node.setAttribute('contenteditable', true);
-         node.addEventListener('keypress', function(e) {
-           if (e.which == 13) {
-             e.preventDefault();
-             $(this).trigger('blur');
-             $(this).next('td').focus();
-             //return false;
-           }
-         });
+       node.addEventListener('blur', function(e) {
+         window.getSelection().empty();
+         if (e.target.textContent !== orig_val) {
+           const cell = table.cell(e.target)
+           const row = table.row(e.target.parentElement);
+           cell.data(e.target.textContent).draw();
 
-         node.addEventListener('focus', function(e) {
-           orig_val = e.target.textContent;
-           $(e.target).removeClass("attn");
-         });
-
-         node.addEventListener('blur', function(e) {
-           if (e.target.textContent !== orig_val) {
-             const cell = table.cell(e.target)
-             const row = table.row(e.target.parentElement);
-             cell.data(e.target.textContent).draw();
-
-             const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
-             $.post('/data/seeding', post_data)
-              .done(function(resp) {
-                console.log('POST /data/seeding done: ', resp);
-                if (resp.err) {
-                  cell.data(orig_val).draw();
-                  $(e.target).addClass("attn");
-                  show_error(resp.err);
-                }
-                else if (resp.succ && resp.data) {
-                  console.log('Updating row data: ', resp.data);
-                  row.data(resp.data).draw();
-                }
-              })
-              .fail(function(resp) {
-                console.log('POST /data/seeding fail: ', resp);
+           const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
+           $.post('{{view_info.data_url}}', post_data)
+            .done(function(resp) {
+              console.log('POST {{view_info.data_url}} done: ', resp);
+              if (resp.err) {
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
-                show_error(resp.statusText);
-                win = window.open('', '_blank')
-                win.document.body.innerHTML = resp.responseText;
-              });
-         }});
-       };
-
-       const tourn = $('.info_blk input[name="tourn_name"]').val();
-       const table = $('#seed_tbl').DataTable({
-         rowId: 'label',
-         paging: false,
-         scrollX: true,
-         scrollY: '35rem',
-         //fixedColumns: {
-         //  start: 3
-         //},
-         columnControl: {
-           target: 1,
-           content: ['search']
-         },
-         ajax: {
-           url: '/data/seeding',
-           dataSrc: 'data'
-         },
-         deferRender: true,
-         columns: [
-           {% for col in sg_layout %}
-           {data: '{{col[0]}}'},
-           {% endfor %}
-         ],
-         columnDefs: [
-           {% for col in sg_layout %}
-           {% if col[2] == 'hidden' %}
-           {target: {{loop.index0}}, visible: false, searchable: false},
-           {% elif col[2] == 'centered' %}
-           {target: {{loop.index0}}, className: 'dt-center'},
-           {% elif col[2] == 'editable' %}
-           {target: {{loop.index0}}, createdCell: editable},
-           {% else %}
-           {target: {{loop.index0}}},
-           {% endif %}
-           {% endfor %}
-         ],
-         //order: [[0, 'asc']],  // seed_game.id
-         initComplete: function(settings, json) {
-           $(".seeding").css('display', 'block');
-           table.columns.adjust().draw();
-         }
-       });
-     }
-     {% endif %}
-
-     {% if view_chk[2] %}
-     // partners view
-     if ("{{view_chk[2]}}") {
-       const editable = function(node) {
-         let orig_val;
-
-         node.setAttribute('contenteditable', true);
-         node.addEventListener('keypress', function(e) {
-           if (e.which == 13) {
-             e.preventDefault();
-             $(this).trigger('blur');
-             $(this).next('td').focus();
-             //return false;
-           }
-         });
-
-         node.addEventListener('focus', function(e) {
-           orig_val = e.target.textContent;
-           $('td[contenteditable].attn').removeClass("attn");
-           window.getSelection().selectAllChildren(e.target);
-         });
-
-         node.addEventListener('blur', function(e) {
-           window.getSelection().empty();
-           if (e.target.textContent !== orig_val) {
-             const cell = table.cell(e.target)
-             const row = table.row(e.target.parentElement);
-             cell.data(e.target.textContent).draw();
-
-             const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
-             $.post('/data/partners', post_data)
-              .done(function(resp) {
-                console.log('POST /data/partners done: ', resp);
-                if (resp.err) {
-                  cell.data(orig_val).draw();
-                  $(e.target).addClass("attn");
-                  show_error(resp.err);
-                }
-                else if (resp.data == 'all') {
+                show_error(resp.err);
+              }
+              else if (resp.succ) {
+                if (resp.data == 'all') {
                   console.log('Reloading table data');
                   table.ajax.reload();
                 }
-              })
-              .fail(function(resp) {
-                console.log('POST /data/partners fail: ', resp);
-                cell.data(orig_val).draw();
-                $(e.target).addClass("attn");
-                show_error(resp.statusText);
-                win = window.open('', '_blank')
-                win.document.body.innerHTML = resp.responseText;
-              });
-         }});
-       };
-
-       const tourn = $('.info_blk input[name="tourn_name"]').val();
-       const table = $('#ptnr_tbl').DataTable({
-         rowId: 'nick_name',
-         paging: false,
-         scrollX: true,
-         scrollY: '35rem',
-         //fixedColumns: {
-         //  start: 3
-         //},
-         columnControl: {
-           target: 1,
-           content: ['search']
-         },
-         ajax: {
-           url: '/data/partners',
-           dataSrc: 'data'
-         },
-         deferRender: true,
-         columns: [
-           {% for col in pt_layout %}
-           {data: '{{col[0]}}'},
-           {% endfor %}
-         ],
-         columnDefs: [
-           {% for col in pt_layout %}
-           {% if col[2] == 'hidden' %}
-           {target: {{loop.index0}}, visible: false, searchable: false},
-           {% elif col[2] == 'centered' %}
-           {target: {{loop.index0}}, className: 'dt-center'},
-           {% elif col[2] == 'editable' %}
-           {target: {{loop.index0}}, createdCell: editable},
-           {% else %}
-           {target: {{loop.index0}}},
-           {% endif %}
-           {% endfor %}
-         ],
-         order: [[1, 'asc']],  // player_rank
-         initComplete: function(settings, json) {
-           $(".partners").css('display', 'block');
-           table.columns.adjust().draw();
-         }
-       });
-
-       // TODO: set initial focus (and/or highlight) here!!!
-     }
-     {% endif %}
-
-     {% if view_chk[3] %}
-     // teams view
-     if ("{{view_chk[3]}}") {
-       const editable = function(node) {
-         let orig_val;
-
-         node.setAttribute('contenteditable', true);
-         node.addEventListener('keypress', function(e) {
-           if (e.which == 13) {
-             e.preventDefault();
-             $(this).trigger('blur');
-             $(this).next('td').focus();
-             //return false;
-           }
-         });
-
-         node.addEventListener('focus', function(e) {
-           orig_val = e.target.textContent;
-           $(e.target).removeClass("attn");
-         });
-
-         node.addEventListener('blur', function(e) {
-           if (e.target.textContent !== orig_val) {
-             const cell = table.cell(e.target)
-             const row = table.row(e.target.parentElement);
-             cell.data(e.target.textContent).draw();
-
-             const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
-             $.post('/data/teams', post_data)
-              .done(function(resp) {
-                console.log('POST /data/teams done: ', resp);
-                if (resp.err) {
-                  cell.data(orig_val).draw();
-                  $(e.target).addClass("attn");
-                  show_error(resp.err);
-                }
-                else if (resp.succ && resp.data) {
+                else if (resp.data) {
                   console.log('Updating row data: ', resp.data);
                   row.data(resp.data).draw();
                 }
-              })
-              .fail(function(resp) {
-                console.log('POST /data/teams fail: ', resp);
-                cell.data(orig_val).draw();
-                $(e.target).addClass("attn");
-                show_error(resp.statusText);
-                win = window.open('', '_blank')
-                win.document.body.innerHTML = resp.responseText;
-              });
-         }});
-       };
+              }
+            })
+            .fail(function(resp) {
+              console.log('POST {{view_info.data_url}} fail: ', resp);
+              cell.data(orig_val).draw();
+              $(e.target).addClass("attn");
+              show_error(resp.statusText);
+              win = window.open('', '_blank')
+              win.document.body.innerHTML = resp.responseText;
+            });
+       }});
+     };
 
-       const tourn = $('.info_blk input[name="tourn_name"]').val();
-       const table = $('#team_tbl').DataTable({
-         rowId: 'team_name',
-         paging: false,
-         scrollX: true,
-         scrollY: '35rem',
-         //fixedColumns: {
-         //  start: 2
-         //},
-         columnControl: {
-           target: 1,
-           content: ['search']
-         },
-         ajax: {
-           url: '/data/teams',
-           dataSrc: 'data'
-         },
-         deferRender: true,
-         columns: [
-           {% for col in tm_layout %}
-           {data: '{{col[0]}}'},
-           {% endfor %}
-         ],
-         columnDefs: [
-           {% for col in tm_layout %}
-           {% if col[2] == 'hidden' %}
-           {target: {{loop.index0}}, visible: false, searchable: false},
-           {% elif col[2] == 'centered' %}
-           {target: {{loop.index0}}, className: 'dt-center'},
-           {% elif col[2] == 'editable' %}
-           {target: {{loop.index0}}, createdCell: editable},
-           {% else %}
-           {target: {{loop.index0}}},
-           {% endif %}
-           {% endfor %}
-         ],
-         order: [[1, 'asc']],  // teem_seed
-         initComplete: function(settings, json) {
-           $(".teams").css('display', 'block');
-           table.columns.adjust().draw();
-         }
-       });
-     }
-     {% endif %}
+     const tourn = $('.info_blk input[name="tourn_name"]').val();
+     const table = $('#{{view_info.table_id}}').DataTable({
+       rowId: '{{view_info.rowid_col}}',
+       paging: false,
+       scrollX: true,
+       scrollY: '35rem',
+       //fixedColumns: {
+       //  start: {{view_info.fixed_cols}}
+       //},
+       columnControl: {
+         target: 1,
+         content: ['search']
+       },
+       ajax: {
+         url: '{{view_info.data_url}}',
+         dataSrc: 'data'
+       },
+       deferRender: true,
+       columns: [
+         {% for col in layout %}
+         {data: '{{col[0]}}'},
+         {% endfor %}
+       ],
+       columnDefs: [
+         {% for col in layout %}
+         {% if col[2] == 'hidden' %}
+         {target: {{loop.index0}}, visible: false, searchable: false},
+         {% elif col[2] == 'centered' %}
+         {target: {{loop.index0}}, className: 'dt-center'},
+         {% elif col[2] == 'editable' %}
+         {target: {{loop.index0}}, createdCell: editable},
+         {% else %}
+         {target: {{loop.index0}}},
+         {% endif %}
+         {% endfor %}
+       ],
+       order: [[{{view_info.tbl_order}}, 'asc']],
+       initComplete: function(settings, json) {
+         $(".{{view_info.div_class}}").css('display', 'block');
+         table.columns.adjust().draw();
+       }
+     });
 
-     {% if view_chk[4] %}
-     // round_robin view
-     if ("{{view_chk[4]}}") {
-       const editable = function(node) {
-         let orig_val;
-
-         node.setAttribute('contenteditable', true);
-         node.addEventListener('keypress', function(e) {
-           if (e.which == 13) {
-             e.preventDefault();
-             $(this).trigger('blur');
-             $(this).next('td').focus();
-             //return false;
-           }
-         });
-
-         node.addEventListener('focus', function(e) {
-           orig_val = e.target.textContent;
-           $(e.target).removeClass("attn");
-         });
-
-         node.addEventListener('blur', function(e) {
-           if (e.target.textContent !== orig_val) {
-             const cell = table.cell(e.target)
-             const row = table.row(e.target.parentElement);
-             cell.data(e.target.textContent).draw();
-
-             const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
-             $.post('/data/round_robin', post_data)
-              .done(function(resp) {
-                console.log('POST /data/round_robin done: ', resp);
-                if (resp.err) {
-                  cell.data(orig_val).draw();
-                  $(e.target).addClass("attn");
-                  show_error(resp.err);
-                }
-                else if (resp.succ && resp.data) {
-                  console.log('Updating row data: ', resp.data);
-                  row.data(resp.data).draw();
-                }
-              })
-              .fail(function(resp) {
-                console.log('POST /data/round_robin fail: ', resp);
-                cell.data(orig_val).draw();
-                $(e.target).addClass("attn");
-                show_error(resp.statusText);
-                win = window.open('', '_blank')
-                win.document.body.innerHTML = resp.responseText;
-              });
-         }});
-       };
-
-       const tourn = $('.info_blk input[name="tourn_name"]').val();
-       const table = $('#rr_tbl').DataTable({
-         rowId: 'label',
-         paging: false,
-         scrollX: true,
-         scrollY: '35rem',
-         //fixedColumns: {
-         //  start: 2
-         //},
-         columnControl: {
-           target: 1,
-           content: ['search']
-         },
-         ajax: {
-           url: '/data/round_robin',
-           dataSrc: 'data'
-         },
-         deferRender: true,
-         columns: [
-           {% for col in tg_layout %}
-           {data: '{{col[0]}}'},
-           {% endfor %}
-         ],
-         columnDefs: [
-           {% for col in tg_layout %}
-           {% if col[2] == 'hidden' %}
-           {target: {{loop.index0}}, visible: false, searchable: false},
-           {% elif col[2] == 'centered' %}
-           {target: {{loop.index0}}, className: 'dt-center'},
-           {% elif col[2] == 'editable' %}
-           {target: {{loop.index0}}, createdCell: editable},
-           {% else %}
-           {target: {{loop.index0}}},
-           {% endif %}
-           {% endfor %}
-         ],
-         //order: [[0, 'asc']],  // tourn_game.id
-         initComplete: function(settings, json) {
-           $(".round_robin").css('display', 'block');
-           table.columns.adjust().draw();
-         }
-       });
-     }
-     {% endif %}
+     // TODO: set initial focus (and/or highlight) here!!!
 
      {% if err_msg %}
      show_error('{{err_msg|safe}}');

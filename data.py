@@ -394,7 +394,7 @@ RowSelector = str
 def ajax_response(succ: bool, msg: str = None, data: dict | list | str = None) -> dict:
     """Encapsulate response to an ajax request (GET or POST).  Note that clients can check
     either the `succ` or `err` field to determine the result.  The return `data` is passed
-    through to the front-end, with the format being context-depedent (e.g. dict or list
+    through to the front-end, with the format being context-dependent (e.g. dict or list
     representing JSON data, or a string directive understood by the client side).
 
     LATER: we may want to add UI selectors as additional return elements, indicating rows

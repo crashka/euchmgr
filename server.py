@@ -18,6 +18,7 @@ To do list:
 
 """
 
+from typing import NamedTuple
 from enum import IntEnum
 from glob import glob
 import os.path
@@ -78,14 +79,6 @@ class View(IntEnum):
     TEAMS       = 3
     ROUND_ROBIN = 4
 
-VIEW_NAME = [
-    'Players',
-    'Seeding',
-    'Partners',
-    'Teams',
-    'Round Robin'
-]
-
 VIEW_PATH = [
     '/players',
     '/seeding',
@@ -95,6 +88,73 @@ VIEW_PATH = [
 ]
 
 PATH_VIEW = dict(zip(VIEW_PATH, View))
+
+class ViewInfo(NamedTuple):
+    """This is not super-pretty, but we want to make this as data-driven as possible
+    """
+    name:       str
+    div_class:  str
+    data_url:   str
+    table_id:   str
+    rowid_col:  str
+    tbl_order:  int
+    fixed_cols: int
+
+VIEW_INFO = {
+    View.PLAYERS: ViewInfo(
+        "Players",
+        "players",
+        "/data/players",
+        "plyr_tbl",
+        "nick_name",
+        0,
+        3
+    ),
+    View.SEEDING: ViewInfo(
+        "Seeding",
+        "seeding",
+        "/data/seeding",
+        "seed_tbl",
+        "label",
+        0,
+        3
+    ),
+    View.PARTNERS: ViewInfo(
+        "Partners",
+        "partners",
+        "/data/partners",
+        "ptnr_tbl",
+        "nick_name",
+        1,  # player_rank
+        3
+    ),
+    View.TEAMS: ViewInfo(
+        "Teams",
+        "teams",
+        "/data/teams",
+        "team_tbl",
+        "team_name",
+        1,  # team_seed
+        2
+    ),
+    View.ROUND_ROBIN: ViewInfo(
+        "Round Robin",
+        "round_robin",
+        "/data/round_robin",
+        "rr_tbl",
+        "label",
+        0,
+        2
+    )
+}
+
+LAYOUT = {
+    View.PLAYERS    : pl_layout,
+    View.SEEDING    : sg_layout,
+    View.PARTNERS   : pt_layout,
+    View.TEAMS      : tm_layout,
+    View.ROUND_ROBIN: tg_layout
+}
 
 @app.before_request
 def _db_init():
@@ -456,8 +516,8 @@ def render_app(context: dict) -> str:
     """
     view_chk = [''] * len(View)
     view = context.get('view')
-    if isinstance(view, int):
-        view_chk[view] = CHECKED
+    assert isinstance(view, int)
+    view_chk[view] = CHECKED
 
     stage_compl = 0
     if context.get('tourn'):
@@ -469,15 +529,11 @@ def render_app(context: dict) -> str:
 
     base_ctx = {
         'title'    : APP_NAME,
-        'view_name': VIEW_NAME,
-        'view_chk' : view_chk,
         'tourn'    : None,       # context may contain override
         'err_msg'  : None,       # ditto
-        'pl_layout': pl_layout,
-        'sg_layout': sg_layout,
-        'pt_layout': pt_layout,
-        'tm_layout': tm_layout,
-        'tg_layout': tg_layout,
+        'view_chk' : view_chk,
+        'view_info': VIEW_INFO[view],
+        'layout'   : LAYOUT[view],
         'btn_val'  : BUTTONS,
         'btn_attr' : btn_attr,
         'help_txt' : help_txt

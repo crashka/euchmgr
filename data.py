@@ -24,6 +24,8 @@ HIDDEN   = 'hidden'
 CENTERED = 'centered'
 EDITABLE = 'editable'
 
+Layout = list[tuple[str, str, str]]
+
 ############
 # /players #
 ############

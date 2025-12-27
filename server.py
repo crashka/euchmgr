@@ -19,7 +19,7 @@ To do list:
 """
 
 from typing import NamedTuple
-from enum import IntEnum
+from enum import StrEnum
 from glob import glob
 import os.path
 import re
@@ -39,8 +39,8 @@ from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_se
                      prepick_champ_partners, fake_pick_partners, build_tourn_teams,
                      compute_team_seeds, build_tourn_bracket, fake_tourn_games,
                      validate_tourn, compute_team_ranks)
-from data import (data, DISABLED, CHECKED, pl_layout, sg_layout, pt_layout, tm_layout,
-                  tg_layout)
+from data import (data, DISABLED, CHECKED, Layout, pl_layout, sg_layout, pt_layout,
+                  tm_layout, tg_layout)
 from chart import chart
 from dash import dash
 from report import report
@@ -71,80 +71,62 @@ app.register_blueprint(dash, url_prefix="/dash")
 app.register_blueprint(report, url_prefix="/report")
 Session(app)
 
-# app views
-class View(IntEnum):
-    TOURN       = 0
-    PLAYERS     = 1
-    SEEDING     = 2
-    PARTNERS    = 3
-    TEAMS       = 4
-    ROUND_ROBIN = 5
-    PLAYOFFS    = 6
-    STANDINGS   = 7
+# symbolic name for view path
+class View(StrEnum):
+    TOURN       = '/tourn'
+    PLAYERS     = '/players'
+    SEEDING     = '/seeding'
+    PARTNERS    = '/partners'
+    TEAMS       = '/teams'
+    ROUND_ROBIN = '/round_robin'
 
 class ViewInfo(NamedTuple):
     """This is not super-pretty, but we want to make this as data-driven as possible
     """
     name:       str
-    path:       str
+    layout:     Layout
     rowid_col:  str
     tbl_order:  int
     fixed_cols: int
 
+# only include views using APP_TEMPLATE
 VIEW_INFO = {
-    View.TOURN: ViewInfo(
-        None,
-        "/tourn",
-        None,
-        None,
-        None
-    ),
     View.PLAYERS: ViewInfo(
         "Players",
-        "/players",
+        pl_layout,
         "nick_name",
         0,
         3
     ),
     View.SEEDING: ViewInfo(
         "Seeding",
-        "/seeding",
+        sg_layout,
         "label",
         0,
         3
     ),
     View.PARTNERS: ViewInfo(
         "Partners",
-        "/partners",
+        pt_layout,
         "nick_name",
         1,  # player_rank
         3
     ),
     View.TEAMS: ViewInfo(
         "Teams",
-        "/teams",
+        tm_layout,
         "team_name",
         1,  # team_seed
         2
     ),
     View.ROUND_ROBIN: ViewInfo(
         "Round Robin",
-        "/round_robin",
+        tg_layout,
         "label",
         0,
         2
     )
 }
-
-LAYOUT = {
-    View.PLAYERS    : pl_layout,
-    View.SEEDING    : sg_layout,
-    View.PARTNERS   : pt_layout,
-    View.TEAMS      : tm_layout,
-    View.ROUND_ROBIN: tg_layout
-}
-
-PATH_VIEW = {info.path: view for view, info in VIEW_INFO.items()}
 
 @app.before_request
 def _db_init():
@@ -225,10 +207,9 @@ def view() -> str:
     """
     """
     tourn = TournInfo.get()
-    view = PATH_VIEW[request.path]
     context = {
         'tourn': tourn,
-        'view' : view
+        'view' : request.path
     }
     return render_app(context)
 
@@ -262,26 +243,26 @@ def tourn() -> str:
 ##################
 
 SUBMIT_FUNCS = {
-    '/tourn': [
+    View.TOURN: [
         'create_tourn',
         'update_tourn'
     ],
-    '/players': [
+    View.PLAYERS: [
         'gen_player_nums',
         'gen_seed_bracket'
     ],
-    '/seeding': [
+    View.SEEDING: [
         'fake_seed_results',
         'tabulate_seed_results'
     ],
-    '/partners': [
+    View.PARTNERS: [
         'fake_partner_picks',
         'comp_team_seeds'
     ],
-    '/teams': [
+    View.TEAMS: [
         'gen_tourn_brackets'
     ],
-    '/round_robin': [
+    View.ROUND_ROBIN: [
         'fake_tourn_results',
         'tabulate_tourn_results'
     ]
@@ -304,10 +285,11 @@ def submit() -> str:
         session['tourn'] = request.form['tourn']
         return redirect(url_for('tourn'))
     func = request.form['submit_func']
-    if request.path not in SUBMIT_FUNCS:
-        abort(400, f"Invalid request path '{request.path}'")
-    if func not in SUBMIT_FUNCS[request.path]:
-        abort(400, f"Submit func '{func}' not registered for {request.path}")
+    view = request.path
+    if view not in SUBMIT_FUNCS:
+        abort(400, f"Invalid request target '{view}'")
+    if func not in SUBMIT_FUNCS[view]:
+        abort(400, f"Submit func '{func}' not registered for {view}")
     return globals()[func](request.form)
 
 def create_tourn(form: dict) -> str:
@@ -489,13 +471,13 @@ BUTTON_INFO = {
 }
 
 LINK_INFO = {
-    '/seeding'    : [('/chart/sd_bracket',    "Seeding Round Bracket"),
-                     ('/chart/sd_scores',     "Seeding Round Scores"),
-                     ('/dash/sd_dash',        "Live Dashboard")],
-    '/round_robin': [('/chart/rr_brackets',   "Round Robin Brackets"),
-                     ('/chart/rr_scores',     "Round Robin Scores"),
-                     ('/dash/rr_dash',        "Live Dashboard"),
-                     ('/report/rr_tb_report', "Tie-Breaker Report")]
+    View.SEEDING    : [('/chart/sd_bracket',    "Seeding Round Bracket"),
+                       ('/chart/sd_scores',     "Seeding Round Scores"),
+                       ('/dash/sd_dash',        "Live Dashboard")],
+    View.ROUND_ROBIN: [('/chart/rr_brackets',   "Round Robin Brackets"),
+                       ('/chart/rr_scores',     "Round Robin Scores"),
+                       ('/dash/rr_dash',        "Live Dashboard"),
+                       ('/report/rr_tb_report', "Tie-Breaker Report")]
 }
 
 def render_view(view: View) -> str:
@@ -503,19 +485,15 @@ def render_view(view: View) -> str:
     Note that we are not passing any context information as query string params, so all
     information must be conveyed through the session object.
     """
-    path = VIEW_INFO[view].path
-    return redirect(path)
+    return redirect(view)
 
 def render_tourn(context: dict) -> str:
     """Common post-processing of context before rendering the tournament selector and
     creation page through Jinja
     """
     view = context.get('view')
-    assert isinstance(view, int)
-    path = VIEW_INFO[view].path
-    assert path in SUBMIT_FUNCS
-
-    buttons = SUBMIT_FUNCS[path]
+    assert view in SUBMIT_FUNCS
+    buttons = SUBMIT_FUNCS[view]
     btn_info = [BUTTON_INFO[btn] for btn in buttons]
     btn_lbl = [info[0] for info in btn_info]
     btn_attr = [''] * len(btn_info)
@@ -528,6 +506,7 @@ def render_tourn(context: dict) -> str:
         'tourn'    : None,       # context may contain override
         'new_tourn': None,       # ditto
         'err_msg'  : None,       # ditto
+        'view_path': view,
         'buttons'  : buttons,
         'btn_lbl'  : btn_lbl,
         'btn_attr' : btn_attr,
@@ -538,14 +517,12 @@ def render_tourn(context: dict) -> str:
 def render_app(context: dict) -> str:
     """Common post-processing of context before rendering the main app page through Jinja
     """
-    view_chk = [''] * len(View)
     view = context.get('view')
-    assert isinstance(view, int)
+    assert view in VIEW_INFO
+    view_chk = {v: '' for v in VIEW_INFO}
     view_chk[view] = CHECKED
-    path = VIEW_INFO[view].path
-    assert path in SUBMIT_FUNCS
-
-    buttons = SUBMIT_FUNCS[path]
+    assert view in SUBMIT_FUNCS
+    buttons = SUBMIT_FUNCS[view]
     btn_info = [BUTTON_INFO[btn] for btn in buttons]
 
     stage_compl = 0
@@ -561,13 +538,14 @@ def render_app(context: dict) -> str:
         'title'    : APP_NAME,
         'tourn'    : None,       # context may contain override
         'err_msg'  : None,       # ditto
+        'views'    : VIEW_INFO,
+        'view_path': view,
         'view_chk' : view_chk,
         'view_info': VIEW_INFO[view],
-        'layout'   : LAYOUT[view],
         'buttons'  : buttons,
         'btn_lbl'  : btn_lbl,
         'btn_attr' : btn_attr,
-        'links'    : LINK_INFO.get(path, []),
+        'links'    : LINK_INFO.get(view, []),
         'help_txt' : help_txt
     }
     return render_template(APP_TEMPLATE, **(base_ctx | context))

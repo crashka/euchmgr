@@ -119,11 +119,9 @@
         <span class="section_lbl">{{tourn.name}}</span>
         <span class="view_sel">
           View:
-          <label>Players<input value="/players"{{view_chk[1]}}></label>
-          <label>Seeding<input value="/seeding"{{view_chk[2]}}></label>
-          <label>Partners<input value="/partners"{{view_chk[3]}}></label>
-          <label>Teams<input value="/teams"{{view_chk[4]}}></label>
-          <label>Round Robin<input value="/round_robin"{{view_chk[5]}}></label>
+          {% for view, info in views.items() %}
+          <label>{{info.name}}<input value="{{view}}"{{view_chk[view]}}></label>
+          {% endfor %}
         </span>
         <div class="subsect info_blk">
           <input name="tourn_name" type="hidden" value="{{tourn.name}}">
@@ -142,14 +140,14 @@
         <table id="view_dt" class="display" spellcheck="false">
           <thead>
             <tr>
-              {% for col in layout %}
+              {% for col in view_info.layout %}
               <th>{{col[1]}}</th>
               {% endfor %}
             </tr>
           </thead>
         </table>
         <div class="subsection actions">
-          <form action="{{view_info.path}}" method="post">
+          <form action="{{view_path}}" method="post">
             {% for val in buttons %}
             <button value="{{val}}"{{btn_attr[loop.index0]}}>{{btn_lbl[loop.index0]}}</button>
             {% endfor %}
@@ -222,9 +220,9 @@
            cell.data(e.target.textContent).draw();
 
            const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
-           $.post('/data/{{view_info.path}}', post_data)
+           $.post('/data/{{view_path}}', post_data)
             .done(function(resp) {
-              console.log('POST /data/{{view_info.path}} done: ', resp);
+              console.log('POST /data/{{view_path}} done: ', resp);
               if (resp.err) {
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
@@ -242,7 +240,7 @@
               }
             })
             .fail(function(resp) {
-              console.log('POST /data/{{view_info.path}} fail: ', resp);
+              console.log('POST /data/{{view_path}} fail: ', resp);
               cell.data(orig_val).draw();
               $(e.target).addClass("attn");
               show_error(resp.statusText);
@@ -266,17 +264,17 @@
          content: ['search']
        },
        ajax: {
-         url: '/data/{{view_info.path}}',
+         url: '/data/{{view_path}}',
          dataSrc: 'data'
        },
        deferRender: true,
        columns: [
-         {% for col in layout %}
+         {% for col in view_info.layout %}
          {data: '{{col[0]}}'},
          {% endfor %}
        ],
        columnDefs: [
-         {% for col in layout %}
+         {% for col in view_info.layout %}
          {% if col[2] == 'hidden' %}
          {target: {{loop.index0}}, visible: false, searchable: false},
          {% elif col[2] == 'centered' %}

@@ -23,9 +23,6 @@
      .attn {
        background-color: #FFE4E1;
      }
-     .demo {
-       background-color: #AFEEEE;
-     }
      .err_dlg {
        padding: 1.1rem 1.4rem;
      }
@@ -55,15 +52,15 @@
        width: 27rem;
        float: left;
      }
-     .buttons {
+     .actions {
        clear: both;
        padding: 1.0rem 0;
      }
-     .buttons button {
+     .actions button {
        margin-right: 0.8rem;
        padding: 0.2rem 0.8rem;
      }
-     .buttons a {
+     .actions a {
        margin-right: 0.5rem;
        /* padding: 0.2rem 0.2rem; */
      }
@@ -170,7 +167,7 @@
           </table>
         </div>
       </div>
-      <div class="section buttons">
+      <div class="section actions">
         {% if new_tourn %}
         <button class="submit" value="{{buttons[0]}}"{{btn_attr[0]}}>{{btn_lbl[0]}}</button>
         {% else %}

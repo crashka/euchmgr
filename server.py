@@ -538,14 +538,14 @@ def render_app(context: dict) -> str:
         'title'    : APP_NAME,
         'tourn'    : None,       # context may contain override
         'err_msg'  : None,       # ditto
-        'views'    : VIEW_INFO,
+        'view_defs': VIEW_INFO,
         'view_path': view,
         'view_chk' : view_chk,
         'view_info': VIEW_INFO[view],
         'buttons'  : buttons,
         'btn_lbl'  : btn_lbl,
         'btn_attr' : btn_attr,
-        'links'    : LINK_INFO.get(view, []),
+        'links'    : LINK_INFO.get(view),
         'help_txt' : help_txt
     }
     return render_template(APP_TEMPLATE, **(base_ctx | context))

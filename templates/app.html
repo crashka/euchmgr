@@ -119,7 +119,7 @@
         <span class="section_lbl">{{tourn.name}}</span>
         <span class="view_sel">
           View:
-          {% for view, info in views.items() %}
+          {% for view, info in view_defs.items() %}
           <label>{{info.name}}<input value="{{view}}"{{view_chk[view]}}></label>
           {% endfor %}
         </span>

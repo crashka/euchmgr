@@ -73,75 +73,63 @@ Session(app)
 
 # app views
 class View(IntEnum):
-    PLAYERS     = 0
-    SEEDING     = 1
-    PARTNERS    = 2
-    TEAMS       = 3
-    ROUND_ROBIN = 4
-
-VIEW_PATH = [
-    '/players',
-    '/seeding',
-    '/partners',
-    '/teams',
-    '/round_robin'
-]
-
-PATH_VIEW = dict(zip(VIEW_PATH, View))
+    TOURN       = 0
+    PLAYERS     = 1
+    SEEDING     = 2
+    PARTNERS    = 3
+    TEAMS       = 4
+    ROUND_ROBIN = 5
+    PLAYOFFS    = 6
+    STANDINGS   = 7
 
 class ViewInfo(NamedTuple):
     """This is not super-pretty, but we want to make this as data-driven as possible
     """
     name:       str
-    div_class:  str
-    data_url:   str
-    table_id:   str
+    path:       str
     rowid_col:  str
     tbl_order:  int
     fixed_cols: int
 
 VIEW_INFO = {
+    View.TOURN: ViewInfo(
+        None,
+        "/tourn",
+        None,
+        None,
+        None
+    ),
     View.PLAYERS: ViewInfo(
         "Players",
-        "players",
-        "/data/players",
-        "plyr_tbl",
+        "/players",
         "nick_name",
         0,
         3
     ),
     View.SEEDING: ViewInfo(
         "Seeding",
-        "seeding",
-        "/data/seeding",
-        "seed_tbl",
+        "/seeding",
         "label",
         0,
         3
     ),
     View.PARTNERS: ViewInfo(
         "Partners",
-        "partners",
-        "/data/partners",
-        "ptnr_tbl",
+        "/partners",
         "nick_name",
         1,  # player_rank
         3
     ),
     View.TEAMS: ViewInfo(
         "Teams",
-        "teams",
-        "/data/teams",
-        "team_tbl",
+        "/teams",
         "team_name",
         1,  # team_seed
         2
     ),
     View.ROUND_ROBIN: ViewInfo(
         "Round Robin",
-        "round_robin",
-        "/data/round_robin",
-        "rr_tbl",
+        "/round_robin",
         "label",
         0,
         2
@@ -155,6 +143,8 @@ LAYOUT = {
     View.TEAMS      : tm_layout,
     View.ROUND_ROBIN: tg_layout
 }
+
+PATH_VIEW = {info.path: view for view, info in VIEW_INFO.items()}
 
 @app.before_request
 def _db_init():
@@ -221,7 +211,10 @@ def index() -> str:
     """
     """
     session.clear()
-    return render_tourn({})
+    context = {
+        'view': View.TOURN,
+    }
+    return render_tourn(context)
 
 @app.get("/players")
 @app.get("/seeding")
@@ -259,6 +252,7 @@ def tourn() -> str:
 
     context = {
         'tourn'    : TournInfo(),
+        'view'     : View.TOURN,
         'new_tourn': True
     }
     return render_tourn(context)
@@ -267,19 +261,30 @@ def tourn() -> str:
 # submit actions #
 ##################
 
-# value represents the submit target
 SUBMIT_FUNCS = {
-    'create_tourn'          : None,
-    'update_tourn'          : None,
-    'gen_player_nums'       : View.PLAYERS,
-    'gen_seed_bracket'      : View.PLAYERS,
-    'fake_seed_results'     : View.SEEDING,
-    'tabulate_seed_results' : View.SEEDING,
-    'fake_partner_picks'    : View.PARTNERS,
-    'comp_team_seeds'       : View.PARTNERS,
-    'gen_tourn_brackets'    : View.TEAMS,
-    'fake_tourn_results'    : View.ROUND_ROBIN,
-    'tabulate_tourn_results': View.ROUND_ROBIN
+    '/tourn': [
+        'create_tourn',
+        'update_tourn'
+    ],
+    '/players': [
+        'gen_player_nums',
+        'gen_seed_bracket'
+    ],
+    '/seeding': [
+        'fake_seed_results',
+        'tabulate_seed_results'
+    ],
+    '/partners': [
+        'fake_partner_picks',
+        'comp_team_seeds'
+    ],
+    '/teams': [
+        'gen_tourn_brackets'
+    ],
+    '/round_robin': [
+        'fake_tourn_results',
+        'tabulate_tourn_results'
+    ]
 }
 
 @app.post("/")
@@ -290,8 +295,8 @@ SUBMIT_FUNCS = {
 @app.post("/teams")
 @app.post("/round_robin")
 def submit() -> str:
-    """Process submitted form, switch on ``submit_func``, which is validated against
-    values in ``SUBMIT_FUNCS``
+    """Process submitted form, switch on ``submit_func``, which is validated against paths
+    and values in ``SUBMIT_FUNCS``
     """
     if 'submit_func' not in request.form:
         if 'tourn' not in request.form:
@@ -299,10 +304,9 @@ def submit() -> str:
         session['tourn'] = request.form['tourn']
         return redirect(url_for('tourn'))
     func = request.form['submit_func']
-    if func not in SUBMIT_FUNCS:
-        abort(400, f"Invalid submit func '{func}'")
-    target = SUBMIT_FUNCS[func]
-    if target and request.path != VIEW_PATH[target]:
+    if request.path not in SUBMIT_FUNCS:
+        abort(400, f"Invalid request path '{request.path}'")
+    if func not in SUBMIT_FUNCS[request.path]:
         abort(400, f"Submit func '{func}' not registered for {request.path}")
     return globals()[func](request.form)
 
@@ -345,6 +349,7 @@ def create_tourn(form: dict) -> str:
 
     context = {
         'tourn'      : tourn,
+        'view'       : View.TOURN,
         'new_tourn'  : new_tourn,
         'overwrite'  : overwrite,
         'roster_file': roster_file,
@@ -392,6 +397,7 @@ def update_tourn(form: dict) -> str:
 
     context = {
         'tourn'      : tourn,
+        'view'       : View.TOURN,
         'new_tourn'  : new_tourn,
         'roster_file': roster_file,
         'err_msg'    : err_msg
@@ -462,19 +468,34 @@ def tabulate_tourn_results(form: dict) -> str:
 
 SEL_SEP = "----------------"
 SEL_NEW = "(create new)"
-BUTTONS = list(SUBMIT_FUNCS.keys())
 
-# button index to tuple of stages for which button is enabled
-BUTTON_MAP = {
-    2:  (TournStage.PLAYER_ROSTER, TournStage.PLAYER_NUMS),
-    3:  (TournStage.PLAYER_NUMS,),
-    4:  (TournStage.SEED_BRACKET, TournStage.SEED_RESULTS),
-    5:  (TournStage.SEED_RESULTS,),
-    6:  (TournStage.SEED_RANKS,),
-    7:  (TournStage.PARTNER_PICK,),
-    8:  (TournStage.TEAM_SEEDS,),
-    9:  (TournStage.TOURN_BRACKET, TournStage.TOURN_RESULTS),
-    10: (TournStage.TOURN_RESULTS,)
+# keys: button name (must be kept in sync with SUBMIT_FUNCS above)
+# values: tuple(button label, list of stages for which button is enabled)
+BUTTON_INFO = {
+    'create_tourn'          : ("Create Tournament",           None),
+    'update_tourn'          : ("Create Tournament",           None),
+    'gen_player_nums'       : ("Generate Player Nums",        [TournStage.PLAYER_ROSTER,
+                                                               TournStage.PLAYER_NUMS]),
+    'gen_seed_bracket'      : ("Create Seeding Bracket",      [TournStage.PLAYER_NUMS]),
+    'fake_seed_results'     : ("Generate Fake Results",       [TournStage.SEED_BRACKET,
+                                                               TournStage.SEED_RESULTS]),
+    'tabulate_seed_results' : ("Tabulate Results",            [TournStage.SEED_RESULTS]),
+    'fake_partner_picks'    : ("Generate Fake Picks",         [TournStage.SEED_RANKS]),
+    'comp_team_seeds'       : ("Compute Team Seeds",          [TournStage.PARTNER_PICK]),
+    'gen_tourn_brackets'    : ("Create Round Robin Brackets", [TournStage.TEAM_SEEDS]),
+    'fake_tourn_results'    : ("Generate Fake Results",       [TournStage.TOURN_BRACKET,
+                                                               TournStage.TOURN_RESULTS]),
+    'tabulate_tourn_results': ("Tabulate Results",            [TournStage.TOURN_RESULTS])
+}
+
+LINK_INFO = {
+    '/seeding'    : [('/chart/sd_bracket',    "Seeding Round Bracket"),
+                     ('/chart/sd_scores',     "Seeding Round Scores"),
+                     ('/dash/sd_dash',        "Live Dashboard")],
+    '/round_robin': [('/chart/rr_brackets',   "Round Robin Brackets"),
+                     ('/chart/rr_scores',     "Round Robin Scores"),
+                     ('/dash/rr_dash',        "Live Dashboard"),
+                     ('/report/rr_tb_report', "Tie-Breaker Report")]
 }
 
 def render_view(view: View) -> str:
@@ -482,20 +503,22 @@ def render_view(view: View) -> str:
     Note that we are not passing any context information as query string params, so all
     information must be conveyed through the session object.
     """
-    path = VIEW_PATH[view]
+    path = VIEW_INFO[view].path
     return redirect(path)
 
 def render_tourn(context: dict) -> str:
     """Common post-processing of context before rendering the tournament selector and
     creation page through Jinja
     """
-    stage_compl = 0
-    if context.get('tourn'):
-        stage_compl = context['tourn'].stage_compl or 0
-    btn_attr = [''] * len(BUTTONS)
-    for btn_idx, btn_stages in BUTTON_MAP.items():
-        if stage_compl not in btn_stages:
-            btn_attr[btn_idx] += DISABLED
+    view = context.get('view')
+    assert isinstance(view, int)
+    path = VIEW_INFO[view].path
+    assert path in SUBMIT_FUNCS
+
+    buttons = SUBMIT_FUNCS[path]
+    btn_info = [BUTTON_INFO[btn] for btn in buttons]
+    btn_lbl = [info[0] for info in btn_info]
+    btn_attr = [''] * len(btn_info)
 
     base_ctx = {
         'title'    : APP_NAME,
@@ -505,7 +528,8 @@ def render_tourn(context: dict) -> str:
         'tourn'    : None,       # context may contain override
         'new_tourn': None,       # ditto
         'err_msg'  : None,       # ditto
-        'btn_val'  : BUTTONS,
+        'buttons'  : buttons,
+        'btn_lbl'  : btn_lbl,
         'btn_attr' : btn_attr,
         'help_txt' : help_txt
     }
@@ -518,14 +542,20 @@ def render_app(context: dict) -> str:
     view = context.get('view')
     assert isinstance(view, int)
     view_chk[view] = CHECKED
+    path = VIEW_INFO[view].path
+    assert path in SUBMIT_FUNCS
+
+    buttons = SUBMIT_FUNCS[path]
+    btn_info = [BUTTON_INFO[btn] for btn in buttons]
 
     stage_compl = 0
     if context.get('tourn'):
         stage_compl = context['tourn'].stage_compl or 0
-    btn_attr = [''] * len(BUTTONS)
-    for btn_idx, btn_stages in BUTTON_MAP.items():
-        if stage_compl not in btn_stages:
-            btn_attr[btn_idx] += DISABLED
+    btn_lbl = []
+    btn_attr = []
+    for label, stages in btn_info:
+        btn_lbl.append(label)
+        btn_attr.append('' if stage_compl in stages else DISABLED)
 
     base_ctx = {
         'title'    : APP_NAME,
@@ -534,8 +564,10 @@ def render_app(context: dict) -> str:
         'view_chk' : view_chk,
         'view_info': VIEW_INFO[view],
         'layout'   : LAYOUT[view],
-        'btn_val'  : BUTTONS,
+        'buttons'  : buttons,
+        'btn_lbl'  : btn_lbl,
         'btn_attr' : btn_attr,
+        'links'    : LINK_INFO.get(path, []),
         'help_txt' : help_txt
     }
     return render_template(APP_TEMPLATE, **(base_ctx | context))

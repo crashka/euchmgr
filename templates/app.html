@@ -23,7 +23,7 @@
      .attn {
        background-color: #FFE4E1;
      }
-     .demo {
+     button[value^="fake_"] {
        background-color: #AFEEEE;
      }
      .err_dlg {
@@ -85,23 +85,19 @@
        padding: 0.1rem 0.35rem;
        width: 13rem;
      }
-     .players,
-     .seeding,
-     .partners,
-     .teams,
-     .round_robin {
+     .tbl_wrapper {
        display: none;
        width: 80rem;
      }
-     .buttons {
+     .actions {
        clear: both;
        padding: 1.0rem 0;
      }
-     .buttons button {
+     .actions button {
        margin-right: 0.8rem;
        padding: 0.2rem 0.8rem;
      }
-     .buttons a {
+     .actions a {
        margin-right: 0.5rem;
        /* padding: 0.2rem 0.2rem; */
      }
@@ -123,11 +119,11 @@
         <span class="section_lbl">{{tourn.name}}</span>
         <span class="view_sel">
           View:
-          <label>Players<input type="radio" name="view_rdo" value="/players"{{view_chk[0]}}></label>
-          <label>Seeding<input type="radio" name="view_rdo" value="/seeding"{{view_chk[1]}}></label>
-          <label>Partners<input type="radio" name="view_rdo" value="/partners"{{view_chk[2]}}></label>
-          <label>Teams<input type="radio" name="view_rdo" value="/teams"{{view_chk[3]}}></label>
-          <label>Round Robin<input type="radio" name="view_rdo" value="/round_robin"{{view_chk[4]}}></label>
+          <label>Players<input value="/players"{{view_chk[1]}}></label>
+          <label>Seeding<input value="/seeding"{{view_chk[2]}}></label>
+          <label>Partners<input value="/partners"{{view_chk[3]}}></label>
+          <label>Teams<input value="/teams"{{view_chk[4]}}></label>
+          <label>Round Robin<input value="/round_robin"{{view_chk[5]}}></label>
         </span>
         <div class="subsect info_blk">
           <input name="tourn_name" type="hidden" value="{{tourn.name}}">
@@ -141,10 +137,9 @@
         </div>
       </div>
 
-      {% if view_chk[0] %}
-      <div class="section {{view_info.div_class}}">
+      <div class="section tbl_wrapper">
         <span class="view_title">{{view_info.name}}</span>
-        <table id="{{view_info.table_id}}" class="display" spellcheck="false">
+        <table id="view_dt" class="display" spellcheck="false">
           <thead>
             <tr>
               {% for col in layout %}
@@ -153,106 +148,20 @@
             </tr>
           </thead>
         </table>
-        <div class="subsection buttons">
-          <form action="/players" method="post">
-            <button class="submit" value="{{btn_val[2]}}"{{btn_attr[2]}}>Generate Player Nums</button>
-            <button class="submit" value="{{btn_val[3]}}"{{btn_attr[3]}}>Create Seeding Bracket</button>
-          </form>
-        </div>
-      </div>
-      {% endif %}
-
-      {% if view_chk[1] %}
-      <div class="section {{view_info.div_class}}">
-        <span class="view_title">{{view_info.name}}</span>
-        <table id="{{view_info.table_id}}" class="display" spellcheck="false">
-          <thead>
-            <tr>
-              {% for col in layout %}
-              <th>{{col[1]}}</th>
-              {% endfor %}
-            </tr>
-          </thead>
-        </table>
-        <div class="subsection buttons">
-          <form action="/seeding" method="post">
-            <button class="submit demo" value="{{btn_val[4]}}"{{btn_attr[4]}}>Generate Fake Results</button>
-            <button class="submit" value="{{btn_val[5]}}"{{btn_attr[5]}}>Tabulate Results</button>
+        <div class="subsection actions">
+          <form action="{{view_info.path}}" method="post">
+            {% for val in buttons %}
+            <button value="{{val}}"{{btn_attr[loop.index0]}}>{{btn_lbl[loop.index0]}}</button>
+            {% endfor %}
+            {% if links %}
             <span class="lnk_lbl">Display:</span>
-            <a href="#" onclick="window.open('/chart/sd_bracket', '_blank')"">Seeding Round Bracket</a>
-            <a href="#" onclick="window.open('/chart/sd_scores', '_blank')"">Seeding Round Scores</a>
-            <a href="#" onclick="window.open('/dash/sd_dash', '_blank')"">Live Dashboard</a>
+            {% for lnk in links %}
+            <a href="#" onclick="window.open('{{lnk[0]}}', '_blank')"">{{lnk[1]}}</a>
+            {% endfor %}
+            {% endif %}
           </form>
         </div>
       </div>
-      {% endif %}
-
-      {% if view_chk[2] %}
-      <div class="section {{view_info.div_class}}">
-        <span class="view_title">{{view_info.name}}</span>
-        <table id="{{view_info.table_id}}" class="display" spellcheck="false">
-          <thead>
-            <tr>
-              {% for col in layout %}
-              <th>{{col[1]}}</th>
-              {% endfor %}
-            </tr>
-          </thead>
-        </table>
-        <div class="subsection buttons">
-          <form action="/partners" method="post">
-            <button class="submit demo" value="{{btn_val[6]}}"{{btn_attr[6]}}>Generate Fake Picks</button>
-            <button class="submit" value="{{btn_val[7]}}"{{btn_attr[7]}}>Compute Team Seeds</button>
-          </form>
-        </div>
-      </div>
-      {% endif %}
-
-      {% if view_chk[3] %}
-      <div class="section {{view_info.div_class}}">
-        <span class="view_title">{{view_info.name}}</span>
-        <table id="{{view_info.table_id}}" class="display" spellcheck="false">
-          <thead>
-            <tr>
-              {% for col in layout %}
-              <th>{{col[1]}}</th>
-              {% endfor %}
-            </tr>
-          </thead>
-        </table>
-        <div class="subsection buttons">
-          <form action="/teams" method="post">
-            <button class="submit" value="{{btn_val[8]}}"{{btn_attr[8]}}>Create Round Robin Brackets</button>
-          </form>
-        </div>
-      </div>
-      {% endif %}
-
-      {% if view_chk[4] %}
-      <div class="section {{view_info.div_class}}">
-        <span class="view_title">{{view_info.name}}</span>
-        <table id="{{view_info.table_id}}" class="display" spellcheck="false">
-          <thead>
-            <tr>
-              {% for col in layout %}
-              <th>{{col[1]}}</th>
-              {% endfor %}
-            </tr>
-          </thead>
-        </table>
-        <div class="subsection buttons">
-          <form action="/round_robin" method="post">
-            <button class="submit demo" value="{{btn_val[9]}}"{{btn_attr[9]}}>Generate Fake Results</button>
-            <button class="submit" value="{{btn_val[10]}}"{{btn_attr[10]}}>Tabulate Results</button>
-            <span class="lnk_lbl">Display:</span>
-            <a href="#" onclick="window.open('/chart/rr_brackets', '_blank')"">Round Robin Brackets</a>
-            <a href="#" onclick="window.open('/chart/rr_scores', '_blank')"">Round Robin Scores</a>
-            <a href="#" onclick="window.open('/dash/rr_dash', '_blank')"">Live Dashbaord</a>
-            <a href="#" onclick="window.open('/report/rr_tb_report', '_blank')"">Tie-Breaker Report</a>
-          </form>
-        </div>
-      </div>
-      {% endif %}
     </div>
   </body>
 
@@ -261,9 +170,13 @@
   <script>
    $(function() {
      // add css and attributes
-     $(".submit").attr({
+     $(".actions button").attr({
        type: 'submit',
        name: "submit_func"
+     });
+     $(".view_sel input").attr({
+       type: 'radio',
+       name: "view_rdo"
      });
 
      // error dialog
@@ -309,9 +222,9 @@
            cell.data(e.target.textContent).draw();
 
            const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
-           $.post('{{view_info.data_url}}', post_data)
+           $.post('/data/{{view_info.path}}', post_data)
             .done(function(resp) {
-              console.log('POST {{view_info.data_url}} done: ', resp);
+              console.log('POST /data/{{view_info.path}} done: ', resp);
               if (resp.err) {
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
@@ -329,7 +242,7 @@
               }
             })
             .fail(function(resp) {
-              console.log('POST {{view_info.data_url}} fail: ', resp);
+              console.log('POST /data/{{view_info.path}} fail: ', resp);
               cell.data(orig_val).draw();
               $(e.target).addClass("attn");
               show_error(resp.statusText);
@@ -340,7 +253,7 @@
      };
 
      const tourn = $('.info_blk input[name="tourn_name"]').val();
-     const table = $('#{{view_info.table_id}}').DataTable({
+     const table = $('#view_dt').DataTable({
        rowId: '{{view_info.rowid_col}}',
        paging: false,
        scrollX: true,
@@ -353,7 +266,7 @@
          content: ['search']
        },
        ajax: {
-         url: '{{view_info.data_url}}',
+         url: '/data/{{view_info.path}}',
          dataSrc: 'data'
        },
        deferRender: true,
@@ -377,7 +290,7 @@
        ],
        order: [[{{view_info.tbl_order}}, 'asc']],
        initComplete: function(settings, json) {
-         $(".{{view_info.div_class}}").css('display', 'block');
+         $(".tbl_wrapper").css('display', 'block');
          table.columns.adjust().draw();
        }
      });

@@ -142,14 +142,6 @@ def _db_init():
 # tourn stuff #
 ###############
 
-# key = input name; value = default (form input domain, i.e. string representation), if
-# `form.get(param) is None`
-TOURN_PARAMS = {
-    'players'  : 'null',
-    'teams'    : 'null',
-    'thm_teams': 'null'
-}
-
 def get_tourns() -> list[str]:
     """Get list of existing tournaments (currently based on existence of database file in
     DATA_DIR--later, we can do something more structured)

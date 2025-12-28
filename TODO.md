@@ -34,8 +34,6 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
   - prettier styling in general
 - fix naming throughout (e.g. seed vs seeding, seed vs rank, etc.)
 - convert pl\_layout, sg\_layout, etc. from tuples to dict[str, tuple[...]]
-- define views (including buttons, etc.) and/or charts as data in server.py
-  - get rid of replicated code in templates
 
 ## Framework
 

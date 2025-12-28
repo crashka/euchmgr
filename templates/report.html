@@ -43,14 +43,12 @@
        margin-top: 0.25rem;
        margin-bottom: 0.0rem;
      }
-     .team,
-     .player {
+     .team {
        padding-left: 1.5rem;
        margin-top: 0.75rem;
        margin-bottom: 0.5rem;
      }
-     .team > p > span,
-     .player > p > span {
+     .team > p > span {
        margin-right: 1.0rem;
        font-weight: bold;
      }
@@ -103,85 +101,6 @@
     <h1>{{tourn.name}} &ndash; {{title}}</h1>
 
     {% if report_num == 0 %}
-    <article class="seeding">
-      <h2>All Players</h2>
-      {% for pos, cohort in pos_rpt.items() %}
-      <article class="cohort">
-        <h3>Position {{pos}}&nbsp;&nbsp;<span class="h3_info">({{pos_info[pos]}})</span></h3>
-        {% for player, games in cohort.items() %}
-        {% if loop.first %}
-        <p>{{len(cohort)}} players tied: {{', '.join(pos_cohort[pos])}}</p>
-        {% endif %}
-        <article class="player">
-          <h4>{{player.nick_name}} ({{player.player_num}})</h4>
-          <p>
-            TB Rank: <span>{{player.player_rank}}</span>
-            Win-Loss: <span>{{player.seed_tb_data['wins']}}-{{player.seed_tb_data['losses']}}</span>
-            PF-PA: <span>{{player.seed_tb_data['pts_for']}}-{{player.seed_tb_data['pts_against']}}</span>
-            Pts Pct (total): <span>{{round(player.seed_pts_pct, 2)}}%</span>
-          </p>
-          {% if len(games) > 0 %}
-          <table>
-            <thead>
-              <tr>
-                {% if report_by == "team" %}
-                <th>Round</th>
-                <th>Team</th>
-                <th>Opponent</th>
-                <th>Team Pts</th>
-                <th>Opp Pts</th>
-                {% elif report_by == "winner" %}
-                <th>Round</th>
-                <th>Winner</th>
-                <th>Loser</th>
-                <th>Winner Pts</th>
-                <th>Loser Pts</th>
-                {% else %}
-                <th>Round</th>
-                <th>Player 1</th>
-                <th>Player 2</th>
-                <th>Player 1 Pts</th>
-                <th>Player 2 Pts</th>
-                {% endif %}
-              </tr>
-            </thead>
-            <tbody>
-              {% for game in games %}
-              <tr class="{{'winner' if game.is_winner(player) else 'loser'}}">
-                {% if report_by == 'team' %}
-                <td>{{game.round_num}}</td>
-                <td>{{game.team_info(player)[0]}}</td>
-                <td>{{game.opp_info(player)[0]}}</td>
-                <td>{{game.team_info(player)[1]}}</td>
-                <td>{{game.opp_info(player)[1]}}</td>
-                {% elif report_by == 'winner' %}
-                <td>{{game.round_num}}</td>
-                <td>{{game.winner_info[0]}}</td>
-                <td>{{game.loser_info[0]}}</td>
-                <td>{{game.winner_info[2]}}</td>
-                <td>{{game.loser_info[2]}}</td>
-                {% else %}
-                <td>{{game.round_num}}</td>
-                <td>{{game.team1_name}}</td>
-                <td>{{game.team2_name}}</td>
-                <td>{{game.team1_pts}}</td>
-                <td>{{game.team2_pts}}</td>
-                {% endif %}
-              </tr>
-              {% endfor %}  {# game #}
-            </tbody>
-          </table>
-          {% else %}
-          <p class="no_table">No head-to-head games played</p>
-          {% endif %}
-        </article>
-        {% endfor %}  {# player #}
-      </article>
-      {% endfor %}  {# pos #}
-    </article>
-    {% endif %}  {# report_num == 0 #}
-
-    {% if report_num == 1 %}
     {% for div, cohorts in div_rpt.items() %}
     <article class="division">
       <h2>Division {{div}}</h2>
@@ -284,6 +203,6 @@
       {% endfor %}  {# pos #}
     </article>
     {% endfor %}  {# div #}
-    {% endif %}  {# report_num == 1 #}
+    {% endif %}  {# report_num == 0 #}
   </body>
 </html>

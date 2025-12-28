@@ -57,6 +57,10 @@ def fmt_tally(pts: int) -> str:
     tally_file = f"/static/tally_{pts}.png"
     return f'src="{tally_file}" height="15" width="50"'
 
+# quick and dirty stuff (yucky!)
+SPC = lambda x: '&nbsp;' * x
+PTS = lambda x: f"{SPC(1)}{x}{SPC(2)}" if x == GAME_PTS else f"{SPC(2)}{x}{SPC(2)}"
+
 ###################
 # blueprint stuff #
 ###################
@@ -110,9 +114,15 @@ def sd_bracket(tourn: TournInfo) -> str:
             matchups[rnd] = {}
         assert tbl not in matchups[rnd]
         if tbl:
-            matchups[rnd][tbl] = "<br>vs.<br>".join(sg.team_tags)
+            if sg.winner:
+                tm1_str = f"{sg.team_tags[0]}{SPC(3)}<u class='u2'>{PTS(sg.team1_pts)}</u>"
+                tm2_str = f"{sg.team_tags[1]}{SPC(3)}<u class='u2'>{PTS(sg.team2_pts)}</u>"
+            else:
+                tm1_str = f"{sg.team_tags[0]}{SPC(3)}<u class='u2'>{SPC(5)}</u>"
+                tm2_str = f"{sg.team_tags[1]}{SPC(3)}<u class='u2'>{SPC(5)}</u>"
+            matchups[rnd][tbl] = f"{tm1_str}<br>vs.<br>{tm2_str}"
         else:
-            matchups[rnd][tbl] = "<br>".join(sg.bye_tags)  # bye(s)
+            matchups[rnd][tbl] = "<br>".join(sg.bye_tags)  # one or more byes
 
     assert len(matchups) == tourn.seed_rounds
     for rnd, tbls in matchups.items():
@@ -214,7 +224,13 @@ def rr_brackets(tourn: TournInfo) -> str:
             matchups[div][rnd] = {}
         assert tbl not in matchups[div][rnd]
         if tbl:
-            matchups[div][rnd][tbl] = "<br>vs.<br>".join(tg.team_tags)
+            if tg.winner:
+                tm1_str = f"{tg.team_tags[0]}{SPC(3)}<u class='u2'>{PTS(tg.team1_pts)}</u>"
+                tm2_str = f"{tg.team_tags[1]}{SPC(3)}<u class='u2'>{PTS(tg.team2_pts)}</u>"
+            else:
+                tm1_str = f"{tg.team_tags[0]}{SPC(3)}<u class='u2'>{SPC(5)}</u>"
+                tm2_str = f"{tg.team_tags[1]}{SPC(3)}<u class='u2'>{SPC(5)}</u>"
+            matchups[div][rnd][tbl] = f"{tm1_str}<br>vs.<br>{tm2_str}"
         else:
             matchups[div][rnd][tbl] = tg.bye_tag
 

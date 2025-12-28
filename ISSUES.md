@@ -12,10 +12,7 @@ high number for new issue entry).*
 
 ## Bugs
 
-**#1** - Seeding and round robin bracket charts should have space for showing (and/or
-entering) scores after each player or team in the matchup [Struble]
-
-- *Created - Dec 01, 2025*
+*\[currently none]*
 
 ## Feature/Enhancement Requests
 
@@ -71,3 +68,9 @@ criteria should be: win pct, points pct, then (virtual?) coin flip [Struble]
 
 - *Created - Dec 15, 2025*
 - *Fixed - Dec 18, 2025*
+
+**#1** - Seeding and round robin bracket charts should have space for showing (and/or
+entering) scores after each player or team in the matchup [Struble]
+
+- *Created - Dec 01, 2025*
+- *Fixed - Dec 27, 2025*

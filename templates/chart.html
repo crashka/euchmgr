@@ -36,6 +36,9 @@
        text-align: center;
      }
      .matchup {
+       width: 14.0rem;
+     }
+     .bye {
        width: 12.0rem;
      }
      .score {
@@ -62,6 +65,9 @@
      u {
        text-decoration: solid underline grey 1px;
      }
+     .u2 {
+       text-decoration: solid underline grey 2px;
+     }
     </style>
   </head>
 
@@ -80,7 +86,7 @@
               <th class="hor_sect matchup">Table {{tbl}}</th>
               {% endfor %}
               {% if rnd_byes %}
-              <th class="hor_sect matchup">Bye</th>
+              <th class="hor_sect bye">Bye</th>
               {% endif %}
             </tr>
           </thead>
@@ -164,7 +170,7 @@
               <th class="hor_sect matchup">Table {{tbl}}</th>
               {% endfor %}
               {% if div_byes[div] %}
-              <th class="hor_sect matchup">Bye</th>
+              <th class="hor_sect bye">Bye</th>
               {% endif %}
             </tr>
           </thead>

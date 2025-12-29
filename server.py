@@ -24,16 +24,18 @@ from glob import glob
 import os.path
 import re
 
+from ckautils import typecast
 from peewee import OperationalError
 from flask import (Flask, request, session, render_template, Response, abort, redirect,
                    url_for)
 from flask_session import Session
 from cachelib.file import FileSystemCache
 from werkzeug.utils import secure_filename
+from flask_login import UserMixin, LoginManager, current_user, login_user
 
 from core import DATA_DIR, UPLOAD_DIR
-from database import DB_FILETYPE, db_init
-from schema import TournStage, TournInfo
+from database import DB_FILETYPE, db_init, db_name
+from schema import TournStage, TournInfo, Player
 from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_seed_bracket,
                      fake_seed_games, validate_seed_round, compute_player_ranks,
                      prepick_champ_partners, fake_pick_partners, build_tourn_teams,
@@ -44,6 +46,7 @@ from data import (data, DISABLED, CHECKED, Layout, pl_layout, sg_layout, pt_layo
 from chart import chart
 from dash import dash
 from report import report
+from mobile import mobile, is_mobile
 
 #################
 # utility stuff #
@@ -51,6 +54,29 @@ from report import report
 
 # do not downcase the rest of the string like str.capitalize()
 cap_first = lambda x: x[0].upper() + x[1:]
+
+def get_logins() -> list[str]:
+    """Get list of login names (player nick name)
+    """
+    if not db_name():
+        return []
+    pl_sel = Player.select().order_by(Player.nick_name)
+    return [pl.nick_name for pl in pl_sel]
+
+def get_tourns() -> list[str]:
+    """Get list of existing tournaments (currently based on existence of database file in
+    DATA_DIR--later, we can do something more structured)
+    """
+    glob_str  = os.path.join(DATA_DIR, r'*' + DB_FILETYPE)
+    match_str = os.path.join(DATA_DIR, r'(.+)' + DB_FILETYPE)
+
+    tourns = []
+    for file in glob(glob_str):
+        m = re.fullmatch(match_str, file)
+        assert m and len(m.groups()) == 1
+        tourns.append(m.groups()[0])
+
+    return sorted(tourns)
 
 #############
 # app stuff #
@@ -69,7 +95,49 @@ app.register_blueprint(data, url_prefix="/data")
 app.register_blueprint(chart, url_prefix="/chart")
 app.register_blueprint(dash, url_prefix="/dash")
 app.register_blueprint(report, url_prefix="/report")
+app.register_blueprint(mobile, url_prefix="/mobile")
 Session(app)
+
+login = LoginManager(app)
+
+ADMIN_USER = 'admin'
+ADMIN_ID = -1
+
+class AdminUser(UserMixin):
+    """TEMP: need to figure out where this really goes!!!
+    """
+    id: int = ADMIN_ID
+    is_admin: bool = True
+
+    def get_id(self) -> str:
+        """Admin id must be distinct from all other user ids
+        """
+        return str(self.id)
+
+@login.user_loader
+def load_user(user_id: str | int) -> UserMixin:
+    """Return "user" object, which in our case is a `Player` instance
+    """
+    if isinstance(user_id, str):
+        user_id = typecast(user_id)
+    assert isinstance(user_id, int)
+    if user_id == ADMIN_ID:
+        return AdminUser()
+    return Player.get(user_id)
+
+@app.before_request
+def _db_init():
+    """Make sure we're connected to the right database on the way in (`db_init` is smart
+    about switching when the db_name changes).  Note that we optimistically do not tear
+    down this connection on the way out.
+    """
+    tourn_name = session.get('tourn')
+    if tourn_name and tourn_name != SEL_NEW:
+        db_init(tourn_name)
+
+##############
+# view stuff #
+##############
 
 # symbolic name for view path
 class View(StrEnum):
@@ -128,34 +196,36 @@ VIEW_INFO = {
     )
 }
 
-@app.before_request
-def _db_init():
-    """Make sure we're connected to the right database on the way in (`db_init` is smart
-    about switching when the db_name changes).  Note that we optimistically do not tear
-    down this connection on the way out.
-    """
-    tourn_name = session.get('tourn')
-    if tourn_name and tourn_name != SEL_NEW:
-        db_init(tourn_name)
-
 ###############
-# tourn stuff #
+# login stuff #
 ###############
 
-def get_tourns() -> list[str]:
-    """Get list of existing tournaments (currently based on existence of database file in
-    DATA_DIR--later, we can do something more structured)
+@app.get("/login")
+def login_page() -> str:
+    """Render responsive login page
     """
-    glob_str  = os.path.join(DATA_DIR, r'*' + DB_FILETYPE)
-    match_str = os.path.join(DATA_DIR, r'(.+)' + DB_FILETYPE)
+    session.clear()
+    context = {}
+    return render_login(context)
 
-    tourns = []
-    for file in glob(glob_str):
-        m = re.fullmatch(match_str, file)
-        assert m and len(m.groups()) == 1
-        tourns.append(m.groups()[0])
+@app.post("/login")
+def do_login() -> str:
+    """Log in as the specified user (player)
 
-    return sorted(tourns)
+    LATER: we will force fit a special case for admin user!!!
+    """
+    username = request.form['username']
+    if username == ADMIN_USER:
+        admin = AdminUser()
+        login_user(admin)
+        return redirect(url_for('index'))
+
+    player = Player.fetch_by_nick_name(username)
+    if not player:
+        return redirect(url_for('login_page'))
+    login_user(player)
+    # TEMP: need to make the routing device and/or context sensitive!!!
+    return redirect('/mobile')
 
 #################
 # top-level nav #
@@ -184,7 +254,13 @@ def dflt_view(tourn: TournInfo) -> View:
 def index() -> str:
     """
     """
-    session.clear()
+    if not current_user.is_authenticated:
+        return redirect(url_for('login_page'))
+
+    if is_mobile():
+        return redirect('/mobile')
+
+    assert current_user.is_admin
     context = {
         'view': View.TOURN,
     }
@@ -477,6 +553,7 @@ def render_view(view: View) -> str:
     Note that we are not passing any context information as query string params, so all
     information must be conveyed through the session object.
     """
+    print(request.user_agent)
     return redirect(view)
 
 def render_tourn(context: dict) -> str:
@@ -541,6 +618,17 @@ def render_app(context: dict) -> str:
         'help_txt' : help_txt
     }
     return render_template(APP_TEMPLATE, **(base_ctx | context))
+
+def render_login(context: dict) -> str:
+    """Identify the user (player or admin), with relevant security applied
+    """
+    base_ctx = {
+        'title'     : APP_NAME,
+        'logins'    : get_logins(),
+        'admin_user': ADMIN_USER if not is_mobile() else None,
+        'err_msg'   : None
+    }
+    return render_template(LOGIN_TEMPLATE, **(base_ctx | context))
 
 #########################
 # content / metacontent #

@@ -28,6 +28,7 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 
 ## Refactoring
 
+- get all HTML and UI display stuff out of schema.py (should be purely functional)
 - get rid of schema level caching (and fix requery flags)
 - improve HTML and CSS design
   - use \<section\>, \<div\>, \<span\>, \<h1\>, \<h2\>, etc. properly

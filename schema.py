@@ -7,6 +7,7 @@ import re
 from peewee import (TextField, IntegerField, BooleanField, ForeignKeyField, FloatField,
                     OperationalError, DoesNotExist, fn)
 from playhouse.sqlite_ext import JSONField
+from flask_login import UserMixin
 
 from core import DEBUG, ImplementationError
 from database import BaseModel
@@ -209,7 +210,7 @@ EMPTY_PLYR_STATS = {
     'seed_pts_against': None
 }
 
-class Player(BaseModel):
+class Player(BaseModel, UserMixin):
     """
     """
     # required info
@@ -315,6 +316,13 @@ class Player(BaseModel):
         found
         """
         return cls.get_or_none(cls.player_rank == player_rank)
+
+    @classmethod
+    def fetch_by_nick_name(cls, nick_name: str) -> Self:
+        """Return player by nick_name (always retrieved from database), or `None` if not
+        found
+        """
+        return cls.get_or_none(cls.nick_name == nick_name)
 
     @classmethod
     def find_by_name_pfx(cls, name_pfx: str) -> Iterator[Self]:
@@ -544,7 +552,7 @@ class SeedGame(BaseModel):
     def team_tags(self) -> tuple[str, str]:
         """Team references based on player tags with embedded HTML annotation (used for
         bracket and scores/results displays)--currently, can only be called for actual
-        matchup. and not bye records
+        matchup, and not bye records
         """
         p1 = self.player1
         p2 = self.player2
@@ -1007,7 +1015,7 @@ class TournGame(BaseModel):
     @property
     def team_tags(self) -> tuple[str, str]:
         """Team tags with embedded HTML annotation (used for bracket and scores/results
-        displays)--currently, can only be called for actual matchup. and not bye records
+        displays)--currently, can only be called for actual matchup, and not bye records
         """
         assert self.team1 and self.team2
         return (self.team1.team_tag, self.team2.team_tag)

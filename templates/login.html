@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{title}}</title>
+
+    <style>
+     .err_dlg {
+       padding: 1.1rem 1.4rem;
+     }
+     .err_dlg div {
+       width: 22rem;
+       color: #D10000;
+       overflow: auto;
+     }
+     .err_dlg button {
+       margin-top: 1.2rem;
+     }
+     section + section {
+       margin-top: 1.5rem;
+     }
+     p label {
+       display: block;
+     }
+     select {
+       width: 11.5rem;
+     }
+     intput {
+       width: 15rem;
+     }
+    </style>
+  </head>
+
+  <body>
+    <dialog class="err_dlg">
+      <div></div>
+      <button autofocus>Close</button>
+    </dialog>
+
+    <form action="/login" method="post" enctype="multipart/form-data">
+      <h1>Login</h1>
+      <p><i>Instructions...</i></p>
+      <section>
+        <p>
+          <label for="username">User:</label>
+          <select id="username" name="username" required>
+            <option value="" disabled selected></option>
+            {% if logins %}
+            {% for login in logins %}
+            <option value="{{login}}">{{login}}</option>
+            {% endfor %}
+            {% elif admin_user %}
+            <option value="{{admin_user}}">{{admin_user}}</option>
+            {% endif %}
+          </select>
+        </p>
+        <p>
+          <label for="password">Password:</label>
+          <input type="password" id="password" name="password">
+        </p>
+      </section>
+      <section>
+        <p>
+          <button type="submit">Login</button>
+        </p>
+      </section>
+    </form>
+  </body>
+
+  <script src="/static/jquery-3.7.1.min.js"></script>
+  <script>
+   $(function() {
+     // error dialog
+     $('.err_dlg button').on('click', function() {
+       $('.err_dlg')[0].close();
+     });
+     const show_error = function(err_text) {
+       $('.err_dlg div').text(err_text);
+       $('.err_dlg')[0].showModal();
+     };
+
+     {% if err_msg %}
+     show_error('{{err_msg|safe}}');
+     {% endif %}
+   });
+  </script>
+</html>

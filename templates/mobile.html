@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{title}}</title>
+
+    <style>
+     .err_dlg {
+       padding: 1.1rem 1.4rem;
+     }
+     .err_dlg div {
+       width: 22rem;
+       color: #D10000;
+       overflow: auto;
+     }
+     .err_dlg button {
+       margin-top: 1.2rem;
+     }
+    </style>
+  </head>
+
+  <body>
+    <dialog class="err_dlg">
+      <div></div>
+      <button autofocus>Close</button>
+    </dialog>
+
+    <h1>{{tourn.name}}</h1>
+    <section>
+      <h2>Welcome {{user.nick_name}}!</h2>
+    </section>
+  </body>
+
+  <script src="/static/jquery-3.7.1.min.js"></script>
+  <script>
+   $(function() {
+     // error dialog
+     $('.err_dlg button').on('click', function() {
+       $('.err_dlg')[0].close();
+     });
+     const show_error = function(err_text) {
+       $('.err_dlg div').text(err_text);
+       $('.err_dlg')[0].showModal();
+     };
+
+     {% if err_msg %}
+     show_error('{{err_msg|safe}}');
+     {% endif %}
+   });
+  </script>
+</html>

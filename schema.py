@@ -9,7 +9,7 @@ from peewee import (TextField, IntegerField, BooleanField, ForeignKeyField, Floa
 from playhouse.sqlite_ext import JSONField
 from flask_login import UserMixin
 
-from core import DEBUG, ImplementationError
+from core import DEBUG, ImplementationError, LogicError
 from database import BaseModel
 
 DFLT_SEED_ROUNDS  = 8
@@ -216,7 +216,7 @@ class Player(BaseModel, UserMixin):
     # required info
     first_name     = TextField()
     last_name      = TextField()
-    nick_name      = TextField(unique=True)  # defaults to last_name
+    nick_name      = TextField(unique=True)  # serves as player_name (defaults to last_name)
     reigning_champ = BooleanField(default=False)
     player_num     = IntegerField(unique=True, null=True)  # 1-based, must be contiguous
     # seeding round
@@ -252,6 +252,10 @@ class Player(BaseModel, UserMixin):
     def get_player_map(cls, requery: bool = False) -> dict[int, Self]:
         """Return dict of all players, indexed by player_num
         """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.PLAYER_NUMS:
+            raise LogicError("player_nums not yet assigned")
+
         if cls.player_map and not requery:
             return cls.player_map
 

@@ -46,7 +46,7 @@ from data import (data, DISABLED, CHECKED, Layout, pl_layout, sg_layout, pt_layo
 from chart import chart
 from dash import dash
 from report import report
-from mobile import mobile, is_mobile
+from mobile import mobile, is_mobile, render_error
 
 #################
 # utility stuff #
@@ -55,13 +55,15 @@ from mobile import mobile, is_mobile
 # do not downcase the rest of the string like str.capitalize()
 cap_first = lambda x: x[0].upper() + x[1:]
 
-def get_logins() -> list[str]:
-    """Get list of login names (player nick name)
+def get_logins() -> list[tuple[str, str]]:
+    """Login identifiers are tuples of nick_name (index into `Player`) and familiar
+    display name
     """
     if not db_name():
         return []
-    pl_sel = Player.select().order_by(Player.nick_name)
-    return [pl.nick_name for pl in pl_sel]
+    pl_sel = Player.select().order_by(Player.last_name)
+    friendly = lambda x: x.nick_name if x.nick_name != x.last_name else x.first_name
+    return [(pl.nick_name, f"{pl.last_name} ({friendly(pl)})") for pl in pl_sel]
 
 def get_tourns() -> list[str]:
     """Get list of existing tournaments (currently based on existence of database file in
@@ -202,7 +204,7 @@ VIEW_INFO = {
 
 @app.get("/login")
 def login_page() -> str:
-    """Render responsive login page
+    """Responsive login page (entry point for players and admin)
     """
     session.clear()
     context = {}
@@ -210,9 +212,7 @@ def login_page() -> str:
 
 @app.post("/login")
 def do_login() -> str:
-    """Log in as the specified user (player)
-
-    LATER: we will force fit a special case for admin user!!!
+    """Log in as the specified user (player or admin)
     """
     username = request.form['username']
     if username == ADMIN_USER:
@@ -222,9 +222,10 @@ def do_login() -> str:
 
     player = Player.fetch_by_nick_name(username)
     if not player:
-        return redirect(url_for('login_page'))
+        return render_error(400, "Bad Login", f"Invalid player name '{username}'")
     login_user(player)
     # TEMP: need to make the routing device and/or context sensitive!!!
+    assert is_mobile()
     return redirect('/mobile')
 
 #################
@@ -289,6 +290,9 @@ def view() -> str:
 def tourn() -> str:
     """
     """
+    if is_mobile():
+        return render_error(403, desc="Mobile access unauthorized")
+
     tourn_name = session.get('tourn')
     if tourn_name is None:
         abort(400, "Tournament not specified")

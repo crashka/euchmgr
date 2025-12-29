@@ -44,10 +44,10 @@
         <p>
           <label for="username">User:</label>
           <select id="username" name="username" required>
-            <option value="" disabled selected></option>
+            <option value="" disabled selected hidden>Select player...</option>
             {% if logins %}
             {% for login in logins %}
-            <option value="{{login}}">{{login}}</option>
+            <option value="{{login[0]}}">{{login[1]}}</option>
             {% endfor %}
             {% elif admin_user %}
             <option value="{{admin_user}}">{{admin_user}}</option>

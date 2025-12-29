@@ -3,8 +3,10 @@
 """Blueprint for the mobile device interface
 """
 import re
+from http import HTTPStatus
 
-from flask import Blueprint, request, session, render_template, redirect, url_for, abort
+from peewee import InterfaceError
+from flask import Blueprint, request, session, render_template, redirect, url_for
 from flask_login import current_user
 
 from schema import TournInfo
@@ -16,6 +18,7 @@ from schema import TournInfo
 mobile = Blueprint('mobile', __name__)
 MOBILE_TITLE = "Euchmgr"
 MOBILE_TEMPLATE = "mobile.html"
+ERROR_TEMPLATE = "error.html"
 
 #################
 # utility stuff #
@@ -36,8 +39,15 @@ def is_mobile() -> bool:
 def index() -> str:
     """Render mobile app if logged in
     """
-    if not current_user.is_authenticated:
-        return redirect('/login')
+    try:
+        if not current_user.is_authenticated:
+            return redirect('/login')
+    except InterfaceError as e:
+        if str(e).find("database must be initialized before opening a connection") > -1:
+            # database not initialized, admin must be logged in--TODO: transmit error
+            # condition to end-user!!!
+            return redirect('/login')
+        return render_error(400, "InterfaceException", str(e))
 
     context = {}
     return render_mobile(context)
@@ -63,3 +73,14 @@ def render_mobile(context: dict) -> str:
         'err_msg'  : None
     }
     return render_template(MOBILE_TEMPLATE, **(base_ctx | context))
+
+def render_error(code: int, name: str = None, desc: str = None) -> str:
+    """Mobile-adjusted error page (replacement for `flask.abort`)
+    """
+    err = HTTPStatus(code)
+    context = {
+        'title'      : f"{code} {err._name_}",
+        'error'      : name or err.phrase,
+        'description': desc or err.description
+    }
+    return render_template(ERROR_TEMPLATE, **context), code

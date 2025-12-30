@@ -27,14 +27,15 @@ import re
 from ckautils import typecast
 from peewee import OperationalError
 from flask import (Flask, request, session, render_template, Response, abort, redirect,
-                   url_for)
+                   url_for, get_flashed_messages)
 from flask_session import Session
 from cachelib.file import FileSystemCache
 from werkzeug.utils import secure_filename
-from flask_login import UserMixin, LoginManager, current_user, login_user
+from flask_login import LoginManager, current_user, login_user, logout_user
 
 from core import DATA_DIR, UPLOAD_DIR
-from database import DB_FILETYPE, db_init, db_name
+from security import EuchmgrUser, ADMIN_USER, ADMIN_ID, AdminUser, is_admin
+from database import DB_FILETYPE, db_init, db_name, db_close
 from schema import TournStage, TournInfo, Player
 from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_seed_bracket,
                      fake_seed_games, validate_seed_round, compute_player_ranks,
@@ -102,22 +103,8 @@ Session(app)
 
 login = LoginManager(app)
 
-ADMIN_USER = 'admin'
-ADMIN_ID = -1
-
-class AdminUser(UserMixin):
-    """TEMP: need to figure out where this really goes!!!
-    """
-    id: int = ADMIN_ID
-    is_admin: bool = True
-
-    def get_id(self) -> str:
-        """Admin id must be distinct from all other user ids
-        """
-        return str(self.id)
-
 @login.user_loader
-def load_user(user_id: str | int) -> UserMixin:
+def load_user(user_id: str | int) -> EuchmgrUser:
     """Return "user" object, which in our case is a `Player` instance
     """
     if isinstance(user_id, str):
@@ -125,6 +112,8 @@ def load_user(user_id: str | int) -> UserMixin:
     assert isinstance(user_id, int)
     if user_id == ADMIN_ID:
         return AdminUser()
+    if not db_name():
+        return None
     return Player.get(user_id)
 
 @app.before_request
@@ -206,8 +195,18 @@ VIEW_INFO = {
 def login_page() -> str:
     """Responsive login page (entry point for players and admin)
     """
+    err_msg = None
+    if is_mobile():
+        logout_user()
+        err_msg = "<br>".join(get_flashed_messages())
+    else:
+        # FIX: need to disconnect the server from the database--this is not currently
+        # doing that (needs to reset both admin and mobile access, e.g. get_logins()
+        # in login renderer should fail)!!!
+        db_close()
+
     session.clear()
-    context = {}
+    context = {'err_msg': err_msg}
     return render_login(context)
 
 @app.post("/login")
@@ -261,7 +260,7 @@ def index() -> str:
     if is_mobile():
         return redirect('/mobile')
 
-    assert current_user.is_admin
+    assert is_admin()
     context = {
         'view': View.TOURN,
     }
@@ -626,10 +625,16 @@ def render_app(context: dict) -> str:
 def render_login(context: dict) -> str:
     """Identify the user (player or admin), with relevant security applied
     """
+    logins = None
+    logins = get_logins()
+    if is_mobile():
+        if not logins:
+            return render_error(503, *err_txt['not_running'])
+
     base_ctx = {
         'title'     : APP_NAME,
-        'logins'    : get_logins(),
-        'admin_user': ADMIN_USER if not is_mobile() else None,
+        'logins'    : logins,
+        'admin_user': ADMIN_USER,
         'err_msg'   : None
     }
     return render_template(LOGIN_TEMPLATE, **(base_ctx | context))
@@ -637,6 +642,12 @@ def render_login(context: dict) -> str:
 #########################
 # content / metacontent #
 #########################
+
+err_txt = {
+    # id: (error, description)
+    'not_running': ("Euchre Manager not running",
+                    "Reload page after admin restarts the server app")
+}
 
 help_txt = {
     # tag: help text

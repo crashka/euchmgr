@@ -59,8 +59,8 @@ def db_close() -> SqliteDatabase:
     """
     if not db.is_closed():
         db.close()
-        if hasattr(db, 'db_name'):
-            delattr(db, 'db_name')
+    if hasattr(db, 'db_name'):
+        delattr(db, 'db_name')
     return db
 
 def db_name() -> str | None:

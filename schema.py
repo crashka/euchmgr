@@ -7,9 +7,9 @@ import re
 from peewee import (TextField, IntegerField, BooleanField, ForeignKeyField, FloatField,
                     OperationalError, DoesNotExist, fn)
 from playhouse.sqlite_ext import JSONField
-from flask_login import UserMixin
 
 from core import DEBUG, ImplementationError, LogicError
+from security import EuchmgrUser
 from database import BaseModel
 
 DFLT_SEED_ROUNDS  = 8
@@ -92,7 +92,8 @@ StageData = dict(zip(TournStage, STAGE_DATA))
 #############
 
 class TournInfo(BaseModel):
-    """
+    """High-level tournament information.  There is only one instance per database (since
+    the database encapsulates the entire data for a single tournament).
     """
     name           = TextField(unique=True)
     timeframe      = TextField(null=True)
@@ -210,8 +211,9 @@ EMPTY_PLYR_STATS = {
     'seed_pts_against': None
 }
 
-class Player(BaseModel, UserMixin):
-    """
+class Player(BaseModel, EuchmgrUser):
+    """Represents a player in the tournament, as well as a mobile (i.e. non-admin) user of
+    the app.
     """
     # required info
     first_name     = TextField()

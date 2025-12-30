@@ -6,7 +6,7 @@ import re
 from http import HTTPStatus
 
 from peewee import InterfaceError
-from flask import Blueprint, request, session, render_template, redirect, url_for
+from flask import Blueprint, request, session, render_template, redirect, url_for, flash
 from flask_login import current_user
 
 from schema import TournInfo
@@ -41,12 +41,13 @@ def index() -> str:
     """
     try:
         if not current_user.is_authenticated:
+            flash("Please reauthenticate in order to access the app")
             return redirect('/login')
     except InterfaceError as e:
-        if str(e).find("database must be initialized before opening a connection") > -1:
-            # database not initialized, admin must be logged in--TODO: transmit error
-            # condition to end-user!!!
-            return redirect('/login')
+        #if str(e).find("database must be initialized before opening a connection") > -1:
+        #    # database not initialized, admin must be logged in--TODO: transmit error
+        #    # condition to end-user!!!
+        #    return redirect('/login')
         return render_error(400, "InterfaceException", str(e))
 
     context = {}

@@ -9,7 +9,7 @@ import pytest
 from peewee import SqliteDatabase
 
 from core import TEST_DIR
-from database import db_init, db_close, build_filename
+from database import db_init, db_close, db_filepath
 from schema import TournStage
 
 #############
@@ -26,7 +26,7 @@ def stage_db_path(stage_num: int) -> str:
     """Build full pathname for stage-level database snapshot.
     """
     name = f"{TEST_DB}-stage-{stage_num}"
-    return build_filename(name, TEST_DIR)
+    return db_filepath(name, TEST_DIR)
 
 def save_stage_db(stage: TournStage) -> SqliteDatabase:
     """Create snapshot of current database tagged with the specified stage.
@@ -44,7 +44,7 @@ def restore_stage_db(stage: TournStage) -> SqliteDatabase:
     db = db_close()  # checkpoint the WAL (idempotent)
     # REVISIT: it might be better (i.e. more robust if open connections on TEST_DB) to use
     # `db.backup` here!!!
-    shutil.copy2(stage_db_path(stage), build_filename(TEST_DB))
+    shutil.copy2(stage_db_path(stage), db_filepath(TEST_DB))
     db = db_init(TEST_DB, force=True)
     return db
 
@@ -155,6 +155,6 @@ def test_db() -> Generator[SqliteDatabase]:
     """Note that the yield value for this function can easily be ignored (e.g. we can use
     this with the `usefixtures` marker).
     """
-    db = db_init(TEST_DB)
+    db = db_init(TEST_DB, force=True)
     yield db
     db_close()

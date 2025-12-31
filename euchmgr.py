@@ -885,7 +885,7 @@ def main() -> int:
     mod_func = globals()[sys.argv[2]]
     args, kwargs = parse_argv(sys.argv[3:])
 
-    db_init(tourn_name)
+    db_init(tourn_name, force=True)
     mod_func(*args, **kwargs)  # will throw exceptions on error
     db_close()
     return 0

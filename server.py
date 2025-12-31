@@ -35,7 +35,7 @@ from flask_login import LoginManager, current_user, login_user, logout_user
 
 from core import DATA_DIR, UPLOAD_DIR
 from security import EuchmgrUser, ADMIN_USER, ADMIN_ID, AdminUser, is_admin
-from database import DB_FILETYPE, db_init, db_name, db_close
+from database import DB_FILETYPE, db_init, db_connect, db_close, db_is_closed
 from schema import TournStage, TournInfo, Player
 from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_seed_bracket,
                      fake_seed_games, validate_seed_round, compute_player_ranks,
@@ -60,7 +60,7 @@ def get_logins() -> list[tuple[str, str]]:
     """Login identifiers are tuples of nick_name (index into `Player`) and familiar
     display name
     """
-    if not db_name():
+    if db_is_closed():
         return []
     pl_sel = Player.select().order_by(Player.last_name)
     friendly = lambda x: x.nick_name if x.nick_name != x.last_name else x.first_name
@@ -105,26 +105,36 @@ login = LoginManager(app)
 
 @login.user_loader
 def load_user(user_id: str | int) -> EuchmgrUser:
-    """Return "user" object, which in our case is a `Player` instance
+    """Return "user" flask_login object, which in our case is a `Player` instance (or the
+    special admin security object).
     """
     if isinstance(user_id, str):
         user_id = typecast(user_id)
     assert isinstance(user_id, int)
     if user_id == ADMIN_ID:
         return AdminUser()
-    if not db_name():
+    if db_is_closed():
         return None
     return Player.get(user_id)
 
 @app.before_request
-def _db_init():
-    """Make sure we're connected to the right database on the way in (`db_init` is smart
-    about switching when the db_name changes).  Note that we optimistically do not tear
-    down this connection on the way out.
+def _db_connect() -> None:
+    """Make sure we're connected to the right database on the way in.  Mobile users have
+    no explicit association with a tournament name, so they connect to whatever database
+    is active.
     """
     tourn_name = session.get('tourn')
-    if tourn_name and tourn_name != SEL_NEW:
-        db_init(tourn_name)
+    assert not (tourn_name and is_mobile())
+    if tourn_name != SEL_NEW:
+        db_connect(tourn_name)
+
+@app.teardown_request
+def _db_close(exc) -> None:
+    """Do a logical close of the database connection on the way out.  Underneath, we may
+    actually choose to keep the connection open and reuse it (in which case, there may be
+    no way to explicitly close it on server exit).
+    """
+    db_close()
 
 ##############
 # view stuff #
@@ -383,7 +393,7 @@ def create_tourn(form: dict) -> str:
         req_file.save(roster_path)
 
     try:
-        db_init(tourn_name)
+        db_init(tourn_name, force=True)
         tourn = tourn_create(timeframe=timeframe, venue=venue, force=bool(overwrite))
         if req_file:
             upload_roster(roster_path)
@@ -431,7 +441,7 @@ def update_tourn(form: dict) -> str:
         req_file.save(roster_path)
 
     try:
-        db_init(tourn_name)
+        db_init(tourn_name, force=True)
         tourn = TournInfo.get(requery=True)
         tourn.timeframe = timeframe
         tourn.venue = venue
@@ -626,8 +636,8 @@ def render_login(context: dict) -> str:
     """Identify the user (player or admin), with relevant security applied
     """
     logins = None
-    logins = get_logins()
     if is_mobile():
+        logins = get_logins()
         if not logins:
             return render_error(503, *err_txt['not_running'])
 

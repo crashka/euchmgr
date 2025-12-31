@@ -38,9 +38,7 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 
 ## Framework
 
-- user identities/logins
-  - mobile support (context)
-  - security (for shared network)
+- add passwords for login?
 - dockerize the server
 - audit trailing (and/or snapshotting)?
 - optimistic locking (or other concurrency control)?

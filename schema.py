@@ -118,7 +118,7 @@ class TournInfo(BaseModel):
         method).
         """
         if cls.inst is None or requery:
-            res = [t for t in cls.select().limit(2)]
+            res = [t for t in cls.select().limit(2).iterator()]
             assert len(res) == 1  # fails if not initialized, or unexpected multiple records
             cls.inst = res[0]
         return cls.inst
@@ -258,7 +258,7 @@ class Player(BaseModel, EuchmgrUser):
             return cls.player_map
 
         cls.player_map = {}
-        for p in cls.select():
+        for p in cls.select().iterator():
             cls.player_map[p.player_num] = p
         return cls.player_map
 
@@ -813,7 +813,7 @@ class Team(BaseModel):
             return cls.team_map
 
         cls.team_map = {}
-        for t in cls.select():
+        for t in cls.select().iterator():
             cls.team_map[t.team_seed] = t
         return cls.team_map
 

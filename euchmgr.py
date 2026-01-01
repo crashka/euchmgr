@@ -829,7 +829,7 @@ import sys
 from ckautils import parse_argv
 
 # excludes utility and helper functions
-MOD_FUNCS = {
+MOD_FUNCS = [
     'tourn_create',
     'upload_roster',
     'generate_player_nums',
@@ -845,7 +845,7 @@ MOD_FUNCS = {
     'fake_tourn_games',
     'validate_tourn',
     'compute_team_ranks'
-}
+]
 
 def main() -> int:
     """Built-in driver to invoke module functions

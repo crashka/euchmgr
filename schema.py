@@ -111,20 +111,16 @@ class TournInfo(BaseModel):
 
     # class variables
     inst: ClassVar[Self] = None  # singleton instance
-    inst_name: ClassVar[str] = None
 
     @classmethod
     def get(cls, requery: bool = False) -> Self:
         """Return cached singleton instance (purposefully shadows more general base class
         method).
         """
-        # NOTE: use iterator() to circumvent caching in ORM layer
-        res = [t for t in cls.select().limit(2).iterator()]
-        assert len(res) == 1  # fails if not initialized, or unexpected multiple records
-
-        if cls.inst is None or res[0].name != cls.inst_name or requery:
+        if cls.inst is None or requery:
+            res = [t for t in cls.select().limit(2)]
+            assert len(res) == 1  # fails if not initialized, or unexpected multiple records
             cls.inst = res[0]
-            cls.inst_name = res[0].name
         return cls.inst
 
     @classmethod
@@ -166,8 +162,8 @@ class TournInfo(BaseModel):
                     self.next_action = StageData[stage_next].start_msg
                 else:
                     self.next_action = None
-
             # TODO: should also log this information!!!
+
         if self.id is None:
             cls = type(self)
             cls.inst = None
@@ -262,8 +258,7 @@ class Player(BaseModel, EuchmgrUser):
             return cls.player_map
 
         cls.player_map = {}
-        # see NOTE on use of iterator in `TournInfo.get`, above
-        for p in cls.select().iterator():
+        for p in cls.select():
             cls.player_map[p.player_num] = p
         return cls.player_map
 
@@ -349,7 +344,6 @@ class Player(BaseModel, EuchmgrUser):
         query = cls.select()
         if by_rank:
             query = query.order_by(cls.player_rank)
-        # see NOTE on use of iterator in `TournInfo.get`, above
         for p in query.iterator():
             yield p
 
@@ -534,7 +528,6 @@ class SeedGame(BaseModel):
     def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
         """Iterator for seed_games (wrap ORM details).
         """
-        # see NOTE on use of iterator in `TournInfo.get`, above
         sel = cls.select()
         if not include_byes:
             sel = sel.where(cls.table_num.is_null(False))
@@ -812,13 +805,15 @@ class Team(BaseModel):
     def get_team_map(cls, requery: bool = False) -> dict[int, Self]:
         """Return dict of all teams, indexed by team_seed
         """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.TEAM_SEEDS:
+            raise LogicError("team_seeds not yet assigned")
+
         if cls.team_map and not requery:
             return cls.team_map
 
         cls.team_map = {}
-        # see NOTE on use of iterator in `TournInfo.get`, above
-        for t in cls.select().iterator():
-            assert t.team_seed  # late check that seeds have been set
+        for t in cls.select():
             cls.team_map[t.team_seed] = t
         return cls.team_map
 
@@ -836,8 +831,6 @@ class Team(BaseModel):
         """
         if cls.team_map:
             cls.team_map = None
-
-        # see NOTE on use of iterator in `TournInfo.get`, above
         for t in cls.select().iterator():
             yield t
 
@@ -1004,7 +997,6 @@ class TournGame(BaseModel):
     def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
         """Iterator for seed_games (wrap ORM details).
         """
-        # see NOTE on use of iterator in `TournInfo.get`, above
         sel = cls.select()
         if not include_byes:
             sel = sel.where(cls.table_num.is_null(False))
@@ -1202,7 +1194,6 @@ class PlayerGame(BaseModel):
     def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
         """Iterator for seed_games (wrap ORM details).
         """
-        # see NOTE on use of iterator in `TournInfo.get`, above
         sel = cls.select()
         if not include_byes:
             sel = sel.where(cls.is_bye == False)
@@ -1247,7 +1238,6 @@ class TeamGame(BaseModel):
     def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
         """Iterator for tourn_games (wrap ORM details).
         """
-        # see NOTE on use of iterator in `TournInfo.get`, above
         sel = cls.select()
         if not include_byes:
             sel = sel.where(cls.is_bye == False)

@@ -27,14 +27,14 @@ import re
 from ckautils import typecast
 from peewee import OperationalError
 from flask import (Flask, request, session, render_template, Response, abort, redirect,
-                   url_for, get_flashed_messages)
+                   url_for, flash, get_flashed_messages)
 from flask_session import Session
 from cachelib.file import FileSystemCache
 from werkzeug.utils import secure_filename
-from flask_login import LoginManager, current_user, login_user, logout_user
+from flask_login import current_user, login_user, logout_user
 
 from core import DATA_DIR, UPLOAD_DIR
-from security import EuchmgrUser, ADMIN_USER, ADMIN_ID, AdminUser, is_admin
+from security import EuchmgrUser, ADMIN_USER, ADMIN_ID, AdminUser, EuchmgrLogin
 from database import DB_FILETYPE, db_init, db_connect, db_close, db_is_closed
 from schema import TournStage, TournInfo, Player
 from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_seed_bracket,
@@ -101,7 +101,7 @@ app.register_blueprint(report, url_prefix="/report")
 app.register_blueprint(mobile, url_prefix="/mobile")
 Session(app)
 
-login = LoginManager(app)
+login = EuchmgrLogin(app)
 
 @login.user_loader
 def load_user(user_id: str | int) -> EuchmgrUser:
@@ -203,24 +203,18 @@ VIEW_INFO = {
 
 @app.get("/login")
 def login_page() -> str:
-    """Responsive login page (entry point for players and admin)
+    """Responsive login page (entry point for players and admin).
     """
-    err_msg = None
-    if is_mobile():
-        logout_user()
-        err_msg = "<br>".join(get_flashed_messages())
-    else:
-        # FIX: need to disconnect the server from the database--this is not currently
-        # doing that (needs to reset both admin and mobile access, e.g. get_logins()
-        # in login renderer should fail)!!!
-        db_close()
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    err_msg = "<br>".join(get_flashed_messages())
+    #session.clear()  # REVISIT!!!
 
-    session.clear()
     context = {'err_msg': err_msg}
     return render_login(context)
 
 @app.post("/login")
-def do_login() -> str:
+def login() -> str:
     """Log in as the specified user (player or admin)
     """
     username = request.form['username']
@@ -236,6 +230,15 @@ def do_login() -> str:
     # TEMP: need to make the routing device and/or context sensitive!!!
     assert is_mobile()
     return redirect('/mobile')
+
+@app.route('/logout')
+def logout():
+    """Log out the current user.  Note that this call, for admins, does not reset the
+    server database identification and/or connection state.
+    """
+    logout_user()
+    flash("Successfully logged out")
+    return redirect(url_for('login_page'))
 
 #################
 # top-level nav #
@@ -270,7 +273,7 @@ def index() -> str:
     if is_mobile():
         return redirect('/mobile')
 
-    assert is_admin()
+    assert current_user.is_admin
     context = {
         'view': View.TOURN,
     }
@@ -566,7 +569,6 @@ def render_view(view: View) -> str:
     Note that we are not passing any context information as query string params, so all
     information must be conveyed through the session object.
     """
-    print(request.user_agent)
     return redirect(view)
 
 def render_tourn(context: dict) -> str:

@@ -348,6 +348,12 @@ class Player(BaseModel, EuchmgrUser):
             yield p
 
     @property
+    def name(self) -> str:
+        """Alias/shortcut for nick_name
+        """
+        return self.nick_name
+
+    @property
     def full_name(self) -> str:
         """For UI support (one field instead of two)
         """

@@ -382,32 +382,34 @@ def build_tourn_teams() -> list[Team]:
     by_rank = sorted(pl_map.values(), key=lambda x: x.player_rank)
 
     teams = []
-    for p in by_rank:
-        if not p.partner_num:
+    for pl in by_rank:
+        if not pl.partner_num:
             continue
-        partner = pl_map[p.partner_num]
-        seed_sum = p.player_rank + partner.player_rank
-        min_seed = min(p.player_rank, partner.player_rank)
-        if not p.partner2_num:
+        partner = pl_map[pl.partner_num]
+        seed_sum = pl.player_rank + partner.player_rank
+        min_seed = min(pl.player_rank, partner.player_rank)
+        if not pl.partner2_num:
+            partner2 = None
             is_thm = False
-            team_name = fmt_team_name([p.player_num, p.partner_num])
+            team_name = fmt_team_name([pl.player_num, pl.partner_num])
             avg_seed = rnd_avg(seed_sum / 2.0)
         else:
-            partner2 = pl_map[p.partner2_num]
+            partner2 = pl_map[pl.partner2_num]
             is_thm = True
-            team_name = fmt_team_name([p.player_num, p.partner_num, p.partner2_num])
+            team_name = fmt_team_name([pl.player_num, pl.partner_num, pl.partner2_num])
             seed_sum += partner2.player_rank
             min_seed = min(min_seed, partner2.player_rank)
             avg_seed = rnd_avg(seed_sum / 3.0)
 
-        info = {'player1_num'    : p.player_num,
-                'player2_num'    : p.partner_num,
-                'player3_num'    : p.partner2_num,
+        info = {'player1'        : pl,
+                'player2'        : partner,
+                'player3'        : partner2,
                 'is_thm'         : is_thm,
                 'team_name'      : team_name,
                 'avg_player_rank': avg_seed,
                 'top_player_rank': min_seed}
         team = Team.create(**info)
+        team.save_team_refs()
         teams.append(team)
 
     TournInfo.mark_stage_complete(TournStage.TOURN_TEAMS)
@@ -480,7 +482,7 @@ def build_tourn_bracket() -> list[TournGame]:
                                 'team1_div_seed': team1.div_seed,
                                 'team2_div_seed': None}
                     else:
-                        t1,t2 = table
+                        t1, t2 = table
                         label = f'rr-{div_i+1}-{rnd_j+1}-{tbl_k+1}'
                         team1 = div_map[t1]
                         team2 = div_map[t2]

@@ -208,7 +208,6 @@ def login_page() -> str:
     if current_user.is_authenticated:
         return redirect(url_for('index'))
     err_msg = "<br>".join(get_flashed_messages())
-    #session.clear()  # REVISIT!!!
 
     context = {'err_msg': err_msg}
     return render_login(context)
@@ -237,6 +236,7 @@ def logout():
     server database identification and/or connection state.
     """
     logout_user()
+    #session.clear()  # REVISIT (coupled with revamp of /tourn)!!!
     flash("Successfully logged out")
     return redirect(url_for('login_page'))
 

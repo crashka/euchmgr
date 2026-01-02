@@ -4,8 +4,8 @@ from enum import IntEnum
 from typing import ClassVar, Self, Iterator, NamedTuple
 import re
 
-from peewee import (TextField, IntegerField, BooleanField, ForeignKeyField, FloatField,
-                    OperationalError, DoesNotExist, fn)
+from peewee import (TextField, IntegerField, BooleanField, FloatField, ForeignKeyField,
+                    DeferredForeignKey, OperationalError, DoesNotExist, fn)
 from playhouse.sqlite_ext import JSONField
 
 from core import DEBUG, ImplementationError, LogicError
@@ -237,6 +237,7 @@ class Player(BaseModel, EuchmgrUser):
                                      null=True)
     picked_by      = ForeignKeyField('self', field='player_num', column_name='picked_by_num',
                                      null=True)
+    team           = DeferredForeignKey('Team', null=True)
 
     # class variables
     player_map: ClassVar[dict[int, Self]] = None  # indexed by player_num
@@ -969,6 +970,17 @@ class Team(BaseModel):
             # the right column in `opps` for the `in_` operator
             query = query.where(TeamGame.opponent.in_(opps))
         return dict(zip(stat_keys, query[0].__data__.values()))
+
+    def save_team_refs(self) -> None:
+        """Add team reference to player members, and save.
+        """
+        self.player1.team = self
+        self.player2.team = self
+        self.player1.save()
+        self.player2.save()
+        if self.player3:
+            self.player3.team = self
+            self.player3.save()
 
 #############
 # TournGame #

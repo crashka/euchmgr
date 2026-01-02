@@ -20,6 +20,7 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 
 ## Bugs/Nits
 
+- add transaction boundaries to euchmgr.py
 - neatly flag and/or rectify duplicate player nick names
 - create teams as picks are made (to support active charting)
 - make bye rows readonly, for seeding and round robin views

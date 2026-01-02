@@ -554,11 +554,11 @@ def validate_tourn(finalize: bool = False) -> None:
         'tourn_pts_for':     0,
         'tourn_pts_against': 0
     }
-    tm_stats = {seed: stats_tmpl.copy() for seed in tm_map}
+    tm_stats = {id: stats_tmpl.copy() for id in tm_map}
 
     for gm in TournGame.iter_games():
-        stats1 = tm_stats[gm.team1_seed]
-        stats2 = tm_stats[gm.team2_seed]
+        stats1 = tm_stats[gm.team1_id]
+        stats2 = tm_stats[gm.team2_id]
 
         if gm.winner == gm.team1_name:
             stats1['tourn_wins'] += 1
@@ -573,8 +573,8 @@ def validate_tourn(finalize: bool = False) -> None:
         stats2['tourn_pts_against'] += gm.team1_pts
 
     stats_tot = stats_tmpl.copy()
-    for seed, tm in tm_map.items():
-        stats = tm_stats[seed]
+    for id, tm in tm_map.items():
+        stats = tm_stats[id]
         for k, v in stats.items():
             stats_tot[k] += v
 

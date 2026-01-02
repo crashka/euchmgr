@@ -15,7 +15,7 @@ CycleFixture = tuple[int, list[set[int]]]
 
 def add_games(gm_defs: list[tuple]) -> None:
     """Add TournGame entries (and associated TeamGame records) based on specified game
-    definitions.  `gm_defs` tuples have the following fields: (team1_seed, team2_seed,
+    definitions.  `gm_defs` tuples have the following fields: (team1_id, team2_id,
     team1_pts, team2_pts)
     """
     tm_map = Team.get_team_map()
@@ -135,7 +135,7 @@ def validate_cycle_grps(result: CycleFixture) -> None:
     cycle_grps, _ = cyclic_win_groups(teams)
     assert len(cycle_grps) == len(ref_cycle_grps)
     for grp in cycle_grps:
-        assert set(tm.team_seed for tm in grp) in ref_cycle_grps
+        assert set(tm.id for tm in grp) in ref_cycle_grps
 
 def test_non_cycle(non_cycle) -> None:
     validate_cycle_grps(non_cycle)
@@ -159,7 +159,7 @@ def test_simple_elevate(simple_elevate) -> None:
     _, elevs, _, _ = elevate_winners(teams)
     assert len(elevs) == len(ref_elevs)
     for i, elev in enumerate(elevs):
-        assert tuple(tm.team_seed for tm in elev) == ref_elevs[i]
+        assert tuple(tm.id for tm in elev) == ref_elevs[i]
 
 def test_identical_tbs(identical_tbs) -> None:
     div_pos, ref_tb_crits, team_cts = identical_tbs

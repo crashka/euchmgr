@@ -767,7 +767,7 @@ class Team(BaseModel):
     avg_player_rank = FloatField()
     top_player_rank = IntegerField()
     # tournament bracket
-    team_seed      = IntegerField(unique=True, null=True)  # 1-based, from players seeds
+    team_seed      = IntegerField(unique=True, null=True)  # 1-based, based on player seeds
     div_num        = IntegerField(null=True)
     div_seed       = IntegerField(null=True)
     # tournament play
@@ -801,7 +801,7 @@ class Team(BaseModel):
     tourn_rank_adj = IntegerField(null=True)  # includes playoff_rank overwrite
 
     # class variables
-    team_map: ClassVar[dict[int, Self]] = None  # indexed by team_seed
+    team_map: ClassVar[dict[int, Self]] = None  # indexed by id
 
     class Meta:
         indexes = (
@@ -810,18 +810,18 @@ class Team(BaseModel):
 
     @classmethod
     def get_team_map(cls, requery: bool = False) -> dict[int, Self]:
-        """Return dict of all teams, indexed by team_seed
+        """Return dict of all teams, indexed by id
         """
         tourn = TournInfo.get()
-        if tourn.stage_compl < TournStage.TEAM_SEEDS:
-            raise LogicError("team_seeds not yet assigned")
+        if tourn.stage_compl < TournStage.TOURN_TEAMS:
+            raise LogicError("tournament teams not yet created")
 
         if cls.team_map and not requery:
             return cls.team_map
 
         cls.team_map = {}
         for t in cls.select().iterator():
-            cls.team_map[t.team_seed] = t
+            cls.team_map[t.id] = t
         return cls.team_map
 
     @classmethod
@@ -994,8 +994,8 @@ class TournGame(BaseModel):
     round_num      = IntegerField()
     table_num      = IntegerField(null=True)  # null if bye
     label          = TextField(unique=True)   # rr-{div}-{rnd}-{tbl}
-    team1          = ForeignKeyField(Team, field='team_seed', column_name='team1_seed')
-    team2          = ForeignKeyField(Team, field='team_seed', column_name='team2_seed', null=True)
+    team1          = ForeignKeyField(Team, column_name='team1_id')
+    team2          = ForeignKeyField(Team, column_name='team2_id', null=True)
     team1_name     = TextField(null=True)     # denorm (null if team1 is bye_team)
     team2_name     = TextField(null=True)     # denorm
     bye_team       = TextField(null=True)
@@ -1236,8 +1236,8 @@ class TeamGame(BaseModel):
     bracket        = TextField()           # "rr" or "playoff"
     round_num      = IntegerField()
     game_label     = TextField()           # e.g. rr-div-rnd-tbl
-    team           = ForeignKeyField(Team, field='team_seed', column_name='team_seed')
-    opponent       = ForeignKeyField(Team, field='team_seed', column_name='opp_seed', null=True)
+    team           = ForeignKeyField(Team)
+    opponent       = ForeignKeyField(Team, column_name='opp_id', null=True)
     team_name      = TextField()
     opp_name       = TextField(null=True)  # or "bye"(?)
     is_bye         = BooleanField(default=False)

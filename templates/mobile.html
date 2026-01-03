@@ -45,19 +45,30 @@
        margin-left: 0.1rem;
        padding: 0.0rem 0.5rem 0.05rem 0.3rem;
      }
+     .cur_game h2 {
+       display: inline-block;
+     }
+     .round {
+       font-size: 1.0rem;
+       margin-left: 0.3rem;
+     }
      .matchup {
        text-align: center;
        display: inline-block;
+       margin: 0.3rem 0.0rem 0.5rem 0.0rem;
      }
      .score {
        display: inline-block;
-       margin-left: 1.0rem;
+       margin: 0.3rem 0.0rem 0.5rem 1.0rem;
      }
      .score label {
        margin-left: 0.3rem;
      }
      .score select {
        width: 2.5rem;
+     }
+     .buttons {
+       margin: 0.5rem 0.0rem;
      }
      span.med {
        min-width: 4.5rem;
@@ -104,6 +115,7 @@
     </section>
     <section class="cur_game">
       <h2>Current Game</h2>
+      <span class="round">(Round {{cur_game.round_num}})</span>
       <form action="/mobile" method="post">
         <p class="matchup">
           {{team_tag|safe}}
@@ -133,12 +145,12 @@
         <p>
           <label>Posted by</label>: <span>{{posted_by}}</span>
         </p>
-        <p>
+        <p class="buttons">
           <button type="submit" name="action" value="accept_score">Accept Score</button>
           <button type="submit" name="action" value="correct_score">Correct Score</button>
         </p>
         {% else %}
-        <p>
+        <p class="buttons">
           <button type="submit" name="action" value="submit_score">Submit Score</button>
         </p>
         {% endif %}

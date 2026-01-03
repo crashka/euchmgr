@@ -102,12 +102,13 @@ INFO_FIELDS = [
     UserInfo("div_num",   "",     "Division",      TournStage.TOURN_BRACKET),
     UserInfo("div_seed",  "",     "Seed (div)",    TournStage.TOURN_BRACKET),
     UserInfo("stage",     "med",  "Stage",         TournStage.TOURN_CREATE),
-    UserInfo("round",     "",     "Game #",        TournStage.TOURN_CREATE),
+    UserInfo("status",    "",     "Status",        TournStage.TOURN_CREATE),
     UserInfo("win_rec",   "",     "W-L (stage)",   TournStage.TOURN_CREATE),
     UserInfo("pts_rec",   "",     "PF-PA (stage)", TournStage.TOURN_CREATE)
 ]
 
-DONE_PLAYING = "<i>(done)</i>"
+DONE_PLAYING = "Done"
+game_status = lambda x: f"Round {x.round_num}" if x else DONE_PLAYING
 
 def render_mobile(context: dict) -> str:
     """Common post-processing of context before rendering the tournament selector and
@@ -121,22 +122,22 @@ def render_mobile(context: dict) -> str:
         assert team
         cur_stage = "Round Robin"
         cur_game  = team.current_game
+        status    = game_status(cur_game)
         team_idx  = cur_game.team_idx(team) if cur_game else None
-        cur_round = cur_game.round_num if cur_game else DONE_PLAYING
         win_rec   = f"{team.tourn_wins}-{team.tourn_losses}"
         pts_rec   = f"{team.tourn_pts_for}-{team.tourn_pts_against}"
     elif tourn.stage_start >= TournStage.SEED_RESULTS:
         cur_stage = "Seeding"
         cur_game  = player.current_game
+        status    = game_status(cur_game)
         team_idx  = cur_game.player_team_idx(player) if cur_game else None
-        cur_round = cur_game.round_num if cur_game else DONE_PLAYING
         win_rec   = f"{player.seed_wins}-{player.seed_losses}"
         pts_rec   = f"{player.seed_pts_for}-{player.seed_pts_against}"
     else:
         cur_stage = None
         cur_game  = None
+        status    = None
         team_idx  = None
-        cur_round = None
         win_rec   = None
         pts_rec   = None
 
@@ -161,7 +162,7 @@ def render_mobile(context: dict) -> str:
         team.div_num if team else None,
         team.div_seed if team else None,
         cur_stage,
-        cur_round,
+        status,
         win_rec,
         pts_rec
     ]

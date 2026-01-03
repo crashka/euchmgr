@@ -6,7 +6,7 @@ from typing import NamedTuple
 import re
 from http import HTTPStatus
 
-from flask import Blueprint, request, session, render_template, redirect, url_for, flash
+from flask import Blueprint, request, render_template, redirect, url_for, flash, abort
 from flask_login import current_user
 
 from schema import TournStage, TournInfo
@@ -58,6 +58,38 @@ def index() -> str:
 # POST actions #
 ################
 
+ACTIONS = [
+    'submit_score',
+    'accept_score',
+    'correct_score'
+]
+
+@mobile.post("/")
+def submit() -> str:
+    """Handle post action
+    """
+    if 'action' not in request.form:
+        abort(400, "Invalid request, no action specified")
+    action = request.form['action']
+    if action not in ACTIONS:
+        abort(400, f"Invalid request, unrecognized action '{action}'")
+    return globals()[action](request.form)
+
+def submit_score(form: dict) -> str:
+    """Create new tournament from form data.
+    """
+    return redirect(url_for('index'))
+
+def accept_score(form: dict) -> str:
+    """Create new tournament from form data.
+    """
+    return redirect(url_for('index'))
+
+def correct_score(form: dict) -> str:
+    """Create new tournament from form data.
+    """
+    return redirect(url_for('index'))
+
 #############
 # renderers #
 #############
@@ -81,28 +113,45 @@ def render_mobile(context: dict) -> str:
     """Common post-processing of context before rendering the tournament selector and
     creation page through Jinja
     """
-    tourn = TournInfo.get()
+    tourn  = TournInfo.get()
     player = current_user
-    team = current_user.team
+    team   = current_user.team
 
     if tourn.stage_start >= TournStage.TOURN_RESULTS:
+        assert team
         cur_stage = "Round Robin"
-        cur_game = team.current_game
+        cur_game  = team.current_game
+        team_idx  = cur_game.team_idx(team) if cur_game else None
         cur_round = cur_game.round_num if cur_game else DONE_PLAYING
-        win_rec = f"{team.tourn_wins}-{team.tourn_losses}"
-        pts_rec = f"{team.tourn_pts_for}-{team.tourn_pts_against}"
+        win_rec   = f"{team.tourn_wins}-{team.tourn_losses}"
+        pts_rec   = f"{team.tourn_pts_for}-{team.tourn_pts_against}"
     elif tourn.stage_start >= TournStage.SEED_RESULTS:
         cur_stage = "Seeding"
-        cur_game = player.current_game
+        cur_game  = player.current_game
+        team_idx  = cur_game.player_team_idx(player) if cur_game else None
         cur_round = cur_game.round_num if cur_game else DONE_PLAYING
-        win_rec = f"{player.seed_wins}-{player.seed_losses}"
-        pts_rec = f"{player.seed_pts_for}-{player.seed_pts_against}"
+        win_rec   = f"{player.seed_wins}-{player.seed_losses}"
+        pts_rec   = f"{player.seed_pts_for}-{player.seed_pts_against}"
     else:
         cur_stage = None
-        cur_game = None
+        cur_game  = None
+        team_idx  = None
         cur_round = None
-        win_rec = None
-        pts_rec = None
+        win_rec   = None
+        pts_rec   = None
+
+    if team_idx in (0, 1):
+        opp_idx   = team_idx ^ 0x01
+        team_tag  = cur_game.team_tags[team_idx]
+        team_pts  = cur_game.team1_pts if team_idx == 0 else cur_game.team2_pts
+        opp_tag   = cur_game.team_tags[opp_idx]
+        opp_pts   = cur_game.team1_pts if opp_idx == 0 else cur_game.team2_pts
+    else:
+        opp_idx   = None
+        team_tag  = None
+        team_pts  = None
+        opp_tag   = None
+        opp_pts   = None
 
     info_data = [
         tourn.name,
@@ -127,6 +176,11 @@ def render_mobile(context: dict) -> str:
         'info_flds': INFO_FIELDS,
         'info_data': info_data,
         'cur_game' : cur_game,
+        'team_tag' : team_tag,
+        'team_pts' : team_pts,
+        'opp_tag'  : opp_tag,
+        'opp_pts'  : opp_pts,
+        'posted_by': None,
         'err_msg'  : None
     }
     return render_template(MOBILE_TEMPLATE, **(base_ctx | context))

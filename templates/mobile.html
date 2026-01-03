@@ -22,7 +22,7 @@
      .login_info {
        float: right;
        margin-top: 0.0rem;
-       font-size: 0.80rem;
+       font-size: 0.812rem;
        text-align: right;
      }
      .login_info span {
@@ -36,13 +36,28 @@
      .info p {
        min-width: 45%;
        justify-content: space-around;
-       margin: 0.25rem;
+       margin: 0.35rem 0.25rem;
      }
      .info span {
        background-color: #F0F0F0;
        display: inline-block;
        min-width: 2rem;
-       padding: 0.02rem 0.5rem 0.05rem 0.3rem;
+       margin-left: 0.1rem;
+       padding: 0.0rem 0.5rem 0.05rem 0.3rem;
+     }
+     .matchup {
+       text-align: center;
+       display: inline-block;
+     }
+     .score {
+       display: inline-block;
+       margin-left: 1.0rem;
+     }
+     .score label {
+       margin-left: 0.3rem;
+     }
+     .score select {
+       width: 2.5rem;
      }
      span.med {
        min-width: 4.5rem;
@@ -74,7 +89,7 @@
     <p class="login_info">
       Logged in as: <span>{{user.nick_name}}</span> [<a href='/logout'>Logout</a>]
     </p>
-    <section">
+    <section class="info_stats">
       <h2>Info/Stats</h2>
       <section class="info">
         {% for info in info_flds %}
@@ -87,29 +102,66 @@
         {% endfor %}
       </section>
     </section>
-    <section>
+    <section class="cur_game">
       <h2>Current Game</h2>
-      <p>
-      </p>
+      <form action="/mobile" method="post">
+        <p class="matchup">
+          {{team_tag|safe}}
+          <br>vs.<br>
+          {{opp_tag|safe}}
+        </p>
+        <p class="score">
+          <select name="team_pts">
+            <option value=""></option>
+            {% for pts in range(0, 11) %}
+            {% set selected = (" selected" if pts == team_pts else "") %}
+            <option{{selected}}>{{pts}}</option>
+            {% endfor %}
+          </select>
+          <label>pts</label>
+          <br><br>
+          <select name="opp_pts">
+            <option value=""></option>
+            {% for pts in range(0, 11) %}
+            {% set selected = (" selected" if pts == opp_pts else "") %}
+            <option{{selected}}>{{pts}}</option>
+            {% endfor %}
+          </select>
+          <label>pts</label>
+        </p>
+        {% if posted_by %}
+        <p>
+          <label>Posted by</label>: <span>{{posted_by}}</span>
+        </p>
+        <p>
+          <button type="submit" name="action" value="accept_score">Accept Score</button>
+          <button type="submit" name="action" value="correct_score">Correct Score</button>
+        </p>
+        {% else %}
+        <p>
+          <button type="submit" name="action" value="submit_score">Submit Score</button>
+        </p>
+        {% endif %}
+      </form>
     </section>
-    <section>
+    <section class="past_games">
       <h2>Past Games</h2>
-      <section>
+      <section class="past_sd">
         <h3>Seeding</h3>
         <p>
         </p>
       </section>
-      <section>
+      <section class="past_rr">
         <h3>Round Robin</h3>
         <p>
         </p>
       </section>
-      <section>
+      <section class="past_sf">
         <h3>Semifinals</h3>
         <p>
         </p>
       </section>
-      <section>
+      <section class="past_fn">
         <h3>Finals</h3>
         <p>
         </p>

@@ -588,7 +588,7 @@ class SeedGame(BaseModel):
         assert p1 and p2 and p3 and p4
         team1_tag = f"{p1.player_tag}&nbsp;&nbsp;/&nbsp;&nbsp;{p2.player_tag}"
         team2_tag = f"{p3.player_tag}&nbsp;&nbsp;/&nbsp;&nbsp;{p4.player_tag}"
-        return (team1_tag, team2_tag)
+        return team1_tag, team2_tag
 
     @property
     def bye_tags(self) -> list[str]:
@@ -634,6 +634,16 @@ class SeedGame(BaseModel):
         """
         pl_tag = lambda x: f"{x.nick_name} ({x.player_num})"
         return f"{pl_tag(self.player3)} / {pl_tag(self.player4)}"
+
+    def player_team_idx(self, player: Player) -> int:
+        """Return the team index for the specified player: `0`, `1`, or `-1`, representing
+        team1, team2, or a bye (respectively).  This is used to map into `team_tags`.
+        """
+        if player in (self.player1, self.player2):
+            return 0 if self.table_num else -1
+        if player in (self.player3, self.player4):
+            return 1 if self.table_num else -1
+        raise LogicError(f"player '{player.nick_name}' not in seed_game '{self.label}'")
 
     def team_info(self, player: Player) -> tuple[str, int, int]:
         """Returns tuple(team_name, team_pts)
@@ -1074,7 +1084,7 @@ class TournGame(BaseModel):
         displays)--currently, can only be called for actual matchup, and not bye records
         """
         assert self.team1 and self.team2
-        return (self.team1.team_tag, self.team2.team_tag)
+        return self.team1.team_tag, self.team2.team_tag
 
     @property
     def bye_tag(self) -> str:
@@ -1102,6 +1112,16 @@ class TournGame(BaseModel):
             return self.team2_name, self.team2_div_seed, self.team2_pts
         else:
             return self.team1_name, self.team1_div_seed, self.team1_pts
+
+    def team_idx(self, team: Team) -> int:
+        """Return the team index for the specified team: `0`, `1`, or `-1`, representing
+        team1, team2, or a bye (respectively).  This is used to map into `team_tags`.
+        """
+        if team == self.team1:
+            return 0 if self.table_num else -1
+        if team == self.team2:
+            return 1 if self.table_num else -1
+        raise LogicError(f"team '{team.team_name}' not in tourn_game '{self.label}'")
 
     def team_info(self, team: Team) -> tuple[str, int, int]:
         """Returns tuple(name, div_seed, pts)
@@ -1203,7 +1223,7 @@ class TournGame(BaseModel):
             tm_games.append(tm_game)
 
         return len(tm_games)
-    
+
     def save(self, *args, **kwargs):
         """Compute winner if both scores have been entered
         """

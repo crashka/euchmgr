@@ -315,10 +315,10 @@ def rr_dash(tourn: TournInfo) -> str:
     sort_key = lambda tm: tm.div_rank_final or tourn.teams
     tm_list  = sorted(Team.iter_teams(), key=sort_key)
     # inner dict represents points by round {rnd: pts}
-    team_pts = {tm.team_seed: {} for tm in tm_list}
-    opp_pts  = {tm.team_seed: {} for tm in tm_list}
-    wins     = {tm.team_seed: 0 for tm in tm_list}
-    losses   = {tm.team_seed: 0 for tm in tm_list}
+    team_pts = {tm.id: {} for tm in tm_list}
+    opp_pts  = {tm.id: {} for tm in tm_list}
+    wins     = {tm.id: 0 for tm in tm_list}
+    losses   = {tm.id: 0 for tm in tm_list}
     tot_gms  = 0
     tot_pts  = 0
 
@@ -328,23 +328,23 @@ def rr_dash(tourn: TournInfo) -> str:
     cur_rnd = {div: max_rnd(list(filter(not_bye, tg_list))) for div in div_list}
     for tg in tg_list:
         div = tg.team.div_num
-        tm_seed = tg.team_seed
-        assert tm_seed == tg.team.team_seed
+        tm_id = tg.team_id
+        assert tm_id == tg.team.id
         rnd = tg.round_num
-        assert rnd not in team_pts[tm_seed]
-        assert rnd not in opp_pts[tm_seed]
+        assert rnd not in team_pts[tm_id]
+        assert rnd not in opp_pts[tm_id]
         if not tg.is_bye:
             tot_gms += 1
             tot_pts += tg.team_pts
-            team_pts[tm_seed][rnd] = tg.team_pts
-            opp_pts[tm_seed][rnd] = tg.opp_pts
+            team_pts[tm_id][rnd] = tg.team_pts
+            opp_pts[tm_id][rnd] = tg.opp_pts
             if tg.is_winner:
-                wins[tm_seed] += 1
+                wins[tm_id] += 1
             else:
-                losses[tm_seed] += 1
+                losses[tm_id] += 1
         elif rnd <= cur_rnd[div]:
-            team_pts[tm_seed][rnd] = -1
-            opp_pts[tm_seed][rnd] = -1
+            team_pts[tm_id][rnd] = -1
+            opp_pts[tm_id][rnd] = -1
 
     prev_tot_gms     = 0
     prev_tot_pts     = 0
@@ -372,7 +372,7 @@ def rr_dash(tourn: TournInfo) -> str:
             prev_colcls      = prev_frame['colcls']
 
     div_teams    = {div: [] for div in div_list}
-    # the following are all keyed off of team_seed
+    # the following are all keyed off of team id
     win_tallies  = {}
     loss_tallies = {}
     stats        = {}  # value: (win_pct, pts_pct, rank)
@@ -380,33 +380,33 @@ def rr_dash(tourn: TournInfo) -> str:
     mvmt         = {}
     colcls       = {}
     # inner dict represents points (formatted!) by round
-    pts_for      = {tm.team_seed: {} for tm in tm_list}
-    pts_against  = {tm.team_seed: {} for tm in tm_list}
+    pts_for      = {tm.id: {} for tm in tm_list}
+    pts_against  = {tm.id: {} for tm in tm_list}
     for tm in tm_list:
         div = tm.div_num
-        tm_seed = tm.team_seed
+        tm_id = tm.id
         div_teams[div].append(tm)
 
         # we always (re-)format win/loss tallies (for now)
-        win_tallies[tm_seed] = fmt_tally(wins[tm_seed])
-        loss_tallies[tm_seed] = fmt_tally(losses[tm_seed])
+        win_tallies[tm_id] = fmt_tally(wins[tm_id])
+        loss_tallies[tm_id] = fmt_tally(losses[tm_id])
 
         # conditionally, we either format or reuse string values for pts_for/_agnst,
         # stats, mvmt, and colcls (always recompute if done)
         if prev_stats:
             if tot_pts == prev_tot_pts and not done:
-                pts_for[tm_seed] = prev_pts_for[tm_seed]
-                pts_against[tm_seed] = prev_pts_against[tm_seed]
-                stats_fmt[tm_seed] = prev_stats_fmt[tm_seed]
+                pts_for[tm_id] = prev_pts_for[tm_id]
+                pts_against[tm_id] = prev_pts_against[tm_id]
+                stats_fmt[tm_id] = prev_stats_fmt[tm_id]
             else:
-                for rnd, cur_pts in team_pts[tm_seed].items():
-                    prev_pts = prev_team_pts[tm_seed].get(rnd)
-                    pts_for[tm_seed][rnd] = fmt_dash_score(cur_pts, prev_pts)
-                for rnd, cur_pts in opp_pts[tm_seed].items():
-                    prev_pts = prev_opp_pts[tm_seed].get(rnd)
-                    pts_against[tm_seed][rnd] = fmt_dash_score(cur_pts, prev_pts)
+                for rnd, cur_pts in team_pts[tm_id].items():
+                    prev_pts = prev_team_pts[tm_id].get(rnd)
+                    pts_for[tm_id][rnd] = fmt_dash_score(cur_pts, prev_pts)
+                for rnd, cur_pts in opp_pts[tm_id].items():
+                    prev_pts = prev_opp_pts[tm_id].get(rnd)
+                    pts_against[tm_id][rnd] = fmt_dash_score(cur_pts, prev_pts)
 
-                stats[tm_seed] = (
+                stats[tm_id] = (
                     tm.tourn_win_pct,
                     tm.div_pos_str,
                     tm.tourn_pts_pct,
@@ -414,36 +414,36 @@ def rr_dash(tourn: TournInfo) -> str:
                     tm.div_tb_pts_rec,
                     tm.div_rank_final
                 )
-                stats_fmt[tm_seed] = (
-                    fmt_dash_stat(stats[tm_seed][0], prev_stats[tm_seed][0], no_style=True),
-                    fmt_dash_stat(stats[tm_seed][1], prev_stats[tm_seed][1], no_style=True),
-                    fmt_dash_stat(stats[tm_seed][2], prev_stats[tm_seed][2], no_style=True),
-                    fmt_dash_stat(stats[tm_seed][3], prev_stats[tm_seed][3], no_style=True),
-                    fmt_dash_stat(stats[tm_seed][4], prev_stats[tm_seed][4], no_style=True),
-                    fmt_dash_stat(stats[tm_seed][5], prev_stats[tm_seed][5])
+                stats_fmt[tm_id] = (
+                    fmt_dash_stat(stats[tm_id][0], prev_stats[tm_id][0], no_style=True),
+                    fmt_dash_stat(stats[tm_id][1], prev_stats[tm_id][1], no_style=True),
+                    fmt_dash_stat(stats[tm_id][2], prev_stats[tm_id][2], no_style=True),
+                    fmt_dash_stat(stats[tm_id][3], prev_stats[tm_id][3], no_style=True),
+                    fmt_dash_stat(stats[tm_id][4], prev_stats[tm_id][4], no_style=True),
+                    fmt_dash_stat(stats[tm_id][5], prev_stats[tm_id][5])
                 )
 
             if tot_pts == prev_tot_pts and prev_mvmt:
-                mvmt[tm_seed] = prev_mvmt.get(tm_seed, '')
-                colcls[tm_seed] = prev_colcls.get(tm_seed, '')
-            elif prev_stats[tm_seed][5]:
-                rank_diff = (prev_stats[tm_seed][5] or 0) - (tm.div_rank_final or 0)
+                mvmt[tm_id] = prev_mvmt.get(tm_id, '')
+                colcls[tm_id] = prev_colcls.get(tm_id, '')
+            elif prev_stats[tm_id][5]:
+                rank_diff = (prev_stats[tm_id][5] or 0) - (tm.div_rank_final or 0)
                 if rank_diff > 0:
-                    mvmt[tm_seed] = f'+{rank_diff}'
-                    colcls[tm_seed] = COLCLS_UP
+                    mvmt[tm_id] = f'+{rank_diff}'
+                    colcls[tm_id] = COLCLS_UP
                 elif rank_diff < 0:
-                    mvmt[tm_seed] = str(rank_diff)
-                    colcls[tm_seed] = COLCLS_DOWN
-            if tm_seed not in mvmt:
-                mvmt[tm_seed] = '-'
-                colcls[tm_seed] = ''
+                    mvmt[tm_id] = str(rank_diff)
+                    colcls[tm_id] = COLCLS_DOWN
+            if tm_id not in mvmt:
+                mvmt[tm_id] = '-'
+                colcls[tm_id] = ''
         else:
-            for rnd, cur_pts in team_pts[tm_seed].items():
-                pts_for[tm_seed][rnd] = fmt_dash_score(cur_pts)
-            for rnd, cur_pts in opp_pts[tm_seed].items():
-                pts_against[tm_seed][rnd] = fmt_dash_score(cur_pts)
+            for rnd, cur_pts in team_pts[tm_id].items():
+                pts_for[tm_id][rnd] = fmt_dash_score(cur_pts)
+            for rnd, cur_pts in opp_pts[tm_id].items():
+                pts_against[tm_id][rnd] = fmt_dash_score(cur_pts)
 
-            stats[tm_seed] = (
+            stats[tm_id] = (
                 tm.tourn_win_pct,
                 tm.div_pos_str,
                 tm.tourn_pts_pct,
@@ -451,13 +451,13 @@ def rr_dash(tourn: TournInfo) -> str:
                 tm.div_tb_pts_rec,
                 tm.div_rank_final
             )
-            stats_fmt[tm_seed] = (
-                fmt_dash_stat(stats[tm_seed][0], no_style=True),
-                fmt_dash_stat(stats[tm_seed][1], no_style=True),
-                fmt_dash_stat(stats[tm_seed][2], no_style=True),
-                fmt_dash_stat(stats[tm_seed][3], no_style=True),
-                fmt_dash_stat(stats[tm_seed][4], no_style=True),
-                fmt_dash_stat(stats[tm_seed][5])
+            stats_fmt[tm_id] = (
+                fmt_dash_stat(stats[tm_id][0], no_style=True),
+                fmt_dash_stat(stats[tm_id][1], no_style=True),
+                fmt_dash_stat(stats[tm_id][2], no_style=True),
+                fmt_dash_stat(stats[tm_id][3], no_style=True),
+                fmt_dash_stat(stats[tm_id][4], no_style=True),
+                fmt_dash_stat(stats[tm_id][5])
             )
 
     updated = now_str()

@@ -186,25 +186,25 @@
           </thead>
           <tbody>
             {% for tm in div_teams[div] %}
-            <tr class="{{colcls[tm.team_seed]}}">
+            <tr class="{{colcls[tm.id]}}">
               <td class="team_lbl">{{tm.team_tag|safe}}</td>
-              <td class="tally"><img {{win_tallies[tm.team_seed]|safe}} /></td>
-              <td class="tally"><img {{loss_tallies[tm.team_seed]|safe}} /></td>
-              <td class="vert_sect">{{pts_for[tm.team_seed].get(1, '')|safe}}</td>
+              <td class="tally"><img {{win_tallies[tm.id]|safe}} /></td>
+              <td class="tally"><img {{loss_tallies[tm.id]|safe}} /></td>
+              <td class="vert_sect">{{pts_for[tm.id].get(1, '')|safe}}</td>
               {% for rnd in range(2, rnds + 1) %}
-              <td class="">{{pts_for[tm.team_seed].get(rnd, '')|safe}}</td>
+              <td class="">{{pts_for[tm.id].get(rnd, '')|safe}}</td>
               {% endfor %}
-              <td class="vert_sect">{{pts_against[tm.team_seed].get(1, '')|safe}}</td>
+              <td class="vert_sect">{{pts_against[tm.id].get(1, '')|safe}}</td>
               {% for rnd in range(2, rnds + 1) %}
-              <td class="">{{pts_against[tm.team_seed].get(rnd, '')|safe}}</td>
+              <td class="">{{pts_against[tm.id].get(rnd, '')|safe}}</td>
               {% endfor %}
-              <td class="vert_sect">{{stats_fmt[tm.team_seed][0]|safe}}</td>
-              <td class="">{{stats_fmt[tm.team_seed][1]|safe}}</td>
-              <td class="">{{stats_fmt[tm.team_seed][2]|safe}}</td>
-              <td class="vert_sect">{{stats_fmt[tm.team_seed][3]|safe}}</td>
-              <td class="">{{stats_fmt[tm.team_seed][4]|safe}}</td>
-              <td class="vert_sect">{{stats_fmt[tm.team_seed][5]|safe}}</td>
-              <td class="">{{mvmt[tm.team_seed]}}</td>
+              <td class="vert_sect">{{stats_fmt[tm.id][0]|safe}}</td>
+              <td class="">{{stats_fmt[tm.id][1]|safe}}</td>
+              <td class="">{{stats_fmt[tm.id][2]|safe}}</td>
+              <td class="vert_sect">{{stats_fmt[tm.id][3]|safe}}</td>
+              <td class="">{{stats_fmt[tm.id][4]|safe}}</td>
+              <td class="vert_sect">{{stats_fmt[tm.id][5]|safe}}</td>
+              <td class="">{{mvmt[tm.id]}}</td>
             </tr>
             {% endfor %}
           </tbody>

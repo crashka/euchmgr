@@ -436,6 +436,27 @@ class Player(BaseModel, EuchmgrUser):
 
         return self.player_rank_adj or self.player_rank
 
+    @property
+    def current_game(self) -> BaseModel:
+        """Return current SeedGame for player (only if seeding stage is active)
+        """
+        pg = (PlayerGame
+              .select(fn.max(PlayerGame.round_num))
+              .where(PlayerGame.player == self,
+                     PlayerGame.is_bye == False)
+              .get())
+        last_round = pg.round_num or 0
+        cg = (SeedGame
+              .select()
+              .where((SeedGame.player1 == self) |
+                     (SeedGame.player2 == self) |
+                     (SeedGame.player3 == self) |
+                     (SeedGame.player4 == self))
+              .where(SeedGame.table_num.is_null(False),
+                     SeedGame.round_num > last_round)
+              .order_by(SeedGame.round_num))
+        return cg[0] if len(cg) > 0 else None
+
     def get_opps_games(self, opps: list[Self]) -> list[BaseModel]:
         """Get SeedGame records for all games versus specified opponents
         """
@@ -934,6 +955,25 @@ class Team(BaseModel):
                 return str(self.div_rank)
 
         return self.div_rank_adj or self.div_rank
+
+    @property
+    def current_game(self) -> BaseModel:
+        """Return current TournGame for team (only if round robin stage is active)
+        """
+        tg = (TeamGame
+              .select(fn.max(TeamGame.round_num))
+              .where(TeamGame.team == self,
+                     TeamGame.is_bye == False)
+              .get())
+        last_round = tg.round_num or 0
+        cg = (TournGame
+              .select()
+              .where((TournGame.team1 == self) |
+                     (TournGame.team2 == self))
+              .where(TournGame.table_num.is_null(False),
+                     TournGame.round_num > last_round)
+              .order_by(TournGame.round_num))
+        return cg[0] if len(cg) > 0 else None
 
     def get_opps_games(self, opps: list[Self]) -> list[BaseModel]:
         """Get TournGame records for all games versus specified opponents

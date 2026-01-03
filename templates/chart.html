@@ -224,15 +224,15 @@
             {% for tm in div_teams[div] %}
             <tr>
               <td class="team_lbl">{{tm.team_tag|safe}}</td>
-              <td class="tally"><img {{win_tallies[tm.team_seed]|safe}} /></td>
-              <td class="tally"><img {{loss_tallies[tm.team_seed]|safe}} /></td>
-              <td class="vert_sect">{{team_pts[tm.team_seed].get(1, '')|safe}}</td>
+              <td class="tally"><img {{win_tallies[tm.id]|safe}} /></td>
+              <td class="tally"><img {{loss_tallies[tm.id]|safe}} /></td>
+              <td class="vert_sect">{{team_pts[tm.id].get(1, '')|safe}}</td>
               {% for rnd in range(2, rnds + 1) %}
-              <td>{{team_pts[tm.team_seed].get(rnd, '')|safe}}</td>
+              <td>{{team_pts[tm.id].get(rnd, '')|safe}}</td>
               {% endfor %}
-              <td class="vert_sect">{{opp_pts[tm.team_seed].get(1, '')|safe}}</td>
+              <td class="vert_sect">{{opp_pts[tm.id].get(1, '')|safe}}</td>
               {% for rnd in range(2, rnds + 1) %}
-              <td>{{opp_pts[tm.team_seed].get(rnd, '')|safe}}</td>
+              <td>{{opp_pts[tm.id].get(rnd, '')|safe}}</td>
               {% endfor %}
               <td class="vert_sect">{{fmt_stat(tm.tourn_win_pct)|safe}}</td>
               <td>{{fmt_stat(tm.tourn_pts_pct)|safe}}</td>

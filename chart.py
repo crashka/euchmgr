@@ -262,10 +262,10 @@ def rr_scores(tourn: TournInfo) -> str:
     div_list = list(range(1, tourn.divisions + 1))
     tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.team_seed)
     # inner dict represents points by round {rnd: pts}
-    team_pts = {tm.team_seed: {} for tm in tm_list}
-    opp_pts  = {tm.team_seed: {} for tm in tm_list}
-    wins     = {tm.team_seed: 0 for tm in tm_list}
-    losses   = {tm.team_seed: 0 for tm in tm_list}
+    team_pts = {tm.id: {} for tm in tm_list}
+    opp_pts  = {tm.id: {} for tm in tm_list}
+    wins     = {tm.id: 0 for tm in tm_list}
+    losses   = {tm.id: 0 for tm in tm_list}
 
     tg_list = list(TeamGame.iter_games(include_byes=True))
     not_bye = lambda g: not g.is_bye
@@ -273,33 +273,33 @@ def rr_scores(tourn: TournInfo) -> str:
     cur_rnd = {div: max_rnd(list(filter(not_bye, tg_list))) for div in div_list}
     for tg in tg_list:
         div = tg.team.div_num
-        tm_seed = tg.team_seed
-        assert tm_seed == tg.team.team_seed
+        tm_id = tg.team_id
+        assert tm_id == tg.team.id
         rnd = tg.round_num
-        assert rnd not in team_pts[tm_seed]
-        assert rnd not in opp_pts[tm_seed]
+        assert rnd not in team_pts[tm_id]
+        assert rnd not in opp_pts[tm_id]
         if not tg.is_bye:
-            team_pts[tm_seed][rnd] = fmt_score(tg.team_pts)
-            opp_pts[tm_seed][rnd] = fmt_score(tg.opp_pts)
+            team_pts[tm_id][rnd] = fmt_score(tg.team_pts)
+            opp_pts[tm_id][rnd] = fmt_score(tg.opp_pts)
             if tg.is_winner:
-                wins[tm_seed] += 1
+                wins[tm_id] += 1
             else:
-                losses[tm_seed] += 1
+                losses[tm_id] += 1
         elif rnd <= cur_rnd[div]:
-            team_pts[tm_seed][rnd] = fmt_score(-1)
-            opp_pts[tm_seed][rnd] = fmt_score(-1)
+            team_pts[tm_id][rnd] = fmt_score(-1)
+            opp_pts[tm_id][rnd] = fmt_score(-1)
 
     div_teams = {div: [] for div in div_list}
-    # the following are all keyed off of team_seed
+    # the following are all keyed off of team id
     win_tallies = {}
     loss_tallies = {}
     for tm in tm_list:
         div = tm.div_num
-        tm_seed = tm.team_seed
+        tm_id = tm.id
 
         div_teams[div].append(tm)
-        win_tallies[tm_seed] = fmt_tally(wins[tm_seed])
-        loss_tallies[tm_seed] = fmt_tally(losses[tm_seed])
+        win_tallies[tm_id] = fmt_tally(wins[tm_id])
+        loss_tallies[tm_id] = fmt_tally(losses[tm_id])
 
     context = {
         'chart_num'   : 3,

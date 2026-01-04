@@ -67,7 +67,15 @@
      .score select {
        width: 2.5rem;
      }
-     .buttons {
+     .cur_game button[value="correct_score"] {
+       display: none;
+     }
+     .reset {
+       display: none;
+       font-size: 0.813rem;
+       margin-left: 0.35rem;
+     }
+     .actions {
        margin: 0.5rem 0.0rem;
      }
      span.med {
@@ -141,19 +149,23 @@
           </select>
           <label>pts</label>
         </p>
+        {% if cur_game.winner %}
         {% if posted_by %}
         <p>
-          <label>Posted by</label>: <span>{{posted_by}}</span>
-        </p>
-        <p class="buttons">
-          <button type="submit" name="action" value="accept_score">Accept Score</button>
-          <button type="submit" name="action" value="correct_score">Correct Score</button>
-        </p>
-        {% else %}
-        <p class="buttons">
-          <button type="submit" name="action" value="submit_score">Submit Score</button>
+          <label>Score posted by</label>: <span>{{posted_by}}</span>
         </p>
         {% endif %}
+        <p class="actions">
+          <button value="accept_score">Accept Score</button>
+          <button value="correct_score">Correct Score</button>
+          <a class="reset" href=".">[reset]</a>
+        </p>
+        {% else %}  {# cur_game.winner #}
+        <p class="actions">
+          <button disabled value="submit_score">Submit Score</button>
+          <a class="reset" href=".">[reset]</a>
+        </p>
+        {% endif %}  {# cur_game.winner #}
       </form>
     </section>
     <section class="past_games">
@@ -184,6 +196,12 @@
   <script src="/static/jquery-3.7.1.min.js"></script>
   <script>
    $(function() {
+     // add css and attributes
+     $(".actions button").attr({
+       type: 'submit',
+       name: "action"
+     });
+
      // error dialog
      $('.err_dlg button').on('click', function() {
        $('.err_dlg')[0].close();
@@ -192,6 +210,18 @@
        $('.err_dlg div').text(err_text);
        $('.err_dlg')[0].showModal();
      };
+
+     // score change
+     $('.score select').on('change', function() {
+       {% if cur_game.winner %}
+       $('button[value="accept_score"]').css('display', 'none');
+       $('button[value="correct_score"]').css('display', 'inline-block');
+       $('a.reset').css('display', 'inline');
+       {% else %}
+       $('button[value="submit_score"]').prop('disabled', false);
+       $('a.reset').css('display', 'inline');
+       {% endif %}
+     });
 
      {% if err_msg %}
      show_error('{{err_msg|safe}}');

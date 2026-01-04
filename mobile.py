@@ -9,7 +9,7 @@ from http import HTTPStatus
 from flask import Blueprint, request, render_template, redirect, url_for, flash, abort
 from flask_login import current_user
 
-from schema import TournStage, TournInfo
+from schema import TournStage, TournInfo, SeedGame, TournGame
 
 ###################
 # blueprint stuff #
@@ -107,8 +107,16 @@ INFO_FIELDS = [
     UserInfo("pts_rec",   "",     "PF-PA (stage)", TournStage.TOURN_CREATE)
 ]
 
-DONE_PLAYING = "Done"
-game_status = lambda x: f"Round {x.round_num}" if x else DONE_PLAYING
+def stage_status(games: SeedGame | TournGame) -> str:
+    """
+    """
+    cur_round = games.current_round()
+    if cur_round == 0:
+        return "Not Started"
+    elif cur_round == -1:
+        return "Done"
+    else:
+        return f"Round {cur_round}"
 
 def render_mobile(context: dict) -> str:
     """Common post-processing of context before rendering the tournament selector and
@@ -122,14 +130,14 @@ def render_mobile(context: dict) -> str:
         assert team
         cur_stage = "Round Robin"
         cur_game  = team.current_game
-        status    = game_status(cur_game)
+        status    = stage_status(TournGame)
         team_idx  = cur_game.team_idx(team) if cur_game else None
         win_rec   = f"{team.tourn_wins}-{team.tourn_losses}"
         pts_rec   = f"{team.tourn_pts_for}-{team.tourn_pts_against}"
     elif tourn.stage_start >= TournStage.SEED_RESULTS:
         cur_stage = "Seeding"
         cur_game  = player.current_game
-        status    = game_status(cur_game)
+        status    = stage_status(SeedGame)
         team_idx  = cur_game.player_team_idx(player) if cur_game else None
         win_rec   = f"{player.seed_wins}-{player.seed_losses}"
         pts_rec   = f"{player.seed_pts_for}-{player.seed_pts_against}"

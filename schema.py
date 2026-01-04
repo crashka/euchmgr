@@ -562,6 +562,30 @@ class SeedGame(BaseModel):
         for t in sel.iterator():
             yield t
 
+    @classmethod
+    def current_round(cls) -> int:
+        """Return the current round of play, with the special values of `0` to indicate
+        that the seeding bracket has not yet been created, and `-1` to indicate that the
+        seeding stage is complete.
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.SEED_BRACKET:
+            return 0
+
+        round_games = tourn.players // 4
+        query = (cls
+                 .select(cls.round_num, fn.count(cls.id))
+                 .where(cls.winner.is_null(False))
+                 .group_by(cls.round_num)
+                 .order_by(cls.round_num.desc()))
+        round_num, ngames = query.scalar(as_tuple=True)
+
+        if ngames < round_games:
+            return round_num
+        if round_num < tourn.seed_rounds:
+            return round_num + 1
+        return -1
+
     @property
     def player_nums(self) -> str:
         """Used for the seeding view of the UI
@@ -1070,6 +1094,30 @@ class TournGame(BaseModel):
             sel = sel.where(cls.table_num.is_null(False))
         for t in sel.iterator():
             yield t
+
+    @classmethod
+    def current_round(cls) -> int:
+        """Return the current round of play, with the special values of `0` to indicate
+        that the round robin brackets have not yet been created, and `-1` to indicate that
+        the round robin stage is complete.
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.TOURN_BRACKET:
+            return 0
+
+        round_games = tourn.teams // 2
+        query = (cls
+                 .select(cls.round_num, fn.count(cls.id))
+                 .where(cls.winner.is_null(False))
+                 .group_by(cls.round_num)
+                 .order_by(cls.round_num.desc()))
+        round_num, ngames = query.scalar(as_tuple=True)
+
+        if ngames < round_games:
+            return round_num
+        if round_num < tourn.seed_rounds:
+            return round_num + 1
+        return -1
 
     @property
     def team_seeds(self) -> str:

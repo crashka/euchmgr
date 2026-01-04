@@ -19,9 +19,9 @@ DFLT_DIVISIONS    = 2
 GAME_PTS          = 10
 
 BRACKET_SEED      = 'seed'
-BRACKET_TOURN     = 'rr'
-BRACKET_PLAYOFF   = 'playoff'
-BRACKET_TEST      = 'test'
+BRACKET_TOURN     = 'rrobin'
+BRACKET_SEMIS     = 'semis'
+BRACKET_FINALS    = 'finals'
 
 # hard-wired floating point precision (depending on field type), helpful for neater
 # display as well as equivalence determination (without additional rounding)
@@ -531,7 +531,7 @@ class SeedGame(BaseModel):
     # required info
     round_num      = IntegerField()
     table_num      = IntegerField(null=True)  # null if bye
-    label          = TextField(unique=True)   # seed-{rnd}-{tbl}
+    label          = TextField(unique=True)   # sd-{rnd}-{tbl}
     player1        = ForeignKeyField(Player, field='player_num', column_name='player1_num')
     player2        = ForeignKeyField(Player, field='player_num', column_name='player2_num',
                                      null=True)
@@ -578,6 +578,8 @@ class SeedGame(BaseModel):
                  .where(cls.winner.is_null(False))
                  .group_by(cls.round_num)
                  .order_by(cls.round_num.desc()))
+        if not query:
+            return 1  # no games yet played
         round_num, ngames = query.scalar(as_tuple=True)
 
         if ngames < round_games:
@@ -733,12 +735,12 @@ class SeedGame(BaseModel):
 
         return upd
 
-    def insert_player_games(self, testing: bool = False) -> int:
+    def insert_player_games(self) -> int:
         """Insert a record into the PlayerGame denorm for all players involved in the
         game; returns number of records inserted.  Called by front-end after the game is
         complete (i.e. winner determined)
         """
-        bracket = BRACKET_SEED if not testing else BRACKET_TEST
+        bracket = BRACKET_SEED
         players = [self.player1, self.player2, self.player3, self.player4]
         if self.table_num is None:
             assert self.bye_players is not None
@@ -1111,6 +1113,8 @@ class TournGame(BaseModel):
                  .where(cls.winner.is_null(False))
                  .group_by(cls.round_num)
                  .order_by(cls.round_num.desc()))
+        if not query:
+            return 1  # no games yet played
         round_num, ngames = query.scalar(as_tuple=True)
 
         if ngames < round_games:
@@ -1232,12 +1236,12 @@ class TournGame(BaseModel):
 
         return upd
 
-    def insert_team_games(self, testing: bool = False) -> int:
+    def insert_team_games(self) -> int:
         """Insert a record into the TeamGame denorm for teams involved in the game;
         returns number of records inserted.  Called by front-end after the game is
         complete (i.e. winner determined)
         """
-        bracket = BRACKET_TOURN if not testing else BRACKET_TEST
+        bracket = BRACKET_TOURN
         if self.table_num is None:
             assert self.bye_team is not None
             assert self.team1 is not None
@@ -1295,9 +1299,9 @@ class PlayerGame(BaseModel):
     """Denormalization of SeedGame (and possibly TournGame data), for use in computing
     stats, determining head-to-head match-ups, etc.
     """
-    bracket        = TextField()            # "seed", "rr", or "playoff"
+    bracket        = TextField()            # "seed", "tourn", etc.
     round_num      = IntegerField()
-    game_label     = TextField()            # seed-rnd-tbl or rr-div-rnd-tbl
+    game_label     = TextField()            # sd-{rnd}-{tbl}, rr-{div}-{rnd}-{tbl}, etc.
     player         = ForeignKeyField(Player, field='player_num', column_name='player_num')
     player_name    = TextField()            # automatic denorm
     partners       = JSONField(null=True)   # array of partner player_num(s)
@@ -1341,9 +1345,9 @@ class TeamGame(BaseModel):
     """Denormalization of TournGame data, for use in computing stats, determining
     head-to-head match-ups, etc.
     """
-    bracket        = TextField()           # "rr" or "playoff"
+    bracket        = TextField()           # "rr", "sf", or "fn"
     round_num      = IntegerField()
-    game_label     = TextField()           # e.g. rr-div-rnd-tbl
+    game_label     = TextField()           # rr-{div}-{rnd}-{tbl}, etc.
     team           = ForeignKeyField(Team)
     opponent       = ForeignKeyField(Team, column_name='opp_id', null=True)
     team_name      = TextField()
@@ -1379,11 +1383,68 @@ class TeamGame(BaseModel):
             self.opp_name = self.opponent.team_name
         return super().save(*args, **kwargs)
 
+#############
+# PostScore #
+#############
+
+class PostScore(BaseModel):
+    """Denormalization of TournGame data, for use in computing stats, determining
+    head-to-head match-ups, etc.
+    """
+    bracket        = TextField()              # "sd", "rr", "sf", or "fn"
+    game_label     = TextField()              # sd-{rnd}-{tbl}, rr-{div}-{rnd}-{tbl}, etc.
+    post_action    = TextField()              # same as button value
+    team1_pts      = IntegerField()
+    team2_pts      = IntegerField()
+    posted_by      = ForeignKeyField(Player, field='player_num', column_name='posted_by_num')
+    team_idx       = IntegerField()           # for `posted_by` (`0` - team1, `1` - team2)
+    ref_score      = ForeignKeyField('self', null=True)
+    do_push        = BooleanField(null=True)
+
+    class Meta:
+        indexes = (
+            (('game_label', 'created_at'), False),
+        )
+
+    @classmethod
+    def get_last(cls, label: str) -> Self:
+        """Get most recent submitted score for specified game label.  Return `None` if no
+        scores posted.
+        """
+        query = (cls
+                 .select()
+                 .where(cls.game_label == label,
+                        cls.post_action.in_(["submit", "correct"]))
+                 .order_by(cls.created_at.desc())
+                 .limit(1))
+        return query.get_or_none()
+
+    def push_scores(self) -> None:
+        """Push accepted scores to appropriate bracket.
+        """
+        assert self.do_push
+        if self.bracket == BRACKET_SEED:
+            game = SeedGame.get(SeedGame.label == self.game_label)
+            game.add_scores(self.team1_pts, self.team2_pts)
+            game.save()
+            if game.winner:
+                game.update_player_stats()
+                game.insert_player_games()
+        elif self.bracket == BRACKET_TOURN:
+            game = TournGame.get(TournGame.label == self.game_label)
+            game.add_scores(self.team1_pts, self.team2_pts)
+            game.save()
+            if game.winner:
+                game.update_team_stats()
+                game.insert_team_games()
+        else:
+            raise LogicError(f"Invalid bracket '{self.bracket}'")
+
 #################
 # schema_create #
 #################
 
-ALL_MODELS = [TournInfo, Player, SeedGame, Team, TournGame, PlayerGame, TeamGame]
+ALL_MODELS = [TournInfo, Player, SeedGame, Team, TournGame, PlayerGame, TeamGame, PostScore]
 
 def schema_create(models: list[BaseModel | str] | str = None, force = False) -> None:
     """Create tables for specified models (list of objects or comma-separated list of

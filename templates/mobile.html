@@ -123,8 +123,13 @@
     </section>
     <section class="cur_game">
       <h2>Current Game</h2>
+      {% if cur_game %}
       <span class="round">(Round {{cur_game.round_num}})</span>
       <form action="/mobile" method="post">
+        <input type="hidden" name="game_label" value="{{cur_game.label}}">
+        <input type="hidden" name="posted_by_num" value="{{user.player_num}}">
+        <input type="hidden" name="team_idx" value="{{team_idx}}">
+        <input type="hidden" name="ref_score_id" value="{{ref_score_id}}">
         <p class="matchup">
           {{team_tag|safe}}
           <br>vs.<br>
@@ -149,24 +154,26 @@
           </select>
           <label>pts</label>
         </p>
-        {% if cur_game.winner %}
-        {% if posted_by %}
+        {% if ref_score %}
         <p>
-          <label>Score posted by</label>: <span>{{posted_by}}</span>
+          {% set role = "self" if ref_score.posted_by == user else ("partner" if ref_score.team_idx == team_idx else "opponent") %}
+          <label>Score posted by</label>: <span>{{ref_score.posted_by.nick_name}} ({{role}})</span>
         </p>
-        {% endif %}
         <p class="actions">
           <button value="accept_score">Accept Score</button>
           <button value="correct_score">Correct Score</button>
           <a class="reset" href=".">[reset]</a>
         </p>
-        {% else %}  {# cur_game.winner #}
+        {% else %}  {# ref_score #}
         <p class="actions">
           <button disabled value="submit_score">Submit Score</button>
           <a class="reset" href=".">[reset]</a>
         </p>
-        {% endif %}  {# cur_game.winner #}
+        {% endif %}  {# ref_score #}
       </form>
+      {% else %}  {# cur_game #}
+      <i>None</i>
+      {% endif %}  {# cur_game #}
     </section>
     <section class="past_games">
       <h2>Past Games</h2>
@@ -211,9 +218,10 @@
        $('.err_dlg')[0].showModal();
      };
 
+     {% if cur_game %}
      // score change
      $('.score select').on('change', function() {
-       {% if cur_game.winner %}
+       {% if ref_score %}
        $('button[value="accept_score"]').css('display', 'none');
        $('button[value="correct_score"]').css('display', 'inline-block');
        $('a.reset').css('display', 'inline');
@@ -222,6 +230,7 @@
        $('a.reset').css('display', 'inline');
        {% endif %}
      });
+     {% endif %}
 
      {% if err_msg %}
      show_error('{{err_msg|safe}}');

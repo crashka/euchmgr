@@ -8,8 +8,11 @@ from http import HTTPStatus
 
 from flask import Blueprint, request, render_template, redirect, url_for, flash, abort
 from flask_login import current_user
+from ckautils import typecast
 
-from schema import TournStage, TournInfo, SeedGame, TournGame
+from schema import (BRACKET_SEED, BRACKET_TOURN, TournStage, TournInfo, SeedGame, TournGame,
+                    PostScore)
+from euchmgr import PFX_SEED, PFX_TOURN
 
 ###################
 # blueprint stuff #
@@ -38,6 +41,28 @@ class UserInfo(NamedTuple):
     cls    : str  # CSS class for info data span
     label  : str
     min_stg: TournStage
+
+def stage_status(games: SeedGame | TournGame) -> str:
+    """Return current stage status/round
+    """
+    cur_round = games.current_round()
+    if cur_round == 0:
+        return "Not Started"
+    elif cur_round == -1:
+        return "Done"
+    else:
+        return f"Round {cur_round}"
+
+def get_bracket(label: str) -> str:
+    """Get name of bracket based on game label.  FIX: quick and dirty for now--need to
+    consolidate this with PFX_ and BRACKET_ declarations!!!
+    """
+    pfx = label.split('-', 1)[0]
+    if pfx == 'sd':
+        return BRACKET_SEED
+    elif pfx == 'rr':
+        return BRACKET_TOURN
+    assert False, "Logic error"
 
 ##############
 # GET routes #
@@ -76,13 +101,67 @@ def submit() -> str:
     return globals()[action](request.form)
 
 def submit_score(form: dict) -> str:
-    """Create new tournament from form data.
+    """Submit game score.
+
+    Note that multiple players may submit scores (if app not refreshed).  If a subsequent
+    submission contains the same team scores, it will be treated as an "accept" if coming
+    from an opponent, or be saved as a duplicate if coming from a partner (no harm--either
+    entry may be accepted by opponents).  If the team scores do not match, then it will be
+    treated as a "correct" coming from a member of either team.
     """
+    game_label = form['game_label']
+    player_num = typecast(form['posted_by_num'])
+    team_idx   = typecast(form['team_idx'])
+    team1_pts  = typecast(form['team_pts'] if team_idx == 0 else form['opp_pts'])
+    team2_pts  = typecast(form['team_pts'] if team_idx == 1 else form['opp_pts'])
+
+    ref_score_id = typecast(form['ref_score_id'])
+    if ref_score_id is not None:
+        abort(400, f"ref_score_id ({ref_score_id}) should not be set")
+
+    info = {
+        'bracket'      : get_bracket(game_label),
+        'game_label'   : game_label,
+        'post_action'  : "submit",
+        'team1_pts'    : team1_pts,
+        'team2_pts'    : team2_pts,
+        'posted_by_num': player_num,
+        'team_idx'     : team_idx,
+        'ref_score'    : None,
+        'do_push'      : False
+    }
+    score = PostScore.create(**info)
     return redirect(url_for('index'))
 
 def accept_score(form: dict) -> str:
     """Create new tournament from form data.
     """
+    game_label = form['game_label']
+    player_num = typecast(form['posted_by_num'])
+    team_idx   = typecast(form['team_idx'])
+    team1_pts  = typecast(form['team_pts'] if team_idx == 0 else form['opp_pts'])
+    team2_pts  = typecast(form['team_pts'] if team_idx == 1 else form['opp_pts'])
+
+    ref_score_id = typecast(form['ref_score_id'])
+    ref_score = PostScore.get_or_none(ref_score_id)
+    if not ref_score:
+        abort(400, f"invalid ref_score_id {ref_score_id}")
+    assert team1_pts == ref_score.team1_pts
+    assert team2_pts == ref_score.team2_pts
+
+    info = {
+        'bracket'      : get_bracket(game_label),
+        'game_label'   : game_label,
+        'post_action'  : "accept",
+        'team1_pts'    : team1_pts,
+        'team2_pts'    : team2_pts,
+        'posted_by_num': player_num,
+        'team_idx'     : team_idx,
+        'ref_score'    : ref_score,
+        'do_push'      : True
+    }
+    score = PostScore.create(**info)
+    score.push_scores()
     return redirect(url_for('index'))
 
 def correct_score(form: dict) -> str:
@@ -106,17 +185,6 @@ INFO_FIELDS = [
     UserInfo("win_rec",   "",     "W-L (stage)",   TournStage.TOURN_CREATE),
     UserInfo("pts_rec",   "",     "PF-PA (stage)", TournStage.TOURN_CREATE)
 ]
-
-def stage_status(games: SeedGame | TournGame) -> str:
-    """
-    """
-    cur_round = games.current_round()
-    if cur_round == 0:
-        return "Not Started"
-    elif cur_round == -1:
-        return "Done"
-    else:
-        return f"Round {cur_round}"
 
 def render_mobile(context: dict) -> str:
     """Common post-processing of context before rendering the tournament selector and
@@ -176,21 +244,30 @@ def render_mobile(context: dict) -> str:
     ]
     assert len(info_data) == len(INFO_FIELDS)
 
+    ref_score = None
+    if cur_game and not cur_game.winner:
+        ref_score = PostScore.get_last(cur_game.label)
+        if ref_score:
+            team_pts = ref_score.team1_pts if team_idx == 0 else ref_score.team2_pts
+            opp_pts = ref_score.team1_pts if opp_idx == 0 else ref_score.team2_pts
+
     no_team = lambda x: not x.if_team
     base_ctx = {
-        'title'    : MOBILE_TITLE,
-        'tourn'    : tourn,
-        'user'     : current_user,
-        'team'     : team,
-        'info_flds': INFO_FIELDS,
-        'info_data': info_data,
-        'cur_game' : cur_game,
-        'team_tag' : team_tag,
-        'team_pts' : team_pts,
-        'opp_tag'  : opp_tag,
-        'opp_pts'  : opp_pts,
-        'posted_by': None,
-        'err_msg'  : None
+        'title'       : MOBILE_TITLE,
+        'tourn'       : tourn,
+        'user'        : current_user,
+        'team'        : team,
+        'team_idx'    : team_idx,
+        'info_flds'   : INFO_FIELDS,
+        'info_data'   : info_data,
+        'cur_game'    : cur_game,
+        'team_tag'    : team_tag,
+        'team_pts'    : team_pts,
+        'opp_tag'     : opp_tag,
+        'opp_pts'     : opp_pts,
+        'ref_score'   : ref_score,
+        'ref_score_id': ref_score.id if ref_score else None,
+        'err_msg'     : None
     }
     return render_template(MOBILE_TEMPLATE, **(base_ctx | context))
 

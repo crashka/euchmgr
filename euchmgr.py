@@ -20,6 +20,12 @@ from database import db_init, db_close, db_name
 from schema import (rnd_pct, rnd_avg, TournStage, TournInfo, Player, SeedGame, Team,
                     TournGame, schema_create)
 
+# prefixes for game labels
+PFX_SEED   = 'sd'
+PFX_TOURN  = 'rr'  # for "round robin"
+PFX_SEMIS  = 'sf'
+PFX_FINALS = 'fn'
+
 #####################
 # utility functions #
 #####################
@@ -138,7 +144,7 @@ def build_seed_bracket() -> list[SeedGame]:
     tourn = TournInfo.get()
     nplayers = tourn.players
     nrounds = tourn.seed_rounds
-    bracket_file = f'seed-{nplayers}-{nrounds}.csv'
+    bracket_file = f'seed-{nplayers}-{nrounds}.csv'  # need to reconcile with PFX_SEED!!!
 
     games = []
     with open(DataFile(bracket_file), newline='') as f:
@@ -152,12 +158,12 @@ def build_seed_bracket() -> list[SeedGame]:
                     table += [None] * (4 - len(table))
                     p1, p2, p3, p4 = table
                     table_num = None
-                    label = f'seed-{rnd_i+1}-byes'
+                    label = f'{PFX_SEED}-{rnd_i+1}-byes'
                     team1_name = team2_name = None
                 else:
                     p1, p2, p3, p4 = table
                     table_num = tbl_j + 1
-                    label = f'seed-{rnd_i+1}-{tbl_j+1}'
+                    label = f'{PFX_SEED}-{rnd_i+1}-{tbl_j+1}'
                     team1_name = fmt_team_name([p1, p2])
                     team2_name = fmt_team_name([p3, p4])
                     bye_players = None
@@ -457,7 +463,7 @@ def build_tourn_bracket() -> list[TournGame]:
     for div_i in range(ndivs):
         brckt_teams = div_teams[div_i]
         bye_div_seed = brckt_teams + 1  # TODO: only if odd number of teams!!!
-        bracket_file = f'rr-{brckt_teams}-{nrounds}.csv'
+        bracket_file = f'rr-{brckt_teams}-{nrounds}.csv'  # need to reconcile with PFX_TOURN!!!
         div_map = Team.get_div_map(div_i + 1)
         with open(DataFile(bracket_file), newline='') as f:
             reader = csv.reader(f)
@@ -468,7 +474,7 @@ def build_tourn_bracket() -> list[TournGame]:
                     if bye_div_seed in table:
                         t1, t2 = sorted(table)
                         assert t2 == bye_div_seed
-                        label = f'rr-{div_i+1}-{rnd_j+1}-bye'
+                        label = f'{PFX_TOURN}-{div_i+1}-{rnd_j+1}-bye'
                         team1 = div_map[t1]
                         info = {'div_num'       : div_i + 1,
                                 'round_num'     : rnd_j + 1,
@@ -483,7 +489,7 @@ def build_tourn_bracket() -> list[TournGame]:
                                 'team2_div_seed': None}
                     else:
                         t1, t2 = table
-                        label = f'rr-{div_i+1}-{rnd_j+1}-{tbl_k+1}'
+                        label = f'{PFX_TOURN}-{div_i+1}-{rnd_j+1}-{tbl_k+1}'
                         team1 = div_map[t1]
                         team2 = div_map[t2]
                         info = {'div_num'       : div_i + 1,

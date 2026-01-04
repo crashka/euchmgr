@@ -39,7 +39,7 @@ def add_games(gm_defs: list[tuple]) -> None:
                 'team1_pts'     : pts1,
                 'team2_pts'     : pts2}
         game = TournGame.create(**info)
-        game.insert_team_games(testing=True)
+        game.insert_team_games()
 
 @pytest.fixture
 def non_cycle(stage_10_db) -> Generator[CycleFixture]:

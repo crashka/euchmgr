@@ -19,8 +19,10 @@
      input {
        width: 12rem;
      }
-     button {
-       padding: 0.1rem 0.4rem;
+     button,
+     select,
+     input {
+       padding: 0.1rem 0.2rem;
      }
      .actions {
        display: flex;
@@ -81,7 +83,7 @@
      });
 
      {% if err_msg %}
-     show_error('{{err_msg|safe}}');
+     show_error("{{err_msg|safe}}");
      {% endif %}
    });
   </script>

@@ -9,10 +9,11 @@
        font-size: 16px;
      }
      .err_dlg {
+       width: 75%;
+       max-width: 20rem;
        padding: 1.1rem 1.4rem;
      }
      .err_dlg div {
-       width: 22rem;
        color: #D10000;
        overflow: auto;
      }
@@ -48,6 +49,9 @@
      .cur_game h2 {
        display: inline-block;
      }
+     .cur_game > p {
+       margin: 0.35rem 0.25rem;
+     }
      .round {
        font-size: 1.0rem;
        margin-left: 0.3rem;
@@ -65,10 +69,10 @@
        margin-left: 0.3rem;
      }
      .score select {
-       width: 2.5rem;
+       width: 2.8rem;
      }
-     .cur_game button[value="correct_score"] {
-       display: none;
+     .cur_game button + button[value="correct_score"] {
+       display: none;  /* only if stacked behind another button */
      }
      .reset {
        display: none;
@@ -98,7 +102,7 @@
        font-size: 1.125rem;
      }
      button {
-       padding: 0.1rem 0.4rem;
+       padding: 0.1rem 0.2rem;
      }
     </style>
   </head>
@@ -158,24 +162,32 @@
           <label>pts</label>
         </p>
         {% if ref_score %}
+        {% set self_post = (ref_score.posted_by == user) %}
+        {% set team_post = (ref_score.team_idx == team_idx) %}
         <p>
-          {% set role = "self" if ref_score.posted_by == user else ("partner" if ref_score.team_idx == team_idx else "opponent") %}
+          {% set role = "opponent" if not team_post else ("you" if self_post else "partner") %}
           <label>Score posted by</label>: <span>{{ref_score.posted_by.nick_name}} ({{role}})</span>
         </p>
         <p class="actions">
+          {% if team_post %}
+          <button value="correct_score" disabled>Correct Score</button>
+          {% else %}
           <button value="accept_score">Accept Score</button>
           <button value="correct_score">Correct Score</button>
+          {% endif %}
           <a class="reset" href=".">[reset]</a>
         </p>
         {% else %}  {# ref_score #}
         <p class="actions">
-          <button disabled value="submit_score">Submit Score</button>
+          <button value="submit_score" disabled>Submit Score</button>
           <a class="reset" href=".">[reset]</a>
         </p>
         {% endif %}  {# ref_score #}
       </form>
       {% else %}  {# cur_game #}
-      <i>None</i>
+      <p>
+        <i>None</i>
+      </p>
       {% endif %}  {# cur_game #}
     </section>
     <section class="past_games">
@@ -207,7 +219,7 @@
   <script>
    $(function() {
      // add css and attributes
-     $(".actions button").attr({
+     $('.actions button').attr({
        type: 'submit',
        name: "action"
      });
@@ -227,6 +239,7 @@
        {% if ref_score %}
        $('button[value="accept_score"]').css('display', 'none');
        $('button[value="correct_score"]').css('display', 'inline-block');
+       $('button[value="correct_score"]').prop('disabled', false);
        $('a.reset').css('display', 'inline');
        {% else %}
        $('button[value="submit_score"]').prop('disabled', false);
@@ -236,7 +249,7 @@
      {% endif %}
 
      {% if err_msg %}
-     show_error('{{err_msg|safe}}');
+     show_error("{{err_msg|safe}}");
      {% endif %}
    });
   </script>

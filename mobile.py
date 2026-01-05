@@ -6,12 +6,14 @@ from typing import NamedTuple
 import re
 from http import HTTPStatus
 
-from flask import Blueprint, request, render_template, redirect, url_for, flash, abort
+from flask import (Blueprint, request, render_template, abort, redirect, url_for, flash,
+                   get_flashed_messages)
 from flask_login import current_user
 from ckautils import typecast
 
-from schema import (BRACKET_SEED, BRACKET_TOURN, TournStage, TournInfo, SeedGame, TournGame,
-                    PostScore)
+from schema import (GAME_PTS, BRACKET_SEED, BRACKET_TOURN, TournStage, TournInfo, SeedGame,
+                    TournGame, PostScore, SCORE_SUBMIT, SCORE_ACCEPT, SCORE_CORRECT,
+                    SCORE_IGNORE, SCORE_DISCARD)
 from euchmgr import PFX_SEED, PFX_TOURN
 
 ###################
@@ -64,6 +66,20 @@ def get_bracket(label: str) -> str:
         return BRACKET_TOURN
     assert False, "Logic error"
 
+def same_score(s1: PostScore | tuple[int, int], s2: PostScore) -> bool:
+    """Check if two scores are equal.  `s1` may be specified as a `PostScore` instance or
+    a tuple of (team1_pts, team2_pts).
+    """
+    if isinstance(s1, tuple):
+        assert len(s1) == 2
+        return s1 == (s2.team1_pts, s2.team2_pts)
+    else:
+        assert isinstance(s1, PostScore)
+        return (s1.team1_pts, s1.team2_pts) == (s2.team1_pts, s2.team2_pts)
+
+# just downcase the first character and leave the rest alone
+lc_first = lambda x: x[0].lower() + x[1:]
+
 ##############
 # GET routes #
 ##############
@@ -76,7 +92,8 @@ def index() -> str:
         flash("Please reauthenticate in order to access the app")
         return redirect('/login')
 
-    context = {}
+    err_msg = "<br>".join(get_flashed_messages())
+    context = {'err_msg': err_msg}
     return render_mobile(context)
 
 ################
@@ -101,28 +118,53 @@ def submit() -> str:
     return globals()[action](request.form)
 
 def submit_score(form: dict) -> str:
-    """Submit game score.
+    """Submit game score.  This score will need to be accepted in order to be pushed to
+    the appropriate bracket.
 
     Note that multiple players may submit scores (if app not refreshed).  If a subsequent
     submission contains the same team scores, it will be treated as an "accept" if coming
-    from an opponent, or be saved as a duplicate if coming from a partner (no harm--either
-    entry may be accepted by opponents).  If the team scores do not match, then it will be
-    treated as a "correct" coming from a member of either team.
+    from an opponent, or ignored as a duplicate if coming from a partner.  If the team
+    scores do not match, then it will be treated as a "correct" coming from a member of
+    either team.
     """
-    game_label = form['game_label']
-    player_num = typecast(form['posted_by_num'])
-    team_idx   = typecast(form['team_idx'])
-    team1_pts  = typecast(form['team_pts'] if team_idx == 0 else form['opp_pts'])
-    team2_pts  = typecast(form['team_pts'] if team_idx == 1 else form['opp_pts'])
+    post_action = SCORE_SUBMIT
+    action_info = None
+    game_label  = form['game_label']
+    player_num  = typecast(form['posted_by_num'])
+    team_idx    = typecast(form['team_idx'])
+    team1_pts   = typecast(form['team_pts'] if team_idx == 0 else form['opp_pts'])
+    team2_pts   = typecast(form['team_pts'] if team_idx == 1 else form['opp_pts'])
 
     ref_score_id = typecast(form['ref_score_id'])
     if ref_score_id is not None:
         abort(400, f"ref_score_id ({ref_score_id}) should not be set")
+    if max(team1_pts, team2_pts) < GAME_PTS:
+        flash("Only completed games may be submitted")
+        return redirect(url_for('index'))
+    if (team1_pts, team2_pts) == (GAME_PTS, GAME_PTS):
+        flash(f"Only one team can score {GAME_PTS} points")
+        return redirect(url_for('index'))
+
+    # see if someone slid in ahead of us (can't be ourselves)
+    latest = PostScore.get_last(game_label)
+    if latest:
+        if same_score((team1_pts, team2_pts), latest):
+            if latest.team_idx != team_idx:
+                flash("Duplicate submission as opponent treated as acceptance")
+                return accept_score(form)
+            # otherwise we fall through and create an ignored duplicate entry
+            post_action += SCORE_IGNORE
+            action_info = "Duplicate submission (as partner)"
+            flash(f"Ignoring {lc_first(action_info)}")
+        else:
+            # correct the score, whether partner or opponent
+            return correct_score(form, latest)
 
     info = {
         'bracket'      : get_bracket(game_label),
         'game_label'   : game_label,
-        'post_action'  : "submit",
+        'post_action'  : post_action,
+        'action_info'  : action_info,
         'team1_pts'    : team1_pts,
         'team2_pts'    : team2_pts,
         'posted_by_num': player_num,
@@ -134,8 +176,14 @@ def submit_score(form: dict) -> str:
     return redirect(url_for('index'))
 
 def accept_score(form: dict) -> str:
-    """Create new tournament from form data.
+    """Accept a game score posted by an opponent.
+
+    If an intervening correction from an opponent has the same score as the original
+    reference, then switch the acceptance to the newer record, otherwise intervening
+    changes invalidate this request.
     """
+    post_action = SCORE_ACCEPT
+    action_info = None
     game_label = form['game_label']
     player_num = typecast(form['posted_by_num'])
     team_idx   = typecast(form['team_idx'])
@@ -146,13 +194,33 @@ def accept_score(form: dict) -> str:
     ref_score = PostScore.get_or_none(ref_score_id)
     if not ref_score:
         abort(400, f"invalid ref_score_id {ref_score_id}")
-    assert team1_pts == ref_score.team1_pts
-    assert team2_pts == ref_score.team2_pts
+    assert same_score((team1_pts, team2_pts), ref_score)
+
+    # check for intervening corrections
+    latest = PostScore.get_last(game_label)
+    if latest != ref_score:
+        assert latest.created_at > ref_score.created_at
+        if same_score(latest, ref_score):
+            if latest.team_idx != team_idx:
+                # same score correction from opponent
+                ref_score = latest
+                action_info = f"Changing ref_score from id {ref_score_id} to id {latest.id}"
+            else:
+                # same score correction from partner
+                post_action += SCORE_DISCARD
+                action_info = "Intervening correction (same score)"
+                flash(f"Discarding acceptance due to {lc_first(action_info)}")
+        else:
+            # changed score correction (from either partner or opponent)
+            post_action += SCORE_DISCARD
+            action_info = "Intervening correction"
+            flash(f"Discarding acceptance due to {lc_first(action_info)}")
 
     info = {
         'bracket'      : get_bracket(game_label),
         'game_label'   : game_label,
-        'post_action'  : "accept",
+        'post_action'  : post_action,
+        'action_info'  : action_info,
         'team1_pts'    : team1_pts,
         'team2_pts'    : team2_pts,
         'posted_by_num': player_num,
@@ -161,12 +229,81 @@ def accept_score(form: dict) -> str:
         'do_push'      : True
     }
     score = PostScore.create(**info)
-    score.push_scores()
+    if post_action == SCORE_ACCEPT:
+        try:
+            score.push_scores()
+        except RuntimeError as e:
+            flash(str(e))
+            return redirect(url_for('index'))
+
     return redirect(url_for('index'))
 
-def correct_score(form: dict) -> str:
-    """Create new tournament from form data.
+def correct_score(form: dict, ref: PostScore = None) -> str:
+    """Correct a game score, superceding all previous submitted (or corrected) scores.  As
+    with "submit", this score will need to be accepted in order to be pushed.  This can be
+    called on behalf of either team.
+
+    If the specified score is identical to the reference entry, this correction will be
+    treated as an acceptance if coming from an opponent, or will be ignored if coming from
+    a partner.
     """
+    post_action = SCORE_CORRECT
+    action_info = None
+    game_label = form['game_label']
+    player_num = typecast(form['posted_by_num'])
+    team_idx   = typecast(form['team_idx'])
+    team1_pts  = typecast(form['team_pts'] if team_idx == 0 else form['opp_pts'])
+    team2_pts  = typecast(form['team_pts'] if team_idx == 1 else form['opp_pts'])
+
+    ref_score_id = typecast(form['ref_score_id'])
+    ref_score = PostScore.get_or_none(ref_score_id)
+    if not ref_score:
+        abort(400, f"invalid ref_score_id {ref_score_id}")
+    if max(team1_pts, team2_pts) < GAME_PTS:
+        flash("Only completed games may be submitted")
+        return redirect(url_for('index'))
+    if (team1_pts, team2_pts) == (GAME_PTS, GAME_PTS):
+        flash(f"Only one team can score {GAME_PTS} points")
+        return redirect(url_for('index'))
+
+    # check for intervening corrections
+    latest = PostScore.get_last(game_label)
+    if latest != ref_score:
+        assert latest.created_at > ref_score.created_at
+        # NOTE that we are always discarding this action if there is an intervening
+        # correction (regardless of actor and score), since the logic for implicit
+        # acceptance could be messy and/or counterintuitive
+        if same_score(latest, ref_score):
+            post_action += SCORE_DISCARD
+            action_info = "Intervening correction (same score)"
+            flash(f"Discarding update due to {lc_first(action_info)}")
+        else:
+            post_action += SCORE_DISCARD
+            action_info = "Intervening correction"
+            flash(f"Discarding update due to {lc_first(action_info)}")
+
+    if same_score((team1_pts, team2_pts), ref_score):
+        if ref_score.team_idx != team_idx:
+            flash("Unchanged score correction treated as acceptance")
+            return accept_score(form)
+        # otherwise we fall through and create an ignored correction entry
+        post_action += SCORE_IGNORE
+        action_info = "Unchanged score (as partner)"
+        flash(f"Ignoring {lc_first(action_info)}")
+
+    info = {
+        'bracket'      : get_bracket(game_label),
+        'game_label'   : game_label,
+        'post_action'  : post_action,
+        'action_info'  : action_info,
+        'team1_pts'    : team1_pts,
+        'team2_pts'    : team2_pts,
+        'posted_by_num': player_num,
+        'team_idx'     : team_idx,
+        'ref_score'    : ref_score,
+        'do_push'      : False
+    }
+    score = PostScore.create(**info)
     return redirect(url_for('index'))
 
 #############

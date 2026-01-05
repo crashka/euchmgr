@@ -207,8 +207,8 @@ def login_page() -> str:
     """
     if current_user.is_authenticated:
         return redirect(url_for('index'))
-    err_msg = "<br>".join(get_flashed_messages())
 
+    err_msg = "<br>".join(get_flashed_messages())
     context = {'err_msg': err_msg}
     return render_login(context)
 
@@ -222,7 +222,7 @@ def login() -> str:
         login_user(admin)
         return redirect(url_for('index'))
 
-    player = Player.fetch_by_nick_name(username)
+    player = Player.fetch_by_name(username)
     if not player:
         return render_error(400, "Bad Login", f"Invalid player name '{username}'")
     login_user(player)
@@ -235,9 +235,10 @@ def logout():
     """Log out the current user.  Note that this call, for admins, does not reset the
     server database identification and/or connection state.
     """
+    user = current_user.name
     logout_user()
     #session.clear()  # REVISIT (coupled with revamp of /tourn)!!!
-    flash("Successfully logged out")
+    flash(f"User \\\"{user}\\\" logged out")
     return redirect(url_for('login_page'))
 
 #################

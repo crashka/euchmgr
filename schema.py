@@ -320,11 +320,11 @@ class Player(BaseModel, EuchmgrUser):
         return cls.get_or_none(cls.player_rank == player_rank)
 
     @classmethod
-    def fetch_by_nick_name(cls, nick_name: str) -> Self:
-        """Return player by nick_name (always retrieved from database), or `None` if not
-        found
+    def fetch_by_name(cls, name: str) -> Self:
+        """Return player by name (same as nick_name), or `None` if not found.  Always
+        retrieved from database (not from local cache).
         """
-        return cls.get_or_none(cls.nick_name == nick_name)
+        return cls.get_or_none(cls.nick_name == name)
 
     @classmethod
     def find_by_name_pfx(cls, name_pfx: str) -> Iterator[Self]:
@@ -1387,13 +1387,20 @@ class TeamGame(BaseModel):
 # PostScore #
 #############
 
+SCORE_SUBMIT  = "submit"
+SCORE_ACCEPT  = "accept"
+SCORE_CORRECT = "correct"
+SCORE_IGNORE  = " (ignore)"
+SCORE_DISCARD = " (discard)"
+
 class PostScore(BaseModel):
     """Denormalization of TournGame data, for use in computing stats, determining
     head-to-head match-ups, etc.
     """
     bracket        = TextField()              # "sd", "rr", "sf", or "fn"
     game_label     = TextField()              # sd-{rnd}-{tbl}, rr-{div}-{rnd}-{tbl}, etc.
-    post_action    = TextField()              # same as button value
+    post_action    = TextField()
+    action_info    = TextField(null=True)
     team1_pts      = IntegerField()
     team2_pts      = IntegerField()
     posted_by      = ForeignKeyField(Player, field='player_num', column_name='posted_by_num')
@@ -1414,7 +1421,7 @@ class PostScore(BaseModel):
         query = (cls
                  .select()
                  .where(cls.game_label == label,
-                        cls.post_action.in_(["submit", "correct"]))
+                        cls.post_action.in_([SCORE_SUBMIT, SCORE_CORRECT]))
                  .order_by(cls.created_at.desc())
                  .limit(1))
         return query.get_or_none()

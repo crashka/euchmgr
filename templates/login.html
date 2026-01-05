@@ -5,20 +5,10 @@
     <title>{{title}}</title>
 
     <style>
-     .err_dlg {
-       width: 75%;
-       max-width: 20rem;
-       padding: 1.1rem 1.4rem;
-     }
-     .err_dlg div {
+     .err_blk {
        color: #D10000;
-       overflow: auto;
-     }
-     .err_dlg button {
-       margin-top: 1.2rem;
-     }
-     section + section {
-       margin-top: 1.5rem;
+       margin-top: 1.0rem;
+       display: none;
      }
      p label {
        display: block;
@@ -29,15 +19,19 @@
      input {
        width: 12rem;
      }
+     button {
+       padding: 0.1rem 0.4rem;
+     }
+     .actions {
+       display: flex;
+     }
+     .actions p {
+       margin: 0.7rem 0rem;
+     }
     </style>
   </head>
 
   <body>
-    <dialog class="err_dlg">
-      <div></div>
-      <button autofocus>Close</button>
-    </dialog>
-
     <form action="/login" method="post" enctype="multipart/form-data">
       <h1>Login</h1>
       <section>
@@ -59,25 +53,32 @@
           <input type="password" id="password" name="password">
         </p>
       </section>
-      <section>
+      <section class="actions">
         <p>
           <button type="submit">Login</button>
         </p>
       </section>
     </form>
+    <section class="err_blk">
+      <div>
+      </div>
+    </section>
   </body>
 
   <script src="/static/jquery-3.7.1.min.js"></script>
   <script>
    $(function() {
-     // error dialog
-     $('.err_dlg button').on('click', function() {
-       $('.err_dlg')[0].close();
-     });
+     // error block
      const show_error = function(err_text) {
-       $('.err_dlg div').text(err_text);
-       $('.err_dlg')[0].showModal();
+       $('.err_blk div').text(err_text);
+       $('.err_blk').css('display', 'flex');
      };
+     $('body').on('click', function() {
+       $('.err_blk').css('display', 'none');
+     });
+     $('select').on('change', function() {
+       $('.err_blk').css('display', 'none');
+     });
 
      {% if err_msg %}
      show_error('{{err_msg|safe}}');

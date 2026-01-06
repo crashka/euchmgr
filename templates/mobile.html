@@ -144,7 +144,7 @@
         </p>
         <p class="score">
           <select name="team_pts">
-            <option value=""></option>
+            <option value="" disabled></option>
             {% for pts in range(0, 11) %}
             {% set selected = (" selected" if pts == team_pts else "") %}
             <option{{selected}}>{{pts}}</option>
@@ -153,7 +153,7 @@
           <label>pts</label>
           <br><br>
           <select name="opp_pts">
-            <option value=""></option>
+            <option value="" disabled></option>
             {% for pts in range(0, 11) %}
             {% set selected = (" selected" if pts == opp_pts else "") %}
             <option{{selected}}>{{pts}}</option>
@@ -228,28 +228,64 @@
      $('.err_dlg button').on('click', function() {
        $('.err_dlg')[0].close();
      });
-     const show_error = function(err_text) {
+     const showError = function(err_text) {
        $('.err_dlg div').text(err_text);
        $('.err_dlg')[0].showModal();
      };
 
      {% if cur_game %}
      // score change
-     $('.score select').on('change', function() {
+     const chgMap = new Map();
+     const ptsMap = new Map();
+     const winMap = new Map();
+     const updMaps = function(target, isInit = false) {
+       if (!isInit) {
+         chgMap.set(target.name, true);
+       }
+       target.value != "" ? ptsMap.set(target.name, target.value) : false;
+       target.value == "10" ? winMap.set(target.name, true) : winMap.delete(target.name);
+     };
+     $('.score select').each(function(idx) {
+       updMaps(this, true);
+     });
+     $('.score select').on('change', function(e) {
+       updMaps(this);
        {% if ref_score %}
-       $('button[value="accept_score"]').css('display', 'none');
-       $('button[value="correct_score"]').css('display', 'inline-block')
-                                         .prop('disabled', false);
-       $('a.reset').css('display', 'inline');
+       if (winMap.size == 1) {
+         $('button[value="accept_score"]').css('display', 'none');
+         $('button[value="correct_score"]').css('display', 'inline-block')
+                                           .prop('disabled', false);
+       }
+       else {
+         $('button[value="correct_score"]').prop('disabled', true);
+       }
        {% else %}
-       $('button[value="submit_score"]').prop('disabled', false);
-       $('a.reset').css('display', 'inline');
+       if (ptsMap.size == 2 && winMap.size == 1) {
+         $('button[value="submit_score"]').prop('disabled', false);
+       }
+       else {
+         $('button[value="submit_score"]').prop('disabled', true);
+       }
        {% endif %}
+       $('a.reset').css('display', 'inline');
+     });
+     // refresh score (ignore inputs, links, etc.)
+     $('.cur_game').on('click', function(e) {
+       if (chgMap.size == 0) {
+         window.location.reload(true);
+       }
+       else {
+         showError("Ignoring click to refresh (pending changes)");
+       }
+     });
+     $('select, option, button, a', '.cur_game').on('click', function(e) {
+       //console.log("trapping click to refresh (clickable element: " + this.nodeName + ")");
+       e.stopPropagation();
      });
      {% endif %}
 
      {% if err_msg %}
-     show_error("{{err_msg|safe}}");
+     showError("{{err_msg|safe}}");
      {% endif %}
    });
   </script>

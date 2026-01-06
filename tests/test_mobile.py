@@ -20,12 +20,12 @@ def test_logins(seed_bracket_app):
     """
     app = seed_bracket_app
     crash_client = get_user_client(app, "Crash")
-    resp = crash_client.get('/mobile/', follow_redirects=True)
+    resp = crash_client.get('/mobile', follow_redirects=True)
     assert resp.status_code == 200
     assert "Logged in as: <span>Crash</span>" in resp.text
 
     abs_client = get_user_client(app, "Abs")
-    resp = abs_client.get('/mobile/', follow_redirects=True)
+    resp = abs_client.get('/mobile', follow_redirects=True)
     assert resp.status_code == 200
     assert "Logged in as: <span>Abs</span>" in resp.text
 
@@ -34,7 +34,7 @@ def test_post_score(seed_bracket_app):
     """
     app = seed_bracket_app
     virgilio_client = get_user_client(app, "Virgilio")
-    resp = virgilio_client.get('/mobile/', follow_redirects=True)
+    resp = virgilio_client.get('/mobile', follow_redirects=True)
     assert resp.status_code == 200
     assert "Logged in as: <span>Virgilio</span>" in resp.text
 
@@ -45,5 +45,5 @@ def test_post_score(seed_bracket_app):
             'team_pts'     : '10',
             'opp_pts'      : '0',
             'action'       : 'submit_score'}
-    resp = virgilio_client.post('/mobile/', data=data, follow_redirects=True)
+    resp = virgilio_client.post('/mobile', data=data, follow_redirects=True)
     assert "<label>Score posted by</label>: <span>Virgilio (you)</span>" in resp.text

@@ -109,7 +109,7 @@ sg_layout = [
 def get_seeding() -> dict:
     """
     """
-    sg_iter = SeedGame.iter_games(True)
+    sg_iter = SeedGame.iter_games(include_byes=True)
     sg_data = []
     for game in sg_iter:
         sg_props = {prop: getattr(game, prop) for prop in sg_addl_props}
@@ -335,7 +335,7 @@ tg_layout = [
 def get_round_robin() -> dict:
     """
     """
-    tg_iter = TournGame.iter_games(True)
+    tg_iter = TournGame.iter_games(include_byes=True)
     tg_data = []
     for game in tg_iter:
         tg_props = {prop: getattr(game, prop) for prop in tg_addl_props}

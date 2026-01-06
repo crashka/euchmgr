@@ -102,11 +102,11 @@ def create_app(config: object | Config = Config) -> Flask:
     app = Flask(__name__)
 
     app.config.from_object(config)
+    app.register_blueprint(mobile)
     app.register_blueprint(data, url_prefix="/data")
     app.register_blueprint(chart, url_prefix="/chart")
     app.register_blueprint(dash, url_prefix="/dash")
     app.register_blueprint(report, url_prefix="/report")
-    app.register_blueprint(mobile, url_prefix="/mobile")
 
     global sess_ext, login
     sess_ext.init_app(app)

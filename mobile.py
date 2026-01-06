@@ -84,7 +84,7 @@ lc_first = lambda x: x[0].lower() + x[1:]
 # GET routes #
 ##############
 
-@mobile.get("/")
+@mobile.get("/mobile")
 def index() -> str:
     """Render mobile app if logged in
     """
@@ -106,7 +106,7 @@ ACTIONS = [
     'correct_score'
 ]
 
-@mobile.post("/")
+@mobile.post("/mobile")
 def submit() -> str:
     """Handle post action
     """

@@ -115,7 +115,7 @@
     <p class="login_info">
       Logged in as: <span>{{user.nick_name}}</span> [<a href='/logout'>Logout</a>]
     </p>
-    <section class="info_stats">
+    <section class="info_stats" id="info-stats">
       <h2>Info/Stats</h2>
       <section class="info">
         {% for info in info_flds %}
@@ -128,7 +128,7 @@
         {% endfor %}
       </section>
     </section>
-    <section class="cur_game">
+    <section class="cur_game" id="cur-game">
       <h2>Current Game</h2>
       {% if cur_game %}
       <span class="round">(Round {{cur_game.round_num}})</span>
@@ -190,24 +190,24 @@
       </p>
       {% endif %}  {# cur_game #}
     </section>
-    <section class="past_games">
+    <section class="past_games" id="past-games">
       <h2>Past Games</h2>
-      <section class="past_sd">
+      <section id="sd-games">
         <h3>Seeding</h3>
         <p>
         </p>
       </section>
-      <section class="past_rr">
+      <section id="rr-games">
         <h3>Round Robin</h3>
         <p>
         </p>
       </section>
-      <section class="past_sf">
+      <section id="sf-games">
         <h3>Semifinals</h3>
         <p>
         </p>
       </section>
-      <section class="past_fn">
+      <section id="fn-games">
         <h3>Finals</h3>
         <p>
         </p>
@@ -238,8 +238,8 @@
      $('.score select').on('change', function() {
        {% if ref_score %}
        $('button[value="accept_score"]').css('display', 'none');
-       $('button[value="correct_score"]').css('display', 'inline-block');
-       $('button[value="correct_score"]').prop('disabled', false);
+       $('button[value="correct_score"]').css('display', 'inline-block')
+                                         .prop('disabled', false);
        $('a.reset').css('display', 'inline');
        {% else %}
        $('button[value="submit_score"]').prop('disabled', false);

@@ -87,6 +87,16 @@ STAGE_DATA = [
 assert len(STAGE_DATA) == len(TournStage)  # not ensured by zip
 StageData = dict(zip(TournStage, STAGE_DATA))
 
+def clear_schema_cache() -> None:
+    """This needs to be called every time we switch (or reset) databases.
+
+    FIX: this is currently only called from `conftest.py`, but also needs to be
+    incorporated into the database management logic in `server.py`!!!
+    """
+    TournInfo.clear_cache()
+    Player.clear_cache()
+    Team.clear_cache()
+
 #############
 # TournInfo #
 #############
@@ -111,6 +121,12 @@ class TournInfo(BaseModel):
 
     # class variables
     inst: ClassVar[Self] = None  # singleton instance
+
+    @classmethod
+    def clear_cache(cls) -> None:
+        """See `clear_schema_cache` (above)
+        """
+        cls.inst = None
 
     @classmethod
     def get(cls, requery: bool = False) -> Self:
@@ -167,7 +183,6 @@ class TournInfo(BaseModel):
         if self.id is None:
             cls = type(self)
             cls.inst = None
-            cls.inst_name = None
         return super().save(*args, **kwargs)
 
     def start_stage(self, stage: TournStage, auto_save: bool = True) -> None:
@@ -246,6 +261,12 @@ class Player(BaseModel, EuchmgrUser):
         indexes = (
             (('last_name', 'first_name'), True),
         )
+
+    @classmethod
+    def clear_cache(cls) -> None:
+        """See `clear_schema_cache` (above)
+        """
+        cls.player_map = None
 
     @classmethod
     def get_player_map(cls, requery: bool = False) -> dict[int, Self]:
@@ -864,6 +885,12 @@ class Team(BaseModel):
         indexes = (
             (('div_num', 'div_seed'), True),
         )
+
+    @classmethod
+    def clear_cache(cls) -> None:
+        """See `clear_schema_cache` (above)
+        """
+        cls.team_map = None
 
     @classmethod
     def get_team_map(cls, requery: bool = False) -> dict[int, Self]:

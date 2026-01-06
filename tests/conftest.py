@@ -9,8 +9,8 @@ import pytest
 from peewee import SqliteDatabase
 
 from core import TEST_DIR
-from database import db_init, db_close, db_filepath
-from schema import TournStage
+from database import db_filepath, db_init, db_close, db_reset
+from schema import TournStage, clear_schema_cache
 
 #############
 # Constants #
@@ -58,6 +58,7 @@ def stage_1_db() -> Generator[SqliteDatabase]:
     db = restore_stage_db(TournStage(1))
     yield db
     db_close()
+    clear_schema_cache()
 
 @pytest.fixture
 def stage_2_db() -> Generator[SqliteDatabase]:
@@ -65,6 +66,7 @@ def stage_2_db() -> Generator[SqliteDatabase]:
     db = restore_stage_db(TournStage(2))
     yield db
     db_close()
+    clear_schema_cache()
 
 @pytest.fixture
 def stage_3_db() -> Generator[SqliteDatabase]:
@@ -72,6 +74,7 @@ def stage_3_db() -> Generator[SqliteDatabase]:
     db = restore_stage_db(TournStage(3))
     yield db
     db_close()
+    clear_schema_cache()
 
 @pytest.fixture
 def stage_4_db() -> Generator[SqliteDatabase]:
@@ -79,6 +82,7 @@ def stage_4_db() -> Generator[SqliteDatabase]:
     db = restore_stage_db(TournStage(4))
     yield db
     db_close()
+    clear_schema_cache()
 
 @pytest.fixture
 def stage_5_db() -> Generator[SqliteDatabase]:
@@ -86,6 +90,7 @@ def stage_5_db() -> Generator[SqliteDatabase]:
     db = restore_stage_db(TournStage(5))
     yield db
     db_close()
+    clear_schema_cache()
 
 @pytest.fixture
 def stage_6_db() -> Generator[SqliteDatabase]:
@@ -93,6 +98,7 @@ def stage_6_db() -> Generator[SqliteDatabase]:
     db = restore_stage_db(TournStage(6))
     yield db
     db_close()
+    clear_schema_cache()
 
 @pytest.fixture
 def stage_7_db() -> Generator[SqliteDatabase]:
@@ -100,6 +106,7 @@ def stage_7_db() -> Generator[SqliteDatabase]:
     db = restore_stage_db(TournStage(7))
     yield db
     db_close()
+    clear_schema_cache()
 
 @pytest.fixture
 def stage_8_db() -> Generator[SqliteDatabase]:
@@ -107,6 +114,7 @@ def stage_8_db() -> Generator[SqliteDatabase]:
     db = restore_stage_db(TournStage(8))
     yield db
     db_close()
+    clear_schema_cache()
 
 @pytest.fixture
 def stage_9_db() -> Generator[SqliteDatabase]:
@@ -114,6 +122,7 @@ def stage_9_db() -> Generator[SqliteDatabase]:
     db = restore_stage_db(TournStage(9))
     yield db
     db_close()
+    clear_schema_cache()
 
 @pytest.fixture
 def stage_10_db() -> Generator[SqliteDatabase]:
@@ -121,6 +130,7 @@ def stage_10_db() -> Generator[SqliteDatabase]:
     db = restore_stage_db(TournStage(10))
     yield db
     db_close()
+    clear_schema_cache()
 
 @pytest.fixture
 def stage_11_db() -> Generator[SqliteDatabase]:
@@ -128,6 +138,7 @@ def stage_11_db() -> Generator[SqliteDatabase]:
     db = restore_stage_db(TournStage(11))
     yield db
     db_close()
+    clear_schema_cache()
 
 @pytest.fixture
 def stage_12_db() -> Generator[SqliteDatabase]:
@@ -135,6 +146,7 @@ def stage_12_db() -> Generator[SqliteDatabase]:
     db = restore_stage_db(TournStage(12))
     yield db
     db_close()
+    clear_schema_cache()
 
 @pytest.fixture
 def stage_13_db() -> Generator[SqliteDatabase]:
@@ -142,6 +154,7 @@ def stage_13_db() -> Generator[SqliteDatabase]:
     db = restore_stage_db(TournStage(13))
     yield db
     db_close()
+    clear_schema_cache()
 
 @pytest.fixture
 def stage_14_db() -> Generator[SqliteDatabase]:
@@ -149,6 +162,7 @@ def stage_14_db() -> Generator[SqliteDatabase]:
     db = restore_stage_db(TournStage(14))
     yield db
     db_close()
+    clear_schema_cache()
 
 @pytest.fixture
 def test_db() -> Generator[SqliteDatabase]:
@@ -158,3 +172,20 @@ def test_db() -> Generator[SqliteDatabase]:
     db = db_init(TEST_DB, force=True)
     yield db
     db_close()
+    clear_schema_cache()
+
+@pytest.fixture(scope="module")
+def seed_bracket_db() -> Generator[SqliteDatabase]:
+    """SEED_BRACKET"""
+    db = restore_stage_db(TournStage(4))
+    yield db
+    db_close()
+    clear_schema_cache()
+
+@pytest.fixture(scope="module")
+def tourn_bracket_db() -> Generator[SqliteDatabase]:
+    """TOURN_BRACKET"""
+    db = restore_stage_db(TournStage(11))
+    yield db
+    db_close()
+    clear_schema_cache()

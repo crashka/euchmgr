@@ -85,56 +85,199 @@ def get_tourns() -> list[str]:
 # app stuff #
 #############
 
-app = Flask(__name__)
-APP_NAME = "Euchre Manager"
-APP_TEMPLATE = "app.html"
-LOGIN_TEMPLATE = "login.html"
-TOURN_TEMPLATE = "tourn.html"
-SESSION_TYPE = 'cachelib'
-SESSION_CACHELIB = FileSystemCache(cache_dir="sessions", default_timeout=0)
-
-app.config.from_object(__name__)
-app.register_blueprint(data, url_prefix="/data")
-app.register_blueprint(chart, url_prefix="/chart")
-app.register_blueprint(dash, url_prefix="/dash")
-app.register_blueprint(report, url_prefix="/report")
-app.register_blueprint(mobile, url_prefix="/mobile")
-Session(app)
-
-login = EuchmgrLogin(app)
-
-@login.user_loader
-def load_user(user_id: str | int) -> EuchmgrUser:
-    """Return "user" flask_login object, which in our case is a `Player` instance (or the
-    special admin security object).
+class Config:
+    """Base class for flask configuration
     """
-    if isinstance(user_id, str):
-        user_id = typecast(user_id)
-    assert isinstance(user_id, int)
-    if user_id == ADMIN_ID:
-        return AdminUser()
-    if db_is_closed():
-        return None
-    return Player.get(user_id)
+    SESSION_TYPE = 'cachelib'
+    SESSION_CACHELIB = FileSystemCache(cache_dir="sessions", default_timeout=0)
 
-@app.before_request
-def _db_connect() -> None:
-    """Make sure we're connected to the right database on the way in.  Mobile users have
-    no explicit association with a tournament name, so they connect to whatever database
-    is active.
-    """
-    tourn_name = session.get('tourn')
-    assert not (tourn_name and is_mobile())
-    if tourn_name != SEL_NEW:
-        db_connect(tourn_name)
+# instantiate extensions globally
+sess_ext = Session()
+login = EuchmgrLogin()
 
-@app.teardown_request
-def _db_close(exc) -> None:
-    """Do a logical close of the database connection on the way out.  Underneath, we may
-    actually choose to keep the connection open and reuse it (in which case, there may be
-    no way to explicitly close it on server exit).
+def create_app(config: object | Config = Config) -> Flask:
+    """Application factory for the euchmgr server.  Configuration may be specified as a
+    class (e.g. `Config` subclass) or `Config` instance.
     """
-    db_close()
+    app = Flask(__name__)
+
+    app.config.from_object(config)
+    app.register_blueprint(data, url_prefix="/data")
+    app.register_blueprint(chart, url_prefix="/chart")
+    app.register_blueprint(dash, url_prefix="/dash")
+    app.register_blueprint(report, url_prefix="/report")
+    app.register_blueprint(mobile, url_prefix="/mobile")
+
+    global sess_ext, login
+    sess_ext.init_app(app)
+    login.init_app(app)
+
+    @login.user_loader
+    def load_user(user_id: str | int) -> EuchmgrUser:
+        """Return "user" flask_login object, which in our case is a `Player` instance (or the
+        special admin security object).
+        """
+        if isinstance(user_id, str):
+            user_id = typecast(user_id)
+        assert isinstance(user_id, int)
+        if user_id == ADMIN_ID:
+            return AdminUser()
+        if db_is_closed():
+            return None
+        return Player.get(user_id)
+
+    @app.before_request
+    def _db_connect() -> None:
+        """Make sure we're connected to the right database on the way in.  Mobile users have
+        no explicit association with a tournament name, so they connect to whatever database
+        is active.
+        """
+        tourn_name = session.get('tourn')
+        assert not (tourn_name and is_mobile())
+        if tourn_name != SEL_NEW:
+            if not app.testing or db_is_closed():
+                db_connect(tourn_name)
+
+    @app.teardown_request
+    def _db_close(exc) -> None:
+        """Do a logical close of the database connection on the way out.  Underneath, we may
+        actually choose to keep the connection open and reuse it (in which case, there may be
+        no way to explicitly close it on server exit).
+        """
+        db_close()
+
+    ###############
+    # login stuff #
+    ###############
+
+    @app.get("/login")
+    def login_page() -> str:
+        """Responsive login page (entry point for players and admin).
+        """
+        if current_user.is_authenticated:
+            return redirect(url_for('index'))
+
+        err_msg = "<br>".join(get_flashed_messages())
+        context = {'err_msg': err_msg}
+        return render_login(context)
+
+    @app.post("/login")
+    def login() -> str:
+        """Log in as the specified user (player or admin)
+        """
+        username = request.form['username']
+        if username == ADMIN_USER:
+            admin = AdminUser()
+            login_user(admin)
+            return redirect(url_for('index'))
+
+        player = Player.fetch_by_name(username)
+        if not player:
+            return render_error(400, "Bad Login", f"Invalid player name '{username}'")
+        login_user(player)
+        # TEMP: need to make the routing device and/or context sensitive!!!
+        assert is_mobile()
+        return redirect('/mobile')
+
+    @app.route('/logout')
+    def logout():
+        """Log out the current user.  Note that this call, for admins, does not reset the
+        server database identification and/or connection state.
+        """
+        user = current_user.name
+        logout_user()
+        #session.clear()  # REVISIT (coupled with revamp of /tourn)!!!
+        flash(f"User \\\"{user}\\\" logged out")
+        return redirect(url_for('login_page'))
+
+    #################
+    # top-level nav #
+    #################
+
+    @app.get("/")
+    def index() -> str:
+        """
+        """
+        if not current_user.is_authenticated:
+            return redirect(url_for('login_page'))
+
+        if is_mobile():
+            return redirect('/mobile')
+
+        assert current_user.is_admin
+        context = {
+            'view': View.TOURN,
+        }
+        return render_tourn(context)
+
+    @app.get("/players")
+    @app.get("/seeding")
+    @app.get("/partners")
+    @app.get("/teams")
+    @app.get("/round_robin")
+    def view() -> str:
+        """
+        """
+        tourn = TournInfo.get()
+        context = {
+            'tourn': tourn,
+            'view' : request.path
+        }
+        return render_app(context)
+
+    @app.get("/tourn")
+    def tourn() -> str:
+        """
+        """
+        if is_mobile():
+            return render_error(403, desc="Mobile access unauthorized")
+
+        tourn_name = session.get('tourn')
+        if tourn_name is None:
+            abort(400, "Tournament not specified")
+
+        if tourn_name != SEL_NEW:
+            # resume managing previously active tournament
+            tourn = TournInfo.get()
+            view = dflt_view(tourn)
+            return render_view(view)
+
+        context = {
+            'tourn'    : TournInfo(),
+            'view'     : View.TOURN,
+            'new_tourn': True
+        }
+        return render_tourn(context)
+
+    ##################
+    # submit actions #
+    ##################
+
+    @app.post("/")
+    @app.post("/tourn")
+    @app.post("/players")
+    @app.post("/seeding")
+    @app.post("/partners")
+    @app.post("/teams")
+    @app.post("/round_robin")
+    def submit() -> str:
+        """Process submitted form, switch on ``submit_func``, which is validated against paths
+        and values in ``SUBMIT_FUNCS``
+        """
+        if 'submit_func' not in request.form:
+            if 'tourn' not in request.form:
+                abort(400, "Invalid request, tournament not specified")
+            session['tourn'] = request.form['tourn']
+            return redirect(url_for('tourn'))
+        func = request.form['submit_func']
+        view = request.path
+        if view not in SUBMIT_FUNCS:
+            abort(400, f"Invalid request target '{view}'")
+        if func not in SUBMIT_FUNCS[view]:
+            abort(400, f"Submit func '{func}' not registered for {view}")
+        return globals()[func](request.form)
+
+    return app
 
 ##############
 # view stuff #
@@ -197,54 +340,6 @@ VIEW_INFO = {
     )
 }
 
-###############
-# login stuff #
-###############
-
-@app.get("/login")
-def login_page() -> str:
-    """Responsive login page (entry point for players and admin).
-    """
-    if current_user.is_authenticated:
-        return redirect(url_for('index'))
-
-    err_msg = "<br>".join(get_flashed_messages())
-    context = {'err_msg': err_msg}
-    return render_login(context)
-
-@app.post("/login")
-def login() -> str:
-    """Log in as the specified user (player or admin)
-    """
-    username = request.form['username']
-    if username == ADMIN_USER:
-        admin = AdminUser()
-        login_user(admin)
-        return redirect(url_for('index'))
-
-    player = Player.fetch_by_name(username)
-    if not player:
-        return render_error(400, "Bad Login", f"Invalid player name '{username}'")
-    login_user(player)
-    # TEMP: need to make the routing device and/or context sensitive!!!
-    assert is_mobile()
-    return redirect('/mobile')
-
-@app.route('/logout')
-def logout():
-    """Log out the current user.  Note that this call, for admins, does not reset the
-    server database identification and/or connection state.
-    """
-    user = current_user.name
-    logout_user()
-    #session.clear()  # REVISIT (coupled with revamp of /tourn)!!!
-    flash(f"User \\\"{user}\\\" logged out")
-    return redirect(url_for('login_page'))
-
-#################
-# top-level nav #
-#################
-
 STAGE_MAPPING = [
     (TournStage.TEAM_RANKS,    View.TEAMS),
     (TournStage.TOURN_RESULTS, View.ROUND_ROBIN),
@@ -264,68 +359,9 @@ def dflt_view(tourn: TournInfo) -> View:
             return view
     return None
 
-@app.get("/")
-def index() -> str:
-    """
-    """
-    if not current_user.is_authenticated:
-        return redirect(url_for('login_page'))
-
-    if is_mobile():
-        return redirect('/mobile')
-
-    assert current_user.is_admin
-    context = {
-        'view': View.TOURN,
-    }
-    return render_tourn(context)
-
-@app.get("/players")
-@app.get("/seeding")
-@app.get("/partners")
-@app.get("/teams")
-@app.get("/round_robin")
-def view() -> str:
-    """
-    """
-    tourn = TournInfo.get()
-    context = {
-        'tourn': tourn,
-        'view' : request.path
-    }
-    return render_app(context)
-
-##########
-# /tourn #
-##########
-
-@app.get("/tourn")
-def tourn() -> str:
-    """
-    """
-    if is_mobile():
-        return render_error(403, desc="Mobile access unauthorized")
-
-    tourn_name = session.get('tourn')
-    if tourn_name is None:
-        abort(400, "Tournament not specified")
-
-    if tourn_name != SEL_NEW:
-        # resume managing previously active tournament
-        tourn = TournInfo.get()
-        view = dflt_view(tourn)
-        return render_view(view)
-
-    context = {
-        'tourn'    : TournInfo(),
-        'view'     : View.TOURN,
-        'new_tourn': True
-    }
-    return render_tourn(context)
-
-##################
-# submit actions #
-##################
+################
+# action stuff #
+################
 
 SUBMIT_FUNCS = {
     View.TOURN: [
@@ -352,30 +388,6 @@ SUBMIT_FUNCS = {
         'tabulate_tourn_results'
     ]
 }
-
-@app.post("/")
-@app.post("/tourn")
-@app.post("/players")
-@app.post("/seeding")
-@app.post("/partners")
-@app.post("/teams")
-@app.post("/round_robin")
-def submit() -> str:
-    """Process submitted form, switch on ``submit_func``, which is validated against paths
-    and values in ``SUBMIT_FUNCS``
-    """
-    if 'submit_func' not in request.form:
-        if 'tourn' not in request.form:
-            abort(400, "Invalid request, tournament not specified")
-        session['tourn'] = request.form['tourn']
-        return redirect(url_for('tourn'))
-    func = request.form['submit_func']
-    view = request.path
-    if view not in SUBMIT_FUNCS:
-        abort(400, f"Invalid request target '{view}'")
-    if func not in SUBMIT_FUNCS[view]:
-        abort(400, f"Submit func '{func}' not registered for {view}")
-    return globals()[func](request.form)
 
 def create_tourn(form: dict) -> str:
     """Create new tournament from form data.
@@ -533,6 +545,11 @@ def tabulate_tourn_results(form: dict) -> str:
 # renderers #
 #############
 
+APP_NAME = "Euchre Manager"
+APP_TEMPLATE = "app.html"
+LOGIN_TEMPLATE = "login.html"
+TOURN_TEMPLATE = "tourn.html"
+
 SEL_SEP = "----------------"
 SEL_NEW = "(create new)"
 
@@ -671,4 +688,5 @@ help_txt = {
 ############
 
 if __name__ == "__main__":
+    app = create_app()
     app.run(debug=True, host='0.0.0.0', port=5050)

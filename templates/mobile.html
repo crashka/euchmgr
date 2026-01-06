@@ -175,12 +175,12 @@
           <button value="accept_score">Accept Score</button>
           <button value="correct_score">Correct Score</button>
           {% endif %}
-          <a class="reset" href=".">[reset]</a>
+          <a class="reset" href="javascript:location.reload(true);">[reset]</a>
         </p>
         {% else %}  {# ref_score #}
         <p class="actions">
           <button value="submit_score" disabled>Submit Score</button>
-          <a class="reset" href=".">[reset]</a>
+          <a class="reset" href="javascript:location.reload(true);">[reset]</a>
         </p>
         {% endif %}  {# ref_score #}
       </form>
@@ -226,11 +226,12 @@
 
      // error dialog
      $('.err_dlg button').on('click', function() {
-       $('.err_dlg')[0].close();
+       this.parentElement.close();
      });
      const showError = function(err_text) {
-       $('.err_dlg div').text(err_text);
-       $('.err_dlg')[0].showModal();
+       const target = $('.err_dlg div')[0];
+       target.innerText = err_text;
+       target.parentElement.showModal();
      };
 
      {% if cur_game %}

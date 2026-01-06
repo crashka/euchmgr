@@ -78,9 +78,6 @@
      $('body').on('click', function() {
        $('.err_blk').css('display', 'none');
      });
-     $('select').on('change', function() {
-       $('.err_blk').css('display', 'none');
-     });
 
      {% if err_msg %}
      show_error("{{err_msg|safe}}");

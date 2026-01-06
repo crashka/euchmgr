@@ -196,7 +196,7 @@ def create_app(config: object | Config = Config) -> Flask:
 
     @app.get("/")
     def index() -> str:
-        """
+        """Redirects to login page or appropriate app view
         """
         if not current_user.is_authenticated:
             return redirect(url_for('login_page'))

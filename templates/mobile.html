@@ -7,6 +7,8 @@
     <style>
      html {
        font-size: 16px;
+       font-size: 3.9vmin;
+       /*font-size: calc(1.2vh + 1.2vw);*/
      }
      .err_dlg {
        width: 75%;
@@ -59,7 +61,7 @@
      .matchup {
        text-align: center;
        display: inline-block;
-       min-width: 13rem;
+       min-width: 14rem;
        margin: 0.3rem 0.0rem 0.5rem 0.0rem;
      }
      .score {
@@ -90,9 +92,11 @@
        display: none;  /* only if stacked behind another button */
      }
      .reset {
-       display: none;
        font-size: 0.813rem;
        margin-left: 0.35rem;
+     }
+     .reset:not([href]) {
+       color: #A9A9A9;
      }
      .actions {
        margin: 0.5rem 0.0rem;
@@ -212,12 +216,12 @@
           <button value="accept_score">Accept Score</button>
           <button value="correct_score">Correct Score</button>
           {% endif %}
-          <a class="reset" href="">[reset]</a>
+          <a class="reset">[reset]</a>
         </p>
         {% else %}  {# ref_score #}
         <p class="actions">
           <button value="submit_score" disabled>Submit Score</button>
-          <a class="reset" href="">[reset]</a>
+          <a class="reset">[reset]</a>
         </p>
         {% endif %}  {# ref_score #}
       </form>
@@ -351,7 +355,8 @@
          $('button[value="submit_score"]').prop('disabled', true);
        }
        {% endif %}
-       $('a.reset').css('display', 'inline');
+       $('a.reset').css('display', 'inline')
+                   .attr('href', '');
      });
      // refresh score (ignore inputs, links, etc.)
      $('.cur_game').on('click', function(e) {

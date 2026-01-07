@@ -44,7 +44,7 @@ def render_report(context: dict) -> str:
 
 # HORRIBLY HACKY: this same format func is hacked into schema.py a few places (as well as
 # in fmt_team_name [euchmgr.py])--we really need to refactor/consolidate all of this!!!
-team_tag = lambda x: f"{x.team_name} ({x.div_seed})"
+team_tag = lambda x: f"{x.team_name} [{x.div_seed}]"
 
 def rr_tb_report(tourn: TournInfo) -> str:
     """Render round robin tie-breaker report
@@ -107,7 +107,7 @@ def rr_tb_report(tourn: TournInfo) -> str:
     # REVISIT: still not sure where all of this formatting stuff should be consolidated
     # (but this is okay for now)!!!
     concat_seeds = lambda x: ' - '.join(f"{tm.div_seed}" for tm in x)
-    concat_teams = lambda x: ' - '.join(f"{tm.team_name} ({tm.div_seed})" for tm in x)
+    concat_teams = lambda x: ' - '.join(f"{tm.team_name} [{tm.div_seed}]" for tm in x)
 
     context = {
         'report_num'  : 0,

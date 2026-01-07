@@ -115,7 +115,7 @@
         <p>Head-to-Head Wins (for ranking) [{{len(div_elevs[div][pos])}}]:</p>
         <ul>
           {% for tm, opp in div_elevs[div][pos] %}
-          <li>{{tm.team_name}} ({{tm.div_seed}}) beats {{opp.team_name}} ({{opp.div_seed}})</li>
+          <li>{{tm.team_name}} [{{tm.div_seed}}] beats {{opp.team_name}} [{{opp.div_seed}}]</li>
           {% endfor %}
         </ul>
         {% endif %}  {# div_elevs #}
@@ -140,7 +140,7 @@
         {% endif %}  {# loop.first #}
 
         <article class="team">
-          <h4>{{team.team_name}} ({{team.div_seed}})</h4>
+          <h4>{{team.team_name}} [{{team.div_seed}}]</h4>
           <p>
             TB Rank: <span>{{team.div_rank}}</span>
             Win-Loss: <span>{{team.div_tb_data['wins']}}-{{team.div_tb_data['losses']}}</span>
@@ -176,20 +176,20 @@
               <tr class="{{'winner' if game.is_winner(team) else 'loser'}}">
                 {% if report_by == 'team' %}
                 <td>{{game.round_num}}</td>
-                <td>{{game.team_info(team)[0]}} ({{game.team_info(team)[1]}})</td>
-                <td>{{game.opp_info(team)[0]}} ({{game.opp_info(team)[1]}})</td>
+                <td>{{game.team_info(team)[0]}} [{{game.team_info(team)[1]}}]</td>
+                <td>{{game.opp_info(team)[0]}} [{{game.opp_info(team)[1]}}]</td>
                 <td>{{game.team_info(team)[2]}}</td>
                 <td>{{game.opp_info(team)[2]}}</td>
                 {% elif report_by == 'winner' %}
                 <td>{{game.round_num}}</td>
-                <td>{{game.winner_info[0]}} ({{game.winner_info[1]}})</td>
-                <td>{{game.loser_info[0]}} ({{game.loser_info[1]}})</td>
+                <td>{{game.winner_info[0]}} [{{game.winner_info[1]}}]</td>
+                <td>{{game.loser_info[0]}} [{{game.loser_info[1]}}]</td>
                 <td>{{game.winner_info[2]}}</td>
                 <td>{{game.loser_info[2]}}</td>
                 {% else %}
                 <td>{{game.round_num}}</td>
-                <td>{{game.team1_name}} ({{game.team1_div_seed}})</td>
-                <td>{{game.team2_name}} ({{game.team2_div_seed}})</td>
+                <td>{{game.team1_name}} [{{game.team1_div_seed}}]</td>
+                <td>{{game.team2_name}} [{{game.team2_div_seed}}]</td>
                 <td>{{game.team1_pts}}</td>
                 <td>{{game.team2_pts}}</td>
                 {% endif %}

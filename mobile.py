@@ -11,9 +11,9 @@ from flask import (Blueprint, request, render_template, abort, redirect, url_for
 from flask_login import current_user
 from ckautils import typecast
 
-from schema import (GAME_PTS, BRACKET_SEED, BRACKET_TOURN, TournStage, TournInfo, SeedGame,
-                    TournGame, PostScore, SCORE_SUBMIT, SCORE_ACCEPT, SCORE_CORRECT,
-                    SCORE_IGNORE, SCORE_DISCARD)
+from schema import (GAME_PTS, BRACKET_SEED, BRACKET_TOURN, TournStage, TournInfo, Player,
+                    SeedGame, Team, TournGame, PostScore, SCORE_SUBMIT, SCORE_ACCEPT,
+                    SCORE_CORRECT, SCORE_IGNORE, SCORE_DISCARD)
 from euchmgr import PFX_SEED, PFX_TOURN
 
 ###################
@@ -79,6 +79,37 @@ def same_score(s1: PostScore | tuple[int, int], s2: PostScore) -> bool:
 
 # just downcase the first character and leave the rest alone
 lc_first = lambda x: x[0].lower() + x[1:]
+
+def fmt_matchup(game: SeedGame | TournGame, ref: Player | Team) -> tuple[str, str, str]:
+    """Return formatted matchup representation (teams and scores) as HTML blocks to be
+    rendered side-by-side (same look as bracket charts).
+    """
+    team_idx = game.team_idx(ref)
+    if team_idx == -1:
+        # player or team has a bye
+        if isinstance(ref, Player):
+            matchup = ref.player_tag
+        else:
+            assert isinstance(ref, Team)
+            matchup = ref.team_tag
+        scores = "<span><i>bye</i></span>"
+        units = ""
+        return matchup, scores, units
+
+    assert team_idx in (0, 1)
+    assert game.winner
+    opp_idx = team_idx ^ 0x01
+    pts_arr = [game.team1_pts, game.team2_pts]
+    cls_arr = ['winner', 'loser'] if game.team1_pts == GAME_PTS else ['loser', 'winner']
+    matchup = (f"<span class=\"{cls_arr[team_idx]}\">{game.team_tags[team_idx]}</span><br>vs.<br>"
+               f"<span>{game.team_tags[opp_idx]}</span>")
+    scores = (f"<span class=\"{cls_arr[team_idx]}\">{pts_arr[team_idx]}</span><br><br>"
+              f"<span>{pts_arr[opp_idx]}</span>")
+    units = "<label>pts</label><br><br><label>pts</label>"
+    return matchup, scores, units
+
+# format a record string (e.g. given wins/losses or pts_for/pts_against)
+fmt_rec = lambda x, y: f"{x}-{y}"
 
 ##############
 # GET routes #
@@ -236,6 +267,10 @@ def accept_score(form: dict) -> str:
             flash(str(e))
             return redirect(url_for('index'))
 
+    # REVISIT: jumping down to the posted game is a little jarring with no other context,
+    # so we don't want to do that just yet--we will need to do a fading highlight on the
+    # posted game target, and get the `cur_game` reload function to work similarly!!!
+    #return redirect(url_for('index', _anchor=game_label))
     return redirect(url_for('index'))
 
 def correct_score(form: dict, ref: PostScore = None) -> str:
@@ -337,15 +372,15 @@ def render_mobile(context: dict) -> str:
         cur_game  = team.current_game
         status    = stage_status(TournGame)
         team_idx  = cur_game.team_idx(team) if cur_game else None
-        win_rec   = f"{team.tourn_wins}-{team.tourn_losses}"
-        pts_rec   = f"{team.tourn_pts_for}-{team.tourn_pts_against}"
+        win_rec   = fmt_rec(team.tourn_wins, team.tourn_losses)
+        pts_rec   = fmt_rec(team.tourn_pts_for, team.tourn_pts_against)
     elif tourn.stage_start >= TournStage.SEED_RESULTS:
         cur_stage = "Seeding"
         cur_game  = player.current_game
         status    = stage_status(SeedGame)
-        team_idx  = cur_game.player_team_idx(player) if cur_game else None
-        win_rec   = f"{player.seed_wins}-{player.seed_losses}"
-        pts_rec   = f"{player.seed_pts_for}-{player.seed_pts_against}"
+        team_idx  = cur_game.team_idx(player) if cur_game else None
+        win_rec   = fmt_rec(player.seed_wins, player.seed_losses)
+        pts_rec   = fmt_rec(player.seed_pts_for, player.seed_pts_against)
     else:
         cur_stage = None
         cur_game  = None
@@ -388,7 +423,12 @@ def render_mobile(context: dict) -> str:
             team_pts = ref_score.team1_pts if team_idx == 0 else ref_score.team2_pts
             opp_pts = ref_score.team1_pts if opp_idx == 0 else ref_score.team2_pts
 
-    no_team = lambda x: not x.if_team
+    seed_games = player.get_games()
+    if team:
+        tourn_games = team.get_games()
+    else:
+        tourn_games = None
+
     base_ctx = {
         'title'       : MOBILE_TITLE,
         'tourn'       : tourn,
@@ -404,6 +444,10 @@ def render_mobile(context: dict) -> str:
         'opp_pts'     : opp_pts,
         'ref_score'   : ref_score,
         'ref_score_id': ref_score.id if ref_score else None,
+        'seed_games'  : seed_games,
+        'tourn_games' : tourn_games,
+        'fmt_matchup' : fmt_matchup,
+        'fmt_rec'     : fmt_rec,
         'err_msg'     : None
     }
     return render_template(MOBILE_TEMPLATE, **(base_ctx | context))

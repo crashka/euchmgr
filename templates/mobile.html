@@ -59,6 +59,7 @@
      .matchup {
        text-align: center;
        display: inline-block;
+       min-width: 13rem;
        margin: 0.3rem 0.0rem 0.5rem 0.0rem;
      }
      .score {
@@ -69,7 +70,21 @@
        margin-left: 0.3rem;
      }
      .score select {
-       width: 2.8rem;
+       text-align: center;
+       width: 2.7rem;
+     }
+     .score span {
+       display: inline-block;
+       background-color: #F0F0F0;
+       text-align: center;
+       min-width: 2rem;
+     }
+     .units {
+       display: inline-block;
+       margin: 0.3rem 0.0rem 0.5rem 0.0rem;
+     }
+     .units label {
+       margin-left: 0.3rem;
      }
      .cur_game button + button[value="correct_score"] {
        display: none;  /* only if stacked behind another button */
@@ -88,21 +103,38 @@
      span.wide {
        min-width: 9rem;
      }
+     .winner {
+       color: #108810;
+     }
+     .loser {
+       color: #D70000;
+     }
      h1 {
        font-size: 1.5rem;
      }
      h2 {
        font-size: 1.375rem;
-       margin-bottom: 0.25rem;
+       margin-bottom: 0.0rem;
      }
      h3 {
        font-size: 1.25rem;
+       margin-top: 0.5rem;
+       margin-bottom: 0.3rem;
      }
      h4 {
-       font-size: 1.125rem;
+       font-size: 1.0rem;
+       margin-top: 0.5rem;
+       margin-bottom: 0.0rem;
      }
      button {
        padding: 0.1rem 0.2rem;
+     }
+     b {
+       font-weight: bold;
+       /*color: {{bold_color or "black"}};*/
+     }
+     u {
+       text-decoration: none;
      }
     </style>
   </head>
@@ -129,22 +161,25 @@
       </section>
     </section>
     <section class="cur_game" id="cur-game">
-      <h2>Current Game</h2>
+      {% set tooltip = "Tap here to reload game info" %}
+      <h2 title="{{tooltip}}">Current Game</h2>
       {% if cur_game %}
-      <span class="round">(Round {{cur_game.round_num}})</span>
+      <span class="round" title="{{tooltip}}">(Round {{cur_game.round_num}})</span>
       <form action="/mobile" method="post">
         <input type="hidden" name="game_label" value="{{cur_game.label}}">
         <input type="hidden" name="posted_by_num" value="{{user.player_num}}">
         <input type="hidden" name="team_idx" value="{{team_idx}}">
         <input type="hidden" name="ref_score_id" value="{{ref_score_id}}">
-        <p class="matchup">
+        <p class="matchup" title="{{tooltip}}">
           {{team_tag|safe}}
           <br>vs.<br>
           {{opp_tag|safe}}
         </p>
         <p class="score">
           <select name="team_pts">
-            <option value="" disabled></option>
+            {% if team_pts == none %}
+            <option value="" selected disabled hidden></option>
+            {% endif %}
             {% for pts in range(0, 11) %}
             {% set selected = (" selected" if pts == team_pts else "") %}
             <option{{selected}}>{{pts}}</option>
@@ -153,7 +188,9 @@
           <label>pts</label>
           <br><br>
           <select name="opp_pts">
-            <option value="" disabled></option>
+            {% if opp_pts == none %}
+            <option value="" selected disabled hidden></option>
+            {% endif %}
             {% for pts in range(0, 11) %}
             {% set selected = (" selected" if pts == opp_pts else "") %}
             <option{{selected}}>{{pts}}</option>
@@ -175,12 +212,12 @@
           <button value="accept_score">Accept Score</button>
           <button value="correct_score">Correct Score</button>
           {% endif %}
-          <a class="reset" href="javascript:location.reload(true);">[reset]</a>
+          <a class="reset" href="">[reset]</a>
         </p>
         {% else %}  {# ref_score #}
         <p class="actions">
           <button value="submit_score" disabled>Submit Score</button>
-          <a class="reset" href="javascript:location.reload(true);">[reset]</a>
+          <a class="reset" href="">[reset]</a>
         </p>
         {% endif %}  {# ref_score #}
       </form>
@@ -194,13 +231,59 @@
       <h2>Past Games</h2>
       <section id="sd-games">
         <h3>Seeding</h3>
-        <p>
-        </p>
+        <section class="info">
+          {% set win_rec = fmt_rec(user.seed_wins, user.seed_losses) %}
+          {% set pts_rec = fmt_rec(user.seed_pts_for, user.seed_pts_against) %}
+          <p>
+            <label>W-L (stage)</label>: <span>{{win_rec}}</span>
+          </p>
+          <p>
+            <label>PF-PA (stage)</label>: <span>{{pts_rec}}</span>
+          </p>
+        </section>
+        {% for gm in seed_games %}
+        <article id="{{gm.label}}">
+          <h4>Round {{gm.round_num}}</h4>
+          {% set matchup_str = fmt_matchup(gm, user) %}
+          <p class="matchup">
+            {{matchup_str[0]|safe}}
+          </p>
+          <p class="score">
+            {{matchup_str[1]|safe}}
+          </p>
+          <p class="units">
+            {{matchup_str[2]|safe}}
+          </p>
+        </article>
+        {% endfor %}
       </section>
       <section id="rr-games">
         <h3>Round Robin</h3>
-        <p>
-        </p>
+        <section class="info">
+          {% set win_rec = fmt_rec(team.tourn_wins, team.tourn_losses) %}
+          {% set pts_rec = fmt_rec(team.tourn_pts_for, team.tourn_pts_against) %}
+          <p>
+            <label>W-L (stage)</label>: <span>{{win_rec}}</span>
+          </p>
+          <p>
+            <label>PF-PA (stage)</label>: <span>{{pts_rec}}</span>
+          </p>
+        </section>
+        {% for gm in tourn_games %}
+        <article id="{{gm.label}}">
+          <h4>Round {{gm.round_num}}</h4>
+          {% set matchup_str = fmt_matchup(gm, team) %}
+          <p class="matchup">
+            {{matchup_str[0]|safe}}
+          </p>
+          <p class="score">
+            {{matchup_str[1]|safe}}
+          </p>
+          <p class="units">
+            {{matchup_str[2]|safe}}
+          </p>
+        </article>
+        {% endfor %}
       </section>
       <section id="sf-games">
         <h3>Semifinals</h3>
@@ -273,10 +356,17 @@
      // refresh score (ignore inputs, links, etc.)
      $('.cur_game').on('click', function(e) {
        if (chgMap.size == 0) {
-         window.location.reload(true);
+         // REVISIT: would like to jump down to the game if score has been accepted, but
+         // need to figure out why this approach (either variant below) doesn't actually
+         // reload the page!!!
+         //const url = window.location.origin + window.location.pathname;
+         //const anchor = $('.cur_game input[name="game_label"]').attr('value');
+         //window.location.href = url + '#' + anchor;
+         //window.location.replace(url + '#' + anchor);
+         window.location.href = "";
        }
        else {
-         showError("Ignoring click to refresh (pending changes)");
+         showError("Cannot tap to reload game info if there are pending changes");
        }
      });
      $('select, option, button, a', '.cur_game').on('click', function(e) {

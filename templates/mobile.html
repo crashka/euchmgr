@@ -9,6 +9,11 @@
        font-size: 16px;
        font-size: 3.9vmin;
        /*font-size: calc(1.2vh + 1.2vw);*/
+       scroll-padding-top: 2.8rem;
+     }
+     body {
+       margin-top: 0.0rem;
+       margin-right: 0.8rem;
      }
      .err_dlg {
        width: 75%;
@@ -24,17 +29,56 @@
      }
      .login_info {
        float: right;
-       margin-top: 0.0rem;
-       font-size: 0.812rem;
        text-align: right;
+       /*margin-right: 1.0rem;*/
+       padding: 0.5rem 0.3rem;
      }
      .login_info span {
-       font-weight: normal;
+       font-weight: bolder;
+       color: mediumblue;
+     }
+     .header {
+       overflow: visible;
+       position: sticky;
+       top: 0;
+       width: 100%;
+       font-size: 0.875rem;
+       padding: 0.3rem;
+       background: rgb(255 255 255 / 1);
+     }
+     .header .nav {
+       display: inline-block;
+       text-align: center;
+       padding: 0.5rem 0.3rem;
+     }
+     .header .nav:hover,
+     .header .nav2:hover {
+       background: #dddddd;
+     }
+     .header .nav2 {
+       display: block;
+       text-align: left;
+       padding: 0.8rem 0.3rem;
+     }
+     .wrapper {
+       display: inline-block;
+       position: absolute;
+     }
+     .dropdown {
+       position: absolute;
+       visibility: hidden;
+       width: max-content;
+       background: rgb(248 248 248 / 1);
+       padding: 0.3rem;
+     }
+     .info_stats {
+       /*margin-top: 0.0rem;*/
      }
      .info {
        display: flex;
        flex-flow: row wrap;
        width: 100%;
+       margin-bottom: 0.3rem;
      }
      .info p {
        min-width: 45%;
@@ -99,6 +143,7 @@
        color: #A9A9A9;
      }
      .actions {
+       display: inline-block;
        margin: 0.5rem 0.0rem;
      }
      span.med {
@@ -118,16 +163,12 @@
      }
      h2 {
        font-size: 1.375rem;
+       margin-top: 0.5rem;
        margin-bottom: 0.0rem;
      }
      h3 {
-       font-size: 1.25rem;
-       margin-top: 0.5rem;
-       margin-bottom: 0.3rem;
-     }
-     h4 {
-       font-size: 1.0rem;
-       margin-top: 0.5rem;
+       font-size: 1.125rem;
+       margin-top: 0.25rem;
        margin-bottom: 0.0rem;
      }
      button {
@@ -135,7 +176,6 @@
      }
      b {
        font-weight: bold;
-       /*color: {{bold_color or "black"}};*/
      }
      u {
        text-decoration: none;
@@ -148,9 +188,21 @@
       <div></div>
       <button autofocus>Close</button>
     </dialog>
-    <p class="login_info">
-      Logged in as: <span>{{user.nick_name}}</span> [<a href='/logout'>Logout</a>]
-    </p>
+    <div class="header">
+      Jump to:
+      <a class="nav" href="#">Top</a>
+      <div class="wrapper">
+        <a class="nav dd_parent" href="javascript:void(0);">Section</a>
+        <div class="dropdown">
+          <a class="nav2" href="#cur-game">Current Game</a>
+          <a class="nav2" href="#sd-games">Seeding Round</a>
+          <a class="nav2" href="#rr-games">Round Robin</a>
+        </div>
+      </div>
+      <span class="login_info">
+        Logged in as: <span>{{user.nick_name}}</span> [<a href='/logout'>Logout</a>]
+      </span>
+    </div>
     <section class="info_stats" id="info-stats">
       <h2>Info/Stats</h2>
       <section class="info">
@@ -231,74 +283,71 @@
       </p>
       {% endif %}  {# cur_game #}
     </section>
-    <section class="past_games" id="past-games">
-      <h2>Past Games</h2>
-      <section id="sd-games">
-        <h3>Seeding</h3>
-        <section class="info">
-          {% set win_rec = fmt_rec(user.seed_wins, user.seed_losses) %}
-          {% set pts_rec = fmt_rec(user.seed_pts_for, user.seed_pts_against) %}
-          <p>
-            <label>W-L (stage)</label>: <span>{{win_rec}}</span>
-          </p>
-          <p>
-            <label>PF-PA (stage)</label>: <span>{{pts_rec}}</span>
-          </p>
-        </section>
-        {% for gm in seed_games %}
-        <article id="{{gm.label}}">
-          <h4>Round {{gm.round_num}}</h4>
-          {% set matchup_str = fmt_matchup(gm, user) %}
-          <p class="matchup">
-            {{matchup_str[0]|safe}}
-          </p>
-          <p class="score">
-            {{matchup_str[1]|safe}}
-          </p>
-          <p class="units">
-            {{matchup_str[2]|safe}}
-          </p>
-        </article>
-        {% endfor %}
-      </section>
-      <section id="rr-games">
-        <h3>Round Robin</h3>
-        <section class="info">
-          {% set win_rec = fmt_rec(team.tourn_wins, team.tourn_losses) %}
-          {% set pts_rec = fmt_rec(team.tourn_pts_for, team.tourn_pts_against) %}
-          <p>
-            <label>W-L (stage)</label>: <span>{{win_rec}}</span>
-          </p>
-          <p>
-            <label>PF-PA (stage)</label>: <span>{{pts_rec}}</span>
-          </p>
-        </section>
-        {% for gm in tourn_games %}
-        <article id="{{gm.label}}">
-          <h4>Round {{gm.round_num}}</h4>
-          {% set matchup_str = fmt_matchup(gm, team) %}
-          <p class="matchup">
-            {{matchup_str[0]|safe}}
-          </p>
-          <p class="score">
-            {{matchup_str[1]|safe}}
-          </p>
-          <p class="units">
-            {{matchup_str[2]|safe}}
-          </p>
-        </article>
-        {% endfor %}
-      </section>
-      <section id="sf-games">
-        <h3>Semifinals</h3>
+    <section id="sd-games">
+      <h2>Seeding Round</h2>
+      <section class="info">
+        {% set win_rec = fmt_rec(user.seed_wins, user.seed_losses) %}
+        {% set pts_rec = fmt_rec(user.seed_pts_for, user.seed_pts_against) %}
         <p>
+          <label>W-L (stage)</label>: <span>{{win_rec}}</span>
+        </p>
+        <p>
+          <label>PF-PA (stage)</label>: <span>{{pts_rec}}</span>
         </p>
       </section>
-      <section id="fn-games">
-        <h3>Finals</h3>
+      {% for gm in seed_games %}
+      <article id="{{gm.label}}">
+        <h3>Round {{gm.round_num}}</h3>
+        {% set matchup_str = fmt_matchup(gm, user) %}
+        <p class="matchup">
+          {{matchup_str[0]|safe}}
+        </p>
+        <p class="score">
+          {{matchup_str[1]|safe}}
+        </p>
+        <p class="units">
+          {{matchup_str[2]|safe}}
+        </p>
+      </article>
+      {% endfor %}
+    </section>
+    <section id="rr-games">
+      <h2>Round Robin</h2>
+      <section class="info">
+        {% set win_rec = fmt_rec(team.tourn_wins, team.tourn_losses) %}
+        {% set pts_rec = fmt_rec(team.tourn_pts_for, team.tourn_pts_against) %}
         <p>
+          <label>W-L (stage)</label>: <span>{{win_rec}}</span>
+        </p>
+        <p>
+          <label>PF-PA (stage)</label>: <span>{{pts_rec}}</span>
         </p>
       </section>
+      {% for gm in tourn_games %}
+      <article id="{{gm.label}}">
+        <h3>Round {{gm.round_num}}</h3>
+        {% set matchup_str = fmt_matchup(gm, team) %}
+        <p class="matchup">
+          {{matchup_str[0]|safe}}
+        </p>
+        <p class="score">
+          {{matchup_str[1]|safe}}
+        </p>
+        <p class="units">
+          {{matchup_str[2]|safe}}
+        </p>
+      </article>
+      {% endfor %}
+    </section>
+    <section id="sf-games">
+      <h2>Semifinals</h2>
+      <p>
+      </p>
+    </section>
+    <section id="fn-games">
+      <h2>Finals</h2>
+      <p>
+      </p>
     </section>
   </body>
 
@@ -320,6 +369,18 @@
        target.innerText = err_text;
        target.parentElement.showModal();
      };
+
+     // menu stuff
+     $('.dd_parent').on('focus', function(e) {
+       $('.dropdown').css('visibility', 'visible');
+     });
+     $('.dd_parent').on('focusout', function(e) {
+       // MYSTERY: not sure why we have to do this, perhaps some sort of "yield" for
+       // sequence of event processing (before anchor element goes out of scope)???
+       setTimeout(() => {
+         $('.dropdown').css('visibility', 'hidden');
+       }, 0);
+     });
 
      {% if cur_game %}
      // score change

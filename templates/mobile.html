@@ -71,9 +71,6 @@
        background: rgb(248 248 248 / 1);
        padding: 0.3rem;
      }
-     .info_stats {
-       /*margin-top: 0.0rem;*/
-     }
      .info {
        display: flex;
        flex-flow: row wrap;
@@ -81,16 +78,28 @@
        margin-bottom: 0.3rem;
      }
      .info p {
-       min-width: 45%;
+       min-width: 35%;
        justify-content: space-around;
        margin: 0.35rem 0.25rem;
+     }
+     .info p.med {
+       min-width: 45%;
+     }
+     .info p.wide {
+       min-width: 95%;
      }
      .info span {
        background-color: #F0F0F0;
        display: inline-block;
-       min-width: 2rem;
+       min-width: 2.0rem;
        margin-left: 0.1rem;
        padding: 0.0rem 0.5rem 0.05rem 0.3rem;
+     }
+     .info span.med {
+       min-width: 4.5rem;
+     }
+     .info span.wide {
+       min-width: 9rem;
      }
      .cur_game h2 {
        display: inline-block;
@@ -146,12 +155,6 @@
        display: inline-block;
        margin: 0.5rem 0.0rem;
      }
-     span.med {
-       min-width: 4.5rem;
-     }
-     span.wide {
-       min-width: 9rem;
-     }
      .winner {
        color: #108810;
      }
@@ -204,15 +207,25 @@
       </span>
     </div>
     <section class="info_stats" id="info-stats">
-      <h2>Info/Stats</h2>
-      <section class="info">
-        {% for info in info_flds %}
-        {% if tourn.stage_compl >= info.min_stg %}
-        <p>
-          {# NOT that an info_data value of `0` must be passed in as a string #}
-          <label>{{info.label}}</label>: <span class="{{info.cls}}">{{(info_data[loop.index0] or "&nbsp;")|safe}}</span>
-        </p>
+      <h2>Info</h2>
+      <section>
+        {% for info_sec in info_flds %}
+        {# HACK: skip section if first element (assumed req'd) is empty #}
+        {% if info_sec and info_data[info_sec][0] %}
+        <h3>{{info_sec}}</h3>
         {% endif %}
+        <article class="info">
+          {% for info in info_flds[info_sec] %}
+          {% if tourn.stage_compl >= info.min_stg %}
+          <p class="{{info.cls}}">
+            {# NOTE that an info_data value of `0` must be passed in as a string #}
+            {% set data_val = info_data[info_sec][loop.index0] or "&nbsp;" %}
+            <label>{{info.label}}</label>:
+            <span class="{{info.cls}}">{{data_val|safe}}</span>
+          </p>
+          {% endif %}
+          {% endfor %}
+        </article>
         {% endfor %}
       </section>
     </section>
@@ -283,16 +296,17 @@
       </p>
       {% endif %}  {# cur_game #}
     </section>
+    {% if seed_games %}
     <section id="sd-games">
       <h2>Seeding Round</h2>
       <section class="info">
         {% set win_rec = fmt_rec(user.seed_wins, user.seed_losses) %}
         {% set pts_rec = fmt_rec(user.seed_pts_for, user.seed_pts_against) %}
         <p>
-          <label>W-L (stage)</label>: <span>{{win_rec}}</span>
+          <label>W-L</label>: <span>{{win_rec}}</span>
         </p>
         <p>
-          <label>PF-PA (stage)</label>: <span>{{pts_rec}}</span>
+          <label>PF-PA</label>: <span>{{pts_rec}}</span>
         </p>
       </section>
       {% for gm in seed_games %}
@@ -311,16 +325,18 @@
       </article>
       {% endfor %}
     </section>
+    {% endif %}
+    {% if tourn_games %}
     <section id="rr-games">
       <h2>Round Robin</h2>
       <section class="info">
         {% set win_rec = fmt_rec(team.tourn_wins, team.tourn_losses) %}
         {% set pts_rec = fmt_rec(team.tourn_pts_for, team.tourn_pts_against) %}
         <p>
-          <label>W-L (stage)</label>: <span>{{win_rec}}</span>
+          <label>W-L</label>: <span>{{win_rec}}</span>
         </p>
         <p>
-          <label>PF-PA (stage)</label>: <span>{{pts_rec}}</span>
+          <label>PF-PA</label>: <span>{{pts_rec}}</span>
         </p>
       </section>
       {% for gm in tourn_games %}
@@ -339,16 +355,21 @@
       </article>
       {% endfor %}
     </section>
+    {% endif %}
+    {% if semi_games %}
     <section id="sf-games">
       <h2>Semifinals</h2>
       <p>
       </p>
     </section>
+    {% endif %}
+    {% if final_games %}
     <section id="fn-games">
       <h2>Finals</h2>
       <p>
       </p>
     </section>
+    {% endif %}
   </body>
 
   <script src="/static/jquery-3.7.1.min.js"></script>

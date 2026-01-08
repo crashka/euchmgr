@@ -36,14 +36,6 @@ def is_mobile() -> bool:
     """
     return re.search(MOBILE_REGEX, request.user_agent.string) is not None
 
-class UserInfo(NamedTuple):
-    """Readonly user info/stats field
-    """
-    name   : str  # also used as the element id
-    cls    : str  # CSS class for info data span
-    label  : str
-    min_stg: TournStage
-
 def stage_status(games: SeedGame | TournGame) -> str:
     """Return current stage status/round
     """
@@ -345,89 +337,130 @@ def correct_score(form: dict, ref: PostScore = None) -> str:
 # renderers #
 #############
 
-INFO_FIELDS = [
-    UserInfo("tourn",     "wide", "Tournament",    TournStage.TOURN_CREATE),
-    UserInfo("plyr_num",  "",     "Player Num",    TournStage.TOURN_CREATE),
-    UserInfo("seed_rank", "",     "Player Rank",   TournStage.TOURN_CREATE),
-    UserInfo("team_name", "wide", "Team Name",     TournStage.TOURN_TEAMS),
-    UserInfo("div_num",   "",     "Division",      TournStage.TOURN_BRACKET),
-    UserInfo("div_seed",  "",     "Seed (div)",    TournStage.TOURN_BRACKET),
-    UserInfo("stage",     "med",  "Stage",         TournStage.TOURN_CREATE),
-    UserInfo("status",    "",     "Status",        TournStage.TOURN_CREATE),
-    UserInfo("win_rec",   "",     "W-L (stage)",   TournStage.TOURN_CREATE),
-    UserInfo("pts_rec",   "",     "PF-PA (stage)", TournStage.TOURN_CREATE)
-]
+SEEDING = "Seeding Round"
+ROUND_ROBIN = "Round Robin"
+
+class UserInfo(NamedTuple):
+    """Readonly user info/stats field
+    """
+    name   : str  # also used as the element id
+    cls    : str  # CSS class for info data span
+    label  : str
+    min_stg: TournStage
+
+INFO_FIELDS = {
+    None: [
+        UserInfo("tourn",      "wide", "Tournament", TournStage.TOURN_CREATE),
+        UserInfo("stage",      "med",  "Stage",      TournStage.TOURN_CREATE),
+        UserInfo("status",     "",     "Status",     TournStage.TOURN_CREATE)
+    ],
+    SEEDING: [
+        UserInfo("plyr_name",  "med",  "Player",     TournStage.TOURN_CREATE),
+        UserInfo("plyr_num",   "",     "Num",        TournStage.TOURN_CREATE),
+        UserInfo("win_rec_sd", "",     "W-L",        TournStage.TOURN_CREATE),
+        UserInfo("pts_rec_sd", "",     "PF-PA",      TournStage.TOURN_CREATE),
+        UserInfo("seed_rank",  "",     "Rank",       TournStage.TOURN_CREATE)
+    ],
+    ROUND_ROBIN: [
+        UserInfo("team_name",  "wide", "Team",       TournStage.TOURN_TEAMS),
+        UserInfo("div_num",    "",     "Div",        TournStage.TOURN_BRACKET),
+        UserInfo("div_seed",   "",     "Seed",       TournStage.TOURN_BRACKET),
+        UserInfo("win_rec_rr", "",     "W-L",        TournStage.TOURN_BRACKET),
+        UserInfo("pts_rec_rr", "",     "PF-PA",      TournStage.TOURN_BRACKET),
+        UserInfo("div_rank",   "",     "Rank",       TournStage.TOURN_BRACKET)
+    ]
+}
 
 def render_mobile(context: dict) -> str:
     """Common post-processing of context before rendering the tournament selector and
     creation page through Jinja
     """
-    tourn  = TournInfo.get()
-    player = current_user
-    team   = current_user.team
+    tourn      = TournInfo.get(requery=True)
+    player     = current_user
+    team       = current_user.team
 
     if tourn.stage_start >= TournStage.TOURN_RESULTS:
         assert team
-        cur_stage = "Round Robin"
-        cur_game  = team.current_game
-        status    = stage_status(TournGame)
-        team_idx  = cur_game.team_idx(team) if cur_game else None
-        win_rec   = fmt_rec(team.tourn_wins, team.tourn_losses)
-        pts_rec   = fmt_rec(team.tourn_pts_for, team.tourn_pts_against)
+        cur_stage  = ROUND_ROBIN
+        cur_game   = team.current_game
+        status     = stage_status(TournGame)
+        team_idx   = cur_game.team_idx(team) if cur_game else None
+        win_rec_sd = fmt_rec(player.seed_wins, player.seed_losses)
+        pts_rec_sd = fmt_rec(player.seed_pts_for, player.seed_pts_against)
+        win_rec_rr = fmt_rec(team.tourn_wins, team.tourn_losses)
+        pts_rec_rr = fmt_rec(team.tourn_pts_for, team.tourn_pts_against)
     elif tourn.stage_start >= TournStage.SEED_RESULTS:
-        cur_stage = "Seeding"
-        cur_game  = player.current_game
-        status    = stage_status(SeedGame)
-        team_idx  = cur_game.team_idx(player) if cur_game else None
-        win_rec   = fmt_rec(player.seed_wins, player.seed_losses)
-        pts_rec   = fmt_rec(player.seed_pts_for, player.seed_pts_against)
+        cur_stage  = SEEDING
+        cur_game   = player.current_game
+        status     = stage_status(SeedGame)
+        team_idx   = cur_game.team_idx(player) if cur_game else None
+        win_rec_sd = fmt_rec(player.seed_wins, player.seed_losses)
+        pts_rec_sd = fmt_rec(player.seed_pts_for, player.seed_pts_against)
     else:
-        cur_stage = None
-        cur_game  = None
-        status    = None
-        team_idx  = None
-        win_rec   = None
-        pts_rec   = None
-
-    if team_idx in (0, 1):
-        opp_idx   = team_idx ^ 0x01
-        team_tag  = cur_game.team_tags[team_idx]
-        team_pts  = cur_game.team1_pts if team_idx == 0 else cur_game.team2_pts
-        opp_tag   = cur_game.team_tags[opp_idx]
-        opp_pts   = cur_game.team1_pts if opp_idx == 0 else cur_game.team2_pts
-    else:
-        opp_idx   = None
-        team_tag  = None
-        team_pts  = None
-        opp_tag   = None
-        opp_pts   = None
-
-    info_data = [
-        tourn.name,
-        player.player_num,
-        player.player_rank,
-        team.team_name if team else None,
-        team.div_num if team else None,
-        team.div_seed if team else None,
-        cur_stage,
-        status,
-        win_rec,
-        pts_rec
-    ]
-    assert len(info_data) == len(INFO_FIELDS)
+        cur_stage  = None
+        cur_game   = None
+        status     = None
+        team_idx   = None
+        win_rec_sd = None
+        pts_rec_sd = None
 
     ref_score = None
-    if cur_game and not cur_game.winner:
-        ref_score = PostScore.get_last(cur_game.label)
-        if ref_score:
-            team_pts = ref_score.team1_pts if team_idx == 0 else ref_score.team2_pts
-            opp_pts = ref_score.team1_pts if opp_idx == 0 else ref_score.team2_pts
+    if cur_game:
+        assert team_idx in (0, 1)
+        opp_idx  = team_idx ^ 0x01
+        map_pts  = lambda x, i: x.team1_pts if i == 0 else x.team2_pts
+        team_tag = cur_game.team_tags[team_idx]
+        team_pts = map_pts(cur_game, team_idx)
+        team_pts_old = cur_game.team1_pts if team_idx == 0 else cur_game.team2_pts
+        assert team_pts == team_pts_old
+        opp_tag  = cur_game.team_tags[opp_idx]
+        opp_pts  = map_pts(cur_game, opp_idx)
+        opp_pts_old  = cur_game.team1_pts if opp_idx == 0 else cur_game.team2_pts
+        assert opp_pts == opp_pts_old
+        if not cur_game.winner:
+            ref_score = PostScore.get_last(cur_game.label)
+            if ref_score:
+                team_pts = map_pts(ref_score, team_idx)
+                team_pts_old = ref_score.team1_pts if team_idx == 0 else ref_score.team2_pts
+                assert team_pts == team_pts_old
+                opp_pts = map_pts(ref_score, opp_idx)
+                opp_pts_old = ref_score.team1_pts if opp_idx == 0 else ref_score.team2_pts
+                assert opp_pts == opp_pts_old
+    else:
+        opp_idx  = None
+        team_tag = None
+        team_pts = None
+        opp_tag  = None
+        opp_pts  = None
+
+    info_data = {
+        None: [
+            tourn.name,
+            cur_stage,
+            status
+        ],
+        SEEDING: [
+            player.nick_name,
+            player.player_num,
+            win_rec_sd,
+            pts_rec_sd,
+            player.player_rank
+        ],
+        ROUND_ROBIN: [
+            team.team_name if team else None,
+            team.div_num   if team else None,
+            team.div_seed  if team else None,
+            win_rec_rr     if team else None,
+            pts_rec_rr     if team else None,
+            team.div_rank  if team else None
+        ]
+    }
+    assert len(info_data) == len(INFO_FIELDS)
+    assert (tuple(len(v) for v in info_data.values()) ==
+            tuple(len(v) for v in INFO_FIELDS.values()))
 
     seed_games = player.get_games()
-    if team:
-        tourn_games = team.get_games()
-    else:
-        tourn_games = None
+    tourn_games = team.get_games() if team else None
 
     base_ctx = {
         'title'       : MOBILE_TITLE,

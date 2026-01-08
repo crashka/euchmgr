@@ -478,7 +478,7 @@ class Player(BaseModel, EuchmgrUser):
               .order_by(SeedGame.round_num))
         return cg[0] if len(cg) > 0 else None
 
-    def get_games(self) -> list[BaseModel]:
+    def get_games(self, all_games: bool = False) -> list[BaseModel]:
         """Get completed SeedGame records (including possible byes up to the current round
         for the stage).
         """
@@ -487,11 +487,13 @@ class Player(BaseModel, EuchmgrUser):
             return None  # as distinct from [], e.g. game 1 in progress
         query = (SeedGame
                  .select()
-                 .join(PlayerGame, on=(PlayerGame.game_label == SeedGame.label))
-                 .where(PlayerGame.player == self)
-                 .order_by(PlayerGame.round_num))
-        if cur_round != -1:
-            query = query.where(PlayerGame.round_num <= cur_round)
+                 .where((SeedGame.player1 == self) |
+                        (SeedGame.player2 == self) |
+                        (SeedGame.player3 == self) |
+                        (SeedGame.player4 == self))
+                 .order_by(SeedGame.round_num))
+        if cur_round != -1 and not all_games:
+            query = query.where(SeedGame.round_num <= cur_round)
         return list(query)
 
     def get_opps_games(self, opps: list[Self]) -> list[BaseModel]:
@@ -1054,7 +1056,7 @@ class Team(BaseModel):
               .order_by(TournGame.round_num))
         return cg[0] if len(cg) > 0 else None
 
-    def get_games(self) -> list[BaseModel]:
+    def get_games(self, all_games: bool = False) -> list[BaseModel]:
         """Get completed TournGame records (including possible byes up to the current
         round for the stage).
         """
@@ -1063,11 +1065,11 @@ class Team(BaseModel):
             return None  # as distinct from [], e.g. game 1 in progress
         query = (TournGame
                  .select()
-                 .join(TeamGame, on=(TeamGame.game_label == TournGame.label))
-                 .where(TeamGame.team == self)
-                 .order_by(TeamGame.round_num))
-        if cur_round != -1:
-            query = query.where(TeamGame.round_num <= cur_round)
+                 .where((TournGame.team1 == self) |
+                        (TournGame.team2 == self))
+                 .order_by(TournGame.round_num))
+        if cur_round != -1 and not all_games:
+            query = query.where(TournGame.round_num <= cur_round)
         return list(query)
 
     def get_opps_games(self, opps: list[Self]) -> list[BaseModel]:

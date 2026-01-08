@@ -203,7 +203,7 @@
         </div>
       </div>
       <span class="login_info">
-        Logged in as: <span>{{user.nick_name}}</span> [<a href='/logout'>Logout</a>]
+        User: <span>{{user.nick_name}}</span> [<a href='/logout'>Logout</a>]
       </span>
     </div>
     <section class="info_stats" id="info-stats">
@@ -392,13 +392,13 @@
      };
 
      // menu stuff
-     $('.dd_parent').on('focus', function(e) {
+     $('.dd_parent').on('focus', function() {
        $('.dropdown').css('visibility', 'visible');
      });
-     $('.dd_parent').on('focusout', function(e) {
+     $('.dd_parent').on('focusout', function() {
        // MYSTERY: not sure why we have to do this, perhaps some sort of "yield" for
        // sequence of event processing (before anchor element goes out of scope)???
-       setTimeout(() => {
+       setTimeout(function() {
          $('.dropdown').css('visibility', 'hidden');
        }, 0);
      });
@@ -418,7 +418,7 @@
      $('.score select').each(function(idx) {
        updMaps(this, true);
      });
-     $('.score select').on('change', function(e) {
+     $('.score select').on('change', function() {
        updMaps(this);
        {% if ref_score %}
        if (winMap.size == 1) {
@@ -441,7 +441,7 @@
                    .attr('href', '');
      });
      // refresh score (ignore inputs, links, etc.)
-     $('.cur_game').on('click', function(e) {
+     $('.cur_game').on('click', function() {
        if (chgMap.size == 0) {
          // REVISIT: would like to jump down to the game if score has been accepted, but
          // need to figure out why this approach (either variant below) doesn't actually

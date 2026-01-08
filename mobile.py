@@ -89,9 +89,8 @@ def fmt_matchup(game: SeedGame | TournGame, ref: Player | Team) -> tuple[str, st
         return matchup, scores, units
 
     assert team_idx in (0, 1)
-    assert game.winner
     opp_idx = team_idx ^ 0x01
-    pts_arr = [game.team1_pts, game.team2_pts]
+    pts_arr = [game.team1_pts, game.team2_pts] if game.winner else ['&nbsp;', '&nbsp;']
     cls_arr = ['winner', 'loser'] if game.team1_pts == GAME_PTS else ['loser', 'winner']
     matchup = (f"<span class=\"{cls_arr[team_idx]}\">{game.team_tags[team_idx]}</span><br>vs.<br>"
                f"<span>{game.team_tags[opp_idx]}</span>")
@@ -411,21 +410,13 @@ def render_mobile(context: dict) -> str:
         map_pts  = lambda x, i: x.team1_pts if i == 0 else x.team2_pts
         team_tag = cur_game.team_tags[team_idx]
         team_pts = map_pts(cur_game, team_idx)
-        team_pts_old = cur_game.team1_pts if team_idx == 0 else cur_game.team2_pts
-        assert team_pts == team_pts_old
         opp_tag  = cur_game.team_tags[opp_idx]
         opp_pts  = map_pts(cur_game, opp_idx)
-        opp_pts_old  = cur_game.team1_pts if opp_idx == 0 else cur_game.team2_pts
-        assert opp_pts == opp_pts_old
         if not cur_game.winner:
             ref_score = PostScore.get_last(cur_game.label)
             if ref_score:
                 team_pts = map_pts(ref_score, team_idx)
-                team_pts_old = ref_score.team1_pts if team_idx == 0 else ref_score.team2_pts
-                assert team_pts == team_pts_old
                 opp_pts = map_pts(ref_score, opp_idx)
-                opp_pts_old = ref_score.team1_pts if opp_idx == 0 else ref_score.team2_pts
-                assert opp_pts == opp_pts_old
     else:
         opp_idx  = None
         team_tag = None
@@ -459,8 +450,8 @@ def render_mobile(context: dict) -> str:
     assert (tuple(len(v) for v in info_data.values()) ==
             tuple(len(v) for v in INFO_FIELDS.values()))
 
-    seed_games = player.get_games()
-    tourn_games = team.get_games() if team else None
+    seed_games = player.get_games(all_games=True)
+    tourn_games = team.get_games(all_games=True) if team else None
 
     base_ctx = {
         'title'       : MOBILE_TITLE,

@@ -1,3 +1,4 @@
+{% set home_page = (not view) %}
 <!DOCTYPE html>
 <html>
   <head>
@@ -27,16 +28,6 @@
      .err_dlg button {
        margin-top: 1.2rem;
      }
-     .login_info {
-       float: right;
-       text-align: right;
-       /*margin-right: 1.0rem;*/
-       padding: 0.5rem 0.3rem;
-     }
-     .login_info span {
-       font-weight: bolder;
-       color: mediumblue;
-     }
      .header {
        overflow: visible;
        position: sticky;
@@ -46,10 +37,14 @@
        padding: 0.3rem;
        background: rgb(255 255 255 / 1);
      }
+     .header .goto {
+       display: inline-block;
+       padding: 0.5rem 0.0rem;
+     }
      .header .nav {
        display: inline-block;
        text-align: center;
-       padding: 0.5rem 0.3rem;
+       padding: 0.5rem 0.4rem;
      }
      .header .nav:hover,
      .header .nav2:hover {
@@ -64,12 +59,22 @@
        display: inline-block;
        position: absolute;
      }
-     .dropdown {
+     .view_menu {
        position: absolute;
        visibility: hidden;
        width: max-content;
        background: rgb(248 248 248 / 1);
        padding: 0.3rem;
+     }
+     .login_info {
+       float: right;
+       text-align: right;
+       /*margin-right: 1.0rem;*/
+       padding: 0.5rem 0.3rem;
+     }
+     .login_info span {
+       font-weight: bolder;
+       color: mediumblue;
      }
      .info {
        display: flex;
@@ -161,6 +166,9 @@
      .loser {
        color: #D70000;
      }
+     .pending {
+       color: #6F6F6F;
+     }
      h1 {
        font-size: 1.5rem;
      }
@@ -192,34 +200,31 @@
       <button autofocus>Close</button>
     </dialog>
     <div class="header">
-      Jump to:
-      <a class="nav" href="#">Top</a>
+      <span class="goto">Go to:</span>
       <div class="wrapper">
-        <a class="nav dd_parent" href="javascript:void(0);">Section</a>
-        <div class="dropdown">
-          <a class="nav2" href="#cur-game">Current Game</a>
-          <a class="nav2" href="#sd-games">Seeding Round</a>
-          <a class="nav2" href="#rr-games">Round Robin</a>
+        <a class="nav view_nav" href="javascript:void(0);">Page</a>
+        <div class="view_menu">
+          {% for href in view_menu %}
+          <a class="nav2" href="{{href}}">{{view_menu[href]}}</a>
+          {% endfor %}
         </div>
       </div>
       <span class="login_info">
-        User: <span>{{user.nick_name}}</span> [<a href='/logout'>Logout</a>]
+        Logged in as: <span>{{user.nick_name}}</span> [<a href='/logout'>Logout</a>]
       </span>
     </div>
     <section class="info_stats" id="info-stats">
-      <h2>Info</h2>
       <section>
-        {% for info_sec in info_flds %}
-        {# HACK: skip section if first element (assumed req'd) is empty #}
-        {% if info_sec and info_data[info_sec][0] %}
-        <h3>{{info_sec}}</h3>
+        {% for info_sect in info_data %}
+        {% if info_sect %}
+        <h3>{{info_sect}}</h3>
         {% endif %}
         <article class="info">
-          {% for info in info_flds[info_sec] %}
+          {% for info in info_flds[info_sect] %}
           {% if tourn.stage_compl >= info.min_stg %}
           <p class="{{info.cls}}">
             {# NOTE that an info_data value of `0` must be passed in as a string #}
-            {% set data_val = info_data[info_sec][loop.index0] or "&nbsp;" %}
+            {% set data_val = info_data[info_sect][loop.index0] or "&nbsp;" %}
             <label>{{info.label}}</label>:
             <span class="{{info.cls}}">{{data_val|safe}}</span>
           </p>
@@ -229,12 +234,13 @@
         {% endfor %}
       </section>
     </section>
+    {% if home_page %}
     <section class="cur_game" id="cur-game">
       {% set tooltip = "Tap here to reload game info" %}
       <h2 title="{{tooltip}}">Current Game</h2>
       {% if cur_game %}
       <span class="round" title="{{tooltip}}">(Round {{cur_game.round_num}})</span>
-      <form action="/mobile" method="post">
+      <form action="/mobile/" method="post">
         <input type="hidden" name="game_label" value="{{cur_game.label}}">
         <input type="hidden" name="posted_by_num" value="{{user.player_num}}">
         <input type="hidden" name="team_idx" value="{{team_idx}}">
@@ -296,9 +302,11 @@
       </p>
       {% endif %}  {# cur_game #}
     </section>
-    {% if seed_games %}
+    {% endif %}  {# home_page #}
+    {% if view == seeding %}
     <section id="sd-games">
       <h2>Seeding Round</h2>
+      {% if seed_games %}
       <section class="info">
         {% set win_rec = fmt_rec(user.seed_wins, user.seed_losses) %}
         {% set pts_rec = fmt_rec(user.seed_pts_for, user.seed_pts_against) %}
@@ -324,11 +332,17 @@
         </p>
       </article>
       {% endfor %}
+      {% else %}  {# seed_games #}
+      <p>
+        <i>Bracket not yet created</i>
+      </p>
+      {% endif %}  {# seed_games #}
     </section>
-    {% endif %}
-    {% if tourn_games %}
+    {% endif %}  {# view == seeding #}
+    {% if view == round_robin %}
     <section id="rr-games">
       <h2>Round Robin</h2>
+      {% if tourn_games %}
       <section class="info">
         {% set win_rec = fmt_rec(team.tourn_wins, team.tourn_losses) %}
         {% set pts_rec = fmt_rec(team.tourn_pts_for, team.tourn_pts_against) %}
@@ -354,8 +368,13 @@
         </p>
       </article>
       {% endfor %}
+      {% else %}  {# tourn_games #}
+      <p>
+        <i>Brackets not yet created</i>
+      </p>
+      {% endif %}  {# tourn_games #}
     </section>
-    {% endif %}
+    {% endif %}  {# view == round_robin #}
     {% if semi_games %}
     <section id="sf-games">
       <h2>Semifinals</h2>
@@ -392,14 +411,14 @@
      };
 
      // menu stuff
-     $('.dd_parent').on('focus', function() {
-       $('.dropdown').css('visibility', 'visible');
+     $('.view_nav').on('focus', function() {
+       $('.view_menu').css('visibility', 'visible');
      });
-     $('.dd_parent').on('focusout', function() {
+     $('.view_nav').on('focusout', function() {
        // MYSTERY: not sure why we have to do this, perhaps some sort of "yield" for
        // sequence of event processing (before anchor element goes out of scope)???
        setTimeout(function() {
-         $('.dropdown').css('visibility', 'hidden');
+         $('.view_menu').css('visibility', 'hidden');
        }, 0);
      });
 

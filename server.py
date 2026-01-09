@@ -102,11 +102,12 @@ def create_app(config: object | Config = Config) -> Flask:
     app = Flask(__name__)
 
     app.config.from_object(config)
-    app.register_blueprint(mobile)
+    app.register_blueprint(mobile, url_prefix="/mobile")
     app.register_blueprint(data, url_prefix="/data")
     app.register_blueprint(chart, url_prefix="/chart")
     app.register_blueprint(dash, url_prefix="/dash")
     app.register_blueprint(report, url_prefix="/report")
+    app.jinja_env.add_extension('jinja2.ext.loopcontrols')
 
     global sess_ext, login
     sess_ext.init_app(app)
@@ -177,7 +178,7 @@ def create_app(config: object | Config = Config) -> Flask:
         login_user(player)
         # TEMP: need to make the routing device and/or context sensitive!!!
         assert is_mobile()
-        return redirect('/mobile')
+        return redirect('/mobile/')
 
     @app.route('/logout')
     def logout():
@@ -202,7 +203,7 @@ def create_app(config: object | Config = Config) -> Flask:
             return redirect(url_for('login_page'))
 
         if is_mobile():
-            return redirect('/mobile')
+            return redirect('/mobile/')
 
         assert current_user.is_admin
         context = {

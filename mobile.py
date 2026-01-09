@@ -90,8 +90,12 @@ def fmt_matchup(game: SeedGame | TournGame, ref: Player | Team) -> tuple[str, st
 
     assert team_idx in (0, 1)
     opp_idx = team_idx ^ 0x01
-    pts_arr = [game.team1_pts, game.team2_pts] if game.winner else ['&nbsp;', '&nbsp;']
-    cls_arr = ['winner', 'loser'] if game.team1_pts == GAME_PTS else ['loser', 'winner']
+    if game.winner:
+        pts_arr = [game.team1_pts, game.team2_pts]
+        cls_arr = ['winner', 'loser'] if game.team1_pts == GAME_PTS else ['loser', 'winner']
+    else:
+        pts_arr = ['&nbsp;', '&nbsp;']
+        cls_arr = ['', '']
     matchup = (f"<span class=\"{cls_arr[team_idx]}\">{game.team_tags[team_idx]}</span><br>vs.<br>"
                f"<span>{game.team_tags[opp_idx]}</span>")
     scores = (f"<span class=\"{cls_arr[team_idx]}\">{pts_arr[team_idx]}</span><br><br>"
@@ -106,7 +110,13 @@ fmt_rec = lambda x, y: f"{x}-{y}"
 # GET routes #
 ##############
 
-@mobile.get("/mobile")
+VIEW_NONE        = None  # meaning, the home page
+VIEW_SEEDING     = 'seeding'
+VIEW_ROUND_ROBIN = 'round_robin'
+VIEW_SEMIFINALS  = 'semifinals'
+VIEW_FINALS      = 'finals'
+
+@mobile.get("/")
 def index() -> str:
     """Render mobile app if logged in
     """
@@ -118,6 +128,22 @@ def index() -> str:
     context = {'err_msg': err_msg}
     return render_mobile(context)
 
+@mobile.get("/seeding")
+@mobile.get("/round_robin")
+@mobile.get("/semifinals")
+@mobile.get("/finals")
+def view() -> str:
+    """Render mobile app if logged in
+    """
+    if not current_user.is_authenticated:
+        flash("Please reauthenticate in order to access the app")
+        return redirect('/login')
+
+    view = request.path.split('/')[-1]
+    err_msg = "<br>".join(get_flashed_messages())
+    context = {'err_msg': err_msg}
+    return render_mobile(context, view)
+
 ################
 # POST actions #
 ################
@@ -128,7 +154,7 @@ ACTIONS = [
     'correct_score'
 ]
 
-@mobile.post("/mobile")
+@mobile.post("/")
 def submit() -> str:
     """Handle post action
     """
@@ -336,8 +362,12 @@ def correct_score(form: dict, ref: PostScore = None) -> str:
 # renderers #
 #############
 
-SEEDING = "Seeding Round"
-ROUND_ROBIN = "Round Robin"
+# "phase" is a high-level pseudo-stage used to control the display
+PHASE_COMMON = None  # dummy value for common tournament info
+PHASE_SEEDING = "Seeding Round"
+PHASE_ROUND_ROBIN = "Round Robin"
+PHASE_SEMIFINALS  = "Semifinals"
+PHASE_FINALS      = "Finals"
 
 class UserInfo(NamedTuple):
     """Readonly user info/stats field
@@ -348,19 +378,20 @@ class UserInfo(NamedTuple):
     min_stg: TournStage
 
 INFO_FIELDS = {
-    None: [
+    PHASE_COMMON: [
+        UserInfo("full_name",  "wide", "Player",     TournStage.TOURN_CREATE),
         UserInfo("tourn",      "wide", "Tournament", TournStage.TOURN_CREATE),
         UserInfo("stage",      "med",  "Stage",      TournStage.TOURN_CREATE),
         UserInfo("status",     "",     "Status",     TournStage.TOURN_CREATE)
     ],
-    SEEDING: [
-        UserInfo("plyr_name",  "med",  "Player",     TournStage.TOURN_CREATE),
+    PHASE_SEEDING: [
+        UserInfo("plyr_name",  "med",  "Name",       TournStage.TOURN_CREATE),
         UserInfo("plyr_num",   "",     "Num",        TournStage.TOURN_CREATE),
         UserInfo("win_rec_sd", "",     "W-L",        TournStage.TOURN_CREATE),
         UserInfo("pts_rec_sd", "",     "PF-PA",      TournStage.TOURN_CREATE),
         UserInfo("seed_rank",  "",     "Rank",       TournStage.TOURN_CREATE)
     ],
-    ROUND_ROBIN: [
+    PHASE_ROUND_ROBIN: [
         UserInfo("team_name",  "wide", "Team",       TournStage.TOURN_TEAMS),
         UserInfo("div_num",    "",     "Div",        TournStage.TOURN_BRACKET),
         UserInfo("div_seed",   "",     "Seed",       TournStage.TOURN_BRACKET),
@@ -370,7 +401,7 @@ INFO_FIELDS = {
     ]
 }
 
-def render_mobile(context: dict) -> str:
+def render_mobile(context: dict, view: str = None) -> str:
     """Common post-processing of context before rendering the tournament selector and
     creation page through Jinja
     """
@@ -380,7 +411,7 @@ def render_mobile(context: dict) -> str:
 
     if tourn.stage_start >= TournStage.TOURN_RESULTS:
         assert team
-        cur_stage  = ROUND_ROBIN
+        cur_phase  = PHASE_ROUND_ROBIN
         cur_game   = team.current_game
         status     = stage_status(TournGame)
         team_idx   = cur_game.team_idx(team) if cur_game else None
@@ -389,14 +420,14 @@ def render_mobile(context: dict) -> str:
         win_rec_rr = fmt_rec(team.tourn_wins, team.tourn_losses)
         pts_rec_rr = fmt_rec(team.tourn_pts_for, team.tourn_pts_against)
     elif tourn.stage_start >= TournStage.SEED_RESULTS:
-        cur_stage  = SEEDING
+        cur_phase  = PHASE_SEEDING
         cur_game   = player.current_game
         status     = stage_status(SeedGame)
         team_idx   = cur_game.team_idx(player) if cur_game else None
         win_rec_sd = fmt_rec(player.seed_wins, player.seed_losses)
         pts_rec_sd = fmt_rec(player.seed_pts_for, player.seed_pts_against)
     else:
-        cur_stage  = None
+        cur_phase  = None
         cur_game   = None
         status     = None
         team_idx   = None
@@ -424,38 +455,66 @@ def render_mobile(context: dict) -> str:
         opp_tag  = None
         opp_pts  = None
 
-    info_data = {
-        None: [
-            tourn.name,
-            cur_stage,
-            status
-        ],
-        SEEDING: [
-            player.nick_name,
-            player.player_num,
-            win_rec_sd,
-            pts_rec_sd,
-            player.player_rank
-        ],
-        ROUND_ROBIN: [
-            team.team_name if team else None,
-            team.div_num   if team else None,
-            team.div_seed  if team else None,
-            win_rec_rr     if team else None,
-            pts_rec_rr     if team else None,
-            team.div_rank  if team else None
+    common_data = [
+        player.full_name,
+        tourn.name,
+        cur_phase,
+        status
+    ]
+
+    seeding_data = [
+        player.nick_name,
+        player.player_num,
+        win_rec_sd,
+        pts_rec_sd,
+        player.player_rank
+    ]
+
+    if team:
+        round_robin_data = [
+            team.team_name,
+            team.div_num,
+            team.div_seed,
+            win_rec_rr,
+            pts_rec_rr,
+            team.div_rank
         ]
-    }
-    assert len(info_data) == len(INFO_FIELDS)
-    assert (tuple(len(v) for v in info_data.values()) ==
-            tuple(len(v) for v in INFO_FIELDS.values()))
+    else:
+        round_robin_data = [None] * 6
+
+    info_data = {PHASE_COMMON: common_data}
+    if not view or view == VIEW_SEEDING:
+        info_data[PHASE_SEEDING] = seeding_data
+    if not view or view == VIEW_ROUND_ROBIN:
+        info_data[PHASE_ROUND_ROBIN] = round_robin_data
+    for phase, data in info_data.items():
+        assert len(data) == len(INFO_FIELDS[phase])
 
     seed_games = player.get_games(all_games=True)
     tourn_games = team.get_games(all_games=True) if team else None
 
+    # dict[href, label]--LATER: generate dynamically???
+    view_menu = {
+        './'         : "Home",
+        'seeding'    : "Seeding Round",
+        'round_robin': "Round Robin",
+        'semifinals' : "Semifinals",
+        'finals'     : "Finals"
+    }
+
+    # FIX: for now we're not worried about too many context items (since we are trying to
+    # develop clear semantics for the display), but this is inelegant and getting bloated
+    # redundant, so we really need to refactor into something with better structure!!!
     base_ctx = {
         'title'       : MOBILE_TITLE,
+        'view_menu'   : view_menu,
+        'view'        : view,
+        'seeding'     : VIEW_SEEDING,
+        'round_robin' : VIEW_ROUND_ROBIN,
         'tourn'       : tourn,
+        'cur_phase'   : cur_phase,
+        'pahse_sd'    : PHASE_SEEDING,
+        'phase_rr'    : PHASE_ROUND_ROBIN,
         'user'        : current_user,
         'team'        : team,
         'team_idx'    : team_idx,

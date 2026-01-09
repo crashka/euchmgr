@@ -1,4 +1,3 @@
-{% set home_page = (not view) %}
 <!DOCTYPE html>
 <html>
   <head>
@@ -10,7 +9,7 @@
        font-size: 16px;
        font-size: 3.9vmin;
        /*font-size: calc(1.2vh + 1.2vw);*/
-       scroll-padding-top: 2.8rem;
+       /*scroll-padding-top: 2.8rem;*/
      }
      body {
        margin-top: 0.0rem;
@@ -106,7 +105,7 @@
      .info span.wide {
        min-width: 9rem;
      }
-     .cur_game h2 {
+     .cur_game h3 {
        display: inline-block;
      }
      .cur_game > p {
@@ -160,6 +159,13 @@
        display: inline-block;
        margin: 0.5rem 0.0rem;
      }
+     .games article {
+       padding: 0.2rem 0.0rem;
+       border-top: 1px solid black;
+     }
+     .games article:last-child {
+       border-bottom: 1px solid black;
+     }
      .winner {
        color: #108810;
      }
@@ -169,16 +175,24 @@
      .pending {
        color: #6F6F6F;
      }
+     .active {
+       background-color: #FFFFF0;
+     }
      h1 {
        font-size: 1.5rem;
      }
      h2 {
        font-size: 1.375rem;
-       margin-top: 0.5rem;
-       margin-bottom: 0.0rem;
+       margin-top: 0.0rem;
+       margin-bottom: 0.5rem;
      }
      h3 {
        font-size: 1.125rem;
+       margin-top: 0.25rem;
+       margin-bottom: 0.5rem;
+     }
+     h4 {
+       font-size: 1.0rem;
        margin-top: 0.25rem;
        margin-bottom: 0.0rem;
      }
@@ -202,7 +216,7 @@
     <div class="header">
       <span class="goto">Go to:</span>
       <div class="wrapper">
-        <a class="nav view_nav" href="javascript:void(0);">Page</a>
+        <a class="nav view_nav" href="javascript:void(0);">View</a>
         <div class="view_menu">
           {% for href in view_menu %}
           <a class="nav2" href="{{href}}">{{view_menu[href]}}</a>
@@ -210,14 +224,22 @@
         </div>
       </div>
       <span class="login_info">
-        Logged in as: <span>{{user.nick_name}}</span> [<a href='/logout'>Logout</a>]
+        {% with tooltip = "Tap here to return to \"Home\"" %}
+        Logged in as: <span title='{{tooltip}}'>{{user.nick_name}}</span>
+        [<a href='/logout'>Logout</a>]
+        {% endwith %}
       </span>
     </div>
     <section class="info_stats" id="info-stats">
+      <h2>{{view_menu[view]}}</h2>
       <section>
         {% for info_sect in info_data %}
         {% if info_sect %}
-        <h3>{{info_sect}}</h3>
+        {% if view == home %}
+        <h3>Current Stage</h3>
+        {% else %}
+        <h3>Stage Info</h3>
+        {% endif %}
         {% endif %}
         <article class="info">
           {% for info in info_flds[info_sect] %}
@@ -234,10 +256,11 @@
         {% endfor %}
       </section>
     </section>
-    {% if home_page %}
+    {% if view == home %}
     <section class="cur_game" id="cur-game">
-      {% set tooltip = "Tap here to reload game info" %}
-      <h2 title="{{tooltip}}">Current Game</h2>
+      {% with tooltip = "Tap here to reload game info" %}
+      <h3 title="{{tooltip}}">Current Game</h3>
+      {% endwith %}
       {% if cur_game %}
       <span class="round" title="{{tooltip}}">(Round {{cur_game.round_num}})</span>
       <form action="/mobile/" method="post">
@@ -302,24 +325,15 @@
       </p>
       {% endif %}  {# cur_game #}
     </section>
-    {% endif %}  {# home_page #}
+    {% endif %}  {# view == home #}
     {% if view == seeding %}
-    <section id="sd-games">
-      <h2>Seeding Round</h2>
+    <section class="games" id="sd-games">
+      <h3>Games</h3>
       {% if seed_games %}
-      <section class="info">
-        {% set win_rec = fmt_rec(user.seed_wins, user.seed_losses) %}
-        {% set pts_rec = fmt_rec(user.seed_pts_for, user.seed_pts_against) %}
-        <p>
-          <label>W-L</label>: <span>{{win_rec}}</span>
-        </p>
-        <p>
-          <label>PF-PA</label>: <span>{{pts_rec}}</span>
-        </p>
-      </section>
       {% for gm in seed_games %}
-      <article id="{{gm.label}}">
-        <h3>Round {{gm.round_num}}</h3>
+      {% with gm_cls = "" if gm.winner else ("active" if gm == cur_game else "pending") %}
+      <article class="{{gm_cls}}" id="{{gm.label}}">
+        <h4>Round {{gm.round_num}}</h4>
         {% set matchup_str = fmt_matchup(gm, user) %}
         <p class="matchup">
           {{matchup_str[0]|safe}}
@@ -331,6 +345,7 @@
           {{matchup_str[2]|safe}}
         </p>
       </article>
+      {% endwith %}
       {% endfor %}
       {% else %}  {# seed_games #}
       <p>
@@ -340,22 +355,13 @@
     </section>
     {% endif %}  {# view == seeding #}
     {% if view == round_robin %}
-    <section id="rr-games">
-      <h2>Round Robin</h2>
+    <section class="games" id="rr-games">
+      <h3>Games</h3>
       {% if tourn_games %}
-      <section class="info">
-        {% set win_rec = fmt_rec(team.tourn_wins, team.tourn_losses) %}
-        {% set pts_rec = fmt_rec(team.tourn_pts_for, team.tourn_pts_against) %}
-        <p>
-          <label>W-L</label>: <span>{{win_rec}}</span>
-        </p>
-        <p>
-          <label>PF-PA</label>: <span>{{pts_rec}}</span>
-        </p>
-      </section>
       {% for gm in tourn_games %}
-      <article id="{{gm.label}}">
-        <h3>Round {{gm.round_num}}</h3>
+      {% with gm_cls = "" if gm.winner else ("active" if gm == cur_game else "pending") %}
+      <article class="{{gm_cls}}" id="{{gm.label}}">
+        <h4>Round {{gm.round_num}}</h4>
         {% set matchup_str = fmt_matchup(gm, team) %}
         <p class="matchup">
           {{matchup_str[0]|safe}}
@@ -367,6 +373,7 @@
           {{matchup_str[2]|safe}}
         </p>
       </article>
+      {% endwith %}
       {% endfor %}
       {% else %}  {# tourn_games #}
       <p>
@@ -376,15 +383,15 @@
     </section>
     {% endif %}  {# view == round_robin #}
     {% if semi_games %}
-    <section id="sf-games">
-      <h2>Semifinals</h2>
+    <section class="games" id="sf-games">
+      <h3>Games</h3>
       <p>
       </p>
     </section>
     {% endif %}
     {% if final_games %}
-    <section id="fn-games">
-      <h2>Finals</h2>
+    <section class="games" id="fn-games">
+      <h3>Games</h3>
       <p>
       </p>
     </section>
@@ -410,16 +417,33 @@
        target.parentElement.showModal();
      };
 
-     // menu stuff
+     // menu/navigation stuff
      $('.view_nav').on('focus', function() {
-       $('.view_menu').css('visibility', 'visible');
+       setTimeout(function() {
+         $('.view_menu').css('visibility', 'visible');
+       }, 0);
      });
      $('.view_nav').on('focusout', function() {
-       // MYSTERY: not sure why we have to do this, perhaps some sort of "yield" for
-       // sequence of event processing (before anchor element goes out of scope)???
        setTimeout(function() {
          $('.view_menu').css('visibility', 'hidden');
        }, 0);
+     });
+     $('.view_nav').on('click', function() {
+       const menuVis = $('.view_menu').css('visibility');
+       const hasFocus = $(this).is(":focus");
+       if (menuVis == 'visible') {
+         $(this).trigger('blur');
+       }
+       else if (!hasFocus) {
+         $(this).trigger('focus');
+       }
+     });
+     // shortcuts
+     $('.login_info span').on('click', function() {
+       window.location.href = "./";
+     });
+     $('.active').on('click', function() {
+       window.location.href = "./#cur-game";
      });
 
      {% if cur_game %}

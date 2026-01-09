@@ -110,8 +110,9 @@ fmt_rec = lambda x, y: f"{x}-{y}"
 # GET routes #
 ##############
 
-VIEW_NONE        = None  # meaning, the home page
+VIEW_HOME        = './'
 VIEW_SEEDING     = 'seeding'
+VIEW_PARTNERS    = 'partners'
 VIEW_ROUND_ROBIN = 'round_robin'
 VIEW_SEMIFINALS  = 'semifinals'
 VIEW_FINALS      = 'finals'
@@ -363,11 +364,28 @@ def correct_score(form: dict, ref: PostScore = None) -> str:
 #############
 
 # "phase" is a high-level pseudo-stage used to control the display
-PHASE_COMMON = None  # dummy value for common tournament info
-PHASE_SEEDING = "Seeding Round"
+PHASE_COMMON      = None  # dummy value for common tournament info
+PHASE_SEEDING     = "Seeding"
+PHASE_PARTNERS    = "Partner Picks"
 PHASE_ROUND_ROBIN = "Round Robin"
 PHASE_SEMIFINALS  = "Semifinals"
 PHASE_FINALS      = "Finals"
+
+VIEW_PHASE = {
+    VIEW_HOME       : None,
+    VIEW_SEEDING    : PHASE_SEEDING,
+    VIEW_PARTNERS   : PHASE_PARTNERS,
+    VIEW_ROUND_ROBIN: PHASE_ROUND_ROBIN,
+    VIEW_SEMIFINALS : PHASE_SEMIFINALS,
+    VIEW_FINALS     : PHASE_FINALS
+}
+
+VIEW_MENU = {
+    VIEW_HOME       : "Home",
+    VIEW_SEEDING    : "Seeding",
+    VIEW_PARTNERS   : "Partner Picks",
+    VIEW_ROUND_ROBIN: "Round Robin"
+}
 
 class UserInfo(NamedTuple):
     """Readonly user info/stats field
@@ -380,11 +398,11 @@ class UserInfo(NamedTuple):
 INFO_FIELDS = {
     PHASE_COMMON: [
         UserInfo("full_name",  "wide", "Player",     TournStage.TOURN_CREATE),
-        UserInfo("tourn",      "wide", "Tournament", TournStage.TOURN_CREATE),
-        UserInfo("stage",      "med",  "Stage",      TournStage.TOURN_CREATE),
-        UserInfo("status",     "",     "Status",     TournStage.TOURN_CREATE)
+        UserInfo("tourn",      "wide", "Tournament", TournStage.TOURN_CREATE)
     ],
     PHASE_SEEDING: [
+        UserInfo("stage",      "med",  "Stage",      TournStage.TOURN_CREATE),
+        UserInfo("status",     "",     "Status",     TournStage.TOURN_CREATE),
         UserInfo("plyr_name",  "med",  "Name",       TournStage.TOURN_CREATE),
         UserInfo("plyr_num",   "",     "Num",        TournStage.TOURN_CREATE),
         UserInfo("win_rec_sd", "",     "W-L",        TournStage.TOURN_CREATE),
@@ -392,6 +410,8 @@ INFO_FIELDS = {
         UserInfo("seed_rank",  "",     "Rank",       TournStage.TOURN_CREATE)
     ],
     PHASE_ROUND_ROBIN: [
+        UserInfo("stage",      "med",  "Stage",      TournStage.TOURN_CREATE),
+        UserInfo("status",     "",     "Status",     TournStage.TOURN_CREATE),
         UserInfo("team_name",  "wide", "Team",       TournStage.TOURN_TEAMS),
         UserInfo("div_num",    "",     "Div",        TournStage.TOURN_BRACKET),
         UserInfo("div_seed",   "",     "Seed",       TournStage.TOURN_BRACKET),
@@ -401,7 +421,7 @@ INFO_FIELDS = {
     ]
 }
 
-def render_mobile(context: dict, view: str = None) -> str:
+def render_mobile(context: dict, view: str = VIEW_HOME) -> str:
     """Common post-processing of context before rendering the tournament selector and
     creation page through Jinja
     """
@@ -413,7 +433,6 @@ def render_mobile(context: dict, view: str = None) -> str:
         assert team
         cur_phase  = PHASE_ROUND_ROBIN
         cur_game   = team.current_game
-        status     = stage_status(TournGame)
         team_idx   = cur_game.team_idx(team) if cur_game else None
         win_rec_sd = fmt_rec(player.seed_wins, player.seed_losses)
         pts_rec_sd = fmt_rec(player.seed_pts_for, player.seed_pts_against)
@@ -422,14 +441,12 @@ def render_mobile(context: dict, view: str = None) -> str:
     elif tourn.stage_start >= TournStage.SEED_RESULTS:
         cur_phase  = PHASE_SEEDING
         cur_game   = player.current_game
-        status     = stage_status(SeedGame)
         team_idx   = cur_game.team_idx(player) if cur_game else None
         win_rec_sd = fmt_rec(player.seed_wins, player.seed_losses)
         pts_rec_sd = fmt_rec(player.seed_pts_for, player.seed_pts_against)
     else:
         cur_phase  = None
         cur_game   = None
-        status     = None
         team_idx   = None
         win_rec_sd = None
         pts_rec_sd = None
@@ -455,64 +472,55 @@ def render_mobile(context: dict, view: str = None) -> str:
         opp_tag  = None
         opp_pts  = None
 
-    common_data = [
-        player.full_name,
-        tourn.name,
-        cur_phase,
-        status
-    ]
-
-    seeding_data = [
-        player.nick_name,
-        player.player_num,
-        win_rec_sd,
-        pts_rec_sd,
-        player.player_rank
-    ]
-
-    if team:
-        round_robin_data = [
-            team.team_name,
-            team.div_num,
-            team.div_seed,
-            win_rec_rr,
-            pts_rec_rr,
-            team.div_rank
+    view_phase = VIEW_PHASE[view] or cur_phase
+    info_data = {
+        PHASE_COMMON: [
+            player.full_name,
+            tourn.name
         ]
-    else:
-        round_robin_data = [None] * 6
-
-    info_data = {PHASE_COMMON: common_data}
-    if not view or view == VIEW_SEEDING:
-        info_data[PHASE_SEEDING] = seeding_data
-    if not view or view == VIEW_ROUND_ROBIN:
-        info_data[PHASE_ROUND_ROBIN] = round_robin_data
+    }
+    if view_phase == PHASE_SEEDING:
+        info_data[PHASE_SEEDING] = [
+            PHASE_SEEDING,
+            stage_status(SeedGame),
+            player.nick_name,
+            player.player_num,
+            win_rec_sd,
+            pts_rec_sd,
+            player.player_rank
+        ]
+    elif view_phase == PHASE_ROUND_ROBIN:
+        if team:
+            info_data[PHASE_ROUND_ROBIN] = [
+                PHASE_ROUND_ROBIN,
+                stage_status(TournGame),
+                team.team_name,
+                team.div_num,
+                team.div_seed,
+                win_rec_rr,
+                pts_rec_rr,
+                team.div_rank
+            ]
+        else:
+            info_data[PHASE_ROUND_ROBIN] = [None] * 8
     for phase, data in info_data.items():
         assert len(data) == len(INFO_FIELDS[phase])
 
     seed_games = player.get_games(all_games=True)
     tourn_games = team.get_games(all_games=True) if team else None
 
-    # dict[href, label]--LATER: generate dynamically???
-    view_menu = {
-        './'         : "Home",
-        'seeding'    : "Seeding Round",
-        'round_robin': "Round Robin",
-        'semifinals' : "Semifinals",
-        'finals'     : "Finals"
-    }
-
     # FIX: for now we're not worried about too many context items (since we are trying to
     # develop clear semantics for the display), but this is inelegant and getting bloated
     # redundant, so we really need to refactor into something with better structure!!!
     base_ctx = {
         'title'       : MOBILE_TITLE,
-        'view_menu'   : view_menu,
+        'view_menu'   : VIEW_MENU,
         'view'        : view,
+        'home'        : VIEW_HOME,
         'seeding'     : VIEW_SEEDING,
+        'partners'    : VIEW_PARTNERS,
         'round_robin' : VIEW_ROUND_ROBIN,
         'tourn'       : tourn,
-        'cur_phase'   : cur_phase,
         'pahse_sd'    : PHASE_SEEDING,
         'phase_rr'    : PHASE_ROUND_ROBIN,
         'user'        : current_user,

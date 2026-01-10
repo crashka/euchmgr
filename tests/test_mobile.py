@@ -2,6 +2,8 @@
 
 """Test team ranking process, including tie-breaking logic.
 """
+import re
+
 import pytest
 
 from conftest import get_user_client
@@ -22,12 +24,12 @@ def test_logins(seed_bracket_app):
     crash_client = get_user_client(app, "Crash")
     resp = crash_client.get('/mobile/', follow_redirects=True)
     assert resp.status_code == 200
-    assert "Logged in as: <span>Crash</span>" in resp.text
+    assert re.search(r'Logged in as: <span.*>Crash</span>', resp.text)
 
     abs_client = get_user_client(app, "Abs")
     resp = abs_client.get('/mobile/', follow_redirects=True)
     assert resp.status_code == 200
-    assert "Logged in as: <span>Abs</span>" in resp.text
+    assert re.search(r'Logged in as: <span.*>Abs</span>', resp.text)
 
 def test_post_score(seed_bracket_app):
     """Make sure disparate client sessions are independent of each other
@@ -36,7 +38,7 @@ def test_post_score(seed_bracket_app):
     virgilio_client = get_user_client(app, "Virgilio")
     resp = virgilio_client.get('/mobile/', follow_redirects=True)
     assert resp.status_code == 200
-    assert "Logged in as: <span>Virgilio</span>" in resp.text
+    assert re.search(r'Logged in as: <span.*>Virgilio</span>', resp.text)
 
     data = {'game_label'   : 'sd-1-1',
             'posted_by_num': '1',

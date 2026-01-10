@@ -11,6 +11,7 @@ from flask import (Blueprint, request, render_template, abort, redirect, url_for
 from flask_login import current_user
 from ckautils import typecast
 
+from core import ImplementationError
 from schema import (GAME_PTS, BRACKET_SEED, BRACKET_TOURN, TournStage, TournInfo, Player,
                     SeedGame, Team, TournGame, PostScore, SCORE_SUBMIT, SCORE_ACCEPT,
                     SCORE_CORRECT, SCORE_IGNORE, SCORE_DISCARD)
@@ -57,6 +58,26 @@ def get_bracket(label: str) -> str:
     elif pfx == 'rr':
         return BRACKET_TOURN
     assert False, "Logic error"
+
+def get_game_by_label(label: str) -> SeedGame | TournGame:
+    """Use a little ORM knowledge to fetch from the appropriate table--LATER: can put this
+    in the right place (or refactor the whole bracket-game thing)!!!
+    """
+    game_cls = SeedGame if get_bracket(label) == BRACKET_SEED else TournGame
+    query = (game_cls
+             .select()
+             .where(SeedGame.label == label))
+    return query.get_or_none()
+
+def game_in_view(label: str) -> str:
+    """Return the url for jumping to the specified game in its stage view.  We do a tricky
+    thing here and pass the game label to the view using a flashed message (instead of as
+    an ugly query string).
+    """
+    bracket = get_bracket(label)
+    url = f"{BRACKET_VIEW[bracket]}#{label}"
+    flash(f"cur_game={label}")
+    return url
 
 def same_score(s1: PostScore | tuple[int, int], s2: PostScore) -> bool:
     """Check if two scores are equal.  `s1` may be specified as a `PostScore` instance or
@@ -117,6 +138,11 @@ VIEW_ROUND_ROBIN = 'round_robin'
 VIEW_SEMIFINALS  = 'semifinals'
 VIEW_FINALS      = 'finals'
 
+BRACKET_VIEW = {
+    BRACKET_SEED : VIEW_SEEDING,
+    BRACKET_TOURN: VIEW_ROUND_ROBIN
+}
+
 @mobile.get("/")
 def index() -> str:
     """Render mobile app if logged in
@@ -125,8 +151,35 @@ def index() -> str:
         flash("Please reauthenticate in order to access the app")
         return redirect('/login')
 
-    err_msg = "<br>".join(get_flashed_messages())
-    context = {'err_msg': err_msg}
+    context = {}
+    game_label = None
+    msgs = get_flashed_messages()
+    # see if any secret parameters have been transmitted to us--NOTE: currently only one
+    # secret parameter is expected, so we need to be careful that no additional messages
+    # are flashed, otherwise the "secret" parameter will be rendered in the app as an
+    # error messsage, lol
+    if len(msgs) == 1 and msgs[0].find('=') > 0:
+        key, val = msgs[0].split('=', 1)
+        if key == 'cur_game':
+            assert not request.args.get('cur_game')
+            game_label = val
+        else:
+            raise ImplementationError(f"unexpected secret key '{key}' (value '{val}')")
+    else:
+        context['err_msg'] = "<br>".join(msgs)
+
+    if not game_label:
+        game_label = request.args.get('cur_game')
+
+    if game_label:
+        cur_game = get_game_by_label(game_label)
+        assert cur_game
+        # if current game has completed (out of band), then redirect to it in its stage
+        # view, otherwise forward it on to the renderer (as below)
+        if cur_game.winner:
+            return redirect(game_in_view(cur_game.label))
+        context['cur_game'] = cur_game
+
     return render_mobile(context)
 
 @mobile.get("/seeding")
@@ -139,10 +192,31 @@ def view() -> str:
     if not current_user.is_authenticated:
         flash("Please reauthenticate in order to access the app")
         return redirect('/login')
-
     view = request.path.split('/')[-1]
-    err_msg = "<br>".join(get_flashed_messages())
-    context = {'err_msg': err_msg}
+
+    context = {}
+    game_label = None
+    msgs = get_flashed_messages()
+    # see if any secret parameters have been transmitted to us (see above)
+    if len(msgs) == 1 and msgs[0].find('=') > 0:
+        key, val = msgs[0].split('=', 1)
+        if key == 'cur_game':
+            assert not request.args.get('cur_game')
+            game_label = val
+        else:
+            raise ImplementationError(f"unexpected secret key '{key}' (value '{val}')")
+    else:
+        context['err_msg'] = "<br>".join(msgs)
+
+    if not game_label:
+        game_label = request.args.get('cur_game')
+
+    if game_label:
+        cur_game = get_game_by_label(game_label)
+        assert cur_game
+        # pass it on to the renderer so we can highlight it on the page
+        context['cur_game'] = cur_game
+
     return render_mobile(context, view)
 
 ################
@@ -210,7 +284,6 @@ def submit_score(form: dict) -> str:
             return correct_score(form, latest)
 
     info = {
-        'bracket'      : get_bracket(game_label),
         'game_label'   : game_label,
         'post_action'  : post_action,
         'action_info'  : action_info,
@@ -266,7 +339,6 @@ def accept_score(form: dict) -> str:
             flash(f"Discarding acceptance due to {lc_first(action_info)}")
 
     info = {
-        'bracket'      : get_bracket(game_label),
         'game_label'   : game_label,
         'post_action'  : post_action,
         'action_info'  : action_info,
@@ -284,12 +356,7 @@ def accept_score(form: dict) -> str:
         except RuntimeError as e:
             flash(str(e))
             return redirect(url_for('index'))
-
-    # REVISIT: jumping down to the posted game is a little jarring with no other context,
-    # so we don't want to do that just yet--we will need to do a fading highlight on the
-    # posted game target, and get the `cur_game` reload function to work similarly!!!
-    #return redirect(url_for('index', _anchor=game_label))
-    return redirect(url_for('index'))
+    return redirect(game_in_view(game_label))
 
 def correct_score(form: dict, ref: PostScore = None) -> str:
     """Correct a game score, superceding all previous submitted (or corrected) scores.  As
@@ -345,7 +412,6 @@ def correct_score(form: dict, ref: PostScore = None) -> str:
         flash(f"Ignoring {lc_first(action_info)}")
 
     info = {
-        'bracket'      : get_bracket(game_label),
         'game_label'   : game_label,
         'post_action'  : post_action,
         'action_info'  : action_info,
@@ -452,7 +518,11 @@ def render_mobile(context: dict, view: str = VIEW_HOME) -> str:
         pts_rec_sd = None
 
     ref_score = None
-    if cur_game:
+    if view == VIEW_HOME and cur_game:
+        if context.get('cur_game'):
+            # for now we just do an integrity check--later, we can do a little refactoring
+            # to avoid an extra query
+            assert context.get('cur_game') == cur_game
         assert team_idx in (0, 1)
         opp_idx  = team_idx ^ 0x01
         map_pts  = lambda x, i: x.team1_pts if i == 0 else x.team2_pts

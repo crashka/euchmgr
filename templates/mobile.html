@@ -176,7 +176,7 @@
        color: #6F6F6F;
      }
      .active {
-       background-color: #FFFFF0;
+       background-color: #FFF8F0;
      }
      h1 {
        font-size: 1.5rem;
@@ -235,11 +235,7 @@
       <section>
         {% for info_sect in info_data %}
         {% if info_sect %}
-        {% if view == home %}
-        <h3>Current Stage</h3>
-        {% else %}
-        <h3>Stage Info</h3>
-        {% endif %}
+        <h3>{{"Current Stage" if view == home else "Stage Info"}}</h3>
         {% endif %}
         <article class="info">
           {% for info in info_flds[info_sect] %}
@@ -328,10 +324,10 @@
     {% endif %}  {# view == home #}
     {% if view == seeding %}
     <section class="games" id="sd-games">
-      <h3>Games</h3>
       {% if seed_games %}
+      <h3>Games</h3>
       {% for gm in seed_games %}
-      {% with gm_cls = "" if gm.winner else ("active" if gm == cur_game else "pending") %}
+      {% with gm_cls = "active" if gm == cur_game else ("" if gm.winner else "pending") %}
       <article class="{{gm_cls}}" id="{{gm.label}}">
         <h4>Round {{gm.round_num}}</h4>
         {% set matchup_str = fmt_matchup(gm, user) %}
@@ -356,10 +352,10 @@
     {% endif %}  {# view == seeding #}
     {% if view == round_robin %}
     <section class="games" id="rr-games">
-      <h3>Games</h3>
       {% if tourn_games %}
+      <h3>Games</h3>
       {% for gm in tourn_games %}
-      {% with gm_cls = "" if gm.winner else ("active" if gm == cur_game else "pending") %}
+      {% with gm_cls = "active" if gm == cur_game else ("" if gm.winner else "pending") %}
       <article class="{{gm_cls}}" id="{{gm.label}}">
         <h4>Round {{gm.round_num}}</h4>
         {% set matchup_str = fmt_matchup(gm, team) %}
@@ -483,17 +479,11 @@
        $('a.reset').css('display', 'inline')
                    .attr('href', '');
      });
-     // refresh score (ignore inputs, links, etc.)
+     // refresh score for current game (disregarding clickable elements)
      $('.cur_game').on('click', function() {
        if (chgMap.size == 0) {
-         // REVISIT: would like to jump down to the game if score has been accepted, but
-         // need to figure out why this approach (either variant below) doesn't actually
-         // reload the page!!!
-         //const url = window.location.origin + window.location.pathname;
-         //const anchor = $('.cur_game input[name="game_label"]').attr('value');
-         //window.location.href = url + '#' + anchor;
-         //window.location.replace(url + '#' + anchor);
-         window.location.href = "";
+         const label = $('.cur_game input[name="game_label"]').attr('value');
+         window.location.href = "./?cur_game=" + label;
        }
        else {
          showError("Cannot tap to reload game info if there are pending changes");

@@ -37,10 +37,16 @@ def is_mobile() -> bool:
     """
     return re.search(MOBILE_REGEX, request.user_agent.string) is not None
 
-def stage_status(games: SeedGame | TournGame) -> str:
-    """Return current stage status/round
+# some type aliases (local scope for now, but perhaps adopt more broadly later, especially
+# if/when we abstract out the schema)
+BracketGame = SeedGame | TournGame
+PartnerPick = Player
+StageMgr    = BracketGame | PartnerPick
+
+def stage_status(stage_mgr: StageMgr) -> str:
+    """Return current stage status (i.e. round info)
     """
-    cur_round = games.current_round()
+    cur_round = stage_mgr.current_round()
     if cur_round == 0:
         return "Not Started"
     elif cur_round == -1:
@@ -66,7 +72,7 @@ def get_game_by_label(label: str) -> SeedGame | TournGame:
     game_cls = SeedGame if get_bracket(label) == BRACKET_SEED else TournGame
     query = (game_cls
              .select()
-             .where(SeedGame.label == label))
+             .where(game_cls.label == label))
     return query.get_or_none()
 
 def game_in_view(label: str) -> str:
@@ -179,10 +185,16 @@ def index() -> str:
         if cur_game.winner:
             return redirect(game_in_view(cur_game.label))
         context['cur_game'] = cur_game
+    else:
+        if PartnerPick.current_pick() == current_user:
+            flash("You have the current pick!")
+            frag = f"#pk-{current_user.player_rank}"
+            return redirect('/mobile/partners' + frag)
 
     return render_mobile(context)
 
 @mobile.get("/seeding")
+@mobile.get("/partners")
 @mobile.get("/round_robin")
 @mobile.get("/semifinals")
 @mobile.get("/finals")
@@ -226,7 +238,8 @@ def view() -> str:
 ACTIONS = [
     'submit_score',
     'accept_score',
-    'correct_score'
+    'correct_score',
+    'pick_partner'
 ]
 
 @mobile.post("/")
@@ -425,6 +438,21 @@ def correct_score(form: dict, ref: PostScore = None) -> str:
     score = PostScore.create(**info)
     return redirect(url_for('index'))
 
+def pick_partner(form: dict) -> str:
+    """Submit the specified partner pick.
+    """
+    player_num = typecast(form['player_num'])
+    partner_num = typecast(form['partner_num'])
+
+    # note that we are making sure the cached player map gets this update
+    pl_map = Player.get_player_map(requery=True)
+    player = pl_map[player_num]
+    partner = pl_map[partner_num]
+    player.pick_partners(partner)
+    player.save()
+    frag = f"#pk-{player.player_rank}"
+    return redirect('/mobile/partners' + frag)
+
 #############
 # renderers #
 #############
@@ -459,31 +487,37 @@ class UserInfo(NamedTuple):
     name   : str  # also used as the element id
     cls    : str  # CSS class for info data span
     label  : str
-    min_stg: TournStage
 
 INFO_FIELDS = {
     PHASE_COMMON: [
-        UserInfo("full_name",  "wide", "Player",     TournStage.TOURN_CREATE),
-        UserInfo("tourn",      "wide", "Tournament", TournStage.TOURN_CREATE)
+        UserInfo("full_name",  "wide", "Player"),
+        UserInfo("tourn",      "wide", "Tournament")
     ],
     PHASE_SEEDING: [
-        UserInfo("stage",      "med",  "Stage",      TournStage.TOURN_CREATE),
-        UserInfo("status",     "",     "Status",     TournStage.TOURN_CREATE),
-        UserInfo("plyr_name",  "med",  "Name",       TournStage.TOURN_CREATE),
-        UserInfo("plyr_num",   "",     "Num",        TournStage.TOURN_CREATE),
-        UserInfo("win_rec_sd", "",     "W-L",        TournStage.TOURN_CREATE),
-        UserInfo("pts_rec_sd", "",     "PF-PA",      TournStage.TOURN_CREATE),
-        UserInfo("seed_rank",  "",     "Rank",       TournStage.TOURN_CREATE)
+        UserInfo("stage",      "med",  "Stage"),
+        UserInfo("status",     "",     "Status"),
+        UserInfo("plyr_name",  "med",  "Name"),
+        UserInfo("plyr_num",   "",     "Num"),
+        UserInfo("win_rec_sd", "",     "W-L"),
+        UserInfo("pts_rec_sd", "",     "PF-PA"),
+        UserInfo("seed_rank",  "",     "Rank")
+    ],
+    PHASE_PARTNERS: [
+        UserInfo("stage",      "med",  "Stage"),
+        UserInfo("status",     "",     "Status"),
+        UserInfo("cur_pick",   "",     "Cur Pick (rank)"),
+        UserInfo("plyr_name",  "med",  "Name"),
+        UserInfo("seed_rank",  "",     "Rank")
     ],
     PHASE_ROUND_ROBIN: [
-        UserInfo("stage",      "med",  "Stage",      TournStage.TOURN_CREATE),
-        UserInfo("status",     "",     "Status",     TournStage.TOURN_CREATE),
-        UserInfo("team_name",  "wide", "Team",       TournStage.TOURN_TEAMS),
-        UserInfo("div_num",    "",     "Div",        TournStage.TOURN_BRACKET),
-        UserInfo("div_seed",   "",     "Seed",       TournStage.TOURN_BRACKET),
-        UserInfo("win_rec_rr", "",     "W-L",        TournStage.TOURN_BRACKET),
-        UserInfo("pts_rec_rr", "",     "PF-PA",      TournStage.TOURN_BRACKET),
-        UserInfo("div_rank",   "",     "Rank",       TournStage.TOURN_BRACKET)
+        UserInfo("stage",      "med",  "Stage"),
+        UserInfo("status",     "",     "Status"),
+        UserInfo("team_name",  "wide", "Team"),
+        UserInfo("div_num",    "",     "Div"),
+        UserInfo("div_seed",   "",     "Seed"),
+        UserInfo("win_rec_rr", "",     "W-L"),
+        UserInfo("pts_rec_rr", "",     "PF-PA"),
+        UserInfo("div_rank",   "",     "Rank")
     ]
 }
 
@@ -494,6 +528,20 @@ def render_mobile(context: dict, view: str = VIEW_HOME) -> str:
     tourn      = TournInfo.get(requery=True)
     player     = current_user
     team       = current_user.team
+    cur_phase  = None
+    cur_game   = None
+    team_idx   = None
+    cur_pick   = None
+    win_rec_sd = None
+    pts_rec_sd = None
+    win_rec_rr = None
+    pts_rec_rr = None
+    ref_score  = None
+    opp_idx    = None
+    team_tag   = None
+    team_pts   = None
+    opp_tag    = None
+    opp_pts    = None
 
     if tourn.stage_start >= TournStage.TOURN_RESULTS:
         assert team
@@ -504,20 +552,18 @@ def render_mobile(context: dict, view: str = VIEW_HOME) -> str:
         pts_rec_sd = fmt_rec(player.seed_pts_for, player.seed_pts_against)
         win_rec_rr = fmt_rec(team.tourn_wins, team.tourn_losses)
         pts_rec_rr = fmt_rec(team.tourn_pts_for, team.tourn_pts_against)
+    elif tourn.stage_start >= TournStage.PARTNER_PICK:
+        cur_phase  = PHASE_PARTNERS
+        cur_pick   = PartnerPick.current_pick()
+        win_rec_sd = fmt_rec(player.seed_wins, player.seed_losses)
+        pts_rec_sd = fmt_rec(player.seed_pts_for, player.seed_pts_against)
     elif tourn.stage_start >= TournStage.SEED_RESULTS:
         cur_phase  = PHASE_SEEDING
         cur_game   = player.current_game
         team_idx   = cur_game.team_idx(player) if cur_game else None
         win_rec_sd = fmt_rec(player.seed_wins, player.seed_losses)
         pts_rec_sd = fmt_rec(player.seed_pts_for, player.seed_pts_against)
-    else:
-        cur_phase  = None
-        cur_game   = None
-        team_idx   = None
-        win_rec_sd = None
-        pts_rec_sd = None
 
-    ref_score = None
     if view == VIEW_HOME and cur_game:
         if context.get('cur_game'):
             # for now we just do an integrity check--later, we can do a little refactoring
@@ -535,21 +581,15 @@ def render_mobile(context: dict, view: str = VIEW_HOME) -> str:
             if ref_score:
                 team_pts = map_pts(ref_score, team_idx)
                 opp_pts = map_pts(ref_score, opp_idx)
-    else:
-        opp_idx  = None
-        team_tag = None
-        team_pts = None
-        opp_tag  = None
-        opp_pts  = None
 
-    view_phase = VIEW_PHASE[view] or cur_phase
+    display_phase = VIEW_PHASE[view] or cur_phase
     info_data = {
         PHASE_COMMON: [
             player.full_name,
             tourn.name
         ]
     }
-    if view_phase == PHASE_SEEDING:
+    if display_phase == PHASE_SEEDING:
         info_data[PHASE_SEEDING] = [
             PHASE_SEEDING,
             stage_status(SeedGame),
@@ -559,7 +599,15 @@ def render_mobile(context: dict, view: str = VIEW_HOME) -> str:
             pts_rec_sd,
             player.player_rank
         ]
-    elif view_phase == PHASE_ROUND_ROBIN:
+    if display_phase == PHASE_PARTNERS:
+        info_data[PHASE_PARTNERS] = [
+            PHASE_PARTNERS,
+            stage_status(PartnerPick),
+            cur_pick.player_rank if cur_pick else None,
+            player.nick_name,
+            player.player_rank
+        ]
+    elif display_phase == PHASE_ROUND_ROBIN:
         if team:
             info_data[PHASE_ROUND_ROBIN] = [
                 PHASE_ROUND_ROBIN,
@@ -576,40 +624,43 @@ def render_mobile(context: dict, view: str = VIEW_HOME) -> str:
     for phase, data in info_data.items():
         assert len(data) == len(INFO_FIELDS[phase])
 
-    seed_games = player.get_games(all_games=True)
-    tourn_games = team.get_games(all_games=True) if team else None
+    seed_games    = player.get_games(all_games=True)
+    partner_picks = PartnerPick.get_picks(all_picks=True)
+    available     = PartnerPick.available_partners()
+    tourn_games   = team.get_games(all_games=True) if team else None
 
     # FIX: for now we're not worried about too many context items (since we are trying to
     # develop clear semantics for the display), but this is inelegant and getting bloated
     # redundant, so we really need to refactor into something with better structure!!!
     base_ctx = {
-        'title'       : MOBILE_TITLE,
-        'view_menu'   : VIEW_MENU,
-        'view'        : view,
-        'home'        : VIEW_HOME,
-        'seeding'     : VIEW_SEEDING,
-        'partners'    : VIEW_PARTNERS,
-        'round_robin' : VIEW_ROUND_ROBIN,
-        'tourn'       : tourn,
-        'pahse_sd'    : PHASE_SEEDING,
-        'phase_rr'    : PHASE_ROUND_ROBIN,
-        'user'        : current_user,
-        'team'        : team,
-        'team_idx'    : team_idx,
-        'info_flds'   : INFO_FIELDS,
-        'info_data'   : info_data,
-        'cur_game'    : cur_game,
-        'team_tag'    : team_tag,
-        'team_pts'    : team_pts,
-        'opp_tag'     : opp_tag,
-        'opp_pts'     : opp_pts,
-        'ref_score'   : ref_score,
-        'ref_score_id': ref_score.id if ref_score else None,
-        'seed_games'  : seed_games,
-        'tourn_games' : tourn_games,
-        'fmt_matchup' : fmt_matchup,
-        'fmt_rec'     : fmt_rec,
-        'err_msg'     : None
+        'title'        : MOBILE_TITLE,
+        'view_menu'    : VIEW_MENU,
+        'view'         : view,
+        'home'         : VIEW_HOME,
+        'seeding'      : VIEW_SEEDING,
+        'partners'     : VIEW_PARTNERS,
+        'round_robin'  : VIEW_ROUND_ROBIN,
+        'tourn'        : tourn,
+        'user'         : current_user,
+        'team'         : team,
+        'team_idx'     : team_idx,
+        'info_flds'    : INFO_FIELDS,
+        'info_data'    : info_data,
+        'cur_game'     : cur_game,
+        'cur_pick'     : cur_pick,
+        'team_tag'     : team_tag,
+        'team_pts'     : team_pts,
+        'opp_tag'      : opp_tag,
+        'opp_pts'      : opp_pts,
+        'ref_score'    : ref_score,
+        'ref_score_id' : ref_score.id if ref_score else None,
+        'seed_games'   : seed_games,
+        'partner_picks': partner_picks,
+        'available'    : available,
+        'tourn_games'  : tourn_games,
+        'fmt_matchup'  : fmt_matchup,
+        'fmt_rec'      : fmt_rec,
+        'err_msg'      : None
     }
     return render_template(MOBILE_TEMPLATE, **(base_ctx | context))
 

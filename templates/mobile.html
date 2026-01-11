@@ -9,7 +9,7 @@
        font-size: 16px;
        font-size: 3.9vmin;
        /*font-size: calc(1.2vh + 1.2vw);*/
-       /*scroll-padding-top: 2.8rem;*/
+       scroll-padding-top: 3.0rem;
      }
      body {
        margin-top: 0.0rem;
@@ -47,12 +47,12 @@
      }
      .header .nav:hover,
      .header .nav2:hover {
-       background: #dddddd;
+       background: #E8E8E8;
      }
      .header .nav2 {
        display: block;
        text-align: left;
-       padding: 0.8rem 0.3rem;
+       padding: 0.8rem 1.3rem 0.8rem 0.3rem;
      }
      .wrapper {
        display: inline-block;
@@ -62,7 +62,7 @@
        position: absolute;
        visibility: hidden;
        width: max-content;
-       background: rgb(248 248 248 / 1);
+       background: rgb(232 232 232 / 1);
        padding: 0.3rem;
      }
      .login_info {
@@ -145,6 +145,37 @@
      .units label {
        margin-left: 0.3rem;
      }
+     .picks span {
+       display: inline-block;
+       vertical-align: middle;
+     }
+     .picks_hdr {
+       padding: 0.0rem 0.4rem 0.25rem 0.4rem;
+     }
+     .picks_hdr span {
+       font-weight: bolder;
+       text-decoration: solid underline 1px;
+     }
+     .pick {
+       width: max-content;
+       padding: 0.35rem 0.4rem 0.45rem 0.4rem;
+     }
+     .pick form {
+       display: inline-block;
+     }
+     .picker {
+       min-width: 9.0rem;
+     }
+     .partner {
+       min-width: 9.0rem;
+       margin-left: 2.0rem;
+     }
+     .partner select {
+       width: 9.0rem;
+     }
+     .empty {
+       background-color: #F0F0F0;
+     }
      .cur_game button + button[value="correct_score"] {
        display: none;  /* only if stacked behind another button */
      }
@@ -158,6 +189,10 @@
      .actions {
        display: inline-block;
        margin: 0.5rem 0.0rem;
+     }
+     .picks .actions {
+       display: block;
+       margin: 0.7rem 0.0rem 0.5rem 0.0rem;
      }
      .games article {
        padding: 0.2rem 0.0rem;
@@ -239,14 +274,12 @@
         {% endif %}
         <article class="info">
           {% for info in info_flds[info_sect] %}
-          {% if tourn.stage_compl >= info.min_stg %}
           <p class="{{info.cls}}">
             {# NOTE that an info_data value of `0` must be passed in as a string #}
             {% set data_val = info_data[info_sect][loop.index0] or "&nbsp;" %}
             <label>{{info.label}}</label>:
             <span class="{{info.cls}}">{{data_val|safe}}</span>
           </p>
-          {% endif %}
           {% endfor %}
         </article>
         {% endfor %}
@@ -350,6 +383,57 @@
       {% endif %}  {# seed_games #}
     </section>
     {% endif %}  {# view == seeding #}
+    {% if view == partners %}
+    <section class="picks" id="pt-picks">
+      {% if partner_picks %}
+      <h3>Picking Order</h3>
+      <article class="picks_hdr">
+        <span class="picker">Player (by rank)</span>
+        <span class="partner">Teammate(s)</span>
+      </article>
+      <form action="/mobile/" method="post">
+        {% for pk in partner_picks %}
+        {% with %}
+        {% set pk_cls = " active" if pk == cur_pick else ("" if pk.partner else " pending") %}
+        <article class="pick{{pk_cls}}" id="pk-{{pk.player_rank}}">
+          {% set is_you = " &ndash; <i>you</i>" if pk == user else "" %}
+          {% set champ_flg = "*" if pk.reigning_champ else "" %}
+          <span class="picker">{{pk.seed_ident}}{{is_you|safe}}{{champ_flg}}</span>
+          {% if pk == user and cur_pick == user %}
+          <input type="hidden" name="player_num" value="{{user.player_num}}">
+          <span class="partner">
+            <select name="partner_num">
+              <option value="" selected disabled hidden></option>
+              {% for pt in available %}
+              <option value="{{pt.player_num}}">{{pt.seed_ident}}</option>
+              {% endfor %}
+            </select>
+          </span>
+          <p class="actions">
+            <button value="pick_partner" disabled>Submit Pick</button>
+            <a class="reset">[reset]</a>
+          </p>
+          {% else %}  {# pk == user #}
+          {% if pk.partner %}
+          <span class="partner">{{pk.picks_info2|safe}}</span>
+          {% else %}
+          <span class="partner empty">&nbsp;</span>
+          {% endif %}
+          {% endif %}  {# pk == user #}
+        </article>
+        {% endwith %}
+        {% endfor %}
+      </form>
+      <p>
+        <i>* indicates reigning champ</i>
+      </p>
+      {% else %}  {# partner_picks #}
+      <p>
+        <i>Partner pick order (based on seeding round rankings) not yet determined</i>
+      </p>
+      {% endif %}  {# partner_picks #}
+    </section>
+    {% endif %}  {# view == partners #}
     {% if view == round_robin %}
     <section class="games" id="rr-games">
       {% if tourn_games %}
@@ -438,7 +522,7 @@
      $('.login_info span').on('click', function() {
        window.location.href = "./";
      });
-     $('.active').on('click', function() {
+     $('.games .active').on('click', function() {
        window.location.href = "./#cur-game";
      });
 
@@ -493,7 +577,15 @@
        //console.log("trapping click to refresh (clickable element: " + this.nodeName + ")");
        e.stopPropagation();
      });
-     {% endif %}
+     {% endif %}  {# cur_game #}
+
+     {% if partner_picks %}
+     $('.partner select').on('change', function() {
+       $('button[value="pick_partner"]').prop('disabled', false);
+       $('a.reset').css('display', 'inline')
+                   .attr('href', '');
+     });
+     {% endif %}  {# partner_picks #}
 
      {% if err_msg %}
      showError("{{err_msg|safe}}");

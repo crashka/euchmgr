@@ -64,7 +64,7 @@ def get_logins() -> list[tuple[str, str]]:
         return []
     pl_sel = Player.select().order_by(Player.last_name)
     friendly = lambda x: x.nick_name if x.nick_name != x.last_name else x.first_name
-    return [(pl.nick_name, f"{pl.last_name} ({friendly(pl)})") for pl in pl_sel]
+    return [(pl.nick_name, pl.display_name) for pl in pl_sel]
 
 def get_tourns() -> list[str]:
     """Get list of existing tournaments (currently based on existence of database file in

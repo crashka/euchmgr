@@ -310,21 +310,93 @@ class Player(BaseModel, EuchmgrUser):
 
     @classmethod
     def available_players(cls, requery: bool = False) -> list[Self]:
-        """Return list of available players, sorted by player_rank
+        """Return list of available players, sorted by player_rank.  Note that this goes
+        against the cached player map, so can be reused locally (e.g. in a loop without
+        requerying when faking partner picks).
         """
         pl_list = cls.get_player_map(requery).values()
         avail = filter(lambda x: x.available, pl_list)
         return sorted(avail, key=lambda x: x.player_rank)
 
     @classmethod
-    def active_picker(cls, requery: bool = False) -> Self:
-        """Return top seeded player currently available, which equates to the player
-        currently picking during the partner selection process
+    def current_round(cls) -> int:
+        """NOTE: this is a method on the `PartnerPick` alias.  Return the current round
+        for partner picking, with the special values of `0` to indicate that the seeding
+        stage rankings have not yet been determined, and `-1` to indicate that the partner
+        picking stage is complete.
         """
-        avail = cls.available_players(requery)
-        if len(avail) == 0:
-            raise LogicError("No available players")
-        return avail[0]
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.SEED_RANKS:
+            return 0
+
+        query = (cls
+                 .select(fn.count())
+                 .where(cls.partner.is_null(False)))
+        npicks = query.scalar()
+        if npicks < tourn.teams:
+            return npicks + 1
+        else:
+            return -1
+
+    @classmethod
+    def current_pick(cls) -> Self:
+        """NOTE: this is a method on the `PartnerPick` alias.  Return top seeded player
+        currently available, which equates to the player currently picking during the
+        partner selection process.
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.SEED_RANKS:
+            return None
+
+        pl_query = cls.select()
+        avail = list(filter(lambda x: x.available, pl_query))
+        if not avail:
+            return None
+        assert len(avail) > 1
+        return sorted(avail, key=lambda x: x.player_rank)[0]
+
+    @classmethod
+    def available_partners(cls) -> list[Self]:
+        """NOTE: this is a method on the `PartnerPick` alias.  Strangely (and rather
+        unfortunately) similar to `available_players`, except that we stay away from the
+        cached player map here and exclude the current picker.  It would be nice to clean
+        things up and eliminate some redundancy (also see `current_pick`) and sources of
+        possible confusion (not to mention cache problems).
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.SEED_RANKS:
+            return None  # as distinguished from `[]` (below)
+
+        pl_query = cls.select()
+        avail = list(filter(lambda x: x.available, pl_query))
+        if not avail:
+            return []
+        assert len(avail) > 1
+        return sorted(avail, key=lambda x: x.player_rank)[1:]
+
+    @classmethod
+    def get_picks(cls, all_picks: bool = False) -> list[BaseModel]:
+        """NOTE: this is a method on the `PartnerPick` alias.  Get completed "PartnerPick"
+        records (corresponding to players that have made a pick), in order pick position
+        (i.e. seeding rank).  `all_picks` indicates that players yet to pick (and not
+        already picked themselves) should also be returned.
+
+        This call follows the same semantics as `get_games` (for "BracketPick" objects).
+        """
+        cur_round = cls.current_round()
+        if cur_round == 0:
+            return None  # as distinct from [], e.g. pick 1 in progress
+
+        # don't muck with the cached player map here since we will always want to requery
+        # and this may be called in (relative) volume; we can keep this simple and just do
+        # the filtering in code (should probably also do the same elsewhere!)
+        pl_list = list(cls.select())
+        if all_picks or cur_round == -1:
+            includer = lambda x: not x.picked_by
+        else:
+            includer = lambda x: x.partner
+        picks = filter(includer, pl_list)
+        return sorted(picks, key=lambda x: x.player_rank)
 
     @classmethod
     def get_player(cls, player_num: int) -> Self:
@@ -382,6 +454,13 @@ class Player(BaseModel, EuchmgrUser):
         return self.first_name + ' ' + self.last_name
 
     @property
+    def display_name(self) -> str:
+        """For UI support (especially if/when sorting by last name)
+        """
+        friendly = self.nick_name if self.nick_name != self.last_name else self.first_name
+        return f"{self.last_name} ({friendly})"
+
+    @property
     def player_tag(self) -> str:
         """Combination of player_num and nick_name with embedded HTML annotation (used for
         bracket and scores/results displays)
@@ -425,6 +504,17 @@ class Player(BaseModel, EuchmgrUser):
             pt_info = self.partner.seed_ident
             if self.partner2:
                 pt_info += f", {self.partner2.seed_ident}"
+        return pt_info
+
+    @property
+    def picks_info2(self) -> str | None:
+        """For partner picking UI
+        """
+        pt_info = None
+        if self.partner:
+            pt_info = self.partner.seed_ident
+            if self.partner2:
+                pt_info += f"<br>{self.partner2.seed_ident}"
         return pt_info
 
     @property

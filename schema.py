@@ -1565,14 +1565,17 @@ class PostScore(BaseModel):
         )
 
     @classmethod
-    def get_last(cls, label: str) -> Self:
+    def get_last(cls, label: str, include_accept: bool = False) -> Self:
         """Get most recent submitted score for specified game label.  Return `None` if no
         scores posted.
         """
+        actions = [SCORE_SUBMIT, SCORE_CORRECT]
+        if include_accept:
+            actions.append(SCORE_ACCEPT)
         query = (cls
                  .select()
                  .where(cls.game_label == label,
-                        cls.post_action.in_([SCORE_SUBMIT, SCORE_CORRECT]))
+                        cls.post_action.in_(actions))
                  .order_by(cls.created_at.desc())
                  .limit(1))
         return query.get_or_none()

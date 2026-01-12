@@ -598,11 +598,12 @@ def render_mobile(context: dict, view: str = VIEW_INDEX) -> str:
 
     if cur_game:
         if context.get('cur_game'):
-            # if `cur_game` was passed in to us, it takes precendence
-            # TODO: need to do some integrity checks here!!!
+            # if `cur_game` was passed in to us, it takes precendence (e.g. highlight game
+            # for accepted score)
             cur_game = context.get('cur_game')
+            assert cur_game.winner
             team_idx = cur_game.team_idx(team if team else player)
-            ref_score = PostScore.get_last(cur_game.label)
+            ref_score = PostScore.get_last(cur_game.label, include_accept=True)
         assert team_idx in (0, 1)
         opp_idx  = team_idx ^ 0x01
         map_pts  = lambda x, i: x.team1_pts if i == 0 else x.team2_pts
@@ -610,7 +611,8 @@ def render_mobile(context: dict, view: str = VIEW_INDEX) -> str:
         team_pts = map_pts(cur_game, team_idx)
         opp_tag  = cur_game.team_tags[opp_idx]
         opp_pts  = map_pts(cur_game, opp_idx)
-        if not cur_game.winner:
+        if not context.get('cur_game'):
+            assert not cur_game.winner
             ref_score = PostScore.get_last(cur_game.label)
             if ref_score:
                 team_pts = map_pts(ref_score, team_idx)

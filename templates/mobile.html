@@ -410,8 +410,10 @@
           {% set self_post = (ref_score.posted_by == user) %}
           {% set team_post = (ref_score.team_idx == team_idx) %}
           <p>
+            {% set action = "accepted" if ref_score.post_action == "accept" else "posted" %}
             {% set role = "opponent" if not team_post else ("you" if self_post else "partner") %}
-            <label>Score posted by</label>: <span>{{ref_score.posted_by.nick_name}} ({{role}})</span>
+            <label>Score {{action}} by</label>:
+            <span>{{ref_score.posted_by.nick_name}} ({{role}})</span>
           </p>
           {% if not gm.winner %}
           <p class="actions">

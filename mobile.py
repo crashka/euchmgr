@@ -481,6 +481,16 @@ VIEW_MENU = {
     VIEW_ROUND_ROBIN: "Round Robin"
 }
 
+VIEW_RESOURCES = {
+    VIEW_SEEDING    : [('/chart/sd_bracket',    "Seeding Bracket"),
+                       ('/chart/sd_scores',     "Seeding Scores"),
+                       ('/dash/sd_dash',        "Seeding Dashboard")],
+    VIEW_ROUND_ROBIN: [('/chart/rr_brackets',   "Round Robin Brackets"),
+                       ('/chart/rr_scores',     "Round Robin Scores"),
+                       ('/dash/rr_dash',        "Round Robin Dashboard"),
+                       ('/report/rr_tb_report', "Tie-Breaker Report")]
+}
+
 class UserInfo(NamedTuple):
     """Readonly user info/stats field
     """
@@ -698,6 +708,7 @@ def render_mobile(context: dict, view: str = VIEW_INDEX) -> str:
         'picks_avail'  : picks_avail,
         'fmt_matchup'  : fmt_matchup,
         'fmt_rec'      : fmt_rec,
+        'resources'    : VIEW_RESOURCES.get(view),
         'err_msg'      : None
     }
     return render_template(MOBILE_TEMPLATE, **(base_ctx | context))

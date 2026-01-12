@@ -81,7 +81,7 @@ def game_in_view(label: str) -> str:
     an ugly query string).
     """
     bracket = get_bracket(label)
-    url = f"{BRACKET_VIEW[bracket]}#{label}"
+    url = f"{BRACKET_VIEW[bracket]}"
     flash(f"cur_game={label}")
     return url
 
@@ -137,7 +137,8 @@ fmt_rec = lambda x, y: f"{x}-{y}"
 # GET routes #
 ##############
 
-VIEW_HOME        = './'
+VIEW_INDEX       = './'
+VIEW_REGISTER    = 'register'
 VIEW_SEEDING     = 'seeding'
 VIEW_PARTNERS    = 'partners'
 VIEW_ROUND_ROBIN = 'round_robin'
@@ -149,6 +150,23 @@ BRACKET_VIEW = {
     BRACKET_TOURN: VIEW_ROUND_ROBIN
 }
 
+STAGE_VIEW = [
+    (TournStage.TOURN_TEAMS,  VIEW_ROUND_ROBIN),
+    (TournStage.PARTNER_PICK, VIEW_PARTNERS),
+    (TournStage.SEED_BRACKET, VIEW_SEEDING),
+    (TournStage.PLAYER_NUMS,  VIEW_REGISTER)
+]
+
+def dflt_view(tourn: TournInfo) -> str:
+    """Return most relevant view for the current stage of the tournament
+    """
+    if tourn.stage_start is None:
+        return None
+    for stage, view in STAGE_VIEW:
+        if tourn.stage_start >= stage:
+            return view
+    return None
+
 @mobile.get("/")
 def index() -> str:
     """Render mobile app if logged in
@@ -157,42 +175,22 @@ def index() -> str:
         flash("Please reauthenticate in order to access the app")
         return redirect('/login')
 
+    tourn = TournInfo.get()
+    view = dflt_view(tourn)
+    if view:
+        # REVISIT: we should figure out if we need to forward these on--they may stayed
+        # queued through the redirect!!!
+        msgs = get_flashed_messages()
+        for msgs in get_flashed_messages():
+            flash(msgs)
+        return redirect(view)
+
     context = {}
-    game_label = None
     msgs = get_flashed_messages()
-    # see if any secret parameters have been transmitted to us--NOTE: currently only one
-    # secret parameter is expected, so we need to be careful that no additional messages
-    # are flashed, otherwise the "secret" parameter will be rendered in the app as an
-    # error messsage, lol
-    if len(msgs) == 1 and msgs[0].find('=') > 0:
-        key, val = msgs[0].split('=', 1)
-        if key == 'cur_game':
-            assert not request.args.get('cur_game')
-            game_label = val
-        else:
-            raise ImplementationError(f"unexpected secret key '{key}' (value '{val}')")
-    else:
-        context['err_msg'] = "<br>".join(msgs)
-
-    if not game_label:
-        game_label = request.args.get('cur_game')
-
-    if game_label:
-        cur_game = get_game_by_label(game_label)
-        assert cur_game
-        # if current game has completed (out of band), then redirect to it in its stage
-        # view, otherwise forward it on to the renderer (as below)
-        if cur_game.winner:
-            return redirect(game_in_view(cur_game.label))
-        context['cur_game'] = cur_game
-    else:
-        if PartnerPick.current_pick() == current_user:
-            flash("You have the current pick!")
-            frag = f"#pk-{current_user.player_rank}"
-            return redirect('/mobile/partners' + frag)
-
+    context['err_msg'] = "<br>".join(msgs)
     return render_mobile(context)
 
+@mobile.get("/register")
 @mobile.get("/seeding")
 @mobile.get("/partners")
 @mobile.get("/round_robin")
@@ -209,7 +207,10 @@ def view() -> str:
     context = {}
     game_label = None
     msgs = get_flashed_messages()
-    # see if any secret parameters have been transmitted to us (see above)
+    # see if any secret parameters have been transmitted to us--NOTE: currently only one
+    # secret parameter is expected, so we need to be careful that no additional messages
+    # are flashed, otherwise the "secret" parameter will be rendered in the app as an
+    # error messsage, lol
     if len(msgs) == 1 and msgs[0].find('=') > 0:
         key, val = msgs[0].split('=', 1)
         if key == 'cur_game':
@@ -236,6 +237,7 @@ def view() -> str:
 ################
 
 ACTIONS = [
+    'register_player',
     'submit_score',
     'accept_score',
     'correct_score',
@@ -253,6 +255,12 @@ def submit() -> str:
         abort(400, f"Invalid request, unrecognized action '{action}'")
     return globals()[action](request.form)
 
+def register_player(form: dict) -> str:
+    """Complete the registration for a player, which entails entering the "player num"
+    (ping pong ball number) and specifying (or confirming) the nick name.
+    """
+    assert False, "not yet implemented"
+
 def submit_score(form: dict) -> str:
     """Submit game score.  This score will need to be accepted in order to be pushed to
     the appropriate bracket.
@@ -266,6 +274,7 @@ def submit_score(form: dict) -> str:
     post_action = SCORE_SUBMIT
     action_info = None
     game_label  = form['game_label']
+    bracket     = get_bracket(game_label)
     player_num  = typecast(form['posted_by_num'])
     team_idx    = typecast(form['team_idx'])
     team1_pts   = typecast(form['team_pts'] if team_idx == 0 else form['opp_pts'])
@@ -274,12 +283,9 @@ def submit_score(form: dict) -> str:
     ref_score_id = typecast(form['ref_score_id'])
     if ref_score_id is not None:
         abort(400, f"ref_score_id ({ref_score_id}) should not be set")
-    if max(team1_pts, team2_pts) < GAME_PTS:
-        flash("Only completed games may be submitted")
-        return redirect(url_for('index'))
-    if (team1_pts, team2_pts) == (GAME_PTS, GAME_PTS):
-        flash(f"Only one team can score {GAME_PTS} points")
-        return redirect(url_for('index'))
+    # these should be enforced by the UI
+    assert max(team1_pts, team2_pts) == GAME_PTS
+    assert (team1_pts, team2_pts) != (GAME_PTS, GAME_PTS)
 
     # see if someone slid in ahead of us (can't be ourselves)
     latest = PostScore.get_last(game_label)
@@ -297,6 +303,7 @@ def submit_score(form: dict) -> str:
             return correct_score(form, latest)
 
     info = {
+        'bracket'      : bracket,
         'game_label'   : game_label,
         'post_action'  : post_action,
         'action_info'  : action_info,
@@ -308,7 +315,7 @@ def submit_score(form: dict) -> str:
         'do_push'      : False
     }
     score = PostScore.create(**info)
-    return redirect(url_for('index'))
+    return render_view(BRACKET_VIEW[bracket])
 
 def accept_score(form: dict) -> str:
     """Accept a game score posted by an opponent.
@@ -319,11 +326,12 @@ def accept_score(form: dict) -> str:
     """
     post_action = SCORE_ACCEPT
     action_info = None
-    game_label = form['game_label']
-    player_num = typecast(form['posted_by_num'])
-    team_idx   = typecast(form['team_idx'])
-    team1_pts  = typecast(form['team_pts'] if team_idx == 0 else form['opp_pts'])
-    team2_pts  = typecast(form['team_pts'] if team_idx == 1 else form['opp_pts'])
+    game_label  = form['game_label']
+    bracket     = get_bracket(game_label)
+    player_num  = typecast(form['posted_by_num'])
+    team_idx    = typecast(form['team_idx'])
+    team1_pts   = typecast(form['team_pts'] if team_idx == 0 else form['opp_pts'])
+    team2_pts   = typecast(form['team_pts'] if team_idx == 1 else form['opp_pts'])
 
     ref_score_id = typecast(form['ref_score_id'])
     ref_score = PostScore.get_or_none(ref_score_id)
@@ -352,6 +360,7 @@ def accept_score(form: dict) -> str:
             flash(f"Discarding acceptance due to {lc_first(action_info)}")
 
     info = {
+        'bracket'      : bracket,
         'game_label'   : game_label,
         'post_action'  : post_action,
         'action_info'  : action_info,
@@ -368,7 +377,7 @@ def accept_score(form: dict) -> str:
             score.push_scores()
         except RuntimeError as e:
             flash(str(e))
-            return redirect(url_for('index'))
+            return render_view(VIEW_PARTNERS)
     return redirect(game_in_view(game_label))
 
 def correct_score(form: dict, ref: PostScore = None) -> str:
@@ -382,22 +391,20 @@ def correct_score(form: dict, ref: PostScore = None) -> str:
     """
     post_action = SCORE_CORRECT
     action_info = None
-    game_label = form['game_label']
-    player_num = typecast(form['posted_by_num'])
-    team_idx   = typecast(form['team_idx'])
-    team1_pts  = typecast(form['team_pts'] if team_idx == 0 else form['opp_pts'])
-    team2_pts  = typecast(form['team_pts'] if team_idx == 1 else form['opp_pts'])
+    game_label  = form['game_label']
+    bracket     = get_bracket(game_label)
+    player_num  = typecast(form['posted_by_num'])
+    team_idx    = typecast(form['team_idx'])
+    team1_pts   = typecast(form['team_pts'] if team_idx == 0 else form['opp_pts'])
+    team2_pts   = typecast(form['team_pts'] if team_idx == 1 else form['opp_pts'])
 
     ref_score_id = typecast(form['ref_score_id'])
     ref_score = PostScore.get_or_none(ref_score_id)
     if not ref_score:
         abort(400, f"invalid ref_score_id {ref_score_id}")
-    if max(team1_pts, team2_pts) < GAME_PTS:
-        flash("Only completed games may be submitted")
-        return redirect(url_for('index'))
-    if (team1_pts, team2_pts) == (GAME_PTS, GAME_PTS):
-        flash(f"Only one team can score {GAME_PTS} points")
-        return redirect(url_for('index'))
+    # these should be enforced by the UI
+    assert max(team1_pts, team2_pts) == GAME_PTS
+    assert (team1_pts, team2_pts) != (GAME_PTS, GAME_PTS)
 
     # check for intervening corrections
     latest = PostScore.get_last(game_label)
@@ -425,6 +432,7 @@ def correct_score(form: dict, ref: PostScore = None) -> str:
         flash(f"Ignoring {lc_first(action_info)}")
 
     info = {
+        'bracket'      : bracket,
         'game_label'   : game_label,
         'post_action'  : post_action,
         'action_info'  : action_info,
@@ -436,7 +444,7 @@ def correct_score(form: dict, ref: PostScore = None) -> str:
         'do_push'      : False
     }
     score = PostScore.create(**info)
-    return redirect(url_for('index'))
+    return render_view(BRACKET_VIEW[bracket])
 
 def pick_partner(form: dict) -> str:
     """Submit the specified partner pick.
@@ -450,8 +458,7 @@ def pick_partner(form: dict) -> str:
     partner = pl_map[partner_num]
     player.pick_partners(partner)
     player.save()
-    frag = f"#pk-{player.player_rank}"
-    return redirect('/mobile/partners' + frag)
+    return render_view(VIEW_PARTNERS)
 
 #############
 # renderers #
@@ -459,6 +466,7 @@ def pick_partner(form: dict) -> str:
 
 # "phase" is a high-level pseudo-stage used to control the display
 PHASE_COMMON      = None  # dummy value for common tournament info
+PHASE_REGISTER    = "Register"
 PHASE_SEEDING     = "Seeding"
 PHASE_PARTNERS    = "Partner Picks"
 PHASE_ROUND_ROBIN = "Round Robin"
@@ -466,7 +474,8 @@ PHASE_SEMIFINALS  = "Semifinals"
 PHASE_FINALS      = "Finals"
 
 VIEW_PHASE = {
-    VIEW_HOME       : None,
+    VIEW_INDEX      : None,
+    VIEW_REGISTER   : PHASE_REGISTER,
     VIEW_SEEDING    : PHASE_SEEDING,
     VIEW_PARTNERS   : PHASE_PARTNERS,
     VIEW_ROUND_ROBIN: PHASE_ROUND_ROBIN,
@@ -475,7 +484,7 @@ VIEW_PHASE = {
 }
 
 VIEW_MENU = {
-    VIEW_HOME       : "Home",
+    VIEW_REGISTER   : "Register",
     VIEW_SEEDING    : "Seeding",
     VIEW_PARTNERS   : "Partner Picks",
     VIEW_ROUND_ROBIN: "Round Robin"
@@ -521,29 +530,38 @@ INFO_FIELDS = {
     ]
 }
 
-def render_mobile(context: dict, view: str = VIEW_HOME) -> str:
+def render_view(view: str) -> str:
+    """Render the specified view using redirect (called from POST action handlers).
+    """
+    return redirect('/mobile/' + view)
+
+def render_mobile(context: dict, view: str = VIEW_INDEX) -> str:
     """Common post-processing of context before rendering the tournament selector and
     creation page through Jinja
     """
-    tourn      = TournInfo.get(requery=True)
-    player     = current_user
-    team       = current_user.team
-    cur_phase  = None
-    cur_game   = None
-    team_idx   = None
-    cur_pick   = None
-    win_rec_sd = None
-    pts_rec_sd = None
-    win_rec_rr = None
-    pts_rec_rr = None
-    ref_score  = None
-    opp_idx    = None
-    team_tag   = None
-    team_pts   = None
-    opp_tag    = None
-    opp_pts    = None
+    tourn       = TournInfo.get(requery=True)
+    player      = current_user
+    team        = current_user.team
+    cur_phase   = None
+    cur_game    = None
+    team_idx    = None
+    cur_pick    = None
+    win_rec_sd  = None
+    pts_rec_sd  = None
+    win_rec_rr  = None
+    pts_rec_rr  = None
+    ref_score   = None
+    opp_idx     = None
+    team_tag    = None
+    team_pts    = None
+    opp_tag     = None
+    opp_pts     = None
+    nums_avail  = None
+    stage_games = None
+    partner_picks = None
+    picks_avail = None
 
-    if tourn.stage_start >= TournStage.TOURN_RESULTS:
+    if tourn.stage_start >= TournStage.TOURN_BRACKET:
         assert team
         cur_phase  = PHASE_ROUND_ROBIN
         cur_game   = team.current_game
@@ -557,18 +575,22 @@ def render_mobile(context: dict, view: str = VIEW_HOME) -> str:
         cur_pick   = PartnerPick.current_pick()
         win_rec_sd = fmt_rec(player.seed_wins, player.seed_losses)
         pts_rec_sd = fmt_rec(player.seed_pts_for, player.seed_pts_against)
-    elif tourn.stage_start >= TournStage.SEED_RESULTS:
+    elif tourn.stage_start >= TournStage.SEED_BRACKET:
         cur_phase  = PHASE_SEEDING
         cur_game   = player.current_game
         team_idx   = cur_game.team_idx(player) if cur_game else None
         win_rec_sd = fmt_rec(player.seed_wins, player.seed_losses)
         pts_rec_sd = fmt_rec(player.seed_pts_for, player.seed_pts_against)
+    elif tourn.stage_start >= TournStage.PLAYER_NUMS:
+        cur_phase  = PHASE_REGISTER
 
-    if view == VIEW_HOME and cur_game:
+    if cur_game:
         if context.get('cur_game'):
-            # for now we just do an integrity check--later, we can do a little refactoring
-            # to avoid an extra query
-            assert context.get('cur_game') == cur_game
+            # if `cur_game` was passed in to us, it takes precendence
+            # TODO: need to do some integrity checks here!!!
+            cur_game = context.get('cur_game')
+            team_idx = cur_game.team_idx(team if team else player)
+            ref_score = PostScore.get_last(cur_game.label)
         assert team_idx in (0, 1)
         opp_idx  = team_idx ^ 0x01
         map_pts  = lambda x, i: x.team1_pts if i == 0 else x.team2_pts
@@ -624,19 +646,31 @@ def render_mobile(context: dict, view: str = VIEW_HOME) -> str:
     for phase, data in info_data.items():
         assert len(data) == len(INFO_FIELDS[phase])
 
-    seed_games    = player.get_games(all_games=True)
-    partner_picks = PartnerPick.get_picks(all_picks=True)
-    available     = PartnerPick.available_partners()
-    tourn_games   = team.get_games(all_games=True) if team else None
+    if VIEW_PHASE[view] == PHASE_REGISTER:
+        # FIX: need to replace this will currently unassigned numbers!!!
+        # REVISIT: note that we are currently also using this as an indicator of whether
+        # registration is still active, or if the player info has been locked down!!!
+        if tourn.stage_compl < TournStage.PLAYER_NUMS:
+            nums_avail = range(1, tourn.players + 1)
+        else:
+            nums_avail = None
+    if VIEW_PHASE[view] == PHASE_SEEDING:
+        stage_games = player.get_games(all_games=True)
+    elif VIEW_PHASE[view] == PHASE_ROUND_ROBIN:
+        stage_games = team.get_games(all_games=True) if team else None
+    elif VIEW_PHASE[view] == PHASE_PARTNERS:
+        partner_picks = PartnerPick.get_picks(all_picks=True)
+        picks_avail = PartnerPick.available_partners()
 
     # FIX: for now we're not worried about too many context items (since we are trying to
     # develop clear semantics for the display), but this is inelegant and getting bloated
-    # redundant, so we really need to refactor into something with better structure!!!
+    # and redundant, so we really need to refactor into something with better structure!!!
     base_ctx = {
         'title'        : MOBILE_TITLE,
         'view_menu'    : VIEW_MENU,
         'view'         : view,
-        'home'         : VIEW_HOME,
+        'index'        : VIEW_INDEX,
+        'register'     : VIEW_REGISTER,
         'seeding'      : VIEW_SEEDING,
         'partners'     : VIEW_PARTNERS,
         'round_robin'  : VIEW_ROUND_ROBIN,
@@ -654,10 +688,10 @@ def render_mobile(context: dict, view: str = VIEW_HOME) -> str:
         'opp_pts'      : opp_pts,
         'ref_score'    : ref_score,
         'ref_score_id' : ref_score.id if ref_score else None,
-        'seed_games'   : seed_games,
+        'nums_avail'   : nums_avail,
+        'stage_games'  : stage_games,
         'partner_picks': partner_picks,
-        'available'    : available,
-        'tourn_games'  : tourn_games,
+        'picks_avail'  : picks_avail,
         'fmt_matchup'  : fmt_matchup,
         'fmt_rec'      : fmt_rec,
         'err_msg'      : None

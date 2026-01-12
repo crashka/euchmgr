@@ -9,7 +9,7 @@
        font-size: 16px;
        font-size: 3.9vmin;
        /*font-size: calc(1.2vh + 1.2vw);*/
-       scroll-padding-top: 3.0rem;
+       scroll-padding-top: 2.9rem;
      }
      body {
        margin-top: 0.0rem;
@@ -105,11 +105,10 @@
      .info span.wide {
        min-width: 9rem;
      }
-     .cur_game h3 {
-       display: inline-block;
-     }
-     .cur_game > p {
-       margin: 0.35rem 0.25rem;
+     .register input,
+     .register select {
+       margin-left: 0.1rem;
+       padding: 0.0rem 0.5rem 0.05rem 0.3rem;
      }
      .round {
        font-size: 1.0rem;
@@ -176,7 +175,7 @@
      .empty {
        background-color: #F0F0F0;
      }
-     .cur_game button + button[value="correct_score"] {
+     .actions button + button[value="correct_score"] {
        display: none;  /* only if stacked behind another button */
      }
      .reset {
@@ -195,7 +194,7 @@
        margin: 0.7rem 0.0rem 0.5rem 0.0rem;
      }
      .games article {
-       padding: 0.2rem 0.0rem;
+       padding: 0.2rem 0.4rem;
        border-top: 1px solid black;
      }
      .games article:last-child {
@@ -259,7 +258,7 @@
         </div>
       </div>
       <span class="login_info">
-        {% with tooltip = "Tap here to return to \"Home\"" %}
+        {% with tooltip = "Tap here to go to current stage" %}
         Logged in as: <span title='{{tooltip}}'>{{user.nick_name}}</span>
         [<a href='/logout'>Logout</a>]
         {% endwith %}
@@ -270,14 +269,15 @@
       <section>
         {% for info_sect in info_data %}
         {% if info_sect %}
-        <h3>{{"Current Stage" if view == home else "Stage Info"}}</h3>
+        <h3>{{"Current Stage" if view == index else "Stage Info"}}</h3>
         {% endif %}
         <article class="info">
           {% for info in info_flds[info_sect] %}
           <p class="{{info.cls}}">
             {# NOTE that an info_data value of `0` must be passed in as a string #}
             {% set data_val = info_data[info_sect][loop.index0] or "&nbsp;" %}
-            <label>{{info.label}}</label>:
+            {% set colon = "" if info.label[-1] == "?" else ":" %}
+            <label>{{info.label}}</label>{{colon}}
             <span class="{{info.cls}}">{{data_val|safe}}</span>
           </p>
           {% endfor %}
@@ -285,104 +285,141 @@
         {% endfor %}
       </section>
     </section>
-    {% if view == home %}
-    <section class="cur_game" id="cur-game">
-      {% with tooltip = "Tap here to reload game info" %}
-      <h3 title="{{tooltip}}">Current Game</h3>
-      {% endwith %}
-      {% if cur_game %}
-      <span class="round" title="{{tooltip}}">(Round {{cur_game.round_num}})</span>
+
+    {% if view == index %}
+    <section class="index" id="index">
+      <p>
+        <i>Tournament not yet started</i>
+      </p>
+    </section>
+    {% endif %}  {# view == index #}
+
+    {% if view == register %}
+    {% with %}
+    {% set locked = (nums_avail == none) %}
+    {% set disabled = " disabled" if locked else "" %}
+    <section class="register" id="register">
+      <h3>PlayerInfo</h3>
+      <form action="/mobile/" method="post">
+        <input type="hidden" name="player_id" value="{{user.id}}">
+        <p>
+          <label>Nick Name</label>:
+          <input type="text" name="nick_name" value="{{user.nick_name}}"{{disabled}}>
+        </p>
+        <p>
+          <label>Player Num</label><sup>&dagger;</sup>:
+          <select{{disabled}}>
+            {% if nums_avail %}
+            <option value="" selected disabled hidden></option>
+            {% for num in nums_avail %}
+            {% set selected = (" selected" if num == user.player_num else "") %}
+            <option{{selected}}>{{num}}</option>
+            {% endfor %}
+            {% else %}
+            <option{{selected}}>{{user.player_num}}</option>
+            {% endif %}
+          </select>
+        </p>
+        {% if not locked %}
+        <p class="actions">
+          <button value="register_player" disabled>Complete Registration</button>
+          <a class="reset">[reset]</a>
+        </p>
+        {% endif %}
+      </form>
+      <p>
+        <sup>&dagger;</sup> (ping pong ball number)
+      </p>
+    </section>
+    {% endwith %}
+    {% endif %}  {# view == register #}
+
+    {% if view == seeding or view == round_robin %}
+    <section class="games" id="sd-games">
+      {% if stage_games %}
+      <h3>Games</h3>
       <form action="/mobile/" method="post">
         <input type="hidden" name="game_label" value="{{cur_game.label}}">
         <input type="hidden" name="posted_by_num" value="{{user.player_num}}">
         <input type="hidden" name="team_idx" value="{{team_idx}}">
         <input type="hidden" name="ref_score_id" value="{{ref_score_id}}">
-        <p class="matchup" title="{{tooltip}}">
-          {{team_tag|safe}}
-          <br>vs.<br>
-          {{opp_tag|safe}}
-        </p>
-        <p class="score">
-          <select name="team_pts">
-            {% if team_pts == none %}
-            <option value="" selected disabled hidden></option>
+        {% for gm in stage_games %}
+        {% with %}
+        {% set gm_cls = " active" if gm == cur_game else ("" if gm.winner else " pending") %}
+        {% set stage_entity = team if view == round_robin else user %}
+        <article class="game{{gm_cls}}" id="{{gm.label}}">
+          <h4>Round {{gm.round_num}}</h4>
+          {% set matchup_str = fmt_matchup(gm, stage_entity) %}
+          <p class="matchup">
+            {{matchup_str[0]|safe}}
+          </p>
+          <p class="score">
+            {% if gm == cur_game and not gm.winner %}
+            <select name="team_pts">
+              {% if team_pts == none %}
+              <option value="" selected disabled hidden></option>
+              {% endif %}
+              {% for pts in range(0, 11) %}
+              {% set selected = (" selected" if pts == team_pts else "") %}
+              <option{{selected}}>{{pts}}</option>
+              {% endfor %}
+            </select>
+            <br><br>
+            <select name="opp_pts">
+              {% if opp_pts == none %}
+              <option value="" selected disabled hidden></option>
+              {% endif %}
+              {% for pts in range(0, 11) %}
+              {% set selected = (" selected" if pts == opp_pts else "") %}
+              <option{{selected}}>{{pts}}</option>
+              {% endfor %}
+            </select>
+            {% else %}
+            {{matchup_str[1]|safe}}
             {% endif %}
-            {% for pts in range(0, 11) %}
-            {% set selected = (" selected" if pts == team_pts else "") %}
-            <option{{selected}}>{{pts}}</option>
-            {% endfor %}
-          </select>
-          <label>pts</label>
-          <br><br>
-          <select name="opp_pts">
-            {% if opp_pts == none %}
-            <option value="" selected disabled hidden></option>
+          </p>
+          <p class="units">
+            {{matchup_str[2]|safe}}
+          </p>
+          {% if gm == cur_game %}
+          {% if ref_score %}
+          {% set self_post = (ref_score.posted_by == user) %}
+          {% set team_post = (ref_score.team_idx == team_idx) %}
+          <p>
+            {% set role = "opponent" if not team_post else ("you" if self_post else "partner") %}
+            <label>Score posted by</label>: <span>{{ref_score.posted_by.nick_name}} ({{role}})</span>
+          </p>
+          {% if not gm.winner %}
+          <p class="actions">
+            {% if team_post %}
+            <button value="correct_score" disabled>Correct Score</button>
+            {% else %}
+            <button value="accept_score">Accept Score</button>
+            <button value="correct_score">Correct Score</button>
             {% endif %}
-            {% for pts in range(0, 11) %}
-            {% set selected = (" selected" if pts == opp_pts else "") %}
-            <option{{selected}}>{{pts}}</option>
-            {% endfor %}
-          </select>
-          <label>pts</label>
-        </p>
-        {% if ref_score %}
-        {% set self_post = (ref_score.posted_by == user) %}
-        {% set team_post = (ref_score.team_idx == team_idx) %}
-        <p>
-          {% set role = "opponent" if not team_post else ("you" if self_post else "partner") %}
-          <label>Score posted by</label>: <span>{{ref_score.posted_by.nick_name}} ({{role}})</span>
-        </p>
-        <p class="actions">
-          {% if team_post %}
-          <button value="correct_score" disabled>Correct Score</button>
-          {% else %}
-          <button value="accept_score">Accept Score</button>
-          <button value="correct_score">Correct Score</button>
-          {% endif %}
-          <a class="reset">[reset]</a>
-        </p>
-        {% else %}  {# ref_score #}
-        <p class="actions">
-          <button value="submit_score" disabled>Submit Score</button>
-          <a class="reset">[reset]</a>
-        </p>
-        {% endif %}  {# ref_score #}
+            <a class="reset">[reset]</a>
+          </p>
+          {% endif %}  {# not gm.winner #}
+          {% else %}  {# ref_score #}
+          <p class="actions">
+            <button value="submit_score" disabled>Submit Score</button>
+            <a class="reset">[reset]</a>
+          </p>
+          {% endif %}  {# ref_score #}
+          {% endif %}  {# gm == cur_game #}
+        </article>
+        {% endwith %}
+        {% endfor %}
       </form>
-      {% else %}  {# cur_game #}
+      {% else %}  {# stage_games #}
       <p>
-        <i>None</i>
+        {% set plural = "s" if view == round_robin else "" %}
+        <i>Bracket{{plural}} not yet created</i>
       </p>
-      {% endif %}  {# cur_game #}
-    </section>
-    {% endif %}  {# view == home #}
-    {% if view == seeding %}
-    <section class="games" id="sd-games">
-      {% if seed_games %}
-      <h3>Games</h3>
-      {% for gm in seed_games %}
-      {% with gm_cls = "active" if gm == cur_game else ("" if gm.winner else "pending") %}
-      <article class="{{gm_cls}}" id="{{gm.label}}">
-        <h4>Round {{gm.round_num}}</h4>
-        {% set matchup_str = fmt_matchup(gm, user) %}
-        <p class="matchup">
-          {{matchup_str[0]|safe}}
-        </p>
-        <p class="score">
-          {{matchup_str[1]|safe}}
-        </p>
-        <p class="units">
-          {{matchup_str[2]|safe}}
-        </p>
-      </article>
-      {% endwith %}
-      {% endfor %}
-      {% else %}  {# seed_games #}
-      <p>
-        <i>Bracket not yet created</i>
-      </p>
-      {% endif %}  {# seed_games #}
+      {% endif %}  {# stage_games #}
     </section>
     {% endif %}  {# view == seeding #}
+
     {% if view == partners %}
     <section class="picks" id="pt-picks">
       {% if partner_picks %}
@@ -404,7 +441,7 @@
           <span class="partner">
             <select name="partner_num">
               <option value="" selected disabled hidden></option>
-              {% for pt in available %}
+              {% for pt in picks_avail %}
               <option value="{{pt.player_num}}">{{pt.seed_ident}}</option>
               {% endfor %}
             </select>
@@ -429,53 +466,11 @@
       </p>
       {% else %}  {# partner_picks #}
       <p>
-        <i>Partner pick order (based on seeding round rankings) not yet determined</i>
+        <i>Partner pick order not yet determined</i>
       </p>
       {% endif %}  {# partner_picks #}
     </section>
     {% endif %}  {# view == partners #}
-    {% if view == round_robin %}
-    <section class="games" id="rr-games">
-      {% if tourn_games %}
-      <h3>Games</h3>
-      {% for gm in tourn_games %}
-      {% with gm_cls = "active" if gm == cur_game else ("" if gm.winner else "pending") %}
-      <article class="{{gm_cls}}" id="{{gm.label}}">
-        <h4>Round {{gm.round_num}}</h4>
-        {% set matchup_str = fmt_matchup(gm, team) %}
-        <p class="matchup">
-          {{matchup_str[0]|safe}}
-        </p>
-        <p class="score">
-          {{matchup_str[1]|safe}}
-        </p>
-        <p class="units">
-          {{matchup_str[2]|safe}}
-        </p>
-      </article>
-      {% endwith %}
-      {% endfor %}
-      {% else %}  {# tourn_games #}
-      <p>
-        <i>Brackets not yet created</i>
-      </p>
-      {% endif %}  {# tourn_games #}
-    </section>
-    {% endif %}  {# view == round_robin #}
-    {% if semi_games %}
-    <section class="games" id="sf-games">
-      <h3>Games</h3>
-      <p>
-      </p>
-    </section>
-    {% endif %}
-    {% if final_games %}
-    <section class="games" id="fn-games">
-      <h3>Games</h3>
-      <p>
-      </p>
-    </section>
-    {% endif %}
   </body>
 
   <script src="/static/jquery-3.7.1.min.js"></script>
@@ -522,9 +517,6 @@
      $('.login_info span').on('click', function() {
        window.location.href = "./";
      });
-     $('.games .active').on('click', function() {
-       window.location.href = "./#cur-game";
-     });
 
      {% if cur_game %}
      // score change
@@ -560,20 +552,21 @@
          $('button[value="submit_score"]').prop('disabled', true);
        }
        {% endif %}
-       $('a.reset').css('display', 'inline')
-                   .attr('href', '');
+       $('a.reset').attr('href', '');
      });
      // refresh score for current game (disregarding clickable elements)
-     $('.cur_game').on('click', function() {
+     $('.game').on('click', function(e) {
+       console.log(".game click", this, e.target)
        if (chgMap.size == 0) {
-         const label = $('.cur_game input[name="game_label"]').attr('value');
-         window.location.href = "./?cur_game=" + label;
+         const url = window.location.origin + window.location.pathname
+         const label = $('.games input[name="game_label"]').attr('value');
+         window.location.href = url + "?cur_game=" + label;
        }
        else {
          showError("Cannot tap to reload game info if there are pending changes");
        }
      });
-     $('select, option, button, a', '.cur_game').on('click', function(e) {
+     $('select, option, button, a', '.game').on('click', function(e) {
        //console.log("trapping click to refresh (clickable element: " + this.nodeName + ")");
        e.stopPropagation();
      });
@@ -582,8 +575,17 @@
      {% if partner_picks %}
      $('.partner select').on('change', function() {
        $('button[value="pick_partner"]').prop('disabled', false);
-       $('a.reset').css('display', 'inline')
-                   .attr('href', '');
+       $('a.reset').attr('href', '');
+     });
+     {% endif %}  {# partner_picks #}
+
+     {% if nums_avail %}
+     $('.register input').on('keydown', function() {
+       $('a.reset').attr('href', '');
+     });
+     $('.register select').on('change', function() {
+       $('button[value="register_player"]').prop('disabled', false);
+       $('a.reset').attr('href', '');
      });
      {% endif %}  {# partner_picks #}
 

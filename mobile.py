@@ -142,7 +142,7 @@ BRACKET_VIEW = {
 
 STAGE_VIEW = [
     (TournStage.TOURN_TEAMS,  VIEW_ROUND_ROBIN),
-    (TournStage.PARTNER_PICK, VIEW_PARTNERS),
+    (TournStage.SEED_RANKS,   VIEW_PARTNERS),
     (TournStage.SEED_BRACKET, VIEW_SEEDING),
     (TournStage.PLAYER_NUMS,  VIEW_REGISTER)
 ]
@@ -486,37 +486,38 @@ class UserInfo(NamedTuple):
     name   : str  # also used as the element id
     cls    : str  # CSS class for info data span
     label  : str
+    min_stg: TournStage  # refers to stage_compl
 
 INFO_FIELDS = {
     PHASE_COMMON: [
-        UserInfo("full_name",  "wide", "Player"),
-        UserInfo("tourn",      "wide", "Tournament")
+        UserInfo("full_name",  "wide", "Player", TournStage.PLAYER_ROSTER),
+        UserInfo("tourn",      "wide", "Tournament", TournStage.TOURN_CREATE),
     ],
     PHASE_SEEDING: [
-        UserInfo("stage",      "med",  "Stage"),
-        UserInfo("status",     "",     "Status"),
-        UserInfo("plyr_name",  "med",  "Name"),
-        UserInfo("plyr_num",   "",     "Num"),
-        UserInfo("win_rec_sd", "",     "W-L"),
-        UserInfo("pts_rec_sd", "",     "PF-PA"),
-        UserInfo("seed_rank",  "",     "Rank")
+        UserInfo("stage",      "med",  "Stage",  TournStage.TOURN_CREATE),
+        UserInfo("status",     "",     "Status", TournStage.TOURN_CREATE),
+        UserInfo("plyr_name",  "med",  "Name",   TournStage.PLAYER_NUMS),
+        UserInfo("plyr_num",   "",     "Num",    TournStage.PLAYER_NUMS),
+        UserInfo("win_rec_sd", "",     "W-L",    TournStage.SEED_BRACKET),
+        UserInfo("pts_rec_sd", "",     "PF-PA",  TournStage.SEED_BRACKET),
+        UserInfo("seed_rank",  "",     "Rank",   TournStage.SEED_RESULTS)
     ],
     PHASE_PARTNERS: [
-        UserInfo("stage",      "med",  "Stage"),
-        UserInfo("status",     "",     "Status"),
-        UserInfo("cur_pick",   "",     "Cur Pick (rank)"),
-        UserInfo("plyr_name",  "med",  "Name"),
-        UserInfo("seed_rank",  "",     "Rank")
+        UserInfo("stage",      "med",  "Stage",  TournStage.TOURN_CREATE),
+        UserInfo("status",     "",     "Status", TournStage.TOURN_CREATE),
+        UserInfo("cur_pick",   "",     "Cur Pick (rank)", TournStage.SEED_TABULATE),
+        UserInfo("plyr_name",  "med",  "Name",   TournStage.SEED_TABULATE),
+        UserInfo("seed_rank",  "",     "Rank",   TournStage.SEED_TABULATE)
     ],
     PHASE_ROUND_ROBIN: [
-        UserInfo("stage",      "med",  "Stage"),
-        UserInfo("status",     "",     "Status"),
-        UserInfo("team_name",  "wide", "Team"),
-        UserInfo("div_num",    "",     "Div"),
-        UserInfo("div_seed",   "",     "Seed"),
-        UserInfo("win_rec_rr", "",     "W-L"),
-        UserInfo("pts_rec_rr", "",     "PF-PA"),
-        UserInfo("div_rank",   "",     "Rank")
+        UserInfo("stage",      "med",  "Stage",  TournStage.TOURN_CREATE),
+        UserInfo("status",     "",     "Status", TournStage.TOURN_CREATE),
+        UserInfo("team_name",  "wide", "Team",   TournStage.TOURN_TEAMS),
+        UserInfo("div_num",    "",     "Div",    TournStage.TOURN_TEAMS),
+        UserInfo("div_seed",   "",     "Seed",   TournStage.TOURN_TEAMS),
+        UserInfo("win_rec_rr", "",     "W-L",    TournStage.TOURN_BRACKET),
+        UserInfo("pts_rec_rr", "",     "PF-PA",  TournStage.TOURN_BRACKET),
+        UserInfo("div_rank",   "",     "Rank",   TournStage.TOURN_RESULTS)
     ]
 }
 
@@ -630,10 +631,12 @@ def render_mobile(context: dict, view: str = VIEW_INDEX) -> str:
             player.player_rank
         ]
     elif display_phase == PHASE_ROUND_ROBIN:
+        info_data[PHASE_ROUND_ROBIN] = [
+            PHASE_ROUND_ROBIN,
+            stage_status(TournGame)
+        ]
         if team:
-            info_data[PHASE_ROUND_ROBIN] = [
-                PHASE_ROUND_ROBIN,
-                stage_status(TournGame),
+            info_data[PHASE_ROUND_ROBIN] += [
                 team.team_name,
                 team.div_num,
                 team.div_seed,
@@ -642,7 +645,7 @@ def render_mobile(context: dict, view: str = VIEW_INDEX) -> str:
                 team.div_rank
             ]
         else:
-            info_data[PHASE_ROUND_ROBIN] = [None] * 8
+            info_data[PHASE_ROUND_ROBIN] += [None] * 6
     for phase, data in info_data.items():
         assert len(data) == len(INFO_FIELDS[phase])
 

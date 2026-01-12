@@ -273,6 +273,7 @@
         {% endif %}
         <article class="info">
           {% for info in info_flds[info_sect] %}
+          {% if tourn.stage_compl >= info.min_stg %}
           <p class="{{info.cls}}">
             {# NOTE that an info_data value of `0` must be passed in as a string #}
             {% set data_val = info_data[info_sect][loop.index0] or "&nbsp;" %}
@@ -280,6 +281,7 @@
             <label>{{info.label}}</label>{{colon}}
             <span class="{{info.cls}}">{{data_val|safe}}</span>
           </p>
+          {% endif %}
           {% endfor %}
         </article>
         {% endfor %}
@@ -299,7 +301,7 @@
     {% set locked = (nums_avail == none) %}
     {% set disabled = " disabled" if locked else "" %}
     <section class="register" id="register">
-      <h3>PlayerInfo</h3>
+      <h3>Player Info</h3>
       <form action="/mobile/" method="post">
         <input type="hidden" name="player_id" value="{{user.id}}">
         <p>

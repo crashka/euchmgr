@@ -437,7 +437,7 @@ class Player(BaseModel, EuchmgrUser):
 
         query = cls.select()
         if by_rank:
-            query = query.order_by(cls.player_rank)
+            query = query.order_by(cls.player_rank.asc(nulls='last'))
         for p in query.iterator():
             yield p
 
@@ -1024,13 +1024,20 @@ class Team(BaseModel):
         return {t.div_seed: t for t in tm_list if t.div_num == div}
 
     @classmethod
-    def iter_teams(cls) -> Iterator[Self]:
+    def iter_teams(cls, div: int = None, by_rank: bool = False) -> Iterator[Self]:
         """Iterator for teams (wrap ORM details).  Note that this also clears out local
         cache, if populated.
         """
         if cls.team_map:
             cls.team_map = None
-        for t in cls.select().iterator():
+        query = cls.select()
+        if div:
+            query = query.where(cls.div_num == div)
+            if by_rank:
+                query = query.order_by(cls.div_rank.asc(nulls='last'))
+        elif by_rank:
+            query = query.order_by(cls.tourn_rank.asc(nulls='last'))
+        for t in query.iterator():
             yield t
 
     @classmethod

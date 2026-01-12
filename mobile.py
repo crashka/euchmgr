@@ -15,7 +15,7 @@ from core import ImplementationError
 from schema import (GAME_PTS, BRACKET_SEED, BRACKET_TOURN, TournStage, TournInfo, Player,
                     SeedGame, Team, TournGame, PostScore, SCORE_SUBMIT, SCORE_ACCEPT,
                     SCORE_CORRECT, SCORE_IGNORE, SCORE_DISCARD)
-from euchmgr import PFX_SEED, PFX_TOURN
+from euchmgr import PFX_SEED, PFX_TOURN, compute_player_ranks, compute_team_ranks
 
 ###################
 # blueprint stuff #
@@ -122,6 +122,39 @@ def fmt_matchup(game: SeedGame | TournGame, ref: Player | Team) -> tuple[str, st
 
 # format a record string (e.g. given wins/losses or pts_for/pts_against)
 fmt_rec = lambda x, y: f"{x}-{y}"
+
+def get_leaderboard(bracket: str, div: int = None) -> list[tuple[str, str, str, str]]:
+    """Return tuples of (player/team, W-L, PF-PA, rank) ordered by rank.  `div` must be
+    specified for BRACKET_TOURN.
+    """
+    if bracket == BRACKET_SEED:
+        pl_list = list(Player.iter_players(by_rank=True))
+        return [(pl.player_tag, fmt_rec(pl.seed_wins, pl.seed_losses),
+                 fmt_rec(pl.seed_pts_for, pl.seed_pts_against), pl.player_rank or "")
+                for pl in pl_list]
+    else:
+        assert bracket == BRACKET_TOURN
+        assert div
+        tm_list = list(Team.iter_teams(div=div, by_rank=True))
+        return [(tm.team_tag, fmt_rec(tm.tourn_wins, tm.tourn_losses),
+                 fmt_rec(tm.tourn_pts_for, tm.tourn_pts_against), tm.div_rank or "")
+                for tm in tm_list]
+
+def update_rankings(bracket: str) -> bool:
+    """Update rankings for the specified bracket.  The return value indicates whether this
+    call synchronous performed the update (otherwise, the execution is assumed deferred).
+
+    REVISIT: this is kind of code-heavy, so we may not want to do it every time a score is
+    posted--if we find updates tripping over each other, we can create a global timestamp
+    to ensure that updates are appropriate spaced!!!
+
+    """
+    if bracket == BRACKET_SEED:
+        compute_player_ranks()
+    else:
+        assert bracket == BRACKET_TOURN
+        compute_team_ranks()
+    return True
 
 ##############
 # GET routes #
@@ -365,6 +398,7 @@ def accept_score(form: dict) -> str:
     if post_action == SCORE_ACCEPT:
         try:
             score.push_scores()
+            update_rankings(bracket)
         except RuntimeError as e:
             flash(str(e))
             return render_view(VIEW_PARTNERS)
@@ -483,11 +517,9 @@ VIEW_MENU = {
 
 VIEW_RESOURCES = {
     VIEW_SEEDING    : [('/chart/sd_bracket',    "Seeding Bracket"),
-                       ('/chart/sd_scores',     "Seeding Scores"),
-                       ('/dash/sd_dash',        "Seeding Dashboard")],
+                       ('/chart/sd_scores',     "Seeding Scores")],
     VIEW_ROUND_ROBIN: [('/chart/rr_brackets',   "Round Robin Brackets"),
                        ('/chart/rr_scores',     "Round Robin Scores"),
-                       ('/dash/rr_dash',        "Round Robin Dashboard"),
                        ('/report/rr_tb_report', "Tie-Breaker Report")]
 }
 
@@ -511,7 +543,7 @@ INFO_FIELDS = {
         UserInfo("plyr_num",   "",     "Num",    TournStage.PLAYER_NUMS),
         UserInfo("win_rec_sd", "",     "W-L",    TournStage.SEED_BRACKET),
         UserInfo("pts_rec_sd", "",     "PF-PA",  TournStage.SEED_BRACKET),
-        UserInfo("seed_rank",  "",     "Rank",   TournStage.SEED_RESULTS)
+        UserInfo("seed_rank",  "",     "Rank",   TournStage.SEED_BRACKET)
     ],
     PHASE_PARTNERS: [
         UserInfo("stage",      "med",  "Stage",  TournStage.TOURN_CREATE),
@@ -528,7 +560,7 @@ INFO_FIELDS = {
         UserInfo("div_seed",   "",     "Seed",   TournStage.TOURN_TEAMS),
         UserInfo("win_rec_rr", "",     "W-L",    TournStage.TOURN_BRACKET),
         UserInfo("pts_rec_rr", "",     "PF-PA",  TournStage.TOURN_BRACKET),
-        UserInfo("div_rank",   "",     "Rank",   TournStage.TOURN_RESULTS)
+        UserInfo("div_rank",   "",     "Rank",   TournStage.TOURN_BRACKET)
     ]
 }
 
@@ -570,6 +602,7 @@ def render_mobile(context: dict, view: str = VIEW_INDEX) -> str:
     opp_pts     = None
     nums_avail  = None
     stage_games = None
+    leaderboard = None
     partner_picks = None
     picks_avail = None
 
@@ -672,8 +705,10 @@ def render_mobile(context: dict, view: str = VIEW_INDEX) -> str:
             nums_avail = None
     if VIEW_PHASE[view] == PHASE_SEEDING:
         stage_games = player.get_games(all_games=True)
+        leaderboard = get_leaderboard(BRACKET_SEED)
     elif VIEW_PHASE[view] == PHASE_ROUND_ROBIN:
         stage_games = team.get_games(all_games=True) if team else None
+        leaderboard = get_leaderboard(BRACKET_TOURN, team.div_num) if team else None
     elif VIEW_PHASE[view] == PHASE_PARTNERS:
         partner_picks = PartnerPick.get_picks(all_picks=True)
         picks_avail = PartnerPick.available_partners()
@@ -706,6 +741,7 @@ def render_mobile(context: dict, view: str = VIEW_INDEX) -> str:
         'ref_score_id' : ref_score.id if ref_score else None,
         'nums_avail'   : nums_avail,
         'stage_games'  : stage_games,
+        'leaderboard'  : leaderboard,
         'partner_picks': partner_picks,
         'picks_avail'  : picks_avail,
         'fmt_matchup'  : fmt_matchup,

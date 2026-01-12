@@ -195,12 +195,46 @@
        display: block;
        margin: 0.7rem 0.0rem 0.5rem 0.0rem;
      }
+     .games h3 {
+       display: inline-block;
+       padding-bottom: 0.5rem;
+     }
+     .leaderboard h3 {
+       display: inline-block;
+     }
+     .games > span,
+     .leaderboard > span {
+       display: inline-block;
+       font-style: italic;
+       margin-left: 0.6rem;
+     }
      .games article {
        padding: 0.2rem 0.4rem;
        border-top: 1px solid grey;
      }
      .games article:last-child {
        border-bottom: 1px solid grey;
+     }
+     .lb_hdr {
+       margin: 0.0rem 0.0rem;
+     }
+     .lb_hdr span {
+       /*text-decoration: solid underline 1px;*/
+       border-bottom: 1px solid grey;
+     }
+     .leaderboard {
+       display: none;
+     }
+     .leaderboard span:first-child {
+       display:inline-block;
+       min-width: 12.0rem;
+       margin-right: 0.3rem;
+     }
+     .leaderboard span + span {
+       display:inline-block;
+       text-align: center;
+       min-width: 2.7rem;
+       margin: 0.0rem 0.3rem;
      }
      .winner {
        color: #108810;
@@ -224,7 +258,7 @@
      }
      h3 {
        font-size: 1.125rem;
-       margin-top: 0.25rem;
+       margin-top: 0.5rem;
        margin-bottom: 0.5rem;
      }
      h4 {
@@ -359,18 +393,18 @@
     {% endif %}  {# view == register #}
 
     {% if view == seeding or view == round_robin %}
+    {% with %}
+    {% set stage_entity = team if view == round_robin else user %}
     <section class="games" id="sd-games">
       {% if stage_games %}
-      <h3>Games</h3>
+      <h3>Games</h3><span>(tap here for Leaderboard)</span>
       <form action="/mobile/" method="post">
         <input type="hidden" name="game_label" value="{{cur_game.label}}">
         <input type="hidden" name="posted_by_num" value="{{user.player_num}}">
         <input type="hidden" name="team_idx" value="{{team_idx}}">
         <input type="hidden" name="ref_score_id" value="{{ref_score_id}}">
         {% for gm in stage_games %}
-        {% with %}
         {% set gm_cls = " active" if gm == cur_game else ("" if gm.winner else " pending") %}
-        {% set stage_entity = team if view == round_robin else user %}
         <article class="game{{gm_cls}}" id="{{gm.label}}">
           <h4>Round {{gm.round_num}}</h4>
           {% set matchup_str = fmt_matchup(gm, stage_entity) %}
@@ -434,7 +468,6 @@
           {% endif %}  {# ref_score #}
           {% endif %}  {# gm == cur_game #}
         </article>
-        {% endwith %}
         {% endfor %}
       </form>
       {% else %}  {# stage_games #}
@@ -444,7 +477,28 @@
       </p>
       {% endif %}  {# stage_games #}
     </section>
-    {% endif %}  {# view == seeding #}
+    {% if leaderboard %}
+    <section class="leaderboard">
+      <h3>Leaderboard</h3><span>(tap here for Games)</span>
+      {% set entity_hdr = "Team (by seed)" if view == round_robin else "Player (by num)" %}
+      <p class="lb_hdr">
+        <span>{{entity_hdr}}</span>
+        <span>W-L</span>
+        <span>PF-PA</span>
+        <span>Rank</span>
+      </p>
+      {% for pos in leaderboard %}
+      <p>
+        <span>{{pos[0]|safe}}</span>
+        <span>{{pos[1]|safe}}</span>
+        <span>{{pos[2]|safe}}</span>
+        <span>{{pos[3]|safe}}</span>
+      </p>
+      {% endfor %}
+    </section>
+    {% endif %}
+    {% endwith %}
+    {% endif %}  {# view == seeding/round_robin #}
 
     {% if view == partners %}
     <section class="picks" id="pt-picks">
@@ -614,6 +668,21 @@
        e.stopPropagation();
      });
      {% endif %}  {# cur_game #}
+
+     {% if stage_games %}
+     $('.games h3, .games > span').on('click', function() {
+       setTimeout(function() {
+         $('.games').css('display', 'none');
+       }, 0);
+       $('.leaderboard').css('display', 'block');
+     });
+     $('.leaderboard h3, .leaderboard > span').on('click', function() {
+       setTimeout(function() {
+         $('.leaderboard').css('display', 'none');
+       }, 0);
+       $('.games').css('display', 'block');
+     });
+     {% endif %}
 
      {% if partner_picks %}
      $('.partner select').on('change', function() {

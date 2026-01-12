@@ -474,6 +474,7 @@ VIEW_PHASE = {
 }
 
 VIEW_MENU = {
+    VIEW_INDEX      : "<i>(current)</i>",
     VIEW_REGISTER   : "Register",
     VIEW_SEEDING    : "Seeding",
     VIEW_PARTNERS   : "Partner Picks",

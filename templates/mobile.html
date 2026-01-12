@@ -13,7 +13,7 @@
      }
      body {
        margin-top: 0.0rem;
-       margin-right: 0.8rem;
+       margin-right: 0.5rem;
      }
      .err_dlg {
        width: 75%;
@@ -33,7 +33,7 @@
        top: 0;
        width: 100%;
        font-size: 0.875rem;
-       padding: 0.3rem;
+       margin: 0.3rem 0.0rem 0.3rem 0.0rem;
        background: rgb(255 255 255 / 1);
      }
      .header .goto {
@@ -69,7 +69,7 @@
        float: right;
        text-align: right;
        /*margin-right: 1.0rem;*/
-       padding: 0.5rem 0.3rem;
+       padding: 0.5rem 0.0rem;
      }
      .login_info span {
        font-weight: bolder;
@@ -250,10 +250,10 @@
     <div class="header">
       <span class="goto">Go to:</span>
       <div class="wrapper">
-        <a class="nav view_nav" href="javascript:void(0);">View</a>
+        <a class="nav view_nav" href="javascript:void(0);">Stage</a>
         <div class="view_menu">
           {% for href in view_menu %}
-          <a class="nav2" href="{{href}}">{{view_menu[href]}}</a>
+          <a class="nav2" href="{{href}}">{{view_menu[href]|safe}}</a>
           {% endfor %}
         </div>
       </div>

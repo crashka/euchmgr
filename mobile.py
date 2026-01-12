@@ -123,20 +123,20 @@ def fmt_matchup(game: SeedGame | TournGame, ref: Player | Team) -> tuple[str, st
 # format a record string (e.g. given wins/losses or pts_for/pts_against)
 fmt_rec = lambda x, y: f"{x}-{y}"
 
-def get_leaderboard(bracket: str, div: int = None) -> list[tuple[str, str, str, str]]:
-    """Return tuples of (player/team, W-L, PF-PA, rank) ordered by rank.  `div` must be
-    specified for BRACKET_TOURN.
+def get_leaderboard(bracket: str, div: int = None) -> list[tuple[int, str, str, str, str]]:
+    """Return tuples of (id, player/team tag, W-L, PF-PA, rank) ordered by rank.  `div`
+    must be specified for BRACKET_TOURN.
     """
     if bracket == BRACKET_SEED:
         pl_list = list(Player.iter_players(by_rank=True))
-        return [(pl.player_tag, fmt_rec(pl.seed_wins, pl.seed_losses),
+        return [(pl.id, pl.player_tag, fmt_rec(pl.seed_wins, pl.seed_losses),
                  fmt_rec(pl.seed_pts_for, pl.seed_pts_against), pl.player_rank or "")
                 for pl in pl_list]
     else:
         assert bracket == BRACKET_TOURN
         assert div
         tm_list = list(Team.iter_teams(div=div, by_rank=True))
-        return [(tm.team_tag, fmt_rec(tm.tourn_wins, tm.tourn_losses),
+        return [(tm.id, tm.team_tag, fmt_rec(tm.tourn_wins, tm.tourn_losses),
                  fmt_rec(tm.tourn_pts_for, tm.tourn_pts_against), tm.div_rank or "")
                 for tm in tm_list]
 

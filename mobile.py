@@ -183,7 +183,7 @@ def index() -> str:
         msgs = get_flashed_messages()
         for msgs in get_flashed_messages():
             flash(msgs)
-        return redirect(view)
+        return render_view(view)
 
     context = {}
     msgs = get_flashed_messages()

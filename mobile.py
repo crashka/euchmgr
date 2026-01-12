@@ -75,16 +75,6 @@ def get_game_by_label(label: str) -> SeedGame | TournGame:
              .where(game_cls.label == label))
     return query.get_or_none()
 
-def game_in_view(label: str) -> str:
-    """Return the url for jumping to the specified game in its stage view.  We do a tricky
-    thing here and pass the game label to the view using a flashed message (instead of as
-    an ugly query string).
-    """
-    bracket = get_bracket(label)
-    url = f"{BRACKET_VIEW[bracket]}"
-    flash(f"cur_game={label}")
-    return url
-
 def same_score(s1: PostScore | tuple[int, int], s2: PostScore) -> bool:
     """Check if two scores are equal.  `s1` may be specified as a `PostScore` instance or
     a tuple of (team1_pts, team2_pts).
@@ -378,7 +368,7 @@ def accept_score(form: dict) -> str:
         except RuntimeError as e:
             flash(str(e))
             return render_view(VIEW_PARTNERS)
-    return redirect(game_in_view(game_label))
+    return render_game_in_view(game_label)
 
 def correct_score(form: dict, ref: PostScore = None) -> str:
     """Correct a game score, superceding all previous submitted (or corrected) scores.  As
@@ -534,6 +524,16 @@ def render_view(view: str) -> str:
     """Render the specified view using redirect (called from POST action handlers).
     """
     return redirect('/mobile/' + view)
+
+def render_game_in_view(label: str) -> str:
+    """Return the url for jumping to the specified game in its stage view.  We do a tricky
+    thing here and pass the game label to the view using a flashed message (instead of as
+    an ugly query string).
+    """
+    bracket = get_bracket(label)
+    view = BRACKET_VIEW[bracket]
+    flash(f"cur_game={label}")
+    return render_view(view)
 
 def render_mobile(context: dict, view: str = VIEW_INDEX) -> str:
     """Common post-processing of context before rendering the tournament selector and

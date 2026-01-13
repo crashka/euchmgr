@@ -297,6 +297,25 @@ class Player(BaseModel, EuchmgrUser):
         return res
 
     @classmethod
+    def nums_used(cls, player: Self = None) -> Iterator[int]:
+        """Return generator for player_nums currently assigned.  Do not include the
+        specified player, if passed in.
+        """
+        query = cls.select(fn.group_concat(cls.player_num))
+        if player:
+            query = query.where(cls.id != player.id)
+        return (int(n) for n in query.scalar().split(','))
+
+    @classmethod
+    def nums_avail(cls, player: Self = None) -> list[int]:
+        """Return sorted list of available player_nums.  Include the player_num for the
+        specified player, if passed in.
+        """
+        tourn = TournInfo.get()
+        all_nums = range(1, tourn.players + 1)
+        return sorted(set(all_nums) - set(cls.nums_used(player)))
+
+    @classmethod
     def clear_partner_picks(cls, ids: list[int] = None) -> int:
         """Delete partner_picks for all rows (or specified IDs); return number of records
         updated.  Also refreshes (or clears) the cached player map.
@@ -356,7 +375,7 @@ class Player(BaseModel, EuchmgrUser):
         return sorted(avail, key=lambda x: x.player_rank)[0]
 
     @classmethod
-    def available_partners(cls) -> list[Self]:
+    def avail_picks(cls) -> list[Self]:
         """NOTE: this is a method on the `PartnerPick` alias.  Strangely (and rather
         unfortunately) similar to `available_players`, except that we stay away from the
         cached player map here and exclude the current picker.  It would be nice to clean
@@ -641,8 +660,13 @@ class Player(BaseModel, EuchmgrUser):
         """Ensure that nick_name is not null, since it is used as the display name in
         brackets (defaults to last_name if not otherwise specified)
         """
-        if not self.nick_name:
-            self.nick_name = self.last_name
+        if 'nick_name' in self._dirty:
+            if not self.nick_name:
+                self.nick_name = self.last_name
+        if 'player_num' in self._dirty and self.player_num is not None:
+            tourn = TournInfo.get()
+            if self.player_num < 1 or self.player_num > tourn.players:
+                raise ValueError(f"Player Num must be between 1 and {tourn.players}")
         # cascade commit to partner(s), if dirty
         if self.partner and self.partner._dirty:
             self.partner.save()

@@ -31,15 +31,15 @@ Layout = list[tuple[str, str, str]]
 ############
 
 pl_addl_props = [
-    'full_name',
+    'display_name',
     'champ'
 ]
 
 pl_layout = [
     ('id',               "ID",           HIDDEN),
-    ('full_name',        "Player",       None),
+    ('display_name',     "Person Name",  None),
     ('player_num',       "Player Num",   EDITABLE),
-    ('nick_name',        "Short Name",   None),
+    ('nick_name',        "Player Name",  EDITABLE),
     ('champ',            "Champ?",       CENTERED),
     ('seed_wins',        "Seed Wins",    None),
     ('seed_losses',      "Seed Losses",  None),
@@ -72,15 +72,15 @@ def post_players() -> dict:
         player = Player[data['id']]
         for col, val in upd_info.items():
             setattr(player, col, val)
-        player.save()
-
-        # NOTE: no need to update row data for now (LATER, may need this if denorm or
-        # derived fields are updated when saving)
-        if False:
+        mod = player.save()
+        if mod:
             pl_props = {prop: getattr(player, prop) for prop in pl_addl_props}
-            pl_data = player.__data__ | pl_props
-    except IntegrityError as e:
-        return ajax_error(str(e))
+            pl_data = player.player_data | pl_props
+    except (IntegrityError, ValueError) as e:
+        if str(e) == "UNIQUE constraint failed: player.player_num":
+            return ajax_error("Player Num already in use")
+        else:
+            return ajax_error(str(e))
 
     return ajax_data(pl_data)
 

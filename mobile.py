@@ -6,6 +6,7 @@ from typing import NamedTuple
 import re
 from http import HTTPStatus
 
+from peewee import IntegrityError
 from flask import (Blueprint, request, render_template, abort, redirect, url_for, flash,
                    get_flashed_messages)
 from flask_login import current_user
@@ -282,7 +283,23 @@ def register_player(form: dict) -> str:
     """Complete the registration for a player, which entails entering the "player num"
     (ping pong ball number) and specifying (or confirming) the nick name.
     """
-    assert False, "not yet implemented"
+    player_id  = typecast(form['player_id'])
+    player_num = typecast(form.get('player_num', ""))  # no key means not selected
+    nick_name  = typecast(form['nick_name'])
+    player     = Player.get(player_id)
+
+    if not player_num:
+        assert not player.player_num
+        # show message, but store the record anyway
+        flash("Player Num must be specified")
+    else:
+        player.player_num = player_num
+    player.nick_name = nick_name  # allow nick_name to be nulled out
+    try:
+        player.save()
+    except IntegrityError as e:
+        flash("Player Num already taken")
+    return render_view(VIEW_REGISTER)
 
 def submit_score(form: dict) -> str:
     """Submit game score.  This score will need to be accepted in order to be pushed to
@@ -700,7 +717,7 @@ def render_mobile(context: dict, view: str = VIEW_INDEX) -> str:
         # REVISIT: note that we are currently also using this as an indicator of whether
         # registration is still active, or if the player info has been locked down!!!
         if tourn.stage_compl < TournStage.PLAYER_NUMS:
-            nums_avail = range(1, tourn.players + 1)
+            nums_avail = Player.nums_avail(player)
         else:
             nums_avail = None
     if VIEW_PHASE[view] == PHASE_SEEDING:
@@ -711,7 +728,7 @@ def render_mobile(context: dict, view: str = VIEW_INDEX) -> str:
         leaderboard = get_leaderboard(BRACKET_TOURN, team.div_num) if team else None
     elif VIEW_PHASE[view] == PHASE_PARTNERS:
         partner_picks = PartnerPick.get_picks(all_picks=True)
-        picks_avail = PartnerPick.available_partners()
+        picks_avail = PartnerPick.avail_picks()
 
     # FIX: for now we're not worried about too many context items (since we are trying to
     # develop clear semantics for the display), but this is inelegant and getting bloated

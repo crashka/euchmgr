@@ -366,11 +366,12 @@
         <input type="hidden" name="player_id" value="{{user.id}}">
         <p>
           <label>Nick Name</label>:
-          <input type="text" name="nick_name" value="{{user.nick_name}}"{{disabled}}>
+          {% set nick_name =  user.nick_name if user.nick_name != user.last_name else "" %}
+          <input type="text" name="nick_name" value="{{nick_name}}"{{disabled}}>
         </p>
         <p>
           <label>Player Num</label><sup>&dagger;</sup>:
-          <select{{disabled}}>
+          <select name="player_num"{{disabled}}>
             {% if nums_avail %}
             <option value="" selected disabled hidden></option>
             {% for num in nums_avail %}
@@ -698,6 +699,7 @@
 
      {% if nums_avail %}
      $('.register input').on('keydown', function() {
+       $('button[value="register_player"]').prop('disabled', false);
        $('a.reset').attr('href', '');
      });
      $('.register select').on('change', function() {

@@ -115,21 +115,17 @@ def generate_player_nums(rand_seed: int = None) -> None:
      of a bag.
 
     Note: player_nums can also be specified in the roster file or manually assigned, which
-    in either case this function should not be called (would overwrite existing values).
+    in either case this function will fill in the remaining empty player_nums randomly
+    with unused values.
     """
-    # for now we just clear existing values (if needed), so we don't have to test and/or
-    # work around contiguousness
-    Player.clear_player_nums()
-
     my_rand = random.Random()
     if isinstance(rand_seed, int):
         my_rand.seed(rand_seed)  # for reproducible debugging only
 
-    pl_list = list(Player.iter_players())
-    nplayers = len(pl_list)
-    ords = iter(my_rand.sample(range(nplayers), nplayers))
+    pl_list = list(Player.iter_players(no_nums=True))
+    ords = iter(my_rand.sample(Player.nums_avail(), len(pl_list)))
     for player in pl_list:
-        player.player_num = next(ords) + 1
+        player.player_num = next(ords)
         player.save()
 
     TournInfo.mark_stage_complete(TournStage.PLAYER_NUMS)

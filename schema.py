@@ -304,7 +304,10 @@ class Player(BaseModel, EuchmgrUser):
         query = cls.select(fn.group_concat(cls.player_num))
         if player:
             query = query.where(cls.id != player.id)
-        return (int(n) for n in query.scalar().split(','))
+        num_str = query.scalar()
+        if not num_str:
+            return iter(())
+        return (int(n) for n in num_str.split(','))
 
     @classmethod
     def nums_avail(cls, player: Self = None) -> list[int]:
@@ -447,7 +450,7 @@ class Player(BaseModel, EuchmgrUser):
             yield p
 
     @classmethod
-    def iter_players(cls, by_rank: bool = False) -> Iterator[Self]:
+    def iter_players(cls, by_rank: bool = False, no_nums: bool = False) -> Iterator[Self]:
         """Iterator for players (wrap ORM details).  Note that this also clears out local
         cache, if populated.
         """
@@ -455,6 +458,8 @@ class Player(BaseModel, EuchmgrUser):
             cls.player_map = None
 
         query = cls.select()
+        if no_nums:
+            query = query.where(cls.player_num.is_null(True))
         if by_rank:
             query = query.order_by(cls.player_rank.asc(nulls='last'))
         for p in query.iterator():

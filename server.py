@@ -33,10 +33,11 @@ from cachelib.file import FileSystemCache
 from werkzeug.utils import secure_filename
 from flask_login import current_user, login_user, logout_user
 
-from core import DATA_DIR, UPLOAD_DIR
+from core import DATA_DIR, UPLOAD_DIR, log, ImplementationError
 from security import EuchmgrUser, ADMIN_USER, ADMIN_ID, AdminUser, EuchmgrLogin
-from database import DB_FILETYPE, db_init, db_connect, db_close, db_is_closed
-from schema import TournStage, TournInfo, Player
+from database import (DB_FILETYPE, db_init, db_is_initialized, db_connect, db_close,
+                      db_is_closed, db)
+from schema import TournStage, TOURN_INIT, TournInfo, Player
 from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_seed_bracket,
                      fake_seed_games, validate_seed_round, compute_player_ranks,
                      prepick_champ_partners, fake_pick_partners, build_tourn_teams,
@@ -127,12 +128,26 @@ def create_app(config: object | Config = Config) -> Flask:
             return None
         return Player.get(user_id)
 
+    ignore_pfx = {
+        "static",
+        ".well-known"
+    }
+
+    def ignore_path(path: str) -> bool:
+        """Whether to ignore this path in relation to database connectivity.
+        """
+        pfx = path[1:].split('/', 1)[0]
+        return pfx in ignore_pfx
+
     @app.before_request
     def _db_connect() -> None:
         """Make sure we're connected to the right database on the way in.  Mobile users have
         no explicit association with a tournament name, so they connect to whatever database
         is active.
         """
+        if ignore_path(request.path):
+            return
+        log.debug(f"@app.before_request: {request.method} {request.path}")
         tourn_name = session.get('tourn')
         assert not (tourn_name and is_mobile())
         if tourn_name != SEL_NEW:
@@ -145,6 +160,9 @@ def create_app(config: object | Config = Config) -> Flask:
         actually choose to keep the connection open and reuse it (in which case, there may be
         no way to explicitly close it on server exit).
         """
+        if ignore_path(request.path):
+            return
+        log.debug(f"@app.teardown_request: {request.method} {request.path}")
         db_close()
 
     ###############
@@ -164,7 +182,7 @@ def create_app(config: object | Config = Config) -> Flask:
 
     @app.post("/login")
     def login() -> str:
-        """Log in as the specified user (player or admin)
+        """Log in as the specified user (player or admin).
         """
         username = request.form['username']
         if username == ADMIN_USER:
@@ -197,7 +215,7 @@ def create_app(config: object | Config = Config) -> Flask:
 
     @app.get("/")
     def index() -> str:
-        """Redirects to login page or appropriate app view
+        """Redirect to login page or appropriate app view (based on current stage).
         """
         if not current_user.is_authenticated:
             return redirect(url_for('login_page'))
@@ -206,10 +224,19 @@ def create_app(config: object | Config = Config) -> Flask:
             return redirect('/mobile/')
 
         assert current_user.is_admin
-        context = {
-            'view': View.TOURN,
-        }
-        return render_tourn(context)
+        if not db_is_initialized():
+            return redirect(url_for('tourn'))
+
+        tourn = TournInfo.get()
+        tourn_name = session.get('tourn')
+        if not tourn_name:
+            # our session information has been cleared out somehow (should only happen in
+            # testing)--let's just re-set it and log this as an event of interest
+            session['tourn'] = tourn.name
+            log.info(f"re-setting tourn = '{tourn.name}' in session state")
+
+        view = dflt_view(tourn)
+        return render_view(view)
 
     @app.get("/players")
     @app.get("/seeding")
@@ -217,8 +244,11 @@ def create_app(config: object | Config = Config) -> Flask:
     @app.get("/teams")
     @app.get("/round_robin")
     def view() -> str:
+        """Render the requested view directly.
         """
-        """
+        if is_mobile():
+            return render_error(403, desc="Mobile access unauthorized")
+
         tourn = TournInfo.get()
         context = {
             'tourn': tourn,
@@ -228,25 +258,48 @@ def create_app(config: object | Config = Config) -> Flask:
 
     @app.get("/tourn")
     def tourn() -> str:
-        """
+        """View used to manage tournament information, as well as create new tournaments.
         """
         if is_mobile():
             return render_error(403, desc="Mobile access unauthorized")
 
         tourn_name = session.get('tourn')
-        if tourn_name is None:
-            abort(400, "Tournament not specified")
-
-        if tourn_name != SEL_NEW:
+        if tourn_name:
+            assert db_is_initialized()
             # resume managing previously active tournament
             tourn = TournInfo.get()
+            assert tourn.name == tourn_name
             view = dflt_view(tourn)
             return render_view(view)
 
+        create_new = False
+        err_msg = None
+        msgs = get_flashed_messages()
+        # see if any secret parameters have been transmitted to us (see NOTE for `view` in
+        # mobile.py--we might want to encapsulate this into a shared mechanism!)
+        if len(msgs) == 1 and msgs[0].find('=') > 0:
+            key, val = msgs[0].split('=', 1)
+            if key == 'create_new':
+                create_new = typecast(val)
+            else:
+                raise ImplementationError(f"unexpected secret key '{key}' (value '{val}')")
+        else:
+            err_msg = "<br>".join(msgs)
+
+        tourn = TournInfo() if create_new else None
+        if db_is_initialized():
+            # our session information has been cleared out somehow (should only happen in
+            # testing)--let's just re-set it and log this as an event of interest (same as
+            # for `index` above)
+            tourn = TournInfo.get()
+            session['tourn'] = tourn.name
+            log.info(f"re-setting tourn = '{tourn.name}' in session state")
+
         context = {
-            'tourn'    : TournInfo(),
+            'tourn'    : tourn,
             'view'     : View.TOURN,
-            'new_tourn': True
+            'new_tourn': create_new,
+            'err_msg'  : err_msg
         }
         return render_tourn(context)
 
@@ -254,7 +307,6 @@ def create_app(config: object | Config = Config) -> Flask:
     # submit actions #
     ##################
 
-    @app.post("/")
     @app.post("/tourn")
     @app.post("/players")
     @app.post("/seeding")
@@ -262,14 +314,9 @@ def create_app(config: object | Config = Config) -> Flask:
     @app.post("/teams")
     @app.post("/round_robin")
     def submit() -> str:
-        """Process submitted form, switch on ``submit_func``, which is validated against paths
-        and values in ``SUBMIT_FUNCS``
+        """Process submitted form, switch on ``submit_func``, which is validated against
+        paths and values in ``SUBMIT_FUNCS``
         """
-        if 'submit_func' not in request.form:
-            if 'tourn' not in request.form:
-                abort(400, "Invalid request, tournament not specified")
-            session['tourn'] = request.form['tourn']
-            return redirect(url_for('tourn'))
         func = request.form['submit_func']
         view = request.path
         if view not in SUBMIT_FUNCS:
@@ -366,8 +413,8 @@ def dflt_view(tourn: TournInfo) -> View:
 
 SUBMIT_FUNCS = {
     View.TOURN: [
-        'create_tourn',
-        'update_tourn'
+        'select_tourn',
+        'create_tourn'
     ],
     View.PLAYERS: [
         'gen_player_nums',
@@ -390,96 +437,64 @@ SUBMIT_FUNCS = {
     ]
 }
 
+def select_tourn(form: dict) -> str:
+    """Render /tourn view with tournament info specified in request.
+    """
+    tourn_name = form.get('tourn')
+
+    if tourn_name != SEL_NEW:
+        if not db_is_initialized():
+            assert not session.get('tourn')
+            db_init(tourn_name, force=True)
+            session['tourn'] = tourn_name
+            log.info(f"setting tourn = '{tourn_name}' in session state")
+        return redirect(url_for('index'))
+
+    assert not db_is_initialized()
+    flash("create_new=True")
+    return redirect(url_for('tourn'))
+
 def create_tourn(form: dict) -> str:
     """Create new tournament from form data.
     """
     tourn       = None
-    new_tourn   = False
-    roster_file = None
+    roster_path = None
     err_msg     = None
 
-    assert session['tourn'] == SEL_NEW
     tourn_name  = form.get('tourn_name')
     timeframe   = form.get('timeframe') or None
     venue       = form.get('venue') or None
-    overwrite   = form.get('overwrite')
+    overwrite   = typecast(form.get('overwrite', ""))
     req_file    = request.files.get('roster_file')
-    if req_file:
+    if not req_file:
+        err_msg = "Roster file required (manual roster creation not yet supported)"
+    else:
         roster_file = secure_filename(req_file.filename)
         roster_path = os.path.join(UPLOAD_DIR, roster_file)
         req_file.save(roster_path)
-
-    try:
-        db_init(tourn_name, force=True)
-        tourn = tourn_create(timeframe=timeframe, venue=venue, force=bool(overwrite))
-        if req_file:
+        try:
+            assert not session.get('tourn')
+            db_init(tourn_name, force=True)
+            tourn = tourn_create(timeframe=timeframe, venue=venue, force=overwrite)
             upload_roster(roster_path)
             tourn = TournInfo.get()
             session['tourn'] = tourn.name
-            return render_view(View.PLAYERS)
-        else:
-            err_msg = "Roster file required (manual roster creation not yet supported)"
-    except OperationalError as e:
-        if re.fullmatch(r'table "(\w+)" already exists', str(e)):
-            err_msg = f"Tournament \"{tourn_name}\" already exists; either check \"Overwrite Existing\" or specify a new name"
-        else:
-            err_msg = cap_first(str(e))
-        tourn = TournInfo(name=tourn_name, timeframe=timeframe, venue=venue)
-        new_tourn = True
+            log.info(f"setting tourn = '{tourn.name}' in session state")
+            return render_view(View.PLAYERS)  # TODO: let `index` do the routing for us!!!
+        except OperationalError as e:
+            if re.fullmatch(r'table "\w+" already exists', str(e)):
+                err_msg = (f'Tournament "{tourn_name}" already exists; either check the '
+                           '"Overwrite Existing" box or specify a new name')
+            else:
+                err_msg = cap_first(str(e))
 
+    tourn = TournInfo(name=tourn_name, timeframe=timeframe, venue=venue)
     context = {
         'tourn'      : tourn,
         'view'       : View.TOURN,
-        'new_tourn'  : new_tourn,
         'overwrite'  : overwrite,
-        'roster_file': roster_file,
-        'err_msg'    : err_msg
-    }
-    return render_tourn(context)
-
-def update_tourn(form: dict) -> str:
-    """Similar to `create_tourn` except that new TournInfo record has been created, so we
-    only need to make sure roster file is uploaded.  We also support the updating of other
-    field information.
-    """
-    tourn       = None
-    new_tourn   = False
-    roster_file = None
-    err_msg     = None
-
-    assert session['tourn'] == SEL_NEW
-    tourn_name  = form.get('tourn_name')
-    timeframe   = form.get('timeframe') or None
-    venue       = form.get('venue') or None
-    req_file    = request.files.get('roster_file')
-    if req_file:
-        roster_file = secure_filename(req_file.filename)
-        roster_path = os.path.join(UPLOAD_DIR, roster_file)
-        req_file.save(roster_path)
-
-    try:
-        db_init(tourn_name, force=True)
-        tourn = TournInfo.get(requery=True)
-        tourn.timeframe = timeframe
-        tourn.venue = venue
-        tourn.save()
-        if req_file:
-            upload_roster(roster_path)
-            tourn = TournInfo.get()
-            session['tourn'] = tourn.name
-            return render_view(View.PLAYERS)
-        else:
-            err_msg = "Roster file required (manual roster creation not yet supported)"
-    except OperationalError as e:
-        err_msg = cap_first(str(e))
-        tourn = TournInfo(name=tourn_name, timeframe=timeframe, venue=venue)
-        new_tourn = True
-
-    context = {
-        'tourn'      : tourn,
-        'view'       : View.TOURN,
-        'new_tourn'  : new_tourn,
-        'roster_file': roster_file,
+        'roster_path': roster_path,
+        'new_tourn'  : True,
         'err_msg'    : err_msg
     }
     return render_tourn(context)
@@ -557,8 +572,8 @@ SEL_NEW = "(create new)"
 # keys: button name (must be kept in sync with SUBMIT_FUNCS above)
 # values: tuple(button label, list of stages for which button is enabled)
 BUTTON_INFO = {
-    'create_tourn'          : ("Create Tournament",           None),
-    'update_tourn'          : ("Create Tournament",           None),
+    'select_tourn'          : ("[Ceci n'existe pas]",         [None]),
+    'create_tourn'          : ("Create Tournament",           [TOURN_INIT]),
     'gen_player_nums'       : ("Generate Player Nums",        [TournStage.PLAYER_ROSTER,
                                                                TournStage.PLAYER_NUMS]),
     'gen_seed_bracket'      : ("Create Seeding Bracket",      [TournStage.PLAYER_NUMS]),
@@ -598,8 +613,15 @@ def render_tourn(context: dict) -> str:
     assert view in SUBMIT_FUNCS
     buttons = SUBMIT_FUNCS[view]
     btn_info = [BUTTON_INFO[btn] for btn in buttons]
-    btn_lbl = [info[0] for info in btn_info]
-    btn_attr = [''] * len(btn_info)
+
+    stage_compl = TOURN_INIT
+    if context.get('tourn'):
+        stage_compl = context['tourn'].stage_compl or TOURN_INIT
+    btn_lbl = []
+    btn_attr = []
+    for label, stages in btn_info:
+        btn_lbl.append(label)
+        btn_attr.append('' if stage_compl in stages else DISABLED)
 
     base_ctx = {
         'title'    : APP_NAME,
@@ -607,7 +629,6 @@ def render_tourn(context: dict) -> str:
         'sel_sep'  : SEL_SEP,
         'sel_new'  : SEL_NEW,
         'tourn'    : None,       # context may contain override
-        'new_tourn': None,       # ditto
         'err_msg'  : None,       # ditto
         'view_path': view,
         'buttons'  : buttons,
@@ -628,9 +649,9 @@ def render_app(context: dict) -> str:
     buttons = SUBMIT_FUNCS[view]
     btn_info = [BUTTON_INFO[btn] for btn in buttons]
 
-    stage_compl = 0
+    stage_compl = TOURN_INIT
     if context.get('tourn'):
-        stage_compl = context['tourn'].stage_compl or 0
+        stage_compl = context['tourn'].stage_compl or TOURN_INIT
     btn_lbl = []
     btn_attr = []
     for label, stages in btn_info:

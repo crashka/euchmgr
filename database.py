@@ -7,7 +7,7 @@ import os.path
 from peewee import SqliteDatabase, Model, DateTimeField
 from playhouse.sqlite_ext import CSqliteExtDatabase
 
-from core import DataFile, LogicError
+from core import DataFile, log, LogicError
 
 #####################
 # utility functions #
@@ -78,6 +78,7 @@ def db_init(name: str, force: bool = False) -> SqliteDatabase:
     db.init(db_file)
     setattr(db, 'db_name', name)  # little hack to remember name
     db_connect(name)  # REVISIT: should we require this to be explicit???
+    log.debug(f"db_init({name}), force={force}")
     return db
 
 def db_name() -> str | None:
@@ -100,6 +101,7 @@ def db_reset(force: bool = False) -> bool:
         if hasattr(db, 'db_name'):
             delattr(db, 'db_name')
     db.init(None)
+    log.debug(f"db_reset(force={force}")
     return True
 
 def db_is_initialized() -> bool:
@@ -115,16 +117,20 @@ def db_connect(name: str | None = None) -> bool:
         cur_db = db_name()
         if not cur_db:
             db_init(name, force=True)  # FIX: ugly recursion here!!!
+            log.debug(f"db_connect({name}), cur_db empty, called db_init")
             return True
         elif cur_db != name:
             raise LogicError(f"name ('{name}') does not match db_name() ('{cur_db}')")
         else:
             # TODO: log this condition for better understanding (we get here as part of
             # the ugly recursion, mentioned above--but what else?)!!!
+            log.debug(f"db_connect({name}), cur_db = {cur_db}")
             pass
     elif not db_is_initialized():
+        log.debug(f"db_connect({name}), db not initialized")
         return False
     db.connect(reuse_if_open=shared_conn)
+    log.debug(f"db_connect({name}), db connected")
     return True
 
 def db_close() -> SqliteDatabase:
@@ -134,9 +140,10 @@ def db_close() -> SqliteDatabase:
     """
     if not db.is_closed():
         db.close()
+        log.debug("db_close()")
     else:
         # TODO: log this condition (understand when/why it happens)!!!
-        pass
+        log.debug("db_close(), already closed")
     return db
 
 def db_is_closed() -> bool:

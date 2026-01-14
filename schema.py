@@ -45,6 +45,9 @@ TournStage = IntEnum('TournStage',
                       'TOURN_TABULATE',
                       'TEAM_RANKS'])    # 14
 
+# represents initial state (before TOURN_CREATE)
+TOURN_INIT = 0
+
 class StageInfo(NamedTuple):
     """Behavior parameters and messages for tournament stages
 
@@ -307,6 +310,8 @@ class Player(BaseModel, EuchmgrUser):
         num_str = query.scalar()
         if not num_str:
             return iter(())
+        elif isinstance(num_str, int):
+            return iter((num_str,))
         return (int(n) for n in num_str.split(','))
 
     @classmethod
@@ -1663,18 +1668,17 @@ def schema_create(models: list[BaseModel | str] | str = None, force = False) -> 
             models_new.append(model_obj)
         models = models_new
 
-    # TEMP: just drop all tables, so we don't have to worry about integrity, cascading
-    # deletes, legacy data, etc.
     if force:
+        # we just drop all tables so we don't have to worry about integrity, cascading
+        # deletes, legacy data, etc. (our version of `safe=False`)
         for model in reversed(models):
             model.drop_table()
+    else:
+        # the existenace of ANY of the specified tables disqualifies the entire request
+        for model in models:
+            if model.table_exists():
+                table_name = model._meta.table_name
+                raise OperationalError(f'table "{table_name}" already exists')
 
     for model in models:
-        try:
-            model.create_table(safe=False)
-        except OperationalError as e:
-            if re.fullmatch(r'table "(\w+)" already exists', str(e)) and force:
-                model.drop_table(safe=False)
-                model.create_table(safe=False)
-            else:
-                raise
+        model.create_table(safe=False)

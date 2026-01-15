@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from enum import IntEnum
+from enum import IntEnum, StrEnum
 from typing import ClassVar, Self, Iterator, NamedTuple
 import re
 
@@ -348,86 +348,6 @@ class Player(BaseModel, EuchmgrUser):
         return sorted(avail, key=lambda x: x.player_rank)
 
     @classmethod
-    def current_round(cls) -> int:
-        """NOTE: this is a method on the `PartnerPick` alias.  Return the current round
-        for partner picking, with the special values of `0` to indicate that the seeding
-        stage rankings have not yet been determined, and `-1` to indicate that the partner
-        picking stage is complete.
-        """
-        tourn = TournInfo.get()
-        if tourn.stage_compl < TournStage.SEED_RANKS:
-            return 0
-
-        query = (cls
-                 .select(fn.count())
-                 .where(cls.partner.is_null(False)))
-        npicks = query.scalar()
-        if npicks < tourn.teams:
-            return npicks + 1
-        else:
-            return -1
-
-    @classmethod
-    def current_pick(cls) -> Self:
-        """NOTE: this is a method on the `PartnerPick` alias.  Return top seeded player
-        currently available, which equates to the player currently picking during the
-        partner selection process.
-        """
-        tourn = TournInfo.get()
-        if tourn.stage_compl < TournStage.SEED_RANKS:
-            return None
-
-        pl_query = cls.select()
-        avail = list(filter(lambda x: x.available, pl_query))
-        if not avail:
-            return None
-        assert len(avail) > 1
-        return sorted(avail, key=lambda x: x.player_rank)[0]
-
-    @classmethod
-    def avail_picks(cls) -> list[Self]:
-        """NOTE: this is a method on the `PartnerPick` alias.  Strangely (and rather
-        unfortunately) similar to `available_players`, except that we stay away from the
-        cached player map here and exclude the current picker.  It would be nice to clean
-        things up and eliminate some redundancy (also see `current_pick`) and sources of
-        possible confusion (not to mention cache problems).
-        """
-        tourn = TournInfo.get()
-        if tourn.stage_compl < TournStage.SEED_RANKS:
-            return None  # as distinguished from `[]` (below)
-
-        pl_query = cls.select()
-        avail = list(filter(lambda x: x.available, pl_query))
-        if not avail:
-            return []
-        assert len(avail) > 1
-        return sorted(avail, key=lambda x: x.player_rank)[1:]
-
-    @classmethod
-    def get_picks(cls, all_picks: bool = False) -> list[BaseModel]:
-        """NOTE: this is a method on the `PartnerPick` alias.  Get completed "PartnerPick"
-        records (corresponding to players that have made a pick), in order pick position
-        (i.e. seeding rank).  `all_picks` indicates that players yet to pick (and not
-        already picked themselves) should also be returned.
-
-        This call follows the same semantics as `get_games` (for "BracketPick" objects).
-        """
-        cur_round = cls.current_round()
-        if cur_round == 0:
-            return None  # as distinct from [], e.g. pick 1 in progress
-
-        # don't muck with the cached player map here since we will always want to requery
-        # and this may be called in (relative) volume; we can keep this simple and just do
-        # the filtering in code (should probably also do the same elsewhere!)
-        pl_list = list(cls.select())
-        if all_picks or cur_round == -1:
-            includer = lambda x: not x.picked_by
-        else:
-            includer = lambda x: x.partner
-        picks = filter(includer, pl_list)
-        return sorted(picks, key=lambda x: x.player_rank)
-
-    @classmethod
     def get_player(cls, player_num: int) -> Self:
         """Return player by player_num (from cached map)
         """
@@ -686,6 +606,135 @@ class Player(BaseModel, EuchmgrUser):
                 self.partner2.save()
         return super().save(*args, **kwargs)
 
+class PlayerRegister(Player):
+    """Subclass of `Player` that represents the process of player registration process.
+    Note that the cached player map is avoided in all calls, to avoid integrity problems.
+    """
+    @classmethod
+    def phase_status(cls) -> str:
+        """Return current status of the registration phase (for mobile UI).
+        """
+        tourn = TournInfo.get()
+        nreg = len(list(cls.nums_used()))
+        if nreg < tourn.players:
+            return f"{nreg} players registered"
+        else:
+            return "Done"
+
+    @classmethod
+    def reg_status(cls, player: Player) -> str:
+        """Have to do this as a class method, since we are not (currently) instantiating
+        objects for this class.
+        """
+        return "Registered" if player.player_num else "Pending"
+
+    class Meta:
+        table_name = Player._meta.table_name
+
+class PartnerPick(Player):
+    """Subclass of `Player` that represents the process of picking partners.  Note that
+    the cached player map is avoided in all calls, to avoid integrity problems.
+    """
+    @classmethod
+    def current_round(cls) -> int:
+        """Return the current round for partner picking, with the special values of `0` to
+        indicate that the seeding stage rankings have not yet been determined, and `-1` to
+        indicate that the partner picking stage is complete.
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.SEED_RANKS:
+            return 0
+
+        query = (cls
+                 .select(fn.count())
+                 .where(cls.partner.is_null(False)))
+        npicks = query.scalar()
+        if npicks < tourn.teams:
+            return npicks + 1
+        else:
+            return -1
+
+    @classmethod
+    def phase_status(cls) -> str:
+        """Return current status of the partner picking phase (for mobile UI).
+        """
+        cur_round = cls.current_round()
+        if cur_round == 0:
+            return "Not Started"
+        elif cur_round == -1:
+            return "Done"
+        else:
+            if cur_round == 2:
+                # ignore the reigning champ(s) pre-selected team
+                npicks = "no"
+            else:
+                npicks = cur_round - 2
+            return f"{npicks} picks made"
+
+    @classmethod
+    def current_pick(cls) -> Self:
+        """Return top seeded player currently available, which equates to the player
+        currently picking during the partner selection process.
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.SEED_RANKS:
+            return None
+
+        # NOTE: need to instantiate `Player` instances here
+        pl_query = Player.select()
+        avail = list(filter(lambda x: x.available, pl_query))
+        if not avail:
+            return None
+        assert len(avail) > 1
+        return sorted(avail, key=lambda x: x.player_rank)[0]
+
+    @classmethod
+    def avail_picks(cls) -> list[Self]:
+        """Strangely (and rather unfortunately) similar to `Player.available_players`,
+        except that we stay away from the cached player map here and exclude the current
+        picker.  It would be nice to clean things up and eliminate some redundancy (also
+        see `current_pick`) and sources of possible confusion (not to mention cache
+        problems).
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.SEED_RANKS:
+            return None  # as distinguished from `[]` (below)
+
+        # NOTE: need to instantiate `Player` instances here (as above)
+        pl_query = Player.select()
+        avail = list(filter(lambda x: x.available, pl_query))
+        if not avail:
+            return []
+        assert len(avail) > 1
+        return sorted(avail, key=lambda x: x.player_rank)[1:]
+
+    @classmethod
+    def get_picks(cls, all_picks: bool = False) -> list[BaseModel]:
+        """Get completed "PartnerPick" records (corresponding to players that have made a
+        pick), in order of pick position (i.e. seeding rank).  `all_picks` indicates that
+        players yet to pick (and not already picked themselves) should also be returned.
+
+        This call follows the same semantics as `get_games` (for "BracketPick" objects).
+        """
+        cur_round = cls.current_round()
+        if cur_round == 0:
+            return None  # as distinct from [], e.g. pick 1 in progress
+
+        # NOTE: need to instantiate `Player` instances here (as above)--also, don't muck
+        # with the cached player map since we will always want to requery and this may be
+        # called in (relative) volume; we keep this simple and just do the filtering in
+        # code (should probably also do the same elsewhere!)
+        pl_list = list(Player.select())
+        if all_picks or cur_round == -1:
+            includer = lambda x: not x.picked_by
+        else:
+            includer = lambda x: x.partner
+        picks = filter(includer, pl_list)
+        return sorted(picks, key=lambda x: x.player_rank)
+
+    class Meta:
+        table_name = Player._meta.table_name
+
 ############
 # SeedGame #
 ############
@@ -752,6 +801,18 @@ class SeedGame(BaseModel):
         if round_num < tourn.seed_rounds:
             return round_num + 1
         return -1
+
+    @classmethod
+    def phase_status(cls) -> str:
+        """Return current status of the seeding round phase (for mobile UI).
+        """
+        cur_round = cls.current_round()
+        if cur_round == 0:
+            return "Not Started"
+        elif cur_round == -1:
+            return "Done"
+        else:
+            return f"Round {cur_round}"
 
     @property
     def player_nums(self) -> str:
@@ -1317,6 +1378,18 @@ class TournGame(BaseModel):
             return round_num + 1
         return -1
 
+    @classmethod
+    def phase_status(cls) -> str:
+        """Return current status of the round robin phase (for mobile UI).
+        """
+        cur_round = cls.current_round()
+        if cur_round == 0:
+            return "Not Started"
+        elif cur_round == -1:
+            return "Done"
+        else:
+            return f"Round {cur_round}"
+
     @property
     def team_seeds(self) -> str:
         """
@@ -1581,11 +1654,12 @@ class TeamGame(BaseModel):
 # PostScore #
 #############
 
-SCORE_SUBMIT  = "submit"
-SCORE_ACCEPT  = "accept"
-SCORE_CORRECT = "correct"
-SCORE_IGNORE  = " (ignore)"
-SCORE_DISCARD = " (discard)"
+class ScoreAction(StrEnum):
+    SUBMIT  = "submit"
+    ACCEPT  = "accept"
+    CORRECT = "correct"
+    IGNORE  = " (ignore)"
+    DISCARD = " (discard)"
 
 class PostScore(BaseModel):
     """Denormalization of TournGame data, for use in computing stats, determining
@@ -1612,9 +1686,9 @@ class PostScore(BaseModel):
         """Get most recent submitted score for specified game label.  Return `None` if no
         scores posted.
         """
-        actions = [SCORE_SUBMIT, SCORE_CORRECT]
+        actions = [ScoreAction.SUBMIT, ScoreAction.CORRECT]
         if include_accept:
-            actions.append(SCORE_ACCEPT)
+            actions.append(ScoreAction.ACCEPT)
         query = (cls
                  .select()
                  .where(cls.game_label == label,

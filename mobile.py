@@ -14,8 +14,8 @@ from ckautils import typecast
 
 from core import ImplementationError
 from schema import (GAME_PTS, BRACKET_SEED, BRACKET_TOURN, TournStage, TournInfo, Player,
-                    SeedGame, Team, TournGame, PostScore, SCORE_SUBMIT, SCORE_ACCEPT,
-                    SCORE_CORRECT, SCORE_IGNORE, SCORE_DISCARD)
+                    PlayerRegister, PartnerPick, SeedGame, Team, TournGame, PostScore,
+                    ScoreAction)
 from euchmgr import PFX_SEED, PFX_TOURN, compute_player_ranks, compute_team_ranks
 
 ###################
@@ -37,23 +37,6 @@ def is_mobile() -> bool:
     """Determine mobile client by the user-agent string
     """
     return re.search(MOBILE_REGEX, request.user_agent.string) is not None
-
-# some type aliases (local scope for now, but perhaps adopt more broadly later, especially
-# if/when we abstract out the schema)
-BracketGame = SeedGame | TournGame
-PartnerPick = Player
-StageMgr    = BracketGame | PartnerPick
-
-def stage_status(stage_mgr: StageMgr) -> str:
-    """Return current stage status (i.e. round info)
-    """
-    cur_round = stage_mgr.current_round()
-    if cur_round == 0:
-        return "Not Started"
-    elif cur_round == -1:
-        return "Done"
-    else:
-        return f"Round {cur_round}"
 
 def get_bracket(label: str) -> str:
     """Get name of bracket based on game label.  FIX: quick and dirty for now--need to
@@ -297,8 +280,6 @@ def register_player(form: dict) -> str:
     player.nick_name = nick_name  # allow nick_name to be nulled out
     try:
         player.save()
-        flash("You are now registered (though you may continue to make changes until "
-              "registration is complete for all players)")
     except IntegrityError as e:
         flash("Player Num already taken")
     return render_view(VIEW_REGISTER)
@@ -313,7 +294,7 @@ def submit_score(form: dict) -> str:
     scores do not match, then it will be treated as a "correct" coming from a member of
     either team.
     """
-    post_action = SCORE_SUBMIT
+    post_action = ScoreAction.SUBMIT
     action_info = None
     game_label  = form['game_label']
     bracket     = get_bracket(game_label)
@@ -337,7 +318,7 @@ def submit_score(form: dict) -> str:
                 flash("Duplicate submission as opponent treated as acceptance")
                 return accept_score(form)
             # otherwise we fall through and create an ignored duplicate entry
-            post_action += SCORE_IGNORE
+            post_action += ScoreAction.IGNORE
             action_info = "Duplicate submission (as partner)"
             flash(f"Ignoring {lc_first(action_info)}")
         else:
@@ -366,7 +347,7 @@ def accept_score(form: dict) -> str:
     reference, then switch the acceptance to the newer record, otherwise intervening
     changes invalidate this request.
     """
-    post_action = SCORE_ACCEPT
+    post_action = ScoreAction.ACCEPT
     action_info = None
     game_label  = form['game_label']
     bracket     = get_bracket(game_label)
@@ -392,12 +373,12 @@ def accept_score(form: dict) -> str:
                 action_info = f"Changing ref_score from id {ref_score_id} to id {latest.id}"
             else:
                 # same score correction from partner
-                post_action += SCORE_DISCARD
+                post_action += ScoreAction.DISCARD
                 action_info = "Intervening correction (same score)"
                 flash(f"Discarding acceptance due to {lc_first(action_info)}")
         else:
             # changed score correction (from either partner or opponent)
-            post_action += SCORE_DISCARD
+            post_action += ScoreAction.DISCARD
             action_info = "Intervening correction"
             flash(f"Discarding acceptance due to {lc_first(action_info)}")
 
@@ -414,7 +395,7 @@ def accept_score(form: dict) -> str:
         'do_push'      : True
     }
     score = PostScore.create(**info)
-    if post_action == SCORE_ACCEPT:
+    if post_action == ScoreAction.ACCEPT:
         try:
             score.push_scores()
             update_rankings(bracket)
@@ -432,7 +413,7 @@ def correct_score(form: dict, ref: PostScore = None) -> str:
     treated as an acceptance if coming from an opponent, or will be ignored if coming from
     a partner.
     """
-    post_action = SCORE_CORRECT
+    post_action = ScoreAction.CORRECT
     action_info = None
     game_label  = form['game_label']
     bracket     = get_bracket(game_label)
@@ -457,11 +438,11 @@ def correct_score(form: dict, ref: PostScore = None) -> str:
         # correction (regardless of actor and score), since the logic for implicit
         # acceptance could be messy and/or counterintuitive
         if same_score(latest, ref_score):
-            post_action += SCORE_DISCARD
+            post_action += ScoreAction.DISCARD
             action_info = "Intervening correction (same score)"
             flash(f"Discarding update due to {lc_first(action_info)}")
         else:
-            post_action += SCORE_DISCARD
+            post_action += ScoreAction.DISCARD
             action_info = "Intervening correction"
             flash(f"Discarding update due to {lc_first(action_info)}")
 
@@ -470,7 +451,7 @@ def correct_score(form: dict, ref: PostScore = None) -> str:
             flash("Unchanged score correction treated as acceptance")
             return accept_score(form)
         # otherwise we fall through and create an ignored correction entry
-        post_action += SCORE_IGNORE
+        post_action += ScoreAction.IGNORE
         action_info = "Unchanged score (as partner)"
         flash(f"Ignoring {lc_first(action_info)}")
 
@@ -555,8 +536,11 @@ INFO_FIELDS = {
         UserInfo("full_name",  "wide", "Player", TournStage.PLAYER_ROSTER),
         UserInfo("tourn",      "wide", "Tournament", TournStage.TOURN_CREATE),
     ],
+    PHASE_REGISTER: [
+        UserInfo("status",     "",     "Status (stage)", TournStage.TOURN_CREATE),
+        UserInfo("reg_status", "",     "Status (you)", TournStage.TOURN_CREATE)
+    ],
     PHASE_SEEDING: [
-        UserInfo("stage",      "med",  "Stage",  TournStage.TOURN_CREATE),
         UserInfo("status",     "",     "Status", TournStage.TOURN_CREATE),
         UserInfo("plyr_name",  "med",  "Name",   TournStage.PLAYER_NUMS),
         UserInfo("plyr_num",   "",     "Num",    TournStage.PLAYER_NUMS),
@@ -565,14 +549,12 @@ INFO_FIELDS = {
         UserInfo("seed_rank",  "",     "Rank",   TournStage.SEED_BRACKET)
     ],
     PHASE_PARTNERS: [
-        UserInfo("stage",      "med",  "Stage",  TournStage.TOURN_CREATE),
         UserInfo("status",     "",     "Status", TournStage.TOURN_CREATE),
         UserInfo("cur_pick",   "",     "Cur Pick (rank)", TournStage.SEED_TABULATE),
         UserInfo("plyr_name",  "med",  "Name",   TournStage.SEED_TABULATE),
-        UserInfo("seed_rank",  "",     "Rank",   TournStage.SEED_TABULATE)
+        UserInfo("seed_rank",  "",     "Pick Order", TournStage.SEED_TABULATE)
     ],
     PHASE_ROUND_ROBIN: [
-        UserInfo("stage",      "med",  "Stage",  TournStage.TOURN_CREATE),
         UserInfo("status",     "",     "Status", TournStage.TOURN_CREATE),
         UserInfo("team_name",  "wide", "Team",   TournStage.TOURN_TEAMS),
         UserInfo("div_num",    "",     "Div",    TournStage.TOURN_TEAMS),
@@ -677,10 +659,14 @@ def render_mobile(context: dict, view: str = VIEW_INDEX) -> str:
             tourn.name
         ]
     }
+    if display_phase == PHASE_REGISTER:
+        info_data[PHASE_REGISTER] = [
+            PlayerRegister.phase_status(),
+            PlayerRegister.reg_status(player)
+        ]
     if display_phase == PHASE_SEEDING:
         info_data[PHASE_SEEDING] = [
-            PHASE_SEEDING,
-            stage_status(SeedGame),
+            SeedGame.phase_status(),
             player.nick_name,
             player.player_num,
             win_rec_sd,
@@ -689,16 +675,14 @@ def render_mobile(context: dict, view: str = VIEW_INDEX) -> str:
         ]
     if display_phase == PHASE_PARTNERS:
         info_data[PHASE_PARTNERS] = [
-            PHASE_PARTNERS,
-            stage_status(PartnerPick),
+            PartnerPick.phase_status(),
             cur_pick.player_rank if cur_pick else None,
             player.nick_name,
             player.player_rank
         ]
     elif display_phase == PHASE_ROUND_ROBIN:
         info_data[PHASE_ROUND_ROBIN] = [
-            PHASE_ROUND_ROBIN,
-            stage_status(TournGame)
+            TournGame.phase_status()
         ]
         if team:
             info_data[PHASE_ROUND_ROBIN] += [

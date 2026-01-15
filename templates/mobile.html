@@ -355,6 +355,7 @@
       </section>
     </section>
 
+    {% set view_active = false %}
     {% if view == index %}
     <section class="index" id="index">
       <p>
@@ -364,7 +365,7 @@
     {% endif %}  {# view == index #}
 
     {% if view == register %}
-    {% with %}
+    {% set view_active = true %}
     {% set locked = (nums_avail == none) %}
     {% set disabled = " disabled" if locked else "" %}
     <section class="register" id="register">
@@ -401,14 +402,13 @@
         <sup>&dagger;</sup> (ping pong ball number)
       </p>
     </section>
-    {% endwith %}
     {% endif %}  {# view == register #}
 
     {% if view == seeding or view == round_robin %}
-    {% with %}
     {% set stage_ent = team if view == round_robin else user %}
     <section class="games" id="sd-games">
       {% if stage_games %}
+      {% set view_active = true %}
       <h3>Games</h3><span>(tap here for Leaderboard)</span>
       <form action="/mobile/" method="post">
         <input type="hidden" name="game_label" value="{{cur_game.label}}">
@@ -510,12 +510,12 @@
       {% endfor %}
     </section>
     {% endif %}
-    {% endwith %}
     {% endif %}  {# view == seeding/round_robin #}
 
     {% if view == partners %}
     <section class="picks" id="pt-picks">
       {% if partner_picks %}
+      {% set view_active = true %}
       <h3>Picking Order</h3>
       <article class="picks_hdr">
         <span class="picker">Player (by rank)</span>
@@ -523,7 +523,6 @@
       </article>
       <form action="/mobile/" method="post">
         {% for pk in partner_picks %}
-        {% with %}
         {% set pk_cls = " active" if pk == cur_pick else ("" if pk.partner else " pending") %}
         <article class="pick{{pk_cls}}" id="pk-{{pk.player_rank}}">
           {% set is_you = " &ndash; <i>you</i>" if pk == user else "" %}
@@ -551,7 +550,6 @@
           {% endif %}
           {% endif %}  {# pk == user #}
         </article>
-        {% endwith %}
         {% endfor %}
       </form>
       <p>
@@ -565,7 +563,7 @@
     </section>
     {% endif %}  {# view == partners #}
 
-    {% if resources %}
+    {% if resources and view_active %}
     <section class="resources">
       <h3>Resources</h3>
       <span>(not mobile friendly)</span>

@@ -48,4 +48,6 @@ def test_post_score(seed_bracket_app):
             'opp_pts'      : '0',
             'action'       : 'submit_score'}
     resp = virgilio_client.post('/mobile/', data=data, follow_redirects=True)
-    assert "<label>Score posted by</label>: <span>Virgilio (you)</span>" in resp.text
+    assert resp.status_code == 200
+    assert re.search(r'<label>Score posted by</label>:.*<span>Virgilio \(you\)</span>',
+                     resp.text, re.DOTALL)

@@ -62,7 +62,7 @@ def fmt_team_name(player_nums: list[int]) -> str:
 # euchmgr functions #
 #####################
 
-def tourn_create(timeframe: str = None, venue: str = None, **kwargs) -> TournInfo:
+def tourn_create(dates: str = None, venue: str = None, **kwargs) -> TournInfo:
     """Create a tournament with specified name (must be unique).
 
     Additional `kwargs` are passed on to `schema_create`
@@ -70,7 +70,7 @@ def tourn_create(timeframe: str = None, venue: str = None, **kwargs) -> TournInf
     schema_create(**kwargs)
 
     info = {'name'       : db_name(),  # db_name is same as tournament name
-            'timeframe'  : timeframe,
+            'dates'      : dates,
             'venue'      : venue,
             'stage_compl': TournStage.TOURN_CREATE}
     tourn = TournInfo.create(**info)
@@ -857,7 +857,7 @@ def main() -> int:
     Usage: python -m euchmgr <tourn_name> <func> [<args> ...]
 
     Functions/usage:
-      - tourn_create [timeframe=<timeframe>] [venue=<venue>] [<schema_create kwargs>]
+      - tourn_create [dates=<dates>] [venue=<venue>] [<schema_create kwargs>]
       - upload_roster roster=<csv_file>
       - generate_player_nums
       - build_seed_bracket

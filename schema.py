@@ -111,7 +111,7 @@ class TournInfo(BaseModel):
     the database encapsulates the entire data for a single tournament).
     """
     name           = TextField(unique=True)
-    timeframe      = TextField(null=True)
+    dates          = TextField(null=True)
     venue          = TextField(null=True)
     stage_start    = IntegerField()
     stage_compl    = IntegerField()

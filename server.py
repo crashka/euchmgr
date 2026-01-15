@@ -490,7 +490,7 @@ def create_tourn(form: dict) -> str:
     err_msg     = None
 
     tourn_name  = form.get('tourn_name')
-    timeframe   = form.get('timeframe') or None
+    dates       = form.get('dates') or None
     venue       = form.get('venue') or None
     overwrite   = typecast(form.get('overwrite', ""))
     req_file    = request.files.get('roster_file')
@@ -503,7 +503,7 @@ def create_tourn(form: dict) -> str:
         try:
             assert not session.get('tourn')
             db_init(tourn_name, force=True)
-            tourn = tourn_create(timeframe=timeframe, venue=venue, force=overwrite)
+            tourn = tourn_create(dates=dates, venue=venue, force=overwrite)
             upload_roster(roster_path)
             tourn = TournInfo.get()
             session['tourn'] = tourn.name
@@ -516,7 +516,7 @@ def create_tourn(form: dict) -> str:
             else:
                 err_msg = cap_first(str(e))
 
-    tourn = TournInfo(name=tourn_name, timeframe=timeframe, venue=venue)
+    tourn = TournInfo(name=tourn_name, dates=dates, venue=venue)
     context = {
         'tourn'      : tourn,
         'view'       : View.TOURN,

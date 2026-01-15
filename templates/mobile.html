@@ -75,6 +75,7 @@
      .login_info span {
        font-weight: bolder;
        color: mediumblue;
+       cursor: pointer;
      }
      .info {
        display: flex;
@@ -198,15 +199,18 @@
      .games h3 {
        display: inline-block;
        padding-bottom: 0.5rem;
+       cursor: pointer;
      }
      .leaderboard h3 {
        display: inline-block;
+       cursor: pointer;
      }
      .games > span,
      .leaderboard > span {
        display: inline-block;
        font-style: italic;
        margin-left: 0.6rem;
+       cursor: pointer;
      }
      .games article {
        padding: 0.2rem 0.4rem;
@@ -214,6 +218,9 @@
      }
      .games article:last-child {
        border-bottom: 1px solid grey;
+     }
+     .game.active {
+       cursor: pointer;
      }
      .lb_hdr {
        margin: 0.0rem 0.0rem;
@@ -654,7 +661,7 @@
      });
      // refresh score for current game (disregarding clickable elements)--note that the
      // current game may change on this reload
-     $('.game').on('click', function(e) {
+     $('.game.active').on('click', function(e) {
        if (chgMap.size == 0) {
          //window.location.href = window.location.pathname;
          //window.location.href = '';

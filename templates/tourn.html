@@ -57,6 +57,7 @@
      .login_info span {
        font-weight: bolder;
        color: mediumblue;
+       cursor: pointer;
      }
      .info {
        width: 27rem;
@@ -153,9 +154,9 @@
               </td>
             </tr>
             <tr>
-              <td class="td_lbl">Timeframe:</td>
+              <td class="td_lbl">Dates:</td>
               <td class="td_txt">
-                <input name="timeframe" type="text" value="{{tourn.timeframe or ''}}"{{disabled}}>
+                <input name="dates" type="text" value="{{tourn.dates or ''}}"{{disabled}}>
               </td>
             </tr>
             <tr>

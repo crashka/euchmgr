@@ -78,7 +78,7 @@ def db_init(name: str, force: bool = False) -> SqliteDatabase:
     db.init(db_file)
     setattr(db, 'db_name', name)  # little hack to remember name
     db_connect(name)  # REVISIT: should we require this to be explicit???
-    log.debug(f"db_init({name}), force={force}")
+    log.debug(f"db_init({name}, force={force})")
     return db
 
 def db_name() -> str | None:
@@ -101,7 +101,7 @@ def db_reset(force: bool = False) -> bool:
         if hasattr(db, 'db_name'):
             delattr(db, 'db_name')
     db.init(None)
-    log.debug(f"db_reset(force={force}")
+    log.debug(f"db_reset(force={force})")
     return True
 
 def db_is_initialized() -> bool:

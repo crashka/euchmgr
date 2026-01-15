@@ -35,9 +35,9 @@ from flask_login import current_user, login_user, logout_user
 
 from core import DATA_DIR, UPLOAD_DIR, log, ImplementationError
 from security import EuchmgrUser, ADMIN_USER, ADMIN_ID, AdminUser, EuchmgrLogin
-from database import (DB_FILETYPE, db_init, db_is_initialized, db_connect, db_close,
-                      db_is_closed, db)
-from schema import TournStage, TOURN_INIT, TournInfo, Player
+from database import (DB_FILETYPE, db_init, db_name, db_reset, db_is_initialized, db_connect,
+                      db_close, db_is_closed)
+from schema import TournStage, TOURN_INIT, ACTIVE_STAGES, TournInfo, Player
 from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_seed_bracket,
                      fake_seed_games, validate_seed_round, compute_player_ranks,
                      prepick_champ_partners, fake_pick_partners, build_tourn_teams,
@@ -250,9 +250,12 @@ def create_app(config: object | Config = Config) -> Flask:
             return render_error(403, desc="Mobile access unauthorized")
 
         tourn = TournInfo.get()
+        err_msg = "<br>".join(get_flashed_messages())
+
         context = {
-            'tourn': tourn,
-            'view' : request.path
+            'tourn'  : tourn,
+            'view'   : request.path,
+            'err_msg': err_msg
         }
         return render_app(context)
 
@@ -262,15 +265,6 @@ def create_app(config: object | Config = Config) -> Flask:
         """
         if is_mobile():
             return render_error(403, desc="Mobile access unauthorized")
-
-        tourn_name = session.get('tourn')
-        if tourn_name:
-            assert db_is_initialized()
-            # resume managing previously active tournament
-            tourn = TournInfo.get()
-            assert tourn.name == tourn_name
-            view = dflt_view(tourn)
-            return render_view(view)
 
         create_new = False
         err_msg = None
@@ -285,6 +279,28 @@ def create_app(config: object | Config = Config) -> Flask:
                 raise ImplementationError(f"unexpected secret key '{key}' (value '{val}')")
         else:
             err_msg = "<br>".join(msgs)
+
+        tourn_name = session.get('tourn')
+        if tourn_name:
+            assert not create_new
+            assert db_is_initialized()
+            """
+            # resume managing previously active tournament
+            tourn = TournInfo.get()
+            assert tourn.name == tourn_name
+            view = dflt_view(tourn)
+            return render_view(view)
+            """
+            tourn = TournInfo.get()
+            assert tourn.name == tourn_name
+            # render admin view for existing tournament
+            context = {
+                'tourn'    : tourn,
+                'view'     : View.TOURN,
+                'new_tourn': False,
+                'err_msg'  : err_msg
+            }
+            return render_tourn(context)
 
         tourn = TournInfo() if create_new else None
         if db_is_initialized():
@@ -414,7 +430,8 @@ def dflt_view(tourn: TournInfo) -> View:
 SUBMIT_FUNCS = {
     View.TOURN: [
         'select_tourn',
-        'create_tourn'
+        'create_tourn',
+        'pause_tourn'
     ],
     View.PLAYERS: [
         'gen_player_nums',
@@ -438,24 +455,35 @@ SUBMIT_FUNCS = {
 }
 
 def select_tourn(form: dict) -> str:
-    """Render /tourn view with tournament info specified in request.
+    """Render default view for existing tournament, or new tournament creation view.  Note
+    that this is called against the `select_tourn` form.
     """
     tourn_name = form.get('tourn')
+    if tourn_name == SEL_NEW:
+        if db_is_initialized():
+            assert session['tourn'] == db_name()
+            flash(f"Must pause active tournament (\"{db_name()}\") before creating a new "
+                  "tournament")
+        else:
+            flash("create_new=True")
+        return redirect(url_for('tourn'))
 
-    if tourn_name != SEL_NEW:
-        if not db_is_initialized():
-            assert not session.get('tourn')
-            db_init(tourn_name, force=True)
-            session['tourn'] = tourn_name
-            log.info(f"setting tourn = '{tourn_name}' in session state")
-        return redirect(url_for('index'))
-
-    assert not db_is_initialized()
-    flash("create_new=True")
-    return redirect(url_for('tourn'))
+    if not db_is_initialized():
+        assert not session.get('tourn')
+        db_init(tourn_name, force=True)
+        session['tourn'] = tourn_name
+        log.info(f"setting tourn = '{tourn_name}' in session state")
+        flash(f"Resuming operation of tournament \"{tourn_name}\"")
+    elif db_name() != tourn_name:
+        assert session['tourn'] == db_name()
+        flash(f"Must pause active tournament (\"{db_name()}\") before switching to a "
+              "different tournament")
+        return redirect(url_for('tourn'))
+    return redirect(url_for('index'))
 
 def create_tourn(form: dict) -> str:
-    """Create new tournament from form data.
+    """Create new tournament from form data.  Note that this is called against the
+    `tourn_info` form.
     """
     tourn       = None
     roster_path = None
@@ -498,6 +526,22 @@ def create_tourn(form: dict) -> str:
         'err_msg'    : err_msg
     }
     return render_tourn(context)
+
+def pause_tourn(form: dict) -> str:
+    """Disconnect server from database for current tournament.  Note that this is called
+    against the `tourn_info` form.
+    """
+    tourn_name = form.get('tourn_name')
+    tourn = TournInfo.get()
+    assert tourn.name == tourn_name
+    assert db_is_initialized()
+    assert db_name() == tourn_name
+    db_reset(force=True)
+    popped = session.pop('tourn', None)
+    assert popped == tourn_name
+    flash(f"Tournament \"{tourn_name}\" has been paused; you may now select a different "
+          "tournament or create a new one")
+    return redirect(url_for('index'))
 
 def gen_player_nums(form: dict) -> str:
     """
@@ -574,6 +618,7 @@ SEL_NEW = "(create new)"
 BUTTON_INFO = {
     'select_tourn'          : ("[Ceci n'existe pas]",         [None]),
     'create_tourn'          : ("Create Tournament",           [TOURN_INIT]),
+    'pause_tourn'           : ("Pause Tournament",            list(ACTIVE_STAGES)),
     'gen_player_nums'       : ("Generate Player Nums",        [TournStage.PLAYER_ROSTER,
                                                                TournStage.PLAYER_NUMS]),
     'gen_seed_bracket'      : ("Create Seeding Bracket",      [TournStage.PLAYER_NUMS]),
@@ -697,8 +742,8 @@ def render_login(context: dict) -> str:
 
 err_txt = {
     # id: (error, description)
-    'not_running': ("Euchre Manager not running",
-                    "Reload page after admin restarts the server app")
+    'not_running': ("Euchre Manager paused",
+                    "Refresh the app page after admin resumes the tournament operation")
 }
 
 help_txt = {

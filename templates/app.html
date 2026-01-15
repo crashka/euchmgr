@@ -216,9 +216,9 @@
            cell.data(e.target.textContent).draw();
 
            const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
-           $.post('/data/{{view_path}}', post_data)
+           $.post('/data{{view_path}}', post_data)
             .done(function(resp) {
-              console.log('POST /data/{{view_path}} done: ', resp);
+              console.log('POST /data{{view_path}} done: ', resp);
               if (resp.err) {
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
@@ -236,7 +236,7 @@
               }
             })
             .fail(function(resp) {
-              console.log('POST /data/{{view_path}} fail: ', resp);
+              console.log('POST /data{{view_path}} fail: ', resp);
               cell.data(orig_val).draw();
               $(e.target).addClass("attn");
               show_error(resp.statusText);
@@ -260,7 +260,7 @@
          content: ['search']
        },
        ajax: {
-         url: '/data/{{view_path}}',
+         url: '/data{{view_path}}',
          dataSrc: 'data'
        },
        deferRender: true,

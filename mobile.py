@@ -297,6 +297,8 @@ def register_player(form: dict) -> str:
     player.nick_name = nick_name  # allow nick_name to be nulled out
     try:
         player.save()
+        flash("You are now registered (though you may continue to make changes until "
+              "registration is complete for all players)")
     except IntegrityError as e:
         flash("Player Num already taken")
     return render_view(VIEW_REGISTER)

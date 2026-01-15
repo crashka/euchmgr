@@ -87,28 +87,29 @@
       <div></div>
       <button autofocus>Close</button>
     </dialog>
-    <form action="/tourn" method="post">
+    <form action="/tourn" method="post" name="select_tourn">
       <input type="hidden" name="submit_func" value="select_tourn">
       <div class="section">
-        <span>Pick tournament:</span>
+        <span>Select tournament:</span>
         <select name="tourn" class="sel_tourn" onchange="this.form.submit();">
-          {% set disabled = " disabled" if tourn_name == sel_sep else "" %}
-
           {% if new_tourn %}
           {% for tourn_name in tourn_sel %}
           {% set selected = " selected" if tourn_name == sel_new else "" %}
+          {% set disabled = " disabled" if tourn_name == sel_sep else "" %}
           <option value="{{tourn_name}}"{{selected}}{{disabled}}>{{tourn_name}}</option>
           {% endfor %}
 
           {% elif tourn %}
           {% for tourn_name in tourn_sel %}
           {% set selected = " selected" if tourn_name == tourn.name else "" %}
+          {% set disabled = " disabled" if tourn_name == sel_sep else "" %}
           <option value="{{tourn_name}}"{{selected}}{{disabled}}>{{tourn_name}}</option>
           {% endfor %}
 
           {% else %}
           <option value="" disabled selected hidden></option>
           {% for tourn_name in tourn_sel %}
+          {% set disabled = " disabled" if tourn_name == sel_sep else "" %}
           <option value="{{tourn_name}}"{{disabled}}>{{tourn_name}}</option>
           {% endfor %}
           {% endif %}
@@ -116,12 +117,13 @@
       </div>
     </form>
     {% if tourn %}
-    <form action="/tourn" method="post" enctype="multipart/form-data">
+    <form action="/tourn" method="post" enctype="multipart/form-data" name="tourn_info">
       {% set disabled = "" if new_tourn else " disabled" %}
-      <input type="hidden" name="id" value="{{tourn.id}}">
+      <input type="hidden" name="tourn_id" value="{{tourn.id}}">
       <div class="container">
         <div class="section info">
-          <span class="section_lbl">Tournament Info</span>
+          {% set new = "New " if new_tourn else "" %}
+          <span class="section_lbl">{{new}}Tournament Info</span>
           <table class="tourn_params">
             <colgroup>
               <col class="pname">
@@ -167,7 +169,6 @@
             <tr>
               <td class="td_lbl">Roster File:</td>
               <td class="td_text">
-                {% set disabled = "" if new_tourn else " disabled" %}
                 <input name="roster_file" type="file" value="" accept=".csv"{{disabled}}>
               </td>
             </tr>
@@ -183,6 +184,9 @@
       </div>
       <div class="section actions">
         <button class="submit" value="{{buttons[1]}}"{{btn_attr[1]}}>{{btn_lbl[1]}}</button>
+        {% if not new_tourn  %}
+        <button class="submit" value="{{buttons[2]}}"{{btn_attr[2]}}>{{btn_lbl[2]}}</button>
+        {% endif %}
       </div>
     </form>
     {% endif %}  {# tourn #}

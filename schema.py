@@ -45,8 +45,10 @@ TournStage = IntEnum('TournStage',
                       'TOURN_TABULATE',
                       'TEAM_RANKS'])    # 14
 
-# represents initial state (before TOURN_CREATE)
+# represents virtual stages before and after TournStage entries
 TOURN_INIT = 0
+TOURN_FINAL = len(TournStage) + 1
+ACTIVE_STAGES = range(TournStage.PLAYER_ROSTER, TOURN_FINAL)
 
 class StageInfo(NamedTuple):
     """Behavior parameters and messages for tournament stages

@@ -670,6 +670,7 @@ def render_tourn(context: dict) -> str:
 
     base_ctx = {
         'title'    : APP_NAME,
+        'user'     : current_user,
         'tourn_sel': get_tourns() + [SEL_SEP, SEL_NEW],
         'sel_sep'  : SEL_SEP,
         'sel_new'  : SEL_NEW,
@@ -705,6 +706,7 @@ def render_app(context: dict) -> str:
 
     base_ctx = {
         'title'    : APP_NAME,
+        'user'     : current_user,
         'tourn'    : None,       # context may contain override
         'err_msg'  : None,       # ditto
         'view_defs': VIEW_INFO,

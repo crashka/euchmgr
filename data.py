@@ -9,7 +9,7 @@ from ckautils import typecast
 from peewee import IntegrityError
 from flask import Blueprint, request
 
-from schema import TournInfo, Player, SeedGame, Team, TournGame
+from schema import TournStage, TournInfo, Player, SeedGame, Team, TournGame
 
 ###################
 # blueprint stuff #
@@ -173,6 +173,10 @@ pt_layout = [
 def get_partners() -> dict:
     """Ajax call to load datatable for partners view.
     """
+    tourn = TournInfo.get()
+    if tourn.stage_compl < TournStage.SEED_RANKS:
+        return ajax_data([])
+
     pt_iter = Player.iter_players(by_rank=True)
     pt_data = []
     for player in pt_iter:

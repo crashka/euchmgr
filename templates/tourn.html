@@ -48,6 +48,16 @@
      .sel_tourn {
        width: 12rem;
      }
+     .login_info {
+       float: right;
+       text-align: right;
+       /*margin-right: 1.0rem;*/
+       /*padding: 0.5rem 0.0rem;*/
+     }
+     .login_info span {
+       font-weight: bolder;
+       color: mediumblue;
+     }
      .info {
        width: 27rem;
        float: left;
@@ -114,6 +124,12 @@
           {% endfor %}
           {% endif %}
         </select>
+        <span class="login_info">
+          {% with tooltip = "Tap here to go to current stage" %}
+          Logged in as: <span title='{{tooltip}}'>{{user.name}}</span>
+          [<a href='/logout'>Logout</a>]
+          {% endwith %}
+        </span>
       </div>
     </form>
     {% if tourn %}
@@ -199,6 +215,11 @@
      $(".submit").attr({
        type: 'submit',
        name: "submit_func"
+     });
+
+     // shortcuts (navigation)
+     $('.login_info span').on('click', function() {
+       window.location.href = "./";
      });
 
      // error dialog

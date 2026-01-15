@@ -319,7 +319,7 @@
       </div>
       <span class="login_info">
         {% with tooltip = "Tap here to go to current stage" %}
-        Logged in as: <span title='{{tooltip}}'>{{user.nick_name}}</span>
+        Logged in as: <span title='{{tooltip}}'>{{user.name}}</span>
         [<a href='/logout'>Logout</a>]
         {% endwith %}
       </span>
@@ -452,7 +452,7 @@
             {% set action = "accepted" if ref_score.post_action == "accept" else "posted" %}
             {% set role = "opponent" if not team_post else ("you" if self_post else "partner") %}
             <label>Score {{action}} by</label>:
-            <span>{{ref_score.posted_by.nick_name}} ({{role}})</span>
+            <span>{{ref_score.posted_by.name}} ({{role}})</span>
           </p>
           {% if not gm.winner %}
           <p class="actions">
@@ -656,13 +656,12 @@
      // current game may change on this reload
      $('.game').on('click', function(e) {
        if (chgMap.size == 0) {
-         //const url = window.location.origin + window.location.pathname
-         //window.location.href = url;
+         //window.location.href = window.location.pathname;
          //window.location.href = '';
          // WATCH: this appears to reload changed data despite all of the claims that the
          // `forceGet` flag is ignored these days; if we see that this is not reliable, we
-         // can fall back to setting location.href (I think the two commented out options
-         // are equivalent)!
+         // can fall back to setting location.href (I think the two commented out options,
+         // just above, are equivalent)!
          window.location.reload(true);
        }
        else {

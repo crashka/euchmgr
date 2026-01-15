@@ -44,9 +44,19 @@
        margin-top: 0.5rem;
        position: relative;
      }
-     .section_lbl {
+     .tourn_lbl {
        font-size: x-large;
        font-weight: bold;
+     }
+     .login_info {
+       float: right;
+       text-align: right;
+       /*margin-right: 1.0rem;*/
+       /*padding: 0.5rem 0.0rem;*/
+     }
+     .login_info span {
+       font-weight: bolder;
+       color: mediumblue;
      }
      .subsect {
        margin-top: 0.5rem;
@@ -116,12 +126,18 @@
     </dialog>
     <div class="container">
       <div class="section">
-        <span class="section_lbl">{{tourn.name}}</span>
+        <span class="tourn_lbl">{{tourn.name}}</span>
         <span class="view_sel">
           View:
           {% for view, info in view_defs.items() %}
           <label>{{info.name}}<input type="radio" name="view" value="{{view}}"{{view_chk[view]}}></label>
           {% endfor %}
+        </span>
+        <span class="login_info">
+          {% with tooltip = "Tap here to go to current stage" %}
+          Logged in as: <span title='{{tooltip}}'>{{user.name}}</span>
+          [<a href='/logout'>Logout</a>]
+          {% endwith %}
         </span>
         <div class="subsect info_blk">
           <input name="tourn_name" type="hidden" value="{{tourn.name}}">
@@ -185,7 +201,15 @@
      // view selection
      $(".view_sel input").on('change', function() {
        const path = $(".view_sel input:checked").val();
-       window.location.href = window.location.origin + path;
+       window.location.href = path;
+     });
+
+     // shortcuts (navigation)
+     $(".tourn_lbl").on('click', function() {
+       window.location.href = '/tourn';
+     });
+     $('.login_info span').on('click', function() {
+       window.location.href = "./";
      });
 
      // view stuff

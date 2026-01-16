@@ -266,18 +266,19 @@ def create_app(config: object | Config = Config) -> Flask:
             return render_error(403, desc="Mobile access unauthorized")
 
         create_new = False
-        err_msg = None
-        msgs = get_flashed_messages()
+        err_msgs = []
         # see if any secret parameters have been transmitted to us (see NOTE for `view` in
         # mobile.py--we might want to encapsulate this into a shared mechanism!)
-        if len(msgs) == 1 and msgs[0].find('=') > 0:
-            key, val = msgs[0].split('=', 1)
-            if key == 'create_new':
-                create_new = typecast(val)
+        for msg in get_flashed_messages():
+            if m := re.fullmatch(r'(\w+)=(.+)', msg):
+                key, val = m.group(1, 2)
+                if key == 'create_new':
+                    create_new = typecast(val)
+                else:
+                    raise ImplementationError(f"unexpected secret key '{key}' (value '{val}')")
             else:
-                raise ImplementationError(f"unexpected secret key '{key}' (value '{val}')")
-        else:
-            err_msg = "<br>".join(msgs)
+                err_msgs.append(msg)
+        err_msg = "<br>".join(err_msgs)
 
         tourn_name = session.get('tourn')
         if tourn_name:

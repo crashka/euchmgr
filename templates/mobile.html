@@ -602,7 +602,7 @@
      });
      const showError = function(err_text) {
        const target = $('.err_dlg div')[0];
-       target.innerText = err_text;
+       target.innerHTML = err_text;
        target.parentElement.showModal();
      };
 

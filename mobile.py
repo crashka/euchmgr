@@ -213,20 +213,21 @@ def view() -> str:
 
     context = {}
     game_label = None
-    msgs = get_flashed_messages()
-    # see if any secret parameters have been transmitted to us--NOTE: currently only one
-    # secret parameter is expected, so we need to be careful that no additional messages
-    # are flashed, otherwise the "secret" parameter will be rendered in the app as an
-    # error messsage, lol
-    if len(msgs) == 1 and msgs[0].find('=') > 0:
-        key, val = msgs[0].split('=', 1)
-        if key == 'cur_game':
-            assert not request.args.get('cur_game')
-            game_label = val
+    err_msgs = []
+    # see if any secret parameters have been transmitted to us--NOTE that parameter name
+    # and action are currently hard-coded here (since we are only supporting one!); we may
+    # create a little more structure around this later, if needed
+    for msg in get_flashed_messages():
+        if m := re.fullmatch(r'(\w+)=(.+)', msg):
+            key, val = m.group(1, 2)
+            if key == 'cur_game':
+                assert not request.args.get('cur_game')
+                game_label = val
+            else:
+                raise ImplementationError(f"unexpected secret key '{key}' (value '{val}')")
         else:
-            raise ImplementationError(f"unexpected secret key '{key}' (value '{val}')")
-    else:
-        context['err_msg'] = "<br>".join(msgs)
+            err_msgs.append(msg)
+    context['err_msg'] = "<br>".join(err_msgs)
 
     if not game_label:
         game_label = request.args.get('cur_game')
@@ -316,7 +317,7 @@ def submit_score(form: dict) -> str:
         if same_score((team1_pts, team2_pts), latest):
             if latest.team_idx != team_idx:
                 flash("Duplicate submission as opponent treated as acceptance")
-                return accept_score(form)
+                return accept_score(form, latest)
             # otherwise we fall through and create an ignored duplicate entry
             post_action += ScoreAction.IGNORE
             action_info = "Duplicate submission (as partner)"
@@ -340,7 +341,7 @@ def submit_score(form: dict) -> str:
     score = PostScore.create(**info)
     return render_view(BRACKET_VIEW[bracket])
 
-def accept_score(form: dict) -> str:
+def accept_score(form: dict, ref_score: PostScore = None) -> str:
     """Accept a game score posted by an opponent.
 
     If an intervening correction from an opponent has the same score as the original
@@ -356,10 +357,14 @@ def accept_score(form: dict) -> str:
     team1_pts   = typecast(form['team_pts'] if team_idx == 0 else form['opp_pts'])
     team2_pts   = typecast(form['team_pts'] if team_idx == 1 else form['opp_pts'])
 
-    ref_score_id = typecast(form['ref_score_id'])
-    ref_score = PostScore.get_or_none(ref_score_id)
-    if not ref_score:
-        abort(400, f"invalid ref_score_id {ref_score_id}")
+    if ref_score:
+        # implicit acceptance of a submit or correct action (where scores agree)
+        ref_score_id = ref_score.id
+    else:
+        ref_score_id = typecast(form['ref_score_id'])
+        ref_score = PostScore.fetch_by_id(ref_score_id)
+        if not ref_score:
+            abort(400, f"invalid ref_score_id '{ref_score_id}'")
     assert same_score((team1_pts, team2_pts), ref_score)
 
     # check for intervening corrections
@@ -423,9 +428,9 @@ def correct_score(form: dict, ref: PostScore = None) -> str:
     team2_pts   = typecast(form['team_pts'] if team_idx == 1 else form['opp_pts'])
 
     ref_score_id = typecast(form['ref_score_id'])
-    ref_score = PostScore.get_or_none(ref_score_id)
+    ref_score = PostScore.fetch_by_id(ref_score_id)
     if not ref_score:
-        abort(400, f"invalid ref_score_id {ref_score_id}")
+        abort(400, f"invalid ref_score_id '{ref_score_id}'")
     # these should be enforced by the UI
     assert max(team1_pts, team2_pts) == GAME_PTS
     assert (team1_pts, team2_pts) != (GAME_PTS, GAME_PTS)
@@ -445,11 +450,10 @@ def correct_score(form: dict, ref: PostScore = None) -> str:
             post_action += ScoreAction.DISCARD
             action_info = "Intervening correction"
             flash(f"Discarding update due to {lc_first(action_info)}")
-
-    if same_score((team1_pts, team2_pts), ref_score):
+    elif same_score((team1_pts, team2_pts), ref_score):
         if ref_score.team_idx != team_idx:
             flash("Unchanged score correction treated as acceptance")
-            return accept_score(form)
+            return accept_score(form, ref_score)
         # otherwise we fall through and create an ignored correction entry
         post_action += ScoreAction.IGNORE
         action_info = "Unchanged score (as partner)"

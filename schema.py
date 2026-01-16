@@ -1682,10 +1682,20 @@ class PostScore(BaseModel):
         )
 
     @classmethod
+    def fetch_by_id(cls, id: int) -> Self:
+        """Wrapper around `get_or_none`, but detect empty `id` arg (and also goot to hide
+        ORM details).
+        """
+        if not id:
+            return None
+        return cls.get_or_none(id)
+
+    @classmethod
     def get_last(cls, label: str, include_accept: bool = False) -> Self:
         """Get most recent submitted score for specified game label.  Return `None` if no
         scores posted.
         """
+        assert label
         actions = [ScoreAction.SUBMIT, ScoreAction.CORRECT]
         if include_accept:
             actions.append(ScoreAction.ACCEPT)

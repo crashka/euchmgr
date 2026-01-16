@@ -126,7 +126,7 @@
           {% endif %}
         </select>
         <span class="login_info">
-          {% with tooltip = "Tap here to go to current stage" %}
+          {% with tooltip = "Click here to exit admin mode" %}
           Logged in as: <span title='{{tooltip}}'>{{user.name}}</span>
           [<a href='/logout'>Logout</a>]
           {% endwith %}
@@ -203,6 +203,7 @@
         <button class="submit" value="{{buttons[1]}}"{{btn_attr[1]}}>{{btn_lbl[1]}}</button>
         {% if not new_tourn  %}
         <button class="submit" value="{{buttons[2]}}"{{btn_attr[2]}}>{{btn_lbl[2]}}</button>
+        <a class="cancel" href="./">[cancel]</a>
         {% endif %}
       </div>
     </form>

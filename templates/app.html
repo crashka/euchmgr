@@ -77,6 +77,8 @@
        font-weight: bold;
        position: absolute;
        top: 0.3rem;
+       z-index: 1;
+       cursor: pointer;
      }
      .info_blk {
        padding: 0.8rem 0 0.5rem 1.0rem;
@@ -128,7 +130,9 @@
     </dialog>
     <div class="container">
       <div class="section">
-        <span class="tourn_lbl">{{tourn.name}}</span>
+        {% with tooltip = "Click here to go to current stage" %}
+        <span class="tourn_lbl" title='{{tooltip}}'>{{tourn.name}}</span>
+        {% endwith %}
         <span class="view_sel">
           View:
           {% for view, info in view_defs.items() %}
@@ -137,7 +141,7 @@
           {% endfor %}
         </span>
         <span class="login_info">
-          {% with tooltip = "Tap here to go to current stage" %}
+          {% with tooltip = "Click here to enter admin mode" %}
           Logged in as: <span title='{{tooltip}}'>{{user.name}}</span>
           [<a href='/logout'>Logout</a>]
           {% endwith %}
@@ -155,7 +159,9 @@
       </div>
 
       <div class="section tbl_wrapper">
-        <span class="view_title">{{view_info.name}}</span>
+        {% with tooltip = "Click here to refresh table data" %}
+        <span class="view_title" title='{{tooltip}}'>{{view_info.name}}</span>
+        {% endwith %}
         <table id="view_dt" class="display" spellcheck="false">
           <thead>
             <tr>
@@ -209,10 +215,14 @@
 
      // shortcuts (navigation)
      $(".tourn_lbl").on('click', function() {
-       window.location.href = '/tourn';
+       window.location.href = './';
+     });
+     $('.view_title').on('click', function() {
+       // FIX: only need to refresh table data!!!
+       window.location.href = "";
      });
      $('.login_info span').on('click', function() {
-       window.location.href = "./";
+       window.location.href = "/tourn";
      });
 
      // view stuff

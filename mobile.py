@@ -490,7 +490,7 @@ def pick_partner(form: dict) -> str:
 
 # "phase" is a high-level pseudo-stage used to control the display
 PHASE_COMMON      = None  # dummy value for common tournament info
-PHASE_REGISTER    = "Register"
+PHASE_REGISTER    = "Registration"
 PHASE_SEEDING     = "Seeding"
 PHASE_PARTNERS    = "Partner Picks"
 PHASE_ROUND_ROBIN = "Round Robin"
@@ -508,8 +508,8 @@ VIEW_PHASE = {
 }
 
 VIEW_MENU = {
-    VIEW_INDEX      : "<i>(current)</i>",
-    VIEW_REGISTER   : "Register",
+    #VIEW_INDEX      : "<i>(current)</i>",
+    VIEW_REGISTER   : "Registration",
     VIEW_SEEDING    : "Seeding",
     VIEW_PARTNERS   : "Partner Picks",
     VIEW_ROUND_ROBIN: "Round Robin"

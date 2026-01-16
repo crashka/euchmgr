@@ -44,7 +44,10 @@
      .header .nav {
        display: inline-block;
        text-align: center;
-       padding: 0.5rem 0.4rem;
+       padding: 0.5rem 0.2rem;
+     }
+     .header .view_nav {
+       margin-left: 0.25rem;
      }
      .header .nav:hover,
      .header .nav2:hover {
@@ -75,6 +78,9 @@
      .login_info span {
        font-weight: bolder;
        color: mediumblue;
+       cursor: pointer;
+     }
+     .info_stats {
        cursor: pointer;
      }
      .info {
@@ -131,13 +137,13 @@
      }
      .score select {
        text-align: center;
-       width: 2.7rem;
+       width: 2.9rem;
      }
      .score span {
        display: inline-block;
        background-color: #F0F0F0;
        text-align: center;
-       min-width: 2rem;
+       min-width: 2.3rem;
      }
      .units {
        display: inline-block;
@@ -219,7 +225,8 @@
      .games article:last-child {
        border-bottom: 1px solid grey;
      }
-     .game.active {
+     .game.active,
+     .pick.active {
        cursor: pointer;
      }
      .lb_hdr {
@@ -316,6 +323,7 @@
     </dialog>
     <div class="header">
       <span class="goto">Go to:</span>
+      <a class="nav" href="./">Current</a>
       <div class="wrapper">
         <a class="nav view_nav" href="javascript:void(0);">Stage</a>
         <div class="view_menu">
@@ -325,13 +333,14 @@
         </div>
       </div>
       <span class="login_info">
-        {% with tooltip = "Tap here to go to current stage" %}
-        Logged in as: <span title='{{tooltip}}'>{{user.name}}</span>
+        {% with tooltip = "Tap here for user admin" %}
+        User: <span title='{{tooltip}}'>{{user.name}}</span>
         [<a href='/logout'>Logout</a>]
         {% endwith %}
       </span>
     </div>
-    <section class="info_stats" id="info-stats">
+    {% with tooltip = "Tap here to refresh view" %}
+    <section class="info_stats" id="info-stats" title='{{tooltip}}'>
       <h2>{{view_menu[view]}}</h2>
       <section>
         {% for info_sect in info_data %}
@@ -354,6 +363,7 @@
         {% endfor %}
       </section>
     </section>
+    {% endwith %}
 
     {% set view_active = false %}
     {% if view == index %}
@@ -370,7 +380,7 @@
     {% set disabled = " disabled" if locked else "" %}
     <section class="register" id="register">
       <h3>Player Info</h3>
-      <form action="/mobile/" method="post">
+      <form action="./" method="post">
         <input type="hidden" name="player_id" value="{{user.id}}">
         <p>
           <label>Nick Name</label>:
@@ -410,7 +420,7 @@
       {% if stage_games %}
       {% set view_active = true %}
       <h3>Games</h3><span>(tap here for Leaderboard)</span>
-      <form action="/mobile/" method="post">
+      <form action="./" method="post">
         <input type="hidden" name="game_label" value="{{cur_game.label}}">
         <input type="hidden" name="posted_by_num" value="{{user.player_num}}">
         <input type="hidden" name="team_idx" value="{{team_idx}}">
@@ -522,7 +532,7 @@
         <span class="picker">Player (by rank)</span>
         <span class="partner">Teammate(s)</span>
       </article>
-      <form action="/mobile/" method="post">
+      <form action="./" method="post">
         {% for pk in partner_picks %}
         {% set pk_cls = " active" if pk == cur_pick else ("" if pk.partner else " pending") %}
         <article class="pick{{pk_cls}}" id="pk-{{pk.player_rank}}">
@@ -618,8 +628,11 @@
        }
      });
      // shortcuts
+     $('.info_stats').on('click', function() {
+       window.location.href = "";
+     });
      $('.login_info span').on('click', function() {
-       window.location.href = "./";
+       window.location.href = "./register";
      });
 
      {% if cur_game %}
@@ -699,6 +712,14 @@
      $('.partner select').on('change', function() {
        $('button[value="pick_partner"]').prop('disabled', false);
        $('a.reset').attr('href', '');
+     });
+     $('.pick.active').on('click', function(e) {
+       // see comment for '.game.active' above
+       window.location.reload(true);
+     });
+     $('select, option, button, a', '.pick').on('click', function(e) {
+       //console.log("trapping click to refresh (clickable element: " + this.nodeName + ")");
+       e.stopPropagation();
      });
      {% endif %}  {# partner_picks #}
 

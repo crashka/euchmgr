@@ -18,8 +18,6 @@ from schema import TournStage, TournInfo, Player, SeedGame, Team, TournGame
 data = Blueprint('data', __name__)
 
 # magic strings
-CHECKED  = ' checked'
-DISABLED = ' disabled'
 HIDDEN   = 'hidden'
 CENTERED = 'centered'
 EDITABLE = 'editable'

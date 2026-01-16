@@ -43,8 +43,7 @@ from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_se
                      prepick_champ_partners, fake_pick_partners, build_tourn_teams,
                      compute_team_seeds, build_tourn_bracket, fake_tourn_games,
                      validate_tourn, compute_team_ranks)
-from data import (data, DISABLED, CHECKED, Layout, pl_layout, sg_layout, pt_layout,
-                  tm_layout, tg_layout)
+from data import data, Layout, pl_layout, sg_layout, pt_layout, tm_layout, tg_layout
 from chart import chart
 from dash import dash
 from report import report
@@ -633,6 +632,8 @@ BUTTON_INFO = {
     'tabulate_tourn_results': ("Tabulate Results",            [TournStage.TOURN_RESULTS])
 }
 
+BTN_DISABLED = ' disabled'
+
 LINK_INFO = {
     View.SEEDING    : [('/chart/sd_bracket',    "Seeding Round Bracket"),
                        ('/chart/sd_scores',     "Seeding Round Scores"),
@@ -666,7 +667,7 @@ def render_tourn(context: dict) -> str:
     btn_attr = []
     for label, stages in btn_info:
         btn_lbl.append(label)
-        btn_attr.append('' if stage_compl in stages else DISABLED)
+        btn_attr.append('' if stage_compl in stages else BTN_DISABLED)
 
     base_ctx = {
         'title'    : APP_NAME,
@@ -689,8 +690,6 @@ def render_app(context: dict) -> str:
     """
     view = context.get('view')
     assert view in VIEW_INFO
-    view_chk = {v: '' for v in VIEW_INFO}
-    view_chk[view] = CHECKED
     assert view in SUBMIT_FUNCS
     buttons = SUBMIT_FUNCS[view]
     btn_info = [BUTTON_INFO[btn] for btn in buttons]
@@ -702,7 +701,7 @@ def render_app(context: dict) -> str:
     btn_attr = []
     for label, stages in btn_info:
         btn_lbl.append(label)
-        btn_attr.append('' if stage_compl in stages else DISABLED)
+        btn_attr.append('' if stage_compl in stages else BTN_DISABLED)
 
     base_ctx = {
         'title'    : APP_NAME,
@@ -711,7 +710,6 @@ def render_app(context: dict) -> str:
         'err_msg'  : None,       # ditto
         'view_defs': VIEW_INFO,
         'view_path': view,
-        'view_chk' : view_chk,
         'view_info': VIEW_INFO[view],
         'buttons'  : buttons,
         'btn_lbl'  : btn_lbl,

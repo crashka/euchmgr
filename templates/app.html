@@ -132,7 +132,8 @@
         <span class="view_sel">
           View:
           {% for view, info in view_defs.items() %}
-          <label>{{info.name}}<input type="radio" name="view" value="{{view}}"{{view_chk[view]}}></label>
+          {% set checked = " checked" if view == view_path else "" %}
+          <label>{{info.name}}<input type="radio" name="view" value="{{view}}"{{checked}}></label>
           {% endfor %}
         </span>
         <span class="login_info">

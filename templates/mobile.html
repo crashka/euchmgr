@@ -489,6 +489,7 @@
       </p>
       {% endif %}  {# stage_games #}
     </section>
+
     {% if leaderboard %}
     <section class="leaderboard">
       <h3>Leaderboard</h3><span>(tap here for Games)</span>
@@ -509,7 +510,7 @@
       </p>
       {% endfor %}
     </section>
-    {% endif %}
+    {% endif %}  {# leaderboard #}
     {% endif %}  {# view == seeding/round_robin #}
 
     {% if view == partners %}

@@ -16,15 +16,6 @@ high number for new issue entry).*
 
 ## Feature/Enhancement Requests
 
-**#5** - Mobile app for entering game scores [Struble]
-
-- *Created - Dec 01, 2025*
-- In addition to all tournament brackets and scores, players should be able to see a
-  specific list of their own games (for both seeding and round robin)
-- Players can only enter scores for their own games as they are completed
-- Other players in the same game should be notified in the app, and given the ability to
-  confirm, correct, or dispute
-
 **#7** - Final tournament rankings need to include playoff results [Struble]
 
 - *Created - Dec 15, 2025*
@@ -74,3 +65,13 @@ entering) scores after each player or team in the matchup [Struble]
 
 - *Created - Dec 01, 2025*
 - *Fixed - Dec 27, 2025*
+
+**#5** - Mobile app for entering game scores [Struble]
+
+- *Created - Dec 01, 2025*
+- In addition to all tournament brackets and scores, players should be able to see a
+  specific list of their own games (for both seeding and round robin)
+- Players can only enter scores for their own games as they are completed
+- Other players in the same game should be notified in the app, and given the ability to
+  confirm, correct, or dispute
+- *Fixed - Jan 12, 2026*

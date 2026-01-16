@@ -323,7 +323,14 @@ def submit_score(form: dict) -> str:
             action_info = "Duplicate submission (as partner)"
             flash(f"Ignoring {lc_first(action_info)}")
         else:
-            # correct the score, whether partner or opponent
+            # REVISIT: correct the previous score, whether from partner or opponent--or
+            # should we actually just discard this submission (lost the race)???
+            if team_idx == 0:
+                prev_score = fmt_rec(latest.team1_pts, latest.team2_pts)
+            else:
+                prev_score = fmt_rec(latest.team2_pts, latest.team1_pts)
+            posted_by = latest.posted_by.name
+            flash(f"Overwriting score of [{prev_score}] previously posted by {posted_by}")
             return correct_score(form, latest)
 
     info = {
@@ -409,7 +416,7 @@ def accept_score(form: dict, ref_score: PostScore = None) -> str:
             return render_view(VIEW_PARTNERS)
     return render_game_in_view(game_label)
 
-def correct_score(form: dict, ref: PostScore = None) -> str:
+def correct_score(form: dict, ref_score: PostScore = None) -> str:
     """Correct a game score, superceding all previous submitted (or corrected) scores.  As
     with "submit", this score will need to be accepted in order to be pushed.  This can be
     called on behalf of either team.
@@ -427,11 +434,17 @@ def correct_score(form: dict, ref: PostScore = None) -> str:
     team1_pts   = typecast(form['team_pts'] if team_idx == 0 else form['opp_pts'])
     team2_pts   = typecast(form['team_pts'] if team_idx == 1 else form['opp_pts'])
 
-    ref_score_id = typecast(form['ref_score_id'])
-    ref_score = PostScore.fetch_by_id(ref_score_id)
-    if not ref_score:
-        abort(400, f"invalid ref_score_id '{ref_score_id}'")
-    # these should be enforced by the UI
+    if ref_score:
+        # implicit acceptance of a submit action (where scores agree)
+        ref_score_id = ref_score.id
+    else:
+        ref_score_id = typecast(form['ref_score_id'])
+        ref_score = PostScore.fetch_by_id(ref_score_id)
+        if not ref_score:
+            abort(400, f"invalid ref_score_id '{ref_score_id}'")
+    # these should be enforced by the UI (note, repetition here in the case of redirect
+    # from a submit action--might as well leave it as an integrity check, in case things
+    # get moved around at some point)
     assert max(team1_pts, team2_pts) == GAME_PTS
     assert (team1_pts, team2_pts) != (GAME_PTS, GAME_PTS)
 
@@ -752,7 +765,6 @@ def render_mobile(context: dict, view: str = VIEW_INDEX) -> str:
         'partner_picks': partner_picks,
         'picks_avail'  : picks_avail,
         'fmt_matchup'  : fmt_matchup,
-        'fmt_rec'      : fmt_rec,
         'resources'    : VIEW_RESOURCES.get(view),
         'err_msg'      : None
     }

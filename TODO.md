@@ -15,6 +15,7 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 
 - Partner Pick live dashboard
 - Post Score activity report
+- Show number of games complete (for the current round) in Seed/Tourn stage info
 - detect end of stage for manual updates (entering player nums, seeding round play,
   partner picking, round robin play)
 - handle updates/revisions to completed game scores (i.e. manage stats and denorm)

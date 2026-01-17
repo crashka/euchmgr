@@ -329,7 +329,8 @@ def submit_score(form: dict) -> str:
     if latest:
         if same_score((team1_pts, team2_pts), latest):
             if latest.team_idx != team_idx:
-                flash("Duplicate submission as opponent treated as acceptance")
+                flash("Duplicate submission as opponent treated as mutual acceptance "
+                      f"({post_info(latest, team_idx)})")
                 return accept_score(form, latest)
             # otherwise we fall through and create an ignored duplicate entry
             post_action += ScoreAction.IGNORE

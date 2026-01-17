@@ -104,8 +104,21 @@ def fmt_matchup(game: SeedGame | TournGame, ref: Player | Team) -> tuple[str, st
     units = "<label>pts</label><br><br><label>pts</label>"
     return matchup, scores, units
 
-# format a record string (e.g. given wins/losses or pts_for/pts_against)
-fmt_rec = lambda x, y: f"{x}-{y}"
+
+def fmt_rec(x: int, y: int, team_idx: int = 0) -> str:
+    """Format a record string given two input values (e.g. wins and losses, or points for
+    and against).  We put them in the correct order given a team index of either 0 or 1.
+    """
+    assert team_idx in (0, 1)
+    return f"{x}-{y}" if team_idx == 0 else f"{y}-{x}"
+
+def post_info(post: PostScore, team_idx: int = 0) -> str:
+    """Return formatted information about a posted score (teams' points and player
+    posting), from the perspective of the specified team index.
+    """
+    score = fmt_rec(post.team1_pts, post.team2_pts, team_idx)
+    poster = post.posted_by.name
+    return f"{poster} posted a score of '{score}'"
 
 def get_leaderboard(bracket: str, div: int = None) -> list[tuple[int, str, str, str, str]]:
     """Return tuples of (id, player/team tag, W-L, PF-PA, rank) ordered by rank.  `div`
@@ -320,18 +333,17 @@ def submit_score(form: dict) -> str:
                 return accept_score(form, latest)
             # otherwise we fall through and create an ignored duplicate entry
             post_action += ScoreAction.IGNORE
-            action_info = "Duplicate submission (as partner)"
-            flash(f"Ignoring {lc_first(action_info)}")
+            action_info = "Duplicate submission as partner"
+            flash(f"Ignoring {lc_first(action_info)} ({post_info(latest, team_idx)})")
         else:
-            # REVISIT: correct the previous score, whether from partner or opponent--or
-            # should we actually just discard this submission (lost the race)???
-            if team_idx == 0:
-                prev_score = fmt_rec(latest.team1_pts, latest.team2_pts)
-            else:
-                prev_score = fmt_rec(latest.team2_pts, latest.team1_pts)
+            prev_score = fmt_rec(latest.team1_pts, latest.team2_pts, team_idx)
             posted_by = latest.posted_by.name
-            flash(f"Overwriting score of [{prev_score}] previously posted by {posted_by}")
-            return correct_score(form, latest)
+            # NOTE: we previously overwrote a mismatched prior submission, but I think
+            # that is both less intuitive and less desirable, so we'll intercept this
+            # submission instead
+            post_action += ScoreAction.DISCARD
+            action_info = "Conflicting submission"
+            flash(f"Discarding {lc_first(action_info)} ({post_info(latest, team_idx)})")
 
     info = {
         'bracket'      : bracket,
@@ -386,14 +398,17 @@ def accept_score(form: dict, ref_score: PostScore = None) -> str:
             else:
                 # same score correction from partner
                 post_action += ScoreAction.DISCARD
-                action_info = "Intervening correction (same score)"
-                flash(f"Discarding acceptance due to {lc_first(action_info)}")
+                action_info = "Intervening correction from partner"
+                flash(f"Discarding acceptance due to {lc_first(action_info)} "
+                      f"({post_info(latest, team_idx)})")
         else:
             # changed score correction (from either partner or opponent)
             post_action += ScoreAction.DISCARD
             action_info = "Intervening correction"
-            flash(f"Discarding acceptance due to {lc_first(action_info)}")
+            flash(f"Discarding acceptance due to {lc_first(action_info)} "
+                  f"({post_info(latest, team_idx)})")
 
+    do_push = (post_action == ScoreAction.ACCEPT)
     info = {
         'bracket'      : bracket,
         'game_label'   : game_label,
@@ -404,16 +419,14 @@ def accept_score(form: dict, ref_score: PostScore = None) -> str:
         'posted_by_num': player_num,
         'team_idx'     : team_idx,
         'ref_score'    : ref_score,
-        'do_push'      : True
+        'do_push'      : do_push
     }
     score = PostScore.create(**info)
-    if post_action == ScoreAction.ACCEPT:
-        try:
-            score.push_scores()
-            update_rankings(bracket)
-        except RuntimeError as e:
-            flash(str(e))
-            return render_view(VIEW_PARTNERS)
+    if not do_push:
+        return render_view(BRACKET_VIEW[bracket])
+    score.push_scores()
+    update_rankings(bracket)
+    # be a little fancy here and highlight the accepted game
     return render_game_in_view(game_label)
 
 def correct_score(form: dict, ref_score: PostScore = None) -> str:
@@ -456,20 +469,24 @@ def correct_score(form: dict, ref_score: PostScore = None) -> str:
         # correction (regardless of actor and score), since the logic for implicit
         # acceptance could be messy and/or counterintuitive
         if same_score(latest, ref_score):
+            # REVISIT: we should be able to implicitly accept if updates are from opposing
+            # teams!!!
             post_action += ScoreAction.DISCARD
-            action_info = "Intervening correction (same score)"
-            flash(f"Discarding update due to {lc_first(action_info)}")
+            action_info = "Intervening correction (score unchanged)"
+            flash(f"Discarding update due to {lc_first(action_info)} "
+                  f"({post_info(latest, team_idx)})")
         else:
             post_action += ScoreAction.DISCARD
             action_info = "Intervening correction"
-            flash(f"Discarding update due to {lc_first(action_info)}")
+            flash(f"Discarding update due to {lc_first(action_info)} "
+                  f"({post_info(latest, team_idx)})")
     elif same_score((team1_pts, team2_pts), ref_score):
         if ref_score.team_idx != team_idx:
-            flash("Unchanged score correction treated as acceptance")
+            flash("Unchanged score correction treated as an acceptance")
             return accept_score(form, ref_score)
         # otherwise we fall through and create an ignored correction entry
         post_action += ScoreAction.IGNORE
-        action_info = "Unchanged score (as partner)"
+        action_info = "Unchanged score correction"
         flash(f"Ignoring {lc_first(action_info)}")
 
     info = {

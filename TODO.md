@@ -39,6 +39,8 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
   - make admin interface more responsive (both height and width)
   - prettier styling in general
 - fix naming throughout (e.g. seed vs seeding, seed vs rank, etc.)
+- replace `player.nick_name` with `player.name` (except when dealing explicitly with the
+  `nick_name` column, e.g. during registration)
 - convert pl\_layout, sg\_layout, etc. from tuples to dict[str, tuple[...]]
 
 ## Framework

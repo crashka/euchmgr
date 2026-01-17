@@ -72,7 +72,7 @@
    $(function() {
      // error block
      const show_error = function(err_text) {
-       $('.err_blk div').text(err_text);
+       $('.err_blk div').html(err_text);
        $('.err_blk').css('display', 'flex');
      };
      $('body').on('click', function() {

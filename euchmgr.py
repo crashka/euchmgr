@@ -17,14 +17,8 @@ from ckautils import rankdata
 
 from core import DataFile, DEBUG
 from database import db_init, db_close, db_name
-from schema import (rnd_pct, rnd_avg, TournStage, TournInfo, Player, SeedGame, Team,
-                    TournGame, schema_create)
-
-# prefixes for game labels
-PFX_SEED   = 'sd'
-PFX_TOURN  = 'rr'  # for "round robin"
-PFX_SEMIS  = 'sf'
-PFX_FINALS = 'fn'
+from schema import (rnd_pct, rnd_avg, Bracket, TournStage, TournInfo, Player, SeedGame,
+                    Team, TournGame, schema_create)
 
 #####################
 # utility functions #
@@ -57,6 +51,24 @@ def fmt_team_name(player_nums: list[int]) -> str:
     pl_map = Player.get_player_map()
     nick_names = [pl_map[p].nick_name for p in player_nums]
     return ' / '.join(nick_names)
+
+def get_bracket(label: str) -> str:
+    """Get bracket for the specified game label.  FIX: quick and dirty for now--need a
+    proper representations of bracket definitions overall!!!
+    """
+    pfx = label.split('-', 1)[0]
+    assert pfx in (Bracket.SEED, Bracket.TOURN)
+    return pfx
+
+def get_game_by_label(label: str) -> SeedGame | TournGame:
+    """Use a little ORM knowledge to fetch from the appropriate table--LATER: can put this
+    in the right place (or refactor the whole bracket-game thing)!!!
+    """
+    game_cls = SeedGame if get_bracket(label) == Bracket.SEED else TournGame
+    query = (game_cls
+             .select()
+             .where(game_cls.label == label))
+    return query.get_or_none()
 
 #####################
 # euchmgr functions #
@@ -140,7 +152,7 @@ def build_seed_bracket() -> list[SeedGame]:
     tourn = TournInfo.get()
     nplayers = tourn.players
     nrounds = tourn.seed_rounds
-    bracket_file = f'seed-{nplayers}-{nrounds}.csv'  # need to reconcile with PFX_SEED!!!
+    bracket_file = f'seed-{nplayers}-{nrounds}.csv'  # need to reconcile with Bracket.SEED!!!
 
     games = []
     with open(DataFile(bracket_file), newline='') as f:
@@ -154,12 +166,12 @@ def build_seed_bracket() -> list[SeedGame]:
                     table += [None] * (4 - len(table))
                     p1, p2, p3, p4 = table
                     table_num = None
-                    label = f'{PFX_SEED}-{rnd_i+1}-byes'
+                    label = f'{Bracket.SEED}-{rnd_i+1}-byes'
                     team1_name = team2_name = None
                 else:
                     p1, p2, p3, p4 = table
                     table_num = tbl_j + 1
-                    label = f'{PFX_SEED}-{rnd_i+1}-{tbl_j+1}'
+                    label = f'{Bracket.SEED}-{rnd_i+1}-{tbl_j+1}'
                     team1_name = fmt_team_name([p1, p2])
                     team2_name = fmt_team_name([p3, p4])
                     bye_players = None
@@ -464,7 +476,7 @@ def build_tourn_bracket() -> list[TournGame]:
     for div_i in range(ndivs):
         brckt_teams = div_teams[div_i]
         bye_div_seed = brckt_teams + 1  # TODO: only if odd number of teams!!!
-        bracket_file = f'rr-{brckt_teams}-{nrounds}.csv'  # need to reconcile with PFX_TOURN!!!
+        bracket_file = f'rr-{brckt_teams}-{nrounds}.csv'  # need to reconcile with Bracket.TOURN!!!
         div_map = Team.get_div_map(div_i + 1)
         with open(DataFile(bracket_file), newline='') as f:
             reader = csv.reader(f)
@@ -475,7 +487,7 @@ def build_tourn_bracket() -> list[TournGame]:
                     if bye_div_seed in table:
                         t1, t2 = sorted(table)
                         assert t2 == bye_div_seed
-                        label = f'{PFX_TOURN}-{div_i+1}-{rnd_j+1}-bye'
+                        label = f'{Bracket.TOURN}-{div_i+1}-{rnd_j+1}-bye'
                         team1 = div_map[t1]
                         info = {'div_num'       : div_i + 1,
                                 'round_num'     : rnd_j + 1,
@@ -490,7 +502,7 @@ def build_tourn_bracket() -> list[TournGame]:
                                 'team2_div_seed': None}
                     else:
                         t1, t2 = table
-                        label = f'{PFX_TOURN}-{div_i+1}-{rnd_j+1}-{tbl_k+1}'
+                        label = f'{Bracket.TOURN}-{div_i+1}-{rnd_j+1}-{tbl_k+1}'
                         team1 = div_map[t1]
                         team2 = div_map[t2]
                         info = {'div_num'       : div_i + 1,

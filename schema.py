@@ -18,10 +18,18 @@ DFLT_DIVISIONS    = 2
 
 GAME_PTS          = 10
 
-BRACKET_SEED      = 'seed'
-BRACKET_TOURN     = 'rrobin'
-BRACKET_SEMIS     = 'semis'
-BRACKET_FINALS    = 'finals'
+class Bracket(StrEnum):
+    SEED   = 'sd'
+    TOURN  = 'rr'  # for "round robin"
+    SEMIS  = 'sf'
+    FINALS = 'fn'
+
+BRACKET_NAME = {
+    Bracket.SEED  : "Seeding",
+    Bracket.TOURN : "Round Robin",
+    Bracket.SEMIS : "Semifinals",
+    Bracket.FINALS: "Finals",
+}
 
 # hard-wired floating point precision (depending on field type), helpful for neater
 # display as well as equivalence determination (without additional rounding)
@@ -822,6 +830,12 @@ class SeedGame(BaseModel):
             return f"Round {cur_round}"
 
     @property
+    def bracket(self) -> str:
+        """Display name for the bracket
+        """
+        return BRACKET_NAME[Bracket.SEED]
+
+    @property
     def player_nums(self) -> str:
         """Used for the seeding view of the UI
         """
@@ -973,7 +987,7 @@ class SeedGame(BaseModel):
         game; returns number of records inserted.  Called by front-end after the game is
         complete (i.e. winner determined)
         """
-        bracket = BRACKET_SEED
+        bracket = Bracket.SEED
         players = [self.player1, self.player2, self.player3, self.player4]
         if self.table_num is None:
             assert self.bye_players is not None
@@ -1398,6 +1412,12 @@ class TournGame(BaseModel):
             return f"Round {cur_round}"
 
     @property
+    def bracket(self) -> str:
+        """Display name for the bracket
+        """
+        return BRACKET_NAME[Bracket.TOURN]
+
+    @property
     def team_seeds(self) -> str:
         """
         """
@@ -1515,7 +1535,7 @@ class TournGame(BaseModel):
         returns number of records inserted.  Called by front-end after the game is
         complete (i.e. winner determined)
         """
-        bracket = BRACKET_TOURN
+        bracket = Bracket.TOURN
         if self.table_num is None:
             assert self.bye_team is not None
             assert self.team1 is not None
@@ -1698,6 +1718,16 @@ class PostScore(BaseModel):
         return cls.get_or_none(id)
 
     @classmethod
+    def get_posts(cls, label: str) -> list[Self]:
+        """Return PostScore records for specified game label, in chronological order.
+        """
+        query = (cls
+                 .select()
+                 .where(cls.game_label == label)
+                 .order_by(cls.id))
+        return list(query)
+
+    @classmethod
     def get_last(cls, label: str, include_accept: bool = False) -> Self:
         """Get most recent submitted score for specified game label.  Return `None` if no
         scores posted.
@@ -1710,7 +1740,7 @@ class PostScore(BaseModel):
                  .select()
                  .where(cls.game_label == label,
                         cls.post_action.in_(actions))
-                 .order_by(cls.created_at.desc())
+                 .order_by(cls.id.desc())
                  .limit(1))
         return query.get_or_none()
 
@@ -1718,14 +1748,14 @@ class PostScore(BaseModel):
         """Push accepted scores to appropriate bracket.
         """
         assert self.do_push
-        if self.bracket == BRACKET_SEED:
+        if self.bracket == Bracket.SEED:
             game = SeedGame.get(SeedGame.label == self.game_label)
             game.add_scores(self.team1_pts, self.team2_pts)
             game.save()
             if game.winner:
                 game.update_player_stats()
                 game.insert_player_games()
-        elif self.bracket == BRACKET_TOURN:
+        elif self.bracket == Bracket.TOURN:
             game = TournGame.get(TournGame.label == self.game_label)
             game.add_scores(self.team1_pts, self.team2_pts)
             game.save()

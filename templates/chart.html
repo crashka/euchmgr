@@ -94,12 +94,14 @@
             {% for rnd in range(1, rnds + 1) %}
             <tr>
               <td>{{rnd}}</td>
-              <td class="vert_sect">{{matchups[rnd][1]|safe}}</td>
-              {% for tbl in range(2, rnd_tables + 1) %}
-              <td>{{matchups[rnd][tbl]|safe}}</td>
+              {% for tbl in range(1, rnd_tables + 1) %}
+              {% set addl_cls = " vert_sect" if loop.first else "" %}
+              {% set label = labels[rnd][tbl] %}
+              <td class="matchup{{addl_cls}}" id="{{label}}">{{matchups[rnd][tbl]|safe}}</td>
               {% endfor %}
               {% if rnd_byes %}
-              <td>{{matchups[rnd].get(None)|safe}}</td>
+              {% set label = labels[rnd].get(None) %}
+              <td class="byes" id="{{label}}">{{matchups[rnd].get(None)|safe}}</td>
               {% endif %}
             </tr>
             {% endfor %}
@@ -178,12 +180,14 @@
             {% for rnd in range(1, rnds + 1) %}
             <tr>
               <td>{{rnd}}</td>
-              <td class="vert_sect">{{matchups[div][rnd][1]|safe}}</td>
-              {% for tbl in range(2, div_tables[div] + 1) %}
-              <td>{{matchups[div][rnd][tbl]|safe}}</td>
+              {% for tbl in range(1, div_tables[div] + 1) %}
+              {% set addl_cls = " vert_sect" if loop.first else "" %}
+              {% set label = labels[div][rnd][tbl] %}
+              <td class="matchup{{addl_cls}}" id="{{label}}">{{matchups[div][rnd][tbl]|safe}}</td>
               {% endfor %}
               {% if div_byes[div] %}
-              <td>{{matchups[div][rnd].get(None)|safe}}</td>
+              {% set label = labels[div][rnd].get(None) %}
+              <td class="byes" id="{{label}}">{{matchups[div][rnd].get(None)|safe}}</td>
               {% endif %}
             </tr>
             {% endfor %}
@@ -250,7 +254,11 @@
   <script src="/static/jquery-3.7.1.min.js"></script>
   <script>
    $(function() {
-     // document ready
+     $('td.matchup').on('click', function(e) {
+       console.log("td click on: " + this.id);
+       const specs = "popup,width=900,height=600,top=200,left=200";
+       window.open('/report/score_posting/' + this.id, "_blank", specs);
+     });
    });
   </script>
 </html>

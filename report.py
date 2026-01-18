@@ -6,8 +6,8 @@ from itertools import groupby
 
 from flask import Blueprint, session, render_template, abort
 
-from schema import GAME_PTS, TournInfo, Player, PlayerGame, Team, TeamGame
-from euchmgr import Elevs, TeamGrps, rank_team_cohort, elevate_winners
+from schema import GAME_PTS, TournInfo, Player, PlayerGame, Team, TeamGame, PostScore
+from euchmgr import Elevs, TeamGrps, rank_team_cohort, elevate_winners, get_game_by_label
 from chart import Numeric, round_val, fmt_tally
 
 ###################
@@ -16,11 +16,14 @@ from chart import Numeric, round_val, fmt_tally
 
 report = Blueprint('report', __name__)
 REPORT_TEMPLATE = "report.html"
+POPUP_TEMPLATE = "popup.html"
 
-RR_TB_REPORT = "Round Robin Tie-Breaker Report"
+TIE_BREAKER = "Round Robin Tie-Breaker Report"
+SCORE_POSTING = "Score Posting Report"
 
 REPORT_FUNCS = [
-    'rr_tb_report'
+    'tie_breaker',
+    'score_posting'
 ]
 
 @report.get("/<report>")
@@ -33,20 +36,35 @@ def get_report(report: str) -> str:
     tourn = TournInfo.get(requery=True)
     return globals()[report](tourn)
 
+@report.get("/<report>/<target>")
+def get_report_targ(report: str, target: str) -> str:
+    """Render specified report (with target)
+    """
+    if report not in REPORT_FUNCS:
+        abort(404, f"Invalid report func '{report}'")
+
+    tourn = TournInfo.get(requery=True)
+    return globals()[report](target, tourn)
+
 def render_report(context: dict) -> str:
-    """Common post-processing of context before rendering report pages through Jinja
+    """Render full-sized report
     """
     return render_template(REPORT_TEMPLATE, **context)
 
+def render_popup(context: dict) -> str:
+    """Render mini (popup) report
+    """
+    return render_template(POPUP_TEMPLATE, **context)
+
 ################
-# rr_tb_report #
+# tie_breaker #
 ################
 
 # HORRIBLY HACKY: this same format func is hacked into schema.py a few places (as well as
 # in fmt_team_name [euchmgr.py])--we really need to refactor/consolidate all of this!!!
 team_tag = lambda x: f"{x.team_name} [{x.div_seed}]"
 
-def rr_tb_report(tourn: TournInfo) -> str:
+def tie_breaker(tourn: TournInfo) -> str:
     """Render round robin tie-breaker report
     """
     div_iter = range(1, tourn.divisions + 1)
@@ -111,7 +129,7 @@ def rr_tb_report(tourn: TournInfo) -> str:
 
     context = {
         'report_num'  : 0,
-        'title'       : RR_TB_REPORT,
+        'title'       : TIE_BREAKER,
         'tourn'       : tourn,
         'len'         : len,
         'round'       : round,
@@ -126,3 +144,22 @@ def rr_tb_report(tourn: TournInfo) -> str:
         'report_by'   : 'team'
     }
     return render_report(context)
+
+#################
+# score_posting #
+#################
+
+def score_posting(game_label: str, tourn: TournInfo) -> str:
+    """Render score posting report (as a popup)
+    """
+    game = get_game_by_label(game_label)
+    posts = PostScore.get_posts(game_label)
+
+    context = {
+        'popup_num': 0,
+        'title'    : SCORE_POSTING,
+        'tourn'    : tourn,
+        'game'     : game,
+        'posts'    : posts
+    }
+    return render_popup(context)

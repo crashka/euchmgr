@@ -13,10 +13,9 @@ from flask_login import current_user
 from ckautils import typecast
 
 from core import ImplementationError
-from schema import (GAME_PTS, BRACKET_SEED, BRACKET_TOURN, TournStage, TournInfo, Player,
-                    PlayerRegister, PartnerPick, SeedGame, Team, TournGame, PostScore,
-                    ScoreAction)
-from euchmgr import PFX_SEED, PFX_TOURN, compute_player_ranks, compute_team_ranks
+from schema import (GAME_PTS, Bracket, TournStage, TournInfo, Player, PlayerRegister,
+                    PartnerPick, SeedGame, Team, TournGame, PostScore, ScoreAction)
+from euchmgr import compute_player_ranks, compute_team_ranks, get_bracket, get_game_by_label
 
 ###################
 # blueprint stuff #
@@ -37,27 +36,6 @@ def is_mobile() -> bool:
     """Determine mobile client by the user-agent string
     """
     return re.search(MOBILE_REGEX, request.user_agent.string) is not None
-
-def get_bracket(label: str) -> str:
-    """Get name of bracket based on game label.  FIX: quick and dirty for now--need to
-    consolidate this with PFX_ and BRACKET_ declarations!!!
-    """
-    pfx = label.split('-', 1)[0]
-    if pfx == 'sd':
-        return BRACKET_SEED
-    elif pfx == 'rr':
-        return BRACKET_TOURN
-    assert False, "Logic error"
-
-def get_game_by_label(label: str) -> SeedGame | TournGame:
-    """Use a little ORM knowledge to fetch from the appropriate table--LATER: can put this
-    in the right place (or refactor the whole bracket-game thing)!!!
-    """
-    game_cls = SeedGame if get_bracket(label) == BRACKET_SEED else TournGame
-    query = (game_cls
-             .select()
-             .where(game_cls.label == label))
-    return query.get_or_none()
 
 def same_score(s1: PostScore | tuple[int, int], s2: PostScore) -> bool:
     """Check if two scores are equal.  `s1` may be specified as a `PostScore` instance or
@@ -122,15 +100,15 @@ def post_info(post: PostScore, team_idx: int = 0) -> str:
 
 def get_leaderboard(bracket: str, div: int = None) -> list[tuple[int, str, str, str, str]]:
     """Return tuples of (id, player/team tag, W-L, PF-PA, rank) ordered by rank.  `div`
-    must be specified for BRACKET_TOURN.
+    must be specified for Bracket.TOURN.
     """
-    if bracket == BRACKET_SEED:
+    if bracket == Bracket.SEED:
         pl_list = list(Player.iter_players(by_rank=True))
         return [(pl.id, pl.player_tag, fmt_rec(pl.seed_wins, pl.seed_losses),
                  fmt_rec(pl.seed_pts_for, pl.seed_pts_against), pl.player_rank or "")
                 for pl in pl_list]
     else:
-        assert bracket == BRACKET_TOURN
+        assert bracket == Bracket.TOURN
         assert div
         tm_list = list(Team.iter_teams(div=div, by_rank=True))
         return [(tm.id, tm.team_tag, fmt_rec(tm.tourn_wins, tm.tourn_losses),
@@ -146,10 +124,10 @@ def update_rankings(bracket: str) -> bool:
     to ensure that updates are appropriate spaced!!!
 
     """
-    if bracket == BRACKET_SEED:
+    if bracket == Bracket.SEED:
         compute_player_ranks()
     else:
-        assert bracket == BRACKET_TOURN
+        assert bracket == Bracket.TOURN
         compute_team_ranks()
     return True
 
@@ -166,8 +144,8 @@ VIEW_SEMIFINALS  = 'semifinals'
 VIEW_FINALS      = 'finals'
 
 BRACKET_VIEW = {
-    BRACKET_SEED : VIEW_SEEDING,
-    BRACKET_TOURN: VIEW_ROUND_ROBIN
+    Bracket.SEED : VIEW_SEEDING,
+    Bracket.TOURN: VIEW_ROUND_ROBIN
 }
 
 STAGE_VIEW = [
@@ -551,11 +529,11 @@ VIEW_MENU = {
 }
 
 VIEW_RESOURCES = {
-    VIEW_SEEDING    : [('/chart/sd_bracket',    "Seeding Bracket"),
-                       ('/chart/sd_scores',     "Seeding Scores")],
-    VIEW_ROUND_ROBIN: [('/chart/rr_brackets',   "Round Robin Brackets"),
-                       ('/chart/rr_scores',     "Round Robin Scores"),
-                       ('/report/rr_tb_report', "Tie-Breaker Report")]
+    VIEW_SEEDING    : [('/chart/sd_bracket',   "Seeding Bracket"),
+                       ('/chart/sd_scores',    "Seeding Scores")],
+    VIEW_ROUND_ROBIN: [('/chart/rr_brackets',  "Round Robin Brackets"),
+                       ('/chart/rr_scores',    "Round Robin Scores"),
+                       ('/report/tie_breaker', "Tie-Breaker Report")]
 }
 
 class UserInfo(NamedTuple):
@@ -743,10 +721,10 @@ def render_mobile(context: dict, view: str = VIEW_INDEX) -> str:
             nums_avail = None
     if VIEW_PHASE[view] == PHASE_SEEDING:
         stage_games = player.get_games(all_games=True)
-        leaderboard = get_leaderboard(BRACKET_SEED)
+        leaderboard = get_leaderboard(Bracket.SEED)
     elif VIEW_PHASE[view] == PHASE_ROUND_ROBIN:
         stage_games = team.get_games(all_games=True) if team else None
-        leaderboard = get_leaderboard(BRACKET_TOURN, team.div_num) if team else None
+        leaderboard = get_leaderboard(Bracket.TOURN, team.div_num) if team else None
     elif VIEW_PHASE[view] == PHASE_PARTNERS:
         partner_picks = PartnerPick.get_picks(all_picks=True)
         picks_avail = PartnerPick.avail_picks()

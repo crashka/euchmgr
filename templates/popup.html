@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <title>{{title}}</title>
+
+    <style>
+     h1 {
+       font-size: 1.25rem;
+     }
+     h2 {
+       font-size: 1.125rem;
+       margin-bottom: 0.5rem;
+     }
+     .game_info p {
+       margin: 0.25rem 0.0rem;
+     }
+     .game_info label {
+       display: inline-block;
+       text-align: right;
+       min-width: 3.5rem;
+     }
+     .game_info span {
+       font-weight: bold;
+     }
+     .posts p {
+       margin: 0.5rem 0.0rem;
+     }
+     .actions {
+       margin-top: 2.0rem;
+     }
+     table {
+       border: 2px solid darkgrey;
+       border-collapse: collapse;
+       margin-top: 0.75rem;
+     }
+     th, td {
+       text-align: left;
+       border: 1px solid darkgrey;
+       border-collapse: collapse;
+       padding: 0.2rem 0.5rem;
+     }
+     .team, .pts {
+       text-align: center;
+     }
+    </style>
+  </head>
+
+  <body>
+    <main>
+      <h1>{{tourn.name}} &ndash; {{title}}</h1>
+      {% if popup_num == 0 %}
+      <section class="game_info">
+        <h2>Game Info</h2>
+        <p>
+          <label>Bracket</label>:
+          <span>{{game.bracket}}</span>
+        </p>
+        <p>
+          <label>Round</label>:
+          <span>{{game.round_num}}</span>
+        </p>
+        <p>
+          <label>Team 1</label>:
+          <span>{{game.team1_name}}</span>
+        </p>
+        <p>
+          <label>Team 2</label>:
+          <span>{{game.team2_name}}</span>
+        </p>
+      </section>
+      <section class="posts">
+        <h2>Score Postings</h2>
+        {% if posts %}
+        <table>
+          <thead>
+            <tr>
+              <th>Team</th>
+              <th>Player</th>
+              <th>Post Action</th>
+              <th>Detail</th>
+              <th>Team 1 Pts</th>
+              <th>Team 2 Pts</th>
+              <th>Timestamp</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for post in posts %}
+            {% set team = "Team " ~ (post.team_idx + 1) %}
+            <tr>
+              <td class="team">{{post.team_idx + 1}}</td>
+              <td>{{post.posted_by.name}}</td>
+              <td>{{post.post_action|capitalize}}</td>
+              <td>{{post.action_info or ""}}</td>
+              <td class="pts">{{post.team1_pts}}</td>
+              <td class="pts">{{post.team2_pts}}</td>
+              <td>{{post.created_at.strftime('%H:%M:%S')}}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}  {# posts #}
+        <p>
+          <i>No data</i>
+        </p>
+        {% endif %}  {# posts #}
+      </section>
+      {% endif %}
+    </main>
+    <div class="actions">
+      <button type="button" onclick="window.close();">Close window</button>
+    </div>
+  </body>
+
+</html>

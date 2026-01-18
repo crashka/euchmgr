@@ -444,7 +444,7 @@ def correct_score(form: dict, ref_score: PostScore = None) -> str:
     team_idx     = typecast(form['team_idx'])
     team1_pts    = typecast(form['team_pts'] if team_idx == 0 else form['opp_pts'])
     team2_pts    = typecast(form['team_pts'] if team_idx == 1 else form['opp_pts'])
-    score_pushed = True
+    score_pushed = None
 
     if ref_score:
         # implicit acceptance of a submit action (where scores agree)
@@ -486,10 +486,8 @@ def correct_score(form: dict, ref_score: PostScore = None) -> str:
             flash(f"Discarding update due to {lc_first(action_info)} "
                   f"({post_info(latest, team_idx)})")
     elif same_score((team1_pts, team2_pts), ref_score):
-        if ref_score.team_idx != team_idx:
-            flash("Unchanged score correction treated as an acceptance")
-            return accept_score(form, ref_score)
-        # otherwise we fall through and create an ignored correction entry
+        # NOTE: we used to treat an unchanged score correction to an opponent score as an
+        # implicit acceptance, but now we always ignore this action (more intuitive)
         post_action += ScoreAction.IGNORE
         action_info = "Unchanged score correction"
         flash(f"Ignoring {lc_first(action_info)}")

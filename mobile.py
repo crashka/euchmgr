@@ -287,14 +287,15 @@ def submit_score(form: dict) -> str:
     scores do not match, then it will be treated as a "correct" coming from a member of
     either team.
     """
-    post_action = ScoreAction.SUBMIT
-    action_info = None
-    game_label  = form['game_label']
-    bracket     = get_bracket(game_label)
-    player_num  = typecast(form['posted_by_num'])
-    team_idx    = typecast(form['team_idx'])
-    team1_pts   = typecast(form['team_pts'] if team_idx == 0 else form['opp_pts'])
-    team2_pts   = typecast(form['team_pts'] if team_idx == 1 else form['opp_pts'])
+    post_action  = ScoreAction.SUBMIT
+    action_info  = None
+    game_label   = form['game_label']
+    bracket      = get_bracket(game_label)
+    player_num   = typecast(form['posted_by_num'])
+    team_idx     = typecast(form['team_idx'])
+    team1_pts    = typecast(form['team_pts'] if team_idx == 0 else form['opp_pts'])
+    team2_pts    = typecast(form['team_pts'] if team_idx == 1 else form['opp_pts'])
+    score_pushed = None
 
     ref_score_id = typecast(form['ref_score_id'])
     if ref_score_id is not None:
@@ -304,9 +305,15 @@ def submit_score(form: dict) -> str:
     assert (team1_pts, team2_pts) != (GAME_PTS, GAME_PTS)
 
     # see if someone slid in ahead of us (can't be ourselves)
-    latest = PostScore.get_last(game_label)
+    latest = PostScore.get_last(game_label, include_accept=True)
     if latest:
-        if same_score((team1_pts, team2_pts), latest):
+        if latest.post_action == ScoreAction.ACCEPT:
+            score_pushed = True
+            post_action += ScoreAction.DISCARD
+            action_info = "Intervening acceptance"
+            flash(f"Discarding submission due to {lc_first(action_info)} "
+                  f"({post_info(latest, team_idx)})")
+        elif same_score((team1_pts, team2_pts), latest):
             if latest.team_idx != team_idx:
                 flash("Duplicate submission as opponent treated as mutual acceptance "
                       f"({post_info(latest, team_idx)})")
@@ -338,6 +345,8 @@ def submit_score(form: dict) -> str:
         'do_push'      : False
     }
     score = PostScore.create(**info)
+    if score_pushed:
+        return render_game_in_view(game_label)
     return render_view(BRACKET_VIEW[bracket])
 
 def accept_score(form: dict, ref_score: PostScore = None) -> str:
@@ -427,14 +436,15 @@ def correct_score(form: dict, ref_score: PostScore = None) -> str:
     treated as an acceptance if coming from an opponent, or will be ignored if coming from
     a partner.
     """
-    post_action = ScoreAction.CORRECT
-    action_info = None
-    game_label  = form['game_label']
-    bracket     = get_bracket(game_label)
-    player_num  = typecast(form['posted_by_num'])
-    team_idx    = typecast(form['team_idx'])
-    team1_pts   = typecast(form['team_pts'] if team_idx == 0 else form['opp_pts'])
-    team2_pts   = typecast(form['team_pts'] if team_idx == 1 else form['opp_pts'])
+    post_action  = ScoreAction.CORRECT
+    action_info  = None
+    game_label   = form['game_label']
+    bracket      = get_bracket(game_label)
+    player_num   = typecast(form['posted_by_num'])
+    team_idx     = typecast(form['team_idx'])
+    team1_pts    = typecast(form['team_pts'] if team_idx == 0 else form['opp_pts'])
+    team2_pts    = typecast(form['team_pts'] if team_idx == 1 else form['opp_pts'])
+    score_pushed = True
 
     if ref_score:
         # implicit acceptance of a submit action (where scores agree)
@@ -451,13 +461,19 @@ def correct_score(form: dict, ref_score: PostScore = None) -> str:
     assert (team1_pts, team2_pts) != (GAME_PTS, GAME_PTS)
 
     # check for intervening corrections
-    latest = PostScore.get_last(game_label)
+    latest = PostScore.get_last(game_label, include_accept=True)
     if latest != ref_score:
         assert latest.created_at > ref_score.created_at
+        if latest.post_action == ScoreAction.ACCEPT:
+            score_pushed = True
+            post_action += ScoreAction.DISCARD
+            action_info = "Intervening acceptance"
+            flash(f"Discarding update due to {lc_first(action_info)} "
+                  f"({post_info(latest, team_idx)})")
         # NOTE that we are always discarding this action if there is an intervening
         # correction (regardless of actor and score), since the logic for implicit
         # acceptance could be messy and/or counterintuitive
-        if same_score(latest, ref_score):
+        elif same_score(latest, ref_score):
             # REVISIT: we should be able to implicitly accept if updates are from opposing
             # teams!!!
             post_action += ScoreAction.DISCARD
@@ -491,6 +507,8 @@ def correct_score(form: dict, ref_score: PostScore = None) -> str:
         'do_push'      : False
     }
     score = PostScore.create(**info)
+    if score_pushed:
+        return render_game_in_view(game_label)
     return render_view(BRACKET_VIEW[bracket])
 
 def pick_partner(form: dict) -> str:

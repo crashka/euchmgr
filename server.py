@@ -462,8 +462,7 @@ def select_tourn(form: dict) -> str:
     if tourn_name == SEL_NEW:
         if db_is_initialized():
             assert session['tourn'] == db_name()
-            flash(f"Must pause active tournament (\"{db_name()}\") before creating a new "
-                  "tournament")
+            flash(f"Cannot create new tournament with \"{db_name()}\" still active")
         else:
             flash("create_new=True")
         return redirect(url_for('tourn'))
@@ -476,8 +475,7 @@ def select_tourn(form: dict) -> str:
         flash(f"Resuming operation of tournament \"{tourn_name}\"")
     elif db_name() != tourn_name:
         assert session['tourn'] == db_name()
-        flash(f"Must pause active tournament (\"{db_name()}\") before switching to a "
-              "different tournament")
+        flash(f"Cannot select different tournament with \"{db_name()}\" still active")
         return redirect(url_for('tourn'))
     return redirect(url_for('index'))
 
@@ -539,8 +537,7 @@ def pause_tourn(form: dict) -> str:
     db_reset(force=True)
     popped = session.pop('tourn', None)
     assert popped == tourn_name
-    flash(f"Tournament \"{tourn_name}\" has been paused; you may now select a different "
-          "tournament or create a new one")
+    flash(f"Tournament \"{tourn_name}\" has been paused")
     return redirect(url_for('index'))
 
 def gen_player_nums(form: dict) -> str:

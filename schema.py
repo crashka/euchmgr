@@ -947,7 +947,7 @@ class SeedGame(BaseModel):
         but there is a little bit of integrity checking here that is slightly useful
         """
         if self.winner:
-            raise RuntimeError("Completed game score cannot be changed (coming soon...)")
+            raise RuntimeError("Completed game score cannot be overwritten")
         if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
             raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points")
 
@@ -1496,7 +1496,7 @@ class TournGame(BaseModel):
         but there is a little bit of integrity checking here that is slightly useful
         """
         if self.winner:
-            raise RuntimeError("Completed game score cannot be changed (coming soon...)")
+            raise RuntimeError("Completed game score cannot be overwritten")
         if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
             raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points")
 

@@ -96,7 +96,8 @@ def post_info(post: PostScore, team_idx: int = 0) -> str:
     """
     score = fmt_rec(post.team1_pts, post.team2_pts, team_idx)
     poster = post.posted_by.name
-    return f"{poster} posted a score of '{score}'"
+    action = "accepted" if post.post_action == ScoreAction.ACCEPT else "posted"
+    return f"{poster} {action} a score of '{score}'"
 
 def get_leaderboard(bracket: str, div: int = None) -> list[tuple[int, str, str, str, str]]:
     """Return tuples of (id, player/team tag, W-L, PF-PA, rank) ordered by rank.  `div`
@@ -346,14 +347,15 @@ def accept_score(form: dict, ref_score: PostScore = None) -> str:
     reference, then switch the acceptance to the newer record, otherwise intervening
     changes invalidate this request.
     """
-    post_action = ScoreAction.ACCEPT
-    action_info = None
-    game_label  = form['game_label']
-    bracket     = get_bracket(game_label)
-    player_num  = typecast(form['posted_by_num'])
-    team_idx    = typecast(form['team_idx'])
-    team1_pts   = typecast(form['team_pts'] if team_idx == 0 else form['opp_pts'])
-    team2_pts   = typecast(form['team_pts'] if team_idx == 1 else form['opp_pts'])
+    post_action  = ScoreAction.ACCEPT
+    action_info  = None
+    game_label   = form['game_label']
+    bracket      = get_bracket(game_label)
+    player_num   = typecast(form['posted_by_num'])
+    team_idx     = typecast(form['team_idx'])
+    team1_pts    = typecast(form['team_pts'] if team_idx == 0 else form['opp_pts'])
+    team2_pts    = typecast(form['team_pts'] if team_idx == 1 else form['opp_pts'])
+    score_pushed = None
 
     if ref_score:
         # implicit acceptance of a submit or correct action (where scores agree)
@@ -366,10 +368,16 @@ def accept_score(form: dict, ref_score: PostScore = None) -> str:
     assert same_score((team1_pts, team2_pts), ref_score)
 
     # check for intervening corrections
-    latest = PostScore.get_last(game_label)
+    latest = PostScore.get_last(game_label, include_accept=True)
     if latest != ref_score:
         assert latest.created_at > ref_score.created_at
-        if same_score(latest, ref_score):
+        if latest.post_action == ScoreAction.ACCEPT:
+            score_pushed = True
+            post_action += ScoreAction.DISCARD
+            action_info = "Intervening acceptance"
+            flash(f"Discarding acceptance due to {lc_first(action_info)} "
+                  f"({post_info(latest, team_idx)})")
+        elif same_score(latest, ref_score):
             if latest.team_idx != team_idx:
                 # same score correction from opponent
                 ref_score = latest
@@ -402,6 +410,8 @@ def accept_score(form: dict, ref_score: PostScore = None) -> str:
     }
     score = PostScore.create(**info)
     if not do_push:
+        if score_pushed:
+            return render_game_in_view(game_label)
         return render_view(BRACKET_VIEW[bracket])
     score.push_scores()
     update_rankings(bracket)

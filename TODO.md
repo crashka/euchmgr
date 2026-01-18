@@ -13,8 +13,6 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 
 ## Features/Enhancements
 
-- Partner Pick live dashboard
-- Post Score activity report
 - Show number of games complete (for the current round) in Seed/Tourn stage info
 - detect end of stage for manual updates (entering player nums, seeding round play,
   partner picking, round robin play)

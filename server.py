@@ -639,6 +639,7 @@ LINK_INFO = {
     View.SEEDING    : [('/chart/sd_bracket',    "Seeding Round Bracket"),
                        ('/chart/sd_scores',     "Seeding Round Scores"),
                        ('/dash/sd_dash',        "Live Dashboard")],
+    View.PARTNERS   : [('/dash/pt_dash',        "Live Dashboard")],
     View.ROUND_ROBIN: [('/chart/rr_brackets',   "Round Robin Brackets"),
                        ('/chart/rr_scores',     "Round Robin Scores"),
                        ('/dash/rr_dash',        "Live Dashboard"),

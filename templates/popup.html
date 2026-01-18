@@ -40,7 +40,7 @@
        border-collapse: collapse;
        padding: 0.2rem 0.5rem;
      }
-     .team, .pts {
+     .team, .pts, .chk {
        text-align: center;
      }
     </style>
@@ -81,6 +81,7 @@
               <th>Detail</th>
               <th>Team 1 Pts</th>
               <th>Team 2 Pts</th>
+              <th>Pushed</th>
               <th>Timestamp</th>
             </tr>
           </thead>
@@ -94,6 +95,7 @@
               <td>{{post.action_info or ""}}</td>
               <td class="pts">{{post.team1_pts}}</td>
               <td class="pts">{{post.team2_pts}}</td>
+              <td class="chk">{{"&#x2714;"|safe if post.do_push else ""}}</td>
               <td>{{post.created_at.strftime('%H:%M:%S')}}</td>
             </tr>
             {% endfor %}

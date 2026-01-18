@@ -206,13 +206,19 @@ class TournInfo(BaseModel):
 
     def seeding_done(self) -> bool:
         """Official way to check if seeding is complete (scores validated and final player
-        rankings computed
+        rankings computed)
         """
         return self.stage_compl >= TournStage.SEED_RANKS
 
+    def partner_picks_done(self) -> bool:
+        """Official way to check if partner picking is complete (all picks made and teams
+        determined)
+        """
+        return self.stage_compl >= TournStage.TOURN_TEAMS
+
     def round_robin_done(self) -> bool:
         """Official way to check if round robin is complete (scores validated and final
-        team rankings computed
+        team rankings computed)
         """
         return self.stage_compl >= TournStage.TEAM_RANKS
 

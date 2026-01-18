@@ -6,6 +6,7 @@
     <style>
      main {
        width: max-content;
+       min-width: 65rem;
      }
      section + section {
        margin-top: 1.0rem;
@@ -13,6 +14,7 @@
      h1 {
        display: inline-block;
        font-size: 1.75rem;
+       margin-top: 0.5rem;
        margin-bottom: 1.0rem;
      }
      h2 {
@@ -27,7 +29,7 @@
      .updated {
        display: block;
        float: right;
-       margin-top: 1.0rem;
+       margin-top: 0.8rem;
      }
      .updated button {
        margin-left: 0.8rem;
@@ -67,6 +69,64 @@
      }
      .tally {
        vertical-align: bottom;
+     }
+     .pt_picks {
+       display: flex;
+       flex-direction: row;
+     }
+     .avail {
+       display: inline-block;
+       margin-top: 0.0rem;
+       margin-left: 1.0rem;
+       margin-right: 1.5rem;
+       width: 20rem;
+     }
+     .avail div {
+       display: flex;
+       flex-flow: column wrap;
+       height: 40rem;
+       border-right: 1px solid;
+     }
+     .picks {
+       display: inline-block;
+       margin-top: 0.0rem;
+       margin-left: 1.5rem;
+       min-width: 30rem;
+     }
+     .picks div {
+       display: flex;
+       flex-direction: column;
+     }
+     .picks .notes {
+       margin-top: 0.8rem;
+     }
+     .sect_hdr {
+       font-weight: bold;
+       font-size: 1.25rem;
+     }
+     .verb {
+       margin: 0.0rem 0.5rem;
+     }
+     .avail p {
+       margin: 0.3rem 0.0rem;
+     }
+     .picks p {
+       margin: 0.3rem 0.0rem;
+     }
+     .pick .player {
+       display: inline-block;
+       min-width: 10rem;
+       padding: 0.2rem 0.5rem;
+       background-color: #F0F0F0;
+     }
+     .pick .info {
+       display: inline-block;
+       min-width: 15rem;
+       padding: 0.2rem 0.5rem;
+       background-color: #F0F0F0;
+     }
+     .active .player {
+       font-weight: bold;
      }
      b {
        font-weight: bold;
@@ -215,6 +275,61 @@
       </section>
       {% endfor %}
       {% endif %}  {# dash_num == 1 #}
+
+      {% if dash_num == 2 %}
+      <section class="pt_picks">
+        <section class="avail">
+          <p>
+            <span class="sect_hdr">Available</span>
+            <i>(by rank)</i>
+          </p>
+          <div>
+            {% for pl in picks_avail %}
+            <p class="player">
+              {{pl.seed_ident}}
+            </p>
+            {% endfor %}
+            {% if not picks_avail %}
+            <i>None</i>
+            {% endif %}
+          </div>
+        </section>
+        <section class="picks">
+          <p>
+            <span class="sect_hdr">Picks</span>
+          </p>
+          <div>
+            {% for pl in picks_made %}
+            <p class="pick">
+              <span class="player">
+                {% set champ_flg = "*" if pl.reigning_champ else "" %}
+                {{pl.seed_ident}}{{champ_flg|safe}}
+              </span>
+              <span class="verb">
+                picks
+              </span>
+              <span class="info">
+                {{pl.picks_info}}
+              </span>
+            </p>
+            {% endfor %}  {# pl in picks_made #}
+            {% if cur_pick %}
+            <p class="pick active">
+              <span class="player">
+                {{cur_pick.seed_ident}}
+              </span>
+              <span class="verb">
+                has the current pick
+              </span>
+            </p>
+            {% endif %}  {# cur_pick #}
+            <p class="notes">
+              * indicates reigning champs
+            </p>
+          </div>
+        </section>
+      </section>
+      {% endif %}  {# dash_num == 2 #}
     </main>
   </body>
 

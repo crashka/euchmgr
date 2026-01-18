@@ -346,7 +346,7 @@ def prepick_champ_partners() -> None:
     by_rank[0].pick_partners(*by_rank[1:])
     by_rank[0].save()
 
-def fake_pick_partners(clear_existing: bool = False, rand_seed: int = None) -> None:
+def fake_pick_partners(clear_existing: bool = False, limit: int = None, rand_seed: int = None) -> None:
     """Assumes champ team is pre-picked
     """
     my_rand = random.Random()
@@ -358,6 +358,7 @@ def fake_pick_partners(clear_existing: bool = False, rand_seed: int = None) -> N
 
     avail = Player.available_players()  # already sorted by player_rank
     assert len(avail) >= 2
+    nfake = 0
     pickers = list(avail)  # shallow copy
     for player in pickers:
         # picker may have already been picked in this loop
@@ -372,6 +373,10 @@ def fake_pick_partners(clear_existing: bool = False, rand_seed: int = None) -> N
             partners.append(avail.pop(0))
         player.pick_partners(*partners)
         player.save()
+
+        nfake += 1
+        if limit and nfake >= limit:
+            return
     assert len(avail) == 0
 
     TournInfo.mark_stage_complete(TournStage.PARTNER_PICK)

@@ -6,7 +6,7 @@
 from flask import Blueprint, session, render_template, abort
 
 from database import now_str
-from schema import GAME_PTS, TournInfo, Player, PlayerGame, Team, TeamGame
+from schema import GAME_PTS, TournInfo, Player, PlayerGame, Team, TeamGame, PartnerPick
 from chart import Numeric, round_val, fmt_tally
 
 #################
@@ -81,10 +81,12 @@ DASH_TEMPLATE = "dash.html"
 
 SD_DASH = "Seeding Round Live Dashboard"
 RR_DASH = "Round Robin Live Dashboard"
+PT_DASH = "Partner Picks Live Dashboard"
 
 DASH_FUNCS = [
     'sd_dash',
-    'rr_dash'
+    'rr_dash',
+    'pt_dash'
 ]
 
 # update intervals specified in msecs
@@ -92,6 +94,7 @@ BASE_UPDATE_INT = 5000
 # adjustments are related to time spent processing
 SD_UPDATE_ADJ = 350
 RR_UPDATE_ADJ = 200
+PT_UPDATE_ADJ = 100
 
 # CSS class to use for up and down movement
 COLCLS_UP   = 'grn_fg'
@@ -100,6 +103,7 @@ COLCLS_DOWN = 'red_fg'
 # session storage key
 SD_DASH_KEY = 'sd_dash'
 RR_DASH_KEY = 'rr_dash'
+PT_DASH_KEY = 'pt_dash'
 
 @dash.get("/<dash>")
 def get_dash(dash: str) -> str:
@@ -496,5 +500,35 @@ def rr_dash(tourn: TournInfo) -> str:
         'stats_fmt'   : stats_fmt,
         'mvmt'        : mvmt,
         'colcls'      : colcls
+    }
+    return render_dash(context)
+
+###########
+# pt_dash #
+###########
+
+def pt_dash(tourn: TournInfo) -> str:
+    """Render seed round live dashboard
+    """
+    update_int = BASE_UPDATE_INT - PT_UPDATE_ADJ
+    done = tourn.partner_picks_done()
+
+    picks_made  = PartnerPick.get_picks()
+    picks_avail = PartnerPick.avail_picks()
+    cur_pick    = PartnerPick.current_pick()
+    num_picks   = len(picks_made)
+    num_avail   = len(picks_avail)
+
+    updated = now_str()
+    context = {
+        'dash_num'    : 2,
+        'title'       : PT_DASH,
+        'updated'     : updated,
+        'update_int'  : update_int,
+        'done'        : done,
+        'tourn'       : tourn,
+        'picks_made'  : picks_made,
+        'picks_avail' : picks_avail,
+        'cur_pick'    : cur_pick
     }
     return render_dash(context)

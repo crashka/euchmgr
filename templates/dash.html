@@ -50,7 +50,7 @@
      th, td {
        border: 1px solid darkgrey;
        border-collapse: collapse;
-       padding: 0.75em;
+       padding: 0.75rem;
        text-align: center;
      }
      .score {
@@ -65,10 +65,7 @@
      .plyr_lbl,
      .team_lbl {
        text-align: left;
-       width: 10em;
-     }
-     .tally {
-       vertical-align: bottom;
+       width: 10rem;
      }
      .pt_picks {
        display: flex;
@@ -125,8 +122,14 @@
        padding: 0.2rem 0.5rem;
        background-color: #F0F0F0;
      }
+     .pick.new .player,
+     .pick.new .info {
+       font-weight: bold;
+       color: #108810;
+     }
      .active .player {
        font-weight: bold;
+       border: 1px solid #D70000;
      }
      b {
        font-weight: bold;
@@ -300,7 +303,8 @@
           </p>
           <div>
             {% for pl in picks_made %}
-            <p class="pick">
+            {% set pick_cls = " new" if loop.index > prev_count else "" %}
+            <p class="pick{{pick_cls}}">
               <span class="player">
                 {% set champ_flg = "*" if pl.reigning_champ else "" %}
                 {{pl.seed_ident}}{{champ_flg|safe}}

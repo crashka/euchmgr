@@ -717,8 +717,9 @@ class PartnerPick(Player):
     @classmethod
     def get_picks(cls, all_picks: bool = False) -> list[BaseModel]:
         """Get completed "PartnerPick" records (corresponding to players that have made a
-        pick), in order of pick position (i.e. seeding rank).  `all_picks` indicates that
-        players yet to pick (and not already picked themselves) should also be returned.
+        pick), in order of pick position (i.e. seeding rank), with reigning champs always
+        listed first.  `all_picks` indicates that players yet to pick (and not already
+        picked themselves) should also be returned.
 
         This call follows the same semantics as `get_games` (for "BracketPick" objects).
         """
@@ -736,7 +737,7 @@ class PartnerPick(Player):
         else:
             includer = lambda x: x.partner
         picks = filter(includer, pl_list)
-        return sorted(picks, key=lambda x: x.player_rank)
+        return sorted(picks, key=lambda x: (-x.reigning_champ, x.player_rank))
 
     class Meta:
         table_name = Player._meta.table_name

@@ -513,13 +513,27 @@ def pt_dash(tourn: TournInfo) -> str:
     update_int = BASE_UPDATE_INT - PT_UPDATE_ADJ
     done = tourn.partner_picks_done()
 
-    picks_made  = PartnerPick.get_picks()
-    picks_avail = PartnerPick.avail_picks()
+    picks_made  = PartnerPick.get_picks() or []
+    picks_avail = PartnerPick.avail_picks() or []
     cur_pick    = PartnerPick.current_pick()
     num_picks   = len(picks_made)
     num_avail   = len(picks_avail)
+    prev_count  = 0
+
+    if prev_frame := session.get(PT_DASH_KEY):
+        if str(tourn.created_at) > prev_frame['updated']:
+            session.pop(PT_DASH_KEY)
+        else:
+            prev_count = prev_frame['num_picks']
 
     updated = now_str()
+    if num_picks > prev_count:
+        session[PT_DASH_KEY] = {
+            'updated'  : updated,
+            'done'     : done,
+            'num_picks': num_picks
+        }
+
     context = {
         'dash_num'    : 2,
         'title'       : PT_DASH,
@@ -529,6 +543,7 @@ def pt_dash(tourn: TournInfo) -> str:
         'tourn'       : tourn,
         'picks_made'  : picks_made,
         'picks_avail' : picks_avail,
-        'cur_pick'    : cur_pick
+        'cur_pick'    : cur_pick,
+        'prev_count'  : prev_count
     }
     return render_dash(context)

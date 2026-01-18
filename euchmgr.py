@@ -357,7 +357,7 @@ def fake_pick_partners(clear_existing: bool = False, limit: int = None, rand_see
         Player.clear_partner_picks()
 
     avail = Player.available_players()  # already sorted by player_rank
-    assert len(avail) >= 2
+    assert len(avail) != 1
     nfake = 0
     pickers = list(avail)  # shallow copy
     for player in pickers:

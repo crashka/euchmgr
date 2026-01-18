@@ -1685,8 +1685,8 @@ class ScoreAction(StrEnum):
     SUBMIT  = "submit"
     ACCEPT  = "accept"
     CORRECT = "correct"
-    IGNORE  = " (ignore)"
-    DISCARD = " (discard)"
+    IGNORE  = " (ignored)"
+    DISCARD = " (discarded)"
 
 class PostScore(BaseModel):
     """Denormalization of TournGame data, for use in computing stats, determining

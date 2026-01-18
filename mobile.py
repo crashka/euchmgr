@@ -323,8 +323,6 @@ def submit_score(form: dict) -> str:
             action_info = "Duplicate submission as partner"
             flash(f"Ignoring {lc_first(action_info)} ({post_info(latest, team_idx)})")
         else:
-            prev_score = fmt_rec(latest.team1_pts, latest.team2_pts, team_idx)
-            posted_by = latest.posted_by.name
             # NOTE: we previously overwrote a mismatched prior submission, but I think
             # that is both less intuitive and less desirable, so we'll intercept this
             # submission instead

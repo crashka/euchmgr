@@ -4,24 +4,19 @@
     <title>{{title}}</title>
 
     <style>
-     form {
-       overflow: hidden;
+     body {
+       width: max-content;
+       min-width: 50rem;
      }
-     table {
-       margin-top: 0.3rem;
+     header {
+       padding: 1.0rem 0.0rem;
      }
-     input[readonly] {
-       border: thin solid grey;
-       background-color: #F0F0F0;
+     header select {
+       margin-left: 0.3rem;
+       padding: 0.15rem 0.25rem;
      }
-     input[type="text"] {
-       width: 12rem;
-     }
-     input[type="number"] {
-       width: 3rem;
-     }
-     .attn {
-       background-color: #FFE4E1;
+     h2 {
+       margin-top: 0.5rem;
      }
      .err_dlg {
        padding: 1.1rem 1.4rem;
@@ -34,17 +29,6 @@
      .err_dlg button {
        margin-top: 1.2rem;
      }
-     .container {
-       overflow: hidden;
-     }
-     .section {
-       margin-top: 0.5rem;
-       position: relative;
-     }
-     .section_lbl {
-       font-size: x-large;
-       font-weight: bold;
-     }
      .sel_tourn {
        width: 12rem;
      }
@@ -55,17 +39,31 @@
        /*padding: 0.5rem 0.0rem;*/
      }
      .login_info span {
-       font-weight: bolder;
+       font-weight: bold;
        color: mediumblue;
        cursor: pointer;
      }
-     .info {
-       width: 27rem;
-       float: left;
+     .tourn label {
+       display: inline-block;
+       min-width: 10.0rem;
+       text-align: right;
+     }
+     .tourn input {
+       margin-left: 0.3rem;
+       padding: 0.15rem 0.25rem;
+     }
+     .tourn input[readonly] {
+       border: thin solid grey;
+       background-color: #F0F0F0;
+     }
+     .tourn input[type="text"] {
+       width: 12rem;
+     }
+     .tourn input[type="number"] {
+       width: 3rem;
      }
      .actions {
-       clear: both;
-       padding: 1.0rem 0;
+       padding-top: 1.5rem;
      }
      .actions button {
        margin-right: 0.8rem;
@@ -75,21 +73,6 @@
        margin-right: 0.5rem;
        /* padding: 0.2rem 0.2rem; */
      }
-     .tourn_params td {
-       padding: 0.2rem;
-     }
-     .pname {
-       width: 10.5rem;
-     }
-     .td_lbl {
-       text-align: right;
-     }
-     .td_txt,
-     .td_file,
-     .td_num,
-     .td_dec {
-       text-align: left;
-     }
     </style>
   </head>
 
@@ -98,10 +81,10 @@
       <div></div>
       <button autofocus>Close</button>
     </dialog>
-    <form action="/tourn" method="post" name="select_tourn">
-      <input type="hidden" name="submit_func" value="select_tourn">
-      <div class="section">
-        <span>Select tournament:</span>
+    <header>
+      <form action="/tourn" method="post">
+        <input type="hidden" name="submit_func" value="select_tourn">
+        <label>Select tournament:</label>
         <select name="tourn" class="sel_tourn" onchange="this.form.submit();">
           {% if new_tourn %}
           {% for tourn_name in tourn_sel %}
@@ -131,82 +114,59 @@
           [<a href='/logout'>Logout</a>]
           {% endwith %}
         </span>
-      </div>
-    </form>
+      </form>
+    </header>
     {% if tourn %}
-    <form action="/tourn" method="post" enctype="multipart/form-data" name="tourn_info">
-      {% set disabled = "" if new_tourn else " disabled" %}
-      <input type="hidden" name="tourn_id" value="{{tourn.id}}">
-      <div class="container">
-        <div class="section info">
-          {% set new = "New " if new_tourn else "" %}
-          <span class="section_lbl">{{new}}Tournament Info</span>
-          <table class="tourn_params">
-            <colgroup>
-              <col class="pname">
-              <col class="pval">
-            </colgroup>
-            <tr>
-              <td class="td_lbl">Name:</td>
-              <td class="td_txt">
-                {% set attrs = "required autofocus" if new_tourn else "readonly" %}
-                <input name="tourn_name" type="text" value="{{tourn.name or ''}}" placeholder="required (must be unique)" {{attrs}}>
-              </td>
-            </tr>
-            <tr>
-              <td class="td_lbl">Dates:</td>
-              <td class="td_txt">
-                <input name="dates" type="text" value="{{tourn.dates or ''}}"{{disabled}}>
-              </td>
-            </tr>
-            <tr>
-              <td class="td_lbl">Venue:</td>
-              <td class="td_num">
-                <input name="venue" type="text" value="{{tourn.venue or ''}}"{{disabled}}>
-              </td>
-            </tr>
-            <tr>
-              <td class="td_lbl">Seeding Rounds:</td>
-              <td class="td_num">
-                <input name="seed_rounds" type="number" value="{{tourn.seed_rounds}}" disabled>
-              </td>
-            </tr>
-            <tr>
-              <td class="td_lbl">Tournament Rounds:</td>
-              <td class="td_num">
-                <input name="tourn_rounds" type="number" value="{{tourn.tourn_rounds}}" disabled>
-              </td>
-            </tr>
-            <tr>
-              <td class="td_lbl">Tournament Divisions:</td>
-              <td class="td_num">
-                <input name="divisions" type="number" value="{{tourn.divisions}}" disabled>
-              </td>
-            </tr>
-            <tr>
-              <td class="td_lbl">Roster File:</td>
-              <td class="td_text">
-                <input name="roster_file" type="file" value="" accept=".csv"{{disabled}}>
-              </td>
-            </tr>
-            <tr>
-              <td class="td_lbl">Overwrite Existing:</td>
-              <td>
-                {% set checked = " checked" if overwrite else "" %}
-                <input type="checkbox" name="overwrite" value="yes"{{checked}}{{disabled}}>
-              </td>
-            </tr>
-          </table>
-        </div>
-      </div>
-      <div class="section actions">
-        <button class="submit" value="{{buttons[1]}}"{{btn_attr[1]}}>{{btn_lbl[1]}}</button>
-        {% if not new_tourn  %}
-        <button class="submit" value="{{buttons[2]}}"{{btn_attr[2]}}>{{btn_lbl[2]}}</button>
-        <a class="cancel" href="./">[cancel]</a>
-        {% endif %}
-      </div>
-    </form>
+    <section class="tourn">
+      {% set new = "New " if new_tourn else "" %}
+      <h2>{{new}}Tournament Info</h2>
+      <form action="/tourn" method="post" enctype="multipart/form-data">
+        {% set disabled = "" if new_tourn else " disabled" %}
+        <input type="hidden" name="tourn_id" value="{{tourn.id}}">
+        <p>
+          <label>Name</label>:
+          {% set attrs = "required autofocus" if new_tourn else "readonly" %}
+          {% set hlp_msg = "required (must be unique)" %}
+          <input name="tourn_name" value="{{tourn.name or ''}}" placeholder="{{hlp_msg}}" {{attrs}}>
+        </p>
+        <p>
+          <label>Dates</label>:
+          <input name="dates" type="text" value="{{tourn.dates or ''}}"{{disabled}}>
+        </p>
+        <p>
+          <label>Venue</label>:
+          <input name="venue" type="text" value="{{tourn.venue or ''}}"{{disabled}}>
+        </p>
+        <p>
+          <label>Rounds (seed)</label>:
+          <input name="seed_rounds" type="number" value="{{tourn.seed_rounds}}" disabled>
+        </p>
+        <p>
+          <label>Rounds (tourn)</label>:
+          <input name="tourn_rounds" type="number" value="{{tourn.tourn_rounds}}" disabled>
+        </p>
+        <p>
+          <label>Divisions (tourn)</label>:
+          <input name="divisions" type="number" value="{{tourn.divisions}}" disabled>
+        </p>
+        <p>
+          <label>Upload Roster File</label>:
+          <input name="roster_file" type="file" value="" accept=".csv"{{disabled}}>
+        </p>
+        <p>
+          <label>Overwrite Existing</label>:
+          {% set checked = " checked" if overwrite else "" %}
+          <input type="checkbox" name="overwrite" value="yes"{{checked}}{{disabled}}>
+        </p>
+        <p class="actions">
+          <button class="submit" value="{{buttons[1]}}"{{btn_attr[1]}}>{{btn_lbl[1]}}</button>
+          {% if not new_tourn  %}
+          <button class="submit" value="{{buttons[2]}}"{{btn_attr[2]}}>{{btn_lbl[2]}}</button>
+          <a class="cancel" href="./">[cancel]</a>
+          {% endif %}
+        </p>
+      </form>
+    </section>
     {% endif %}  {# tourn #}
   </body>
 

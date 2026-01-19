@@ -5,47 +5,58 @@
     <title>{{title}}</title>
 
     <style>
+     h1 {
+       font-size: 1.75rem;
+       margin-bottom: 0.5rem;
+     }
+     .login p {
+       margin: 1.0rem 0.0rem;
+     }
+     p label {
+       display: block;
+       margin: 0.2rem 0.0rem;
+     }
+     select {
+       width: 13.0rem;
+     }
+     input {
+       width: 12.0rem;
+     }
+     button,
+     select,
+     input {
+       padding: 0.15rem 0.3rem;
+     }
+     .actions {
+       display: flex;
+       padding: 0.5rem 0.0rem;
+     }
+     .actions p {
+       margin: 0.5rem 0.0rem;
+     }
      .err_blk {
        color: #D10000;
        margin-top: 1.0rem;
        display: none;
      }
-     p label {
-       display: block;
-     }
-     select {
-       width: 12.5rem;
-     }
-     input {
-       width: 12rem;
-     }
-     button,
-     select,
-     input {
-       padding: 0.1rem 0.2rem;
-     }
-     .actions {
-       display: flex;
-     }
-     .actions p {
-       margin: 0.7rem 0rem;
-     }
     </style>
   </head>
 
   <body>
-    <form action="/login" method="post">
-      <h1>Login</h1>
-      <section>
+    <h1>Login</h1>
+    <section class="login">
+      <form action="/login" method="post">
         <p>
           <label for="username">User:</label>
           <select id="username" name="username" required>
             {% if logins %}
+            {% set submit_attr = " disabled" %}
             <option value="" disabled selected hidden>Select player...</option>
             {% for login in logins %}
             <option value="{{login[0]}}">{{login[1]}}</option>
             {% endfor %}
             {% else %}
+            {% set submit_attr = "" %}
             <option value="{{admin_user}}" selected>{{admin_user}}</option>
             {% endif %}
           </select>
@@ -54,13 +65,13 @@
           <label for="password">Password:</label>
           <input type="password" id="password" name="password">
         </p>
-      </section>
-      <section class="actions">
-        <p>
-          <button type="submit">Login</button>
-        </p>
-      </section>
-    </form>
+    </section>
+    <section class="actions">
+      <p>
+        <button type="submit"{{submit_attr}}>Login</button>
+      </p>
+      </form>
+    </section>
     <section class="err_blk">
       <div>
       </div>
@@ -70,6 +81,10 @@
   <script src="/static/jquery-3.7.1.min.js"></script>
   <script>
    $(function() {
+     $('.login select').on('change', function() {
+       $('button[type="submit"]').prop('disabled', false);
+     });
+
      // error block
      const show_error = function(err_text) {
        $('.err_blk div').html(err_text);

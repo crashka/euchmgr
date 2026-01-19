@@ -48,6 +48,7 @@ from chart import chart
 from dash import dash
 from report import report
 from mobile import mobile, is_mobile, render_error
+from demo import demo
 
 #################
 # utility stuff #
@@ -107,6 +108,7 @@ def create_app(config: object | Config = Config) -> Flask:
     app.register_blueprint(chart, url_prefix="/chart")
     app.register_blueprint(dash, url_prefix="/dash")
     app.register_blueprint(report, url_prefix="/report")
+    app.register_blueprint(demo, url_prefix="/demo")
     app.jinja_env.add_extension('jinja2.ext.loopcontrols')
 
     global sess_ext, login
@@ -213,6 +215,7 @@ def create_app(config: object | Config = Config) -> Flask:
     #################
 
     @app.get("/")
+
     def index() -> str:
         """Redirect to login page or appropriate app view (based on current stage).
         """

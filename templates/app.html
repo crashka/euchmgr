@@ -181,6 +181,7 @@
             <button value="{{val}}"{{btn_attr[loop.index0]}}>{{btn_lbl[loop.index0]}}</button>
             {% endfor %}
             {% if links %}
+            <a class="demo_data" href="javascript:void(0);">[demo data]</a>
             <span class="lnk_lbl">Display:</span>
             {% for lnk in links %}
             <a href="#" onclick="window.open('{{lnk[0]}}', '_blank')"">{{lnk[1]}}</a>
@@ -328,6 +329,15 @@
          $(".tbl_wrapper").css('display', 'block');
          table.columns.adjust().draw();
        }
+     });
+
+     let popupWin;
+     $('a.demo_data').on('click', function(e) {
+       if (popupWin && !popupWin.closed) {
+         popupWin.close();
+       }
+       const specs = "popup,width=375,height=215,top=200,left=200";
+       popupWin = window.open('/demo/', "_blank", specs);
      });
 
      // TODO: set initial focus (and/or highlight) here!!!

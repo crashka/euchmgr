@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{title}}</title>
+
+    <style>
+     h1 {
+       font-size: 1.25rem;
+     }
+     h2 {
+       font-size: 1.125rem;
+       margin-bottom: 0.5rem;
+     }
+     label:not(:first-child) {
+       margin-left: 0.5rem;
+     }
+     input[type="radio"] {
+       margin: 0.2rem;
+     }
+     input[type="number"] {
+       width: 3.0rem;
+     }
+     .actions {
+       display
+     }
+     .close {
+       margin-top: 1.5rem;
+     }
+    </style>
+  </head>
+
+  <body>
+    <main>
+      <section>
+        <h2>Fake Demo Data</h2>
+        <form action="/demo/" method="post">
+          <p>
+            <label>Seeding
+              {% set checked = " checked" if target == "seeding" else "" %}
+              <input type="radio" name="target" value="seeding"{{checked}}>
+            </label>
+            <label>Partners
+              {% set checked = " checked" if target == "partners" else "" %}
+              <input type="radio" name="target" value="partners"{{checked}}>
+            </label>
+            <label>Round_Robin
+              {% set checked = " checked" if target == "round_robin" else "" %}
+              <input type="radio" name="target" value="round_robin"{{checked}}>
+            </label>
+          </p>
+          <p>
+            <label>Num Records:
+              <input type="number" name="num_recs" value="{{num_recs}}">
+            </label>
+          </p>
+          <p class="actions">
+            <button type="submit" name="action" value="gen_data">Generate Data</button>
+          </p>
+        </form>
+      </section>
+      <p class="close">
+        <a href="javascript:void(0);" onclick="window.close();">[Close Window]</a>
+      </p>
+    </main>
+  </body>
+
+</html>

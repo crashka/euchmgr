@@ -60,9 +60,24 @@ high number for new issue entry).*
 - Needed to ensure association of game stats with the actual individual players (and not the
   tournament-level team/role identity)
 
-## Ideas for Further Discussion
+**#15** - Support for admin manual edits/overrides for data/results in all stages (players, game scores, rankings, etc.)
 
-*\[currently none]*
+- *Created - Jan 19, 2026*
+- Edits/overrides should be logged for traceability
+- Would be good to capture comments on manual changes
+
+**#16** - Ensure integrity/fairness for pre-generated brackets before round matchups are deployed [Struble]
+
+- *Created - Jan 19, 2026*
+- Metadata/stats for pre-generated brackets actually used needs to be available for inspection/validation
+
+## Topics/Ideas for Further Discussion
+
+**#17** - Continued discussion on tie-breaking algorithm details, both principles and codification
+
+- *Created - Jan 19, 2026*
+- Technical write-up on current implementation: [here](RANKING.md)
+- Template for specifying test scenarios: [here](examples/tie-breaker%20scenario%20template.xlsx)
 
 ## Closed
 

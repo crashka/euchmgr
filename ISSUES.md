@@ -79,6 +79,11 @@ high number for new issue entry).*
 - Technical write-up on current implementation: [here](RANKING.md)
 - Template for specifying test scenarios: [here](examples/tie-breaker%20scenario%20template.xlsx)
 
+**#18** - Ability to configure and deploy for smaller, local tournaments [Rooze]
+
+- *Created - Jan 19, 2026*
+- Might include specifying number of divisions, rounds of play, playoff format (if any), etc.
+
 ## Closed
 
 **#2** - Division assignment for round robin stage should be done in a snake pattern based

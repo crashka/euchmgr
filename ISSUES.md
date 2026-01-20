@@ -10,9 +10,24 @@ Priorities do not need to be explicitly specified—we can just comment informal
 or possibly just reorder items below based on rough priority (while making sure to track
 high number for new issue entry).*
 
-## Bugs
+## Bugs/Fixes
 
-*\[currently none]*
+**#8** - For Scoring Sheet chart - byes should be easier to see [Struble]
+
+- *Created - Jan 19, 2026*
+- Currently just a small dash, could be bigger/bolder, an "X", the word "bye", etc.
+
+**#9** - For Partner Picks dashboard - strike through names of picked players on available list (rather than removing them) [Struble]
+
+- *Created - Jan 19, 2026*
+- Note: can implement both visualizations and let admin toggle between them
+- Can also provide the ability to toggle between listing available players by rank or by name
+
+**#10** - Show Pts Pct (instead of PF-PA) within the cohort as tie-breaking statss [multiple]
+
+- *Created - Jan 19, 2026*
+- Related topic: probably leave it as W-L (as opposed to Win Pct) within the cohort for
+  same views (e.g. so that 1-0 shows as distinct from 2-0)
 
 ## Feature/Enhancement Requests
 
@@ -22,6 +37,28 @@ high number for new issue entry).*
 - First and second place are determined by finals result
 - Third and fourth place are determined by playoff win pct, followed by playoff pts pct
   - If stats are identical, a tie for third is declared
+
+**#11** - Ability to add comments to games in mobile app [Rooze]
+
+- *Created - Jan 19, 2026*
+
+**#12** - Ability to type in name of partner pick in mobile app (as opposed to dropdown list) [Kramer]
+
+- *Created - Jan 19, 2026*
+- Could show autocompletion for unique prefixes as typing
+
+**#13** - Support for seeding round absentees (e.g. travel delays), make them pickable for the tournament [Struble]
+
+- *Created - Jan 19, 2026*
+- Tangentially related to Issue #14 (both possibly pertaining to travel issues)
+- Admins should be able to manually adjust availability list any time before partner picking starts
+
+**#14** - Support for fractional-tournament substitute players (e.g. seeding round subs) [Struble]
+
+- *Created - Jan 19, 2026*
+- Tangentially related to Issue #13 (both possibly pertaining to travel issues)
+- Needed to ensure association of game stats with the actual individual players (and not the
+  tournament-level team/role identity)
 
 ## Ideas for Further Discussion
 

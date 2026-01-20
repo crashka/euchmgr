@@ -23,20 +23,13 @@ high number for new issue entry).*
 - Note: can implement both visualizations and let admin toggle between them
 - Can also provide the ability to toggle between listing available players by rank or by name
 
-**#10** - Show Pts Pct (instead of PF-PA) within the cohort as tie-breaking statss [multiple]
+**#10** - Show Pts Pct (instead of PF-PA) within the cohort as tie-breaking stats [multiple]
 
 - *Created - Jan 19, 2026*
 - Related topic: probably leave it as W-L (as opposed to Win Pct) within the cohort for
   same views (e.g. so that 1-0 shows as distinct from 2-0)
 
 ## Feature/Enhancement Requests
-
-**#7** - Final tournament rankings need to include playoff results [Struble]
-
-- *Created - Dec 15, 2025*
-- First and second place are determined by finals result
-- Third and fourth place are determined by playoff win pct, followed by playoff pts pct
-  - If stats are identical, a tie for third is declared
 
 **#11** - Ability to add comments to games in mobile app [Rooze]
 
@@ -46,6 +39,15 @@ high number for new issue entry).*
 
 - *Created - Jan 19, 2026*
 - Could show autocompletion for unique prefixes as typing
+
+## Core Requirements
+
+**#7** - Final tournament rankings need to include playoff results [Struble]
+
+- *Created - Dec 15, 2025*
+- First and second place are determined by finals result
+- Third and fourth place are determined by playoff win pct, followed by playoff pts pct
+  - If stats are identical, a tie for third is declared
 
 **#13** - Support for seeding round absentees (e.g. travel delays), make them pickable for the tournament [Struble]
 
@@ -98,7 +100,7 @@ stage (rather than considered by average player rank) [Struble]
 - *Created - Dec 01, 2025*
 - *Fixed - Dec 03, 2025*
 
-**#4** - Seeding and round robin stage rankings (and final tourament rankings) should be
+**#4** - Seeding and round robin stage rankings (and final tournament rankings) should be
 based on win pct, then established tie-breaking rules, as outlined below [Struble]
 
 - *Created - Dec 01, 2025*

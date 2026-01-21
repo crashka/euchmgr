@@ -125,9 +125,10 @@
         <input type="hidden" name="tourn_id" value="{{tourn.id}}">
         <p>
           <label>Name</label>:
-          {% set attrs = "required autofocus" if new_tourn else "readonly" %}
           {% set hlp_msg = "required (must be unique)" %}
-          <input name="tourn_name" value="{{tourn.name or ''}}" placeholder="{{hlp_msg}}" {{attrs}}>
+          {% set attrs = "required autofocus" if new_tourn else "readonly" %}
+          <input name="tourn_name" type="text" value="{{tourn.name or ''}}"
+                 placeholder="{{hlp_msg}}" {{attrs}}>
         </p>
         <p>
           <label>Dates</label>:

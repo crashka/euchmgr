@@ -122,7 +122,7 @@ def upload_roster(csv_path: str) -> None:
     tourn.stage_compl = TournStage.PLAYER_ROSTER
     tourn.save()
 
-def generate_player_nums(rand_seed: int = None) -> None:
+def generate_player_nums(rand_seed: int = None, limit: int = None) -> None:
     """Generate random values for player_num, akin to picking numbered ping pong balls out
      of a bag.
 
@@ -136,11 +136,14 @@ def generate_player_nums(rand_seed: int = None) -> None:
 
     pl_list = list(Player.iter_players(no_nums=True))
     ords = iter(my_rand.sample(Player.nums_avail(), len(pl_list)))
-    for player in pl_list:
+    for i, player in enumerate(pl_list):
+        if limit and i >= limit:
+            break
         player.player_num = next(ords)
         player.save()
 
-    TournInfo.mark_stage_complete(TournStage.PLAYER_NUMS)
+    if len(Player.nums_avail()) == 0:
+        TournInfo.mark_stage_complete(TournStage.PLAYER_NUMS)
 
 def build_seed_bracket() -> list[SeedGame]:
     """Populate seed round matchups and byes (in `seed_round` table) based on tournament

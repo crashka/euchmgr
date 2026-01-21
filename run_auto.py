@@ -36,7 +36,7 @@ def get_func_args(func: str, tourn_name: str) -> dict:
 def main() -> int:
     """Built-in driver to invoke module functions
 
-    Usage: python -m run_auto <tourn_name> <func_list>
+    Usage: python -m run_auto <tourn_name> <func_list> [<addl_args>]
 
     where ``func_list`` is a comma-separated list of functions to run, or ``'all'``
 
@@ -57,7 +57,9 @@ def main() -> int:
       - tabulate_tourn
       - compute_team_ranks
 
-    Note that a roster file of ``<tourn_name>_roster.csv`` will be used by default
+    Note that a roster file of ``<tourn_name>_roster.csv`` will be used by default, and
+    ``addl_args`` represents keyword args that will be passed into the specified function
+    (must be a single function, in this case).
     """
     usage = lambda x: x + "\n\n" + main.__doc__
     if len(sys.argv) < 2:
@@ -75,14 +77,18 @@ def main() -> int:
             if func not in euchmgr.MOD_FUNCS:
                 return usage(f"Unknown function '{func}'")
 
-    args, kwargs = parse_argv(sys.argv[3:])  # pick up additional args (ignoring for now)
+    args, kwargs = parse_argv(sys.argv[3:])  # pick up additional args
+    if args:
+        return usage("Unknown args: " + ' '.join(args))
+    if kwargs and len(funcs) > 1:
+        return usage("Extra args only supported if a single function is specified")
     db_init(tourn_name, force=True)
     if PROFILE:
         profiler.start()
     for func in funcs:
         func_call = getattr(euchmgr, func)
-        kwargs = get_func_args(func, tourn_name)
-        func_call(**kwargs)  # will throw exceptions on error
+        func_args = get_func_args(func, tourn_name)
+        func_call(**(func_args | kwargs))  # will throw exceptions on error
     if PROFILE:
         profiler.stop()
         profiler.print()

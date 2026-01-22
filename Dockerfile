@@ -8,6 +8,7 @@ RUN apt update
 RUN apt install -y git
 RUN apt install -y python3-venv
 RUN apt install -y build-essential
+RUN apt install -y python3-dev
 RUN apt install -y libsqlite3-dev
 
 WORKDIR /app/
@@ -38,5 +39,5 @@ COPY static ./static
 # TODO: move the bracket files to ./static (so ./data/ can be a mount)!!!
 COPY data/*.csv ./data/
 
-ENTRYPOINT ["flask", "--app", "server", "run"]
-CMD ["--host=0.0.0.0", "--port=5050", "--debug"]
+ENTRYPOINT ["flask", "--app", "server", "run", "--host=0.0.0.0"]
+CMD ["--port=5050", "--debug"]

@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+scriptdir="$(dirname $(readlink -f $0))"
+cd ${scriptdir}/..
+PATH="venv/bin:${PATH}"
+
 set -e
 
 TOURN="${TOURN:-nola_2025}"
@@ -13,6 +17,19 @@ LOOPS=${2:-$(((nplayers / 4 * nrounds - 1) / LIMIT + 1))}
 
 echo "LIMIT = " ${LIMIT}
 echo "LOOPS = " ${LOOPS}
+
+echo -n "Creating tournament \"${TOURN}\"..."
+echo "done"
+python -m euchmgr "${TOURN}" tourn_create force=t
+read -p "Press any key to upload roster..." -n1 -s
+echo "done"
+python -m euchmgr "${TOURN}" upload_roster "${ROSTER}"
+echo -n "Generating player nums..."
+echo "done"
+python -m euchmgr "${TOURN}" generate_player_nums
+echo -n "Building seeding bracket..."
+echo "done"
+python -m euchmgr "${TOURN}" build_seed_bracket
 
 for i in $(seq 1 ${LOOPS}) ; do
     read -p "Press any key to create ${LIMIT} fake seeding results..." -n1 -s

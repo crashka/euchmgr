@@ -1,23 +1,29 @@
 #!/usr/bin/env bash
 
+scriptdir="$(dirname $(readlink -f $0))"
+cd ${scriptdir}/..
+PATH="venv/bin:${PATH}"
+
 set -e
 
 TOURN="${TOURN:-nola_2025}"
 ROSTER="${ROSTER:-nola_2025_roster.csv}"
 
-nteams=20
+nplayers=42
 nrounds=8
 
 LIMIT=${1:-10}
-LOOPS=${2:-$(((nteams - 2) / LIMIT + 1))}
+LOOPS=${2:-$(((nplayers / 4 * nrounds - 1) / LIMIT + 1))}
+SLEEP=${3:-5}
 
 echo "LIMIT = " ${LIMIT}
 echo "LOOPS = " ${LOOPS}
+echo "SLEEP = " ${SLEEP}
 
 echo -n "Creating tournament \"${TOURN}\"..."
 echo "done"
 python -m euchmgr "${TOURN}" tourn_create force=t
-read -p "Press any key to upload roster..." -n1 -s
+echo -n "Uploading roster..."
 echo "done"
 python -m euchmgr "${TOURN}" upload_roster "${ROSTER}"
 echo -n "Generating player nums..."
@@ -26,9 +32,14 @@ python -m euchmgr "${TOURN}" generate_player_nums
 echo -n "Building seeding bracket..."
 echo "done"
 python -m euchmgr "${TOURN}" build_seed_bracket
-read -p "Press any key to create fake seeding results..." -n1 -s
-echo "done"
-python -m euchmgr "${TOURN}" fake_seed_games
+
+for i in $(seq 1 ${LOOPS}) ; do
+    echo -n "Creating ${LIMIT} fake seeding results..."
+    echo "done"
+    python -m euchmgr "${TOURN}" fake_seed_games limit=${LIMIT}
+    sleep $SLEEP
+done
+
 echo -n "Validating seeding results..."
 echo "done"
 python -m euchmgr "${TOURN}" validate_seed_round finalize=t
@@ -38,19 +49,3 @@ python -m euchmgr "${TOURN}" compute_player_ranks finalize=t
 echo -n "Prepicking champ partners..."
 echo "done"
 python -m euchmgr "${TOURN}" prepick_champ_partners
-
-for i in $(seq 1 ${LOOPS}) ; do
-    read -p "Press any key to create ${LIMIT} fake partner picks..." -n1 -s
-    echo "done"
-    python -m euchmgr "${TOURN}" fake_pick_partners limit=${LIMIT}
-done
-
-echo -n "Building tournament teams..."
-echo "done"
-python -m euchmgr "${TOURN}" build_tourn_teams
-echo -n "Computing tournament team seeds..."
-echo "done"
-python -m euchmgr "${TOURN}" compute_team_seeds
-echo -n "Building tournament brackets..."
-echo "done"
-python -m euchmgr "${TOURN}" build_tourn_bracket

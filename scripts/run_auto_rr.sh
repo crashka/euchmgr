@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+scriptdir="$(dirname $(readlink -f $0))"
+cd ${scriptdir}/..
+PATH="venv/bin:${PATH}"
+
 set -e
 
 TOURN="${TOURN:-nola_2025}"
@@ -9,8 +13,8 @@ nteams=20
 nrounds=8
 
 LIMIT=${1:-10}
-LOOPS=${2:-$(((nteams - 2) / LIMIT + 1))}
-SLEEP=${3:-1}
+LOOPS=${2:-$(((nteams / 2 * nrounds - 1) / LIMIT + 1))}
+SLEEP=${3:-5}
 
 echo "LIMIT = " ${LIMIT}
 echo "LOOPS = " ${LOOPS}
@@ -40,14 +44,9 @@ python -m euchmgr "${TOURN}" compute_player_ranks finalize=t
 echo -n "Prepicking champ partners..."
 echo "done"
 python -m euchmgr "${TOURN}" prepick_champ_partners
-
-for i in $(seq 1 ${LOOPS}) ; do
-    echo -n "Creating ${LIMIT} fake partner picks..."
-    echo "done"
-    python -m euchmgr "${TOURN}" fake_pick_partners limit=${LIMIT}
-    sleep $SLEEP
-done
-
+echo -n "Creating fake partner picks..."
+echo "done"
+python -m euchmgr "${TOURN}" fake_pick_partners
 echo -n "Building tournament teams..."
 echo "done"
 python -m euchmgr "${TOURN}" build_tourn_teams
@@ -57,3 +56,17 @@ python -m euchmgr "${TOURN}" compute_team_seeds
 echo -n "Building tournament brackets..."
 echo "done"
 python -m euchmgr "${TOURN}" build_tourn_bracket
+
+for i in $(seq 1 ${LOOPS}) ; do
+    echo -n "Creating ${LIMIT} fake tournament results..."
+    echo "done"
+    python -m euchmgr "${TOURN}" fake_tourn_games limit=${LIMIT}
+    sleep $SLEEP
+done
+
+echo -n "Validating tournament results..."
+echo "done"
+python -m euchmgr "${TOURN}" validate_tourn finalize=t
+echo -n "Computing tournament rankings..."
+echo "done"
+python -m euchmgr "${TOURN}" compute_team_ranks finalize=t

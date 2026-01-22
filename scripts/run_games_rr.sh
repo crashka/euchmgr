@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+scriptdir="$(dirname $(readlink -f $0))"
+cd ${scriptdir}/..
+PATH="venv/bin:${PATH}"
+
 set -e
 
 TOURN="${TOURN:-nola_2025}"

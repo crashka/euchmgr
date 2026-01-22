@@ -31,13 +31,13 @@ COPY --from=build /app/venv /app/venv
 ENV PATH="/app/venv/bin:${PATH}"
 
 # TODO: mount ./log/ and ./data/ as volumes or bind mounts!!!
-RUN mkdir log sessions data uploads
+RUN mkdir log data sessions uploads
 
-COPY requirements.txt *.py *.sh ./
+COPY requirements.txt *.py ./
 COPY templates ./templates
 COPY static ./static
-# TODO: move the bracket files to ./static (so ./data/ can be a mount)!!!
-COPY data/*.csv ./data/
+COPY resources ./resources
+COPY scripts ./scripts
 
 ENTRYPOINT ["flask", "--app", "server", "run", "--host=0.0.0.0"]
 CMD ["--port=5050", "--debug"]

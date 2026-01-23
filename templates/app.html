@@ -1,34 +1,16 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{title}}</title>
 
     <style>
      body {
        width: max-content;
-       min-width: 80rem;
      }
-     form {
-       overflow: hidden;
-     }
-     table {
-       margin-top: 0.3rem;
-     }
-     input[readonly] {
-       border: thin solid grey;
-       background-color: #F0F0F0;
-     }
-     input[type="text"] {
-       width: 12rem;
-     }
-     input[type="number"] {
-       width: 3rem;
-     }
-     .attn {
-       background-color: #FFE4E1;
-     }
-     button[value^="fake_"] {
-       background-color: #AFEEEE;
+     h2 {
+       display: inline-block;
+       margin: 0.5rem 0.0rem;
      }
      .err_dlg {
        padding: 1.1rem 1.4rem;
@@ -41,32 +23,44 @@
      .err_dlg button {
        margin-top: 1.2rem;
      }
-     .container {
-       overflow: hidden;
-     }
-     .section {
-       margin-top: 0.5rem;
-       position: relative;
-     }
-     .tourn_lbl {
-       font-size: x-large;
-       font-weight: bold;
+     header h2 {
        cursor: pointer;
+     }
+     .tourn_info p {
+       margin: 0.8rem 0.0rem;
+     }
+     .tourn_info label {
+       margin-left: 1.3rem;
+     }
+     .tourn_info input {
+       padding: 0.15rem 0.35rem;
+     }
+     .tourn_info input[type="text"] {
+       width: 13rem;
+     }
+     .tourn_info input[type="number"] {
+       width: 3rem;
+     }
+     .tourn_info input[readonly] {
+       border: thin solid grey;
+       background-color: #F0F0F0;
+     }
+     .attn {
+       background-color: #FFE4E1;
+     }
+     button[value^="fake_"] {
+       background-color: #AFEEEE;
      }
      .login_info {
        float: right;
        text-align: right;
        /*margin-right: 1.0rem;*/
-       /*padding: 0.5rem 0.0rem;*/
+       padding-top: 0.80rem;
      }
      .login_info span {
        font-weight: bolder;
        color: mediumblue;
        cursor: pointer;
-     }
-     .subsect {
-       margin-top: 0.5rem;
-       overflow: hidden;
      }
      .view_sel {
        margin-left: 1.5rem;
@@ -76,40 +70,25 @@
        margin-left: 0.6rem;
        font-weight: bold;
      }
-     .view_title {
-       font-size: x-large;
-       font-weight: bold;
+     .view_body {
+       position: relative;
+       width: 80rem;
+     }
+     .view_body h2 {
        position: absolute;
-       top: 0.3rem;
        z-index: 1;
        cursor: pointer;
      }
-     .info_blk {
-       padding: 0.8rem 0 0.5rem 1.0rem;
-     }
-     .stage_blk {
-       padding-left: 1.0rem;
-     }
-     .info_blk span,
-     .stage_blk span {
-       margin-right: 1.5rem;
-     }
-     .info_blk input {
-       margin-left: 0.3rem;
-       padding: 0.1rem 0.35rem;
-     }
-     .stage_blk input {
-       margin-left: 0.3rem;
-       padding: 0.1rem 0.35rem;
-       width: 13rem;
-     }
      .tbl_wrapper {
-       display: none;
-       width: 80rem;
+       /*display: none;*/
+       visibility: hidden;
+     }
+     #view_tbl {
+       margin-top: 0.3rem;
      }
      .actions {
-       clear: both;
-       padding: 1.0rem 0;
+       padding: 0.5rem 0.0rem;
+       margin-top: 1.1rem;
      }
      .actions button {
        margin-right: 0.8rem;
@@ -132,41 +111,50 @@
       <div></div>
       <button autofocus>Close</button>
     </dialog>
-    <div class="container">
-      <div class="section">
-        {% with tooltip = "Click here to go to current stage" %}
-        <span class="tourn_lbl" title='{{tooltip}}'>{{tourn.name}}</span>
+    <header>
+      {% with tooltip = "Click here to go to current stage" %}
+      <h2 title='{{tooltip}}'>{{tourn.name}}</h2>
+      {% endwith %}
+      <span class="view_sel">
+        View:
+        {% for view, info in view_defs.items() %}
+        {% set checked = " checked" if view == view_path else "" %}
+        <label>{{info.name}}<input type="radio" name="view" value="{{view}}"{{checked}}></label>
+        {% endfor %}
+      </span>
+      <span class="login_info">
+        {% with tooltip = "Click here to enter admin mode" %}
+        Logged in as: <span title='{{tooltip}}'>{{user.name}}</span>
+        [<a href='/logout'>Logout</a>]
         {% endwith %}
-        <span class="view_sel">
-          View:
-          {% for view, info in view_defs.items() %}
-          {% set checked = " checked" if view == view_path else "" %}
-          <label>{{info.name}}<input type="radio" name="view" value="{{view}}"{{checked}}></label>
-          {% endfor %}
-        </span>
-        <span class="login_info">
-          {% with tooltip = "Click here to enter admin mode" %}
-          Logged in as: <span title='{{tooltip}}'>{{user.name}}</span>
-          [<a href='/logout'>Logout</a>]
-          {% endwith %}
-        </span>
-        <div class="subsect info_blk">
-          <input name="tourn_name" type="hidden" value="{{tourn.name}}">
-          <span>Players:<input name="players" type="number" value="{{tourn.players}}" disabled></span>
-          <span>Teams:<input name="teams" type="number" value="{{tourn.teams}}" disabled></span>
-          <span>THM Teams:<input name="thm_teams" type="number" value="{{tourn.thm_teams}}" disabled></span>
-        </div>
-        <div class="subsect stage_blk">
-          <span>Current Stage:<input name="cur_stage" type="text" value="{{tourn.cur_stage}}" disabled></span>
-          <span>Next:<input name="next_action" type="text" value="{{tourn.next_action if tourn.next_action else ''}}" disabled></span>
-        </div>
-      </div>
+      </span>
+    </header>
 
-      <div class="section tbl_wrapper">
-        {% with tooltip = "Click here to refresh table data" %}
-        <span class="view_title" title='{{tooltip}}'>{{view_info.name}}</span>
-        {% endwith %}
-        <table id="view_dt" class="display" spellcheck="false">
+    <section class="tourn_info">
+      <p>
+        <input name="tourn_name" type="hidden" value="{{tourn.name}}">
+        <label>Players:</label>
+        <input name="players" type="number" value="{{tourn.players}}" disabled>
+        <label>Teams:</label>
+        <input name="teams" type="number" value="{{tourn.teams}}" disabled>
+        <label>THM Teams:</label>
+        <input name="thm_teams" type="number" value="{{tourn.thm_teams}}" disabled>
+      </p>
+      <p>
+        <label>Current Stage:</label>
+        <input name="cur_stage" type="text" value="{{tourn.cur_stage}}" disabled>
+        <label>Next:</label>
+        {% set next_actn = tourn.next_action if tourn.next_action else "" %}
+        <input name="next_action" type="text" value="{{next_actn}}" disabled>
+      </p>
+    </section>
+
+    <section class="view_body">
+      {% with tooltip = "Click here to refresh table data" %}
+      <h2 title='{{tooltip}}'>{{view_info.name}}</h2>
+      {% endwith %}
+      <div class="tbl_wrapper">
+        <table id="view_tbl" class="display" spellcheck="false">
           <thead>
             <tr>
               {% for col in view_info.layout %}
@@ -175,21 +163,19 @@
             </tr>
           </thead>
         </table>
-        <div class="subsection actions">
-          <form action="{{view_path}}" method="post">
-            {% for val in buttons %}
-            <button value="{{val}}"{{btn_attr[loop.index0]}}>{{btn_lbl[loop.index0]}}</button>
-            {% endfor %}
-            {% if links %}
-            <span class="lnk_lbl">Display:</span>
-            {% for lnk in links %}
-            <a href="#" onclick="window.open('{{lnk[0]}}', '_blank')"">{{lnk[1]}}</a>
-            {% endfor %}
-            {% endif %}
-          </form>
-        </div>
+        <form class="actions" action="{{view_path}}" method="post">
+          {% for val in buttons %}
+          <button value="{{val}}"{{btn_attr[loop.index0]}}>{{btn_lbl[loop.index0]}}</button>
+          {% endfor %}
+          {% if links %}
+          <span class="lnk_lbl">Display:</span>
+          {% for lnk in links %}
+          <a href="#" onclick="window.open('{{lnk[0]}}', '_blank')"">{{lnk[1]}}</a>
+          {% endfor %}
+          {% endif %}
+        </form>
       </div>
-    </div>
+    </section>
   </body>
 
   <script src="/static/jquery-3.7.1.min.js"></script>
@@ -218,10 +204,10 @@
      });
 
      // shortcuts (navigation)
-     $(".tourn_lbl").on('click', function() {
+     $("header h2").on('click', function() {
        window.location.href = './';
      });
-     $('.view_title').on('click', function() {
+     $('.view_body h2').on('click', function() {
        // FIX: only need to refresh table data!!!
        window.location.href = "";
      });
@@ -288,7 +274,7 @@
      };
 
      const tourn = $('.info_blk input[name="tourn_name"]').val();
-     const table = $('#view_dt').DataTable({
+     const table = $('#view_tbl').DataTable({
        rowId: '{{view_info.rowid_col}}',
        paging: false,
        scrollX: true,
@@ -325,7 +311,8 @@
        ],
        order: [[{{view_info.tbl_order}}, 'asc']],
        initComplete: function(settings, json) {
-         $(".tbl_wrapper").css('display', 'block');
+         //$(".tbl_wrapper").css('display', 'block');
+         $(".tbl_wrapper").css('visibility', 'visible');
          table.columns.adjust().draw();
        }
      });

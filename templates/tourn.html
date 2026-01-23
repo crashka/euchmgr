@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{title}}</title>
 
     <style>
@@ -9,7 +10,7 @@
        min-width: 80rem;
      }
      header {
-       padding: 1.0rem 0.0rem;
+       padding: 0.80rem 0.0rem;
      }
      header select {
        margin-left: 0.3rem;
@@ -28,6 +29,9 @@
      }
      .err_dlg button {
        margin-top: 1.2rem;
+     }
+     form {
+       display: inline-block;
      }
      .sel_tourn {
        width: 12rem;
@@ -108,13 +112,13 @@
           {% endfor %}
           {% endif %}
         </select>
-        <span class="login_info">
-          {% with tooltip = "Click here to exit admin mode" %}
-          Logged in as: <span title='{{tooltip}}'>{{user.name}}</span>
-          [<a href='/logout'>Logout</a>]
-          {% endwith %}
-        </span>
       </form>
+      <span class="login_info">
+        {% with tooltip = "Click here to exit admin mode" %}
+        Logged in as: <span title='{{tooltip}}'>{{user.name}}</span>
+        [<a href='/logout'>Logout</a>]
+        {% endwith %}
+      </span>
     </header>
     {% if tourn %}
     <section class="tourn">

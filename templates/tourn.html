@@ -19,16 +19,10 @@
      h2 {
        margin-top: 0.5rem;
      }
-     .err_dlg {
-       padding: 1.1rem 1.4rem;
-     }
-     .err_dlg div {
-       width: 22rem;
+     .err_blk {
        color: #D10000;
-       overflow: auto;
-     }
-     .err_dlg button {
-       margin-top: 1.2rem;
+       margin-top: 1.3rem;
+       display: none;
      }
      form {
        display: inline-block;
@@ -81,10 +75,6 @@
   </head>
 
   <body>
-    <dialog class="err_dlg">
-      <div></div>
-      <button autofocus>Close</button>
-    </dialog>
     <header>
       <form action="/tourn" method="post">
         <input type="hidden" name="submit_func" value="select_tourn">
@@ -173,6 +163,10 @@
       </form>
     </section>
     {% endif %}  {# tourn #}
+    <section class="err_blk">
+      <div>
+      </div>
+    </section>
   </body>
 
   <script src="/static/jquery-3.7.1.min.js"></script>
@@ -189,14 +183,14 @@
        window.location.href = "./";
      });
 
-     // error dialog
-     $('.err_dlg button').on('click', function() {
-       $('.err_dlg')[0].close();
-     });
+     // error block
      const show_error = function(err_text) {
-       $('.err_dlg div').html(err_text);
-       $('.err_dlg')[0].showModal();
+       $('.err_blk div').html(err_text);
+       $('.err_blk').css('display', 'flex');
      };
+     $('body').on('click', function() {
+       $('.err_blk').css('display', 'none');
+     });
 
      {% if err_msg %}
      show_error('{{err_msg|safe}}');

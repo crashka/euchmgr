@@ -37,7 +37,8 @@ from core import DATA_DIR, UPLOAD_DIR, log, ImplementationError
 from security import EuchmgrUser, ADMIN_USER, ADMIN_ID, AdminUser, EuchmgrLogin
 from database import (DB_FILETYPE, db_init, db_name, db_reset, db_is_initialized, db_connect,
                       db_close, db_is_closed)
-from schema import TournStage, TOURN_INIT, ACTIVE_STAGES, TournInfo, Player
+from schema import (clear_schema_cache, TournStage, TOURN_INIT, ACTIVE_STAGES, TournInfo,
+                    Player)
 from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_seed_bracket,
                      fake_seed_games, validate_seed_round, compute_player_ranks,
                      prepick_champ_partners, fake_pick_partners, build_tourn_teams,
@@ -462,21 +463,19 @@ def select_tourn(form: dict) -> str:
     if tourn_name == SEL_NEW:
         if db_is_initialized():
             assert session['tourn'] == db_name()
-            flash(f"Cannot create new tournament with \"{db_name()}\" still active")
-        else:
-            flash("create_new=True")
+            pause_tourn({'tourn_name': db_name()})
+        flash("create_new=True")
         return redirect(url_for('tourn'))
 
+    if db_is_initialized() and db_name() != tourn_name:
+        assert session['tourn'] == db_name()
+        pause_tourn({'tourn_name': db_name()})
     if not db_is_initialized():
         assert not session.get('tourn')
         db_init(tourn_name, force=True)
         session['tourn'] = tourn_name
         log.info(f"setting tourn = '{tourn_name}' in session state")
         flash(f"Resuming operation of tournament \"{tourn_name}\"")
-    elif db_name() != tourn_name:
-        assert session['tourn'] == db_name()
-        flash(f"Cannot select different tournament with \"{db_name()}\" still active")
-        return redirect(url_for('tourn'))
     return redirect(url_for('index'))
 
 def create_tourn(form: dict) -> str:
@@ -535,6 +534,7 @@ def pause_tourn(form: dict) -> str:
     assert db_is_initialized()
     assert db_name() == tourn_name
     db_reset(force=True)
+    clear_schema_cache()
     popped = session.pop('tourn', None)
     assert popped == tourn_name
     flash(f"Tournament \"{tourn_name}\" has been paused")

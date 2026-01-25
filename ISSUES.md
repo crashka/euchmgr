@@ -26,7 +26,7 @@ high number for new issue entry).*
 **#10** - Show Pts Pct (instead of PF-PA) within the cohort as tie-breaking stats [multiple]
 
 - *Created - Jan 19, 2026*
-- Some people like the 4-digit decimal version (e.g. .6853 over 68.53%) better--will get
+- Some people like the 4-digit decimal version (e.g. .6853 over 68.53%) better—will get
   consensus on the format
 - Related topic: probably leave W-L as is (rather than Win Pct) within the cohort for same
   views (e.g. so that 1-0 shows as distinct from 2-0)
@@ -82,7 +82,7 @@ high number for new issue entry).*
 
 - *Created - Jan 19, 2026*
 - Technical write-up on current implementation: [here](RANKING.md)
-- Template for specifying test scenarios: [here](examples/tie-breaker%20scenario%20template.xlsx)
+- Template for specifying test scenarios: [here](resources/tie-breaker%20scenario%20template.xlsx)
 
 **#18** - Ability to configure and deploy for smaller, local tournaments [Rooze]
 

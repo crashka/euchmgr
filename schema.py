@@ -7,9 +7,11 @@ import re
 from peewee import (TextField, IntegerField, BooleanField, FloatField, ForeignKeyField,
                     DeferredForeignKey, OperationalError, DoesNotExist, fn)
 from playhouse.sqlite_ext import JSONField
+from flask_login import current_user, login_user, logout_user
+from werkzeug.security import generate_password_hash, check_password_hash
 
-from core import DEBUG, ImplementationError, LogicError
-from security import EuchmgrUser
+from core import DEBUG, log, ImplementationError, LogicError
+from security import EuchmgrUser, AuthenticationError
 from database import BaseModel
 
 DFLT_SEED_ROUNDS  = 8
@@ -131,6 +133,7 @@ class TournInfo(BaseModel):
     seed_rounds    = IntegerField(default=DFLT_SEED_ROUNDS)
     tourn_rounds   = IntegerField(default=DFLT_TOURN_ROUNDS)
     divisions      = IntegerField(default=DFLT_DIVISIONS)
+    dflt_pw_hash   = TextField(null=True)  # initial/default pw_hash for players
 
     # class variables
     inst: ClassVar[Self] = None  # singleton instance
@@ -245,12 +248,13 @@ class Player(BaseModel, EuchmgrUser):
     """Represents a player in the tournament, as well as a mobile (i.e. non-admin) user of
     the app.
     """
-    # required info
+    # identifying info
     first_name     = TextField()
     last_name      = TextField()
     nick_name      = TextField(unique=True)  # serves as player_name (defaults to last_name)
     reigning_champ = BooleanField(default=False)
     player_num     = IntegerField(unique=True, null=True)  # 1-based, must be contiguous
+    pw_hash        = TextField(null=True)    # default pw_hash (in TournInfo) is used, if null
     # seeding round
     seed_wins      = IntegerField(default=0)
     seed_losses    = IntegerField(default=0)
@@ -619,6 +623,44 @@ class Player(BaseModel, EuchmgrUser):
             if self.partner2 and self.partner2._dirty:
                 self.partner2.save()
         return super().save(*args, **kwargs)
+
+    def login(self, password: str) -> bool:
+        """See `EuchmgrUser` (in security.py).
+
+        Also see note about logging of password string in `AdminUser.login`.
+        """
+        if password and not isinstance(password, str):
+            log.info(f"login denied ({self.name}): invalid pw type {type(password)} "
+                     f"('{password}')")
+            raise AuthenticationError("Bad password specified")
+
+        if self.pw_hash:
+            if not check_password_hash(self.pw_hash, password):
+                log.info(f"login failed ({self.name}): bad password ('{password}')")
+                raise AuthenticationError("Bad password specified")
+        elif password:
+            # no outbound indication that no password is needed
+            log.info(f"login failed ({self.name}): bad password ('{password}')")
+            raise AuthenticationError("Bad password specified")
+
+        login_user(self)
+        log.info(f"login successful ({self.name})")
+        return True
+
+    def logout(self) -> bool:
+        """See `EuchmgrUser` (in security.py).
+        """
+        assert current_user == self
+        logout_user()
+
+    def setpass(self, password: str) -> None:
+        """See `EuchmgrUser` (in security.py).
+        """
+        pw_exists = bool(self.pw_hash)
+        self.pw_hash = generate_password_hash(password)
+        self.save()
+        save = "changed" if pw_exists else "saved"
+        log.info(f"password for user '{self.name}' {saved}")
 
 class PlayerRegister(Player):
     """Subclass of `Player` that represents the process of player registration process.

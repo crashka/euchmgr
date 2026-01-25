@@ -44,7 +44,7 @@ def ResourceFile(file_name: str) -> str:
 DEBUG = int(environ.get('EUCHMGR_DEBUG') or 0)
 
 # create logger (TODO: logging parameters belong in config file as well!!!)
-LOGGER_NAME  = 'euch'
+LOGGER_NAME  = 'euchmgr'
 LOG_FILE     = LOGGER_NAME + '.log'
 LOG_PATH     = os.path.join(LOG_DIR, LOG_FILE)
 LOG_FMTR     = logging.Formatter('%(asctime)s %(levelname)s [%(filename)s:%(lineno)s]: %(message)s')

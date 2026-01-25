@@ -31,10 +31,10 @@ from flask import (Flask, request, session, render_template, Response, abort, re
 from flask_session import Session
 from cachelib.file import FileSystemCache
 from werkzeug.utils import secure_filename
-from flask_login import current_user, login_user, logout_user
 
 from core import DATA_DIR, UPLOAD_DIR, log, ImplementationError
-from security import EuchmgrUser, ADMIN_USER, ADMIN_ID, AdminUser, EuchmgrLogin
+from security import (EuchmgrUser, ADMIN_USER, ADMIN_ID, AdminUser, EuchmgrLogin, current_user,
+                      AuthenticationError)
 from database import (DB_FILETYPE, db_init, db_name, db_reset, db_is_initialized, db_connect,
                       db_close, db_is_closed)
 from schema import (clear_schema_cache, TournStage, TOURN_INIT, ACTIVE_STAGES, TournInfo,
@@ -176,8 +176,25 @@ def create_app(config: object | Config = Config) -> Flask:
         if current_user.is_authenticated:
             return redirect(url_for('index'))
 
-        err_msg = "<br>".join(get_flashed_messages())
-        context = {'err_msg': err_msg}
+        username = None
+        err_msgs = []
+        # see if any secret parameters have been transmitted to us (see NOTE for `view` in
+        # mobile.py--we might want to encapsulate this into a shared mechanism!)
+        for msg in get_flashed_messages():
+            if m := re.fullmatch(r'(\w+)=(.+)', msg):
+                key, val = m.group(1, 2)
+                if key == 'username':
+                    username = val
+                else:
+                    raise ImplementationError(f"unexpected secret key '{key}' (value '{val}')")
+            else:
+                err_msgs.append(msg)
+        err_msg = "<br>".join(err_msgs)
+
+        context = {
+            'username': username,
+            'err_msg' : err_msg
+        }
         return render_login(context)
 
     @app.post("/login")
@@ -185,15 +202,25 @@ def create_app(config: object | Config = Config) -> Flask:
         """Log in as the specified user (player or admin).
         """
         username = request.form['username']
+        password = request.form['password']
         if username == ADMIN_USER:
             admin = AdminUser()
-            login_user(admin)
+            try:
+                admin.login(password)
+            except AuthenticationError as e:
+                flash(str(e))
+                return redirect(url_for('login_page'))
             return redirect(url_for('index'))
 
         player = Player.fetch_by_name(username)
         if not player:
             return render_error(400, "Bad Login", f"Invalid player name '{username}'")
-        login_user(player)
+        try:
+            player.login(password)
+        except AuthenticationError as e:
+            flash(str(e))
+            flash(f"username={username}")
+            return redirect(url_for('login_page'))
         # TEMP: need to make the routing device and/or context sensitive!!!
         assert is_mobile()
         return redirect('/mobile/')
@@ -204,7 +231,7 @@ def create_app(config: object | Config = Config) -> Flask:
         server database identification and/or connection state.
         """
         user = current_user.name
-        logout_user()
+        current_user.logout()
         #session.clear()  # REVISIT (coupled with revamp of /tourn)!!!
         flash(f"User \\\"{user}\\\" logged out")
         return redirect(url_for('login_page'))
@@ -268,8 +295,7 @@ def create_app(config: object | Config = Config) -> Flask:
 
         create_new = False
         err_msgs = []
-        # see if any secret parameters have been transmitted to us (see NOTE for `view` in
-        # mobile.py--we might want to encapsulate this into a shared mechanism!)
+        # see comment for same code in `login_page` (above)
         for msg in get_flashed_messages():
             if m := re.fullmatch(r'(\w+)=(.+)', msg):
                 key, val = m.group(1, 2)
@@ -730,6 +756,7 @@ def render_login(context: dict) -> str:
     base_ctx = {
         'title'     : APP_NAME,
         'logins'    : logins,
+        'username'  : None,  # context may contain override
         'admin_user': ADMIN_USER,
         'err_msg'   : None
     }

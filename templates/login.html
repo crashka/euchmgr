@@ -47,23 +47,29 @@
     <section class="login">
       <form action="/login" method="post">
         <p>
+          {% set sel_af = " autofocus" if not username else "" %}
           <label for="username">User:</label>
-          <select id="username" name="username" required>
-            {% if logins %}
-            {% set submit_attr = " disabled" %}
-            <option value="" disabled selected hidden>Select player...</option>
-            {% for login in logins %}
-            <option value="{{login[0]}}">{{login[1]}}</option>
-            {% endfor %}
-            {% else %}
+          <select id="username" name="username" required{{sel_af}}>
             {% set submit_attr = "" %}
+            {% if logins %}
+            {% if not username %}
+            <option value="" disabled selected hidden>Select player...</option>
+            {% set submit_attr = " disabled" %}
+            {% endif %} {# not username #}
+            {% for login in logins %}
+            {% set selected = " selected" if (username and login[0] == username) else "" %}
+            <option value="{{login[0]}}"{{selected}}>{{login[1]}}</option>
+            {% endfor %}
+            {% else %}  {# logins #}
             <option value="{{admin_user}}" selected>{{admin_user}}</option>
-            {% endif %}
+            {% endif %}  {# logins #}
           </select>
         </p>
         <p>
+          {% set pw_req = "" if logins else " required" %}
+          {% set pw_af = " autofocus" if username else "" %}
           <label for="password">Password:</label>
-          <input type="password" id="password" name="password">
+          <input type="password" id="password" name="password"{{pw_req}}{{pw_af}}>
         </p>
     </section>
     <section class="actions">

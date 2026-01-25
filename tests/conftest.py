@@ -11,7 +11,7 @@ from flask import Flask
 from flask.testing import FlaskClient
 
 from core import TEST_DIR
-from database import db_filepath, db_init, db_close, db_reset
+from database import db_filepath, db_init, db_close
 from schema import TournStage, clear_schema_cache
 from server import Config, create_app
 
@@ -231,9 +231,10 @@ def client(seed_bracket_app):
     app = seed_bracket_app
     yield app.test_client()
 
-def get_user_client(app: Flask, user: str) -> FlaskClient:
+def get_user_client(app: Flask, user: str, pw: str = "") -> FlaskClient:
     """Fake fixture, return authenticated client instance
     """
+    data = {'username': user, 'password': pw}
     client = app.test_client()
-    client.post("/login", data={'username': user}, follow_redirects=True)
+    client.post("/login", data=data, follow_redirects=True)
     return client

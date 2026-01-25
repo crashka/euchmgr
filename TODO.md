@@ -9,7 +9,7 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 
 ## Tasks
 
-- tests for posting scores
+- tests for score posting scenarios
 
 ## Features/Enhancements
 
@@ -43,8 +43,11 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 
 ## Framework
 
-- add passwords (admin and players)
-  - named admin users
+- auth/password management (admin and players)
+  - implement player password checking (two levels)
+  - add default player password to /tourn UI
+  - add change password to mobile (registration/user admin)
+- named admin users
 - merge application-level logging with flask logging
 - audit trailing (and/or snapshotting)?
   - created\_by/updated\_by metadata fields

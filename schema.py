@@ -634,8 +634,10 @@ class Player(BaseModel, EuchmgrUser):
                      f"('{password}')")
             raise AuthenticationError("Bad password specified")
 
-        if self.pw_hash:
-            if not check_password_hash(self.pw_hash, password):
+        tourn = TournInfo.get()
+        pw_hash = self.pw_hash or tourn.dflt_pw_hash
+        if pw_hash:
+            if not check_password_hash(pw_hash, password):
                 log.info(f"login failed ({self.name}): bad password ('{password}')")
                 raise AuthenticationError("Bad password specified")
         elif password:

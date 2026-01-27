@@ -163,6 +163,8 @@ class BaseModel(Model):
     updated_at = DateTimeField()
 
     def save(self, *args, **kwargs):
+        if not self._dirty:
+            return False  # this is what peewee does if no dirty fields
         if not self.updated_at:
             self.updated_at = self.created_at
         elif 'updated_at' not in self._dirty:

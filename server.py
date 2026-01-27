@@ -585,8 +585,10 @@ def update_tourn(form: dict) -> str:
     else:
         dflt_pw_hash = None
 
-    tourn.dates = dates
-    tourn.venue = venue
+    if dates != tourn.dates:
+        tourn.dates = dates
+    if venue != tourn.venue:
+        tourn.venue = venue
     if pw_upd:
         tourn.dflt_pw_hash = dflt_pw_hash  # might be None (to clear)
     nrecs = tourn.save()
@@ -599,6 +601,9 @@ def update_tourn(form: dict) -> str:
             assert dflt_pw_hash
             written = "value set"
         log.info(f"update_tourn: dflt_pw_hash {written}")
+        flash("Tournament information updated")
+    else:
+        flash("No updates specified")
 
     return redirect(url_for('tourn'))
 
@@ -802,16 +807,19 @@ def render_app(context: dict) -> str:
 def render_login(context: dict) -> str:
     """Identify the user (player or admin), with relevant security applied
     """
+    tourn = None
     logins = None
     if is_mobile():
         logins = get_logins()
         if not logins:
             return render_error(503, *err_txt['not_running'])
+        tourn = TournInfo.get()
 
     base_ctx = {
         'title'     : APP_NAME,
+        'tourn'     : tourn,  # if db connected (not needed for admin login)
         'logins'    : logins,
-        'username'  : None,  # context may contain override
+        'username'  : None,   # context may contain override
         'admin_user': ADMIN_USER,
         'err_msg'   : None
     }

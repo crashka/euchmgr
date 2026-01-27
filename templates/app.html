@@ -6,6 +6,7 @@
 
     <style>
      body {
+       min-height: calc(100vh - 1.0rem);
        width: max-content;
      }
      h2 {
@@ -54,7 +55,6 @@
      .login_info {
        float: right;
        text-align: right;
-       /*margin-right: 1.0rem;*/
        padding-top: 0.80rem;
      }
      .login_info span {
@@ -72,7 +72,9 @@
      }
      .view_body {
        position: relative;
-       width: 80rem;
+       width: 98vw;
+       min-width: 80rem;
+       max-width: 100rem;
      }
      .view_body h2 {
        position: absolute;
@@ -80,6 +82,7 @@
        cursor: pointer;
      }
      .tbl_wrapper {
+       min-height: calc(100vh - 13.5rem);
        /*display: none;*/
        visibility: hidden;
      }
@@ -163,23 +166,24 @@
             </tr>
           </thead>
         </table>
-        <form class="actions" action="{{view_path}}" method="post">
-          {% for val in buttons %}
-          <button value="{{val}}"{{btn_attr[loop.index0]}}>{{btn_lbl[loop.index0]}}</button>
-          {% endfor %}
-          {% if links %}
-          <span class="lnk_lbl">Display:</span>
-          {% for lnk in links %}
-          <a href="#" onclick="window.open('{{lnk[0]}}', '_blank')"">{{lnk[1]}}</a>
-          {% endfor %}
-          {% endif %}
-        </form>
       </div>
+      <form class="actions" action="{{view_path}}" method="post">
+        {% for val in buttons %}
+        <button value="{{val}}"{{btn_attr[loop.index0]}}>{{btn_lbl[loop.index0]}}</button>
+        {% endfor %}
+        {% if links %}
+        <span class="lnk_lbl">Display:</span>
+        {% for lnk in links %}
+        <a href="#" onclick="window.open('{{lnk[0]}}', '_blank')"">{{lnk[1]}}</a>
+        {% endfor %}
+        {% endif %}
+      </form>
     </section>
   </body>
 
   <script src="/static/jquery-3.7.1.min.js"></script>
   <script src="/static/datatables.min.js"></script>
+  <script src="/static/dataTables.scrollResize.min.js"></script>
   <script>
    $(function() {
      // add css and attributes
@@ -278,7 +282,8 @@
        rowId: '{{view_info.rowid_col}}',
        paging: false,
        scrollX: true,
-       scrollY: '35rem',
+       scrollY: '35.0rem',
+       scrollResize: true,
        //fixedColumns: {
        //  start: {{view_info.fixed_cols}}
        //},

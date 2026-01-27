@@ -7,14 +7,14 @@
     <style>
      body {
        width: max-content;
-       min-width: 80rem;
+       min-width: 45rem;
      }
      header {
        padding: 0.80rem 0.0rem;
      }
      header select {
        margin-left: 0.3rem;
-       padding: 0.15rem 0.2rem;
+       padding: 0.2rem 0.1rem;
      }
      h2 {
        margin-top: 0.5rem;
@@ -29,7 +29,7 @@
        display: inline-block;
      }
      .sel_tourn {
-       width: 12rem;
+       width: 13.0rem;
      }
      .login_info {
        float: right;
@@ -104,7 +104,7 @@
     <header>
       <form action="/tourn" method="post">
         <input type="hidden" name="submit_func" value="select_tourn">
-        <label>Select tournament:</label>
+        <label>Select Tournament:</label>
         <select name="tourn" class="sel_tourn" onchange="this.form.submit();">
           {% if new_tourn %}
           {% for tourn_name in tourn_sel %}

@@ -31,10 +31,11 @@ from flask import (Flask, request, session, render_template, Response, abort, re
 from flask_session import Session
 from cachelib.file import FileSystemCache
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash
 
 from core import DATA_DIR, UPLOAD_DIR, log, ImplementationError
-from security import (EuchmgrUser, ADMIN_USER, ADMIN_ID, AdminUser, EuchmgrLogin, current_user,
-                      AuthenticationError)
+from security import (current_user, DUMMY_PW_STR, EuchmgrUser, ADMIN_USER, ADMIN_ID, AdminUser,
+                      EuchmgrLogin, AuthenticationError)
 from database import (DB_FILETYPE, db_init, db_name, db_reset, db_is_initialized, db_connect,
                       db_close, db_is_closed)
 from schema import (clear_schema_cache, TournStage, TOURN_INIT, ACTIVE_STAGES, TournInfo,
@@ -324,7 +325,6 @@ def create_app(config: object | Config = Config) -> Flask:
             context = {
                 'tourn'    : tourn,
                 'view'     : View.TOURN,
-                'new_tourn': False,
                 'err_msg'  : err_msg
             }
             return render_tourn(context)
@@ -458,6 +458,7 @@ SUBMIT_FUNCS = {
     View.TOURN: [
         'select_tourn',
         'create_tourn',
+        'update_tourn',
         'pause_tourn'
     ],
     View.PLAYERS: [
@@ -515,6 +516,7 @@ def create_tourn(form: dict) -> str:
     tourn_name  = form.get('tourn_name')
     dates       = form.get('dates') or None
     venue       = form.get('venue') or None
+    dflt_pw     = form.get('dflt_pw') or None
     overwrite   = typecast(form.get('overwrite', ""))
     req_file    = request.files.get('roster_file')
     if not req_file:
@@ -523,10 +525,19 @@ def create_tourn(form: dict) -> str:
         roster_file = secure_filename(req_file.filename)
         roster_path = os.path.join(UPLOAD_DIR, roster_file)
         req_file.save(roster_path)
+        if dflt_pw:
+            dflt_pw_hash = generate_password_hash(dflt_pw)
+        else:
+            dflt_pw_hash = None
         try:
             assert not session.get('tourn')
             db_init(tourn_name, force=True)
-            tourn = tourn_create(dates=dates, venue=venue, force=overwrite)
+            attrs = {
+                'dates'       : dates,
+                'venue'       : venue,
+                'dflt_pw_hash': dflt_pw_hash
+            }
+            tourn = tourn_create(force=overwrite, **attrs)
             upload_roster(roster_path)
             tourn = TournInfo.get()
             session['tourn'] = tourn.name
@@ -549,6 +560,47 @@ def create_tourn(form: dict) -> str:
         'err_msg'    : err_msg
     }
     return render_tourn(context)
+
+def update_tourn(form: dict) -> str:
+    """Update tournament information (selected fields only) from form data.  Note that
+    this is called against the `tourn_info` form.
+    """
+    tourn_name = form.get('tourn_name')
+    tourn = TournInfo.get()
+    assert tourn.name == tourn_name
+    assert db_is_initialized()
+    assert db_name() == tourn_name
+
+    dates = form.get('dates') or None
+    venue = form.get('venue') or None
+    dflt_pw = form.get('dflt_pw') or None
+
+    pw_exists = bool(tourn.dflt_pw_hash)
+    if pw_exists:
+        pw_upd = dflt_pw != DUMMY_PW_STR
+    else:
+        pw_upd = bool(dflt_pw)
+    if pw_upd and dflt_pw:
+        dflt_pw_hash = generate_password_hash(dflt_pw)
+    else:
+        dflt_pw_hash = None
+
+    tourn.dates = dates
+    tourn.venue = venue
+    if pw_upd:
+        tourn.dflt_pw_hash = dflt_pw_hash  # might be None (to clear)
+    nrecs = tourn.save()
+    if nrecs > 0:
+        if not pw_upd:
+            written = "untouched" if dflt_pw_hash else "kept empty"
+        elif pw_exists:
+            written = "updated" if dflt_pw_hash else "cleared"
+        else:
+            assert dflt_pw_hash
+            written = "value set"
+        log.info(f"update_tourn: dflt_pw_hash {written}")
+
+    return redirect(url_for('tourn'))
 
 def pause_tourn(form: dict) -> str:
     """Disconnect server from database for current tournament.  Note that this is called
@@ -641,6 +693,7 @@ SEL_NEW = "(create new)"
 BUTTON_INFO = {
     'select_tourn'          : ("[Ceci n'existe pas]",         [None]),
     'create_tourn'          : ("Create Tournament",           [TOURN_INIT]),
+    'update_tourn'          : ("Update Tournament",           list(ACTIVE_STAGES)),
     'pause_tourn'           : ("Pause Tournament",            list(ACTIVE_STAGES)),
     'gen_player_nums'       : ("Generate Player Nums",        [TournStage.PLAYER_ROSTER,
                                                                TournStage.PLAYER_NUMS]),
@@ -700,8 +753,10 @@ def render_tourn(context: dict) -> str:
         'tourn_sel': get_tourns() + [SEL_SEP, SEL_NEW],
         'sel_sep'  : SEL_SEP,
         'sel_new'  : SEL_NEW,
-        'tourn'    : None,       # context may contain override
-        'err_msg'  : None,       # ditto
+        'dummy_pw' : DUMMY_PW_STR,
+        'tourn'    : None,   # context may contain override
+        'new_tourn': False,  # ditto
+        'err_msg'  : None,   # ditto
         'view_path': view,
         'buttons'  : buttons,
         'btn_lbl'  : btn_lbl,

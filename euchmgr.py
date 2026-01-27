@@ -74,17 +74,19 @@ def get_game_by_label(label: str) -> SeedGame | TournGame:
 # euchmgr functions #
 #####################
 
-def tourn_create(dates: str = None, venue: str = None, **kwargs) -> TournInfo:
-    """Create a tournament with specified name (must be unique).
-
-    Additional `kwargs` are passed on to `schema_create`
+def tourn_create(force: bool = False, **tourn_attrs) -> TournInfo:
+    """Create a tournament with its name specified by the currently-connected database
+    name (this is a little bit of a cheat to make the __main__ script for this module
+    work).  The `force` flag is passed on to the `schema_create` call.  `tourn_attrs`
+    represents the optional fields for the TournInfo record.
     """
-    schema_create(**kwargs)
+    schema_create(force=force)
 
-    info = {'name'       : db_name(),  # db_name is same as tournament name
-            'dates'      : dates,
-            'venue'      : venue,
-            'stage_compl': TournStage.TOURN_CREATE}
+    info = {'name'        : db_name(),  # see docheader
+            'dates'       : tourn_attrs.get('dates'),
+            'venue'       : tourn_attrs.get('venue'),
+            'dflt_pw_hash': tourn_attrs.get('dflt_pw_hash'),
+            'stage_compl' : TournStage.TOURN_CREATE}
     tourn = TournInfo.create(**info)
     return tourn
 

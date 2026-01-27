@@ -24,6 +24,8 @@ class AuthenticationError(RuntimeError):
 # Flask-Login stuff #
 #####################
 
+DUMMY_PW_STR = '[dummy pw str]'
+
 class EuchmgrUser(UserMixin):
     """Augment the flask_login mixin with admin awareness.
     """
@@ -116,8 +118,10 @@ class AdminUser(EuchmgrUser):
         logout_user()
 
     def setpass(self, password: str) -> None:
-        """See base class.
+        """See base class.  Admin logins are disabled if `password` is specified as
+        `None`.
         """
+        # TODO: enforce password policy (length, diversity, etc.) here!!!
         pw_file = DataFile(ADMIN_PW_FILE)
         file_exists = os.path.exists(pw_file)
         if password is None:

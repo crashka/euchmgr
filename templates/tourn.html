@@ -14,10 +14,11 @@
      }
      header select {
        margin-left: 0.3rem;
-       padding: 0.15rem 0.25rem;
+       padding: 0.15rem 0.2rem;
      }
      h2 {
        margin-top: 0.5rem;
+       margin-bottom: 0.5rem;
      }
      .err_blk {
        color: #D10000;
@@ -41,27 +42,52 @@
        color: mediumblue;
        cursor: pointer;
      }
-     .tourn label {
+     .tourn form p {
        display: inline-block;
-       min-width: 10.0rem;
-       text-align: right;
+       min-width: 8.0rem;
+       margin: 0.4rem 0.0rem;
+     }
+     .tourn form p.wide {
+       display: block;
+       margin: 0.8rem 0.0rem;
+     }
+     .tourn label {
+       display: block;
+       margin: 0.2rem 0.0rem;
+     }
+     .tourn label.inline {
+       display: inline-block;
+       margin-right: 0.3rem;
+       vertical-align: middle;
      }
      .tourn input {
-       margin-left: 0.3rem;
-       padding: 0.15rem 0.25rem;
+       padding: 0.15rem 0.3rem;
      }
      .tourn input[readonly] {
        border: thin solid grey;
        background-color: #F0F0F0;
      }
-     .tourn input[type="text"] {
-       width: 12rem;
+     .tourn input[type="text"],
+     .tourn input[type="password"] {
+       width: 13rem;
      }
      .tourn input[type="number"] {
        width: 3rem;
      }
+     .tourn input[type="file"] {
+       padding: 0.15rem 0.0rem;
+       vertical-align: middle;
+     }
+     .tourn input[type="checkbox"] {
+       margin: 0.0rem;
+       vertical-align: middle;
+     }
+     .opts {
+       margin-top: 1.5rem;
+     }
      .actions {
-       padding-top: 1.5rem;
+       display: inline-block;
+       margin-top: 1.5rem;
      }
      .actions button {
        margin-right: 0.8rem;
@@ -115,51 +141,68 @@
       {% set new = "New " if new_tourn else "" %}
       <h2>{{new}}Tournament Info</h2>
       <form action="/tourn" method="post" enctype="multipart/form-data">
-        {% set disabled = "" if new_tourn else " disabled" %}
         <input type="hidden" name="tourn_id" value="{{tourn.id}}">
-        <p>
-          <label>Name</label>:
+        <p class="wide">
+          <label>Name:</label>
           {% set hlp_msg = "required (must be unique)" %}
           {% set attrs = "required autofocus" if new_tourn else "readonly" %}
           <input name="tourn_name" type="text" value="{{tourn.name or ''}}"
                  placeholder="{{hlp_msg}}" {{attrs}}>
         </p>
-        <p>
-          <label>Dates</label>:
-          <input name="dates" type="text" value="{{tourn.dates or ''}}"{{disabled}}>
+        <p class="wide">
+          <label>Dates:</label>
+          <input name="dates" type="text" value="{{tourn.dates or ''}}">
         </p>
-        <p>
-          <label>Venue</label>:
-          <input name="venue" type="text" value="{{tourn.venue or ''}}"{{disabled}}>
+        <p class="wide">
+          <label>Venue:</label>
+          <input name="venue" type="text" value="{{tourn.venue or ''}}">
         </p>
-        <p>
-          <label>Rounds (seed)</label>:
-          <input name="seed_rounds" type="number" value="{{tourn.seed_rounds}}" disabled>
+        <div>
+          <p>
+            <label>Rounds (seed):</label>
+            <input name="seed_rounds" type="number" value="{{tourn.seed_rounds}}" disabled>
+          </p>
+          <p>
+            <label>Rounds (tourn):</label>
+            <input name="tourn_rounds" type="number" value="{{tourn.tourn_rounds}}" disabled>
+          </p>
+          <p>
+            <label>Divisions (tourn):</label>
+            <input name="divisions" type="number" value="{{tourn.divisions}}" disabled>
+          </p>
+        </div>
+        {% with tooltip = "Leave empty if player passwords are not required" %}
+        <p class="wide" title="{{tooltip}}">
+          <label>Default Player Password:</label>
+          {% set pw_str = dummy_pw if tourn.dflt_pw_hash else "" %}
+          <input name="dflt_pw" type="password" value="{{pw_str}}">
         </p>
-        <p>
-          <label>Rounds (tourn)</label>:
-          <input name="tourn_rounds" type="number" value="{{tourn.tourn_rounds}}" disabled>
-        </p>
-        <p>
-          <label>Divisions (tourn)</label>:
-          <input name="divisions" type="number" value="{{tourn.divisions}}" disabled>
-        </p>
-        <p>
-          <label>Upload Roster File</label>:
-          <input name="roster_file" type="file" value="" accept=".csv"{{disabled}}>
-        </p>
-        <p>
-          <label>Overwrite Existing</label>:
-          {% set checked = " checked" if overwrite else "" %}
-          <input type="checkbox" name="overwrite" value="yes"{{checked}}{{disabled}}>
-        </p>
-        <p class="actions">
+        {% endwith %}
+        {% if new_tourn %}
+        <div class="opts">
+          <p class="wide">
+            <label class="inline">Roster File:</label>
+            <input name="roster_file" type="file" value="" accept=".csv" required>
+          </p>
+          {% with tooltip = "Delete all data for existing tournament with the same name" %}
+          <p class="wide" title="{{tooltip}}">
+            <label class="inline">Overwrite Existing:</label>
+            {% set checked = " checked" if overwrite else "" %}
+            <input type="checkbox" name="overwrite" value="yes"{{checked}}>
+          </p>
+          {% endwith %}
+        </div>
+        {% endif %}  {# new_tourn #}
+        <div class="actions">
+          {% if new_tourn %}
           <button class="submit" value="{{buttons[1]}}"{{btn_attr[1]}}>{{btn_lbl[1]}}</button>
-          {% if not new_tourn  %}
+          <a class="reset" href="javascript:void(0);">[reset]</a>
+          {% else %}
           <button class="submit" value="{{buttons[2]}}"{{btn_attr[2]}}>{{btn_lbl[2]}}</button>
+          <button class="submit" value="{{buttons[3]}}"{{btn_attr[3]}}>{{btn_lbl[3]}}</button>
           <a class="cancel" href="./">[cancel]</a>
           {% endif %}
-        </p>
+        </div>
       </form>
     </section>
     {% endif %}  {# tourn #}
@@ -178,9 +221,15 @@
        name: "submit_func"
      });
 
-     // shortcuts (navigation)
+     // shortcuts (navigation) and local actions
      $('.login_info span').on('click', function() {
        window.location.href = "./";
+     });
+     $('a.reset').on('click', function() {
+       $('.tourn input:text').val("");
+       $('.tourn input:file').val("");
+       $('.tourn input:checkbox').prop("checked", false);
+       $('.tourn input:password').val("{{pw_str}}");
      });
 
      // error block

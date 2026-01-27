@@ -30,7 +30,7 @@ WORKDIR /app/
 COPY --from=build /app/venv /app/venv
 ENV PATH="/app/venv/bin:${PATH}"
 
-# TODO: mount ./log/ and ./data/ as volumes or bind mounts!!!
+# NOTE: `log` and `data` may be bind mounts in deployment
 RUN mkdir log data sessions uploads
 
 COPY requirements.txt *.py ./

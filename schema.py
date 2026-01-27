@@ -627,7 +627,7 @@ class Player(BaseModel, EuchmgrUser):
     def login(self, password: str) -> bool:
         """See `EuchmgrUser` (in security.py).
 
-        Also see note about logging of password string in `AdminUser.login`.
+        Also see note about logging of clear password in `AdminUser.login`.
         """
         if password and not isinstance(password, str):
             log.info(f"login denied ({self.name}): invalid pw type {type(password)} "
@@ -639,7 +639,7 @@ class Player(BaseModel, EuchmgrUser):
                 log.info(f"login failed ({self.name}): bad password ('{password}')")
                 raise AuthenticationError("Bad password specified")
         elif password:
-            # no outbound indication that no password is needed
+            # give no outbound indication that password is not needed
             log.info(f"login failed ({self.name}): bad password ('{password}')")
             raise AuthenticationError("Bad password specified")
 
@@ -652,15 +652,17 @@ class Player(BaseModel, EuchmgrUser):
         """
         assert current_user == self
         logout_user()
+        return True
 
     def setpass(self, password: str) -> None:
         """See `EuchmgrUser` (in security.py).
         """
+        # TODO: enforce password policy (length, diversity, etc.) here!!!
         pw_exists = bool(self.pw_hash)
         self.pw_hash = generate_password_hash(password)
         self.save()
         save = "changed" if pw_exists else "saved"
-        log.info(f"password for user '{self.name}' {saved}")
+        log.info(f"password {saved} for user '{self.name}'")
 
 class PlayerRegister(Player):
     """Subclass of `Player` that represents the process of player registration process.

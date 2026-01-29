@@ -8,7 +8,7 @@ from flask import Blueprint, session, render_template, abort
 
 from schema import GAME_PTS, TournInfo, Player, PlayerGame, Team, TeamGame, PostScore
 from euchmgr import Elevs, TeamGrps, rank_team_cohort, elevate_winners, get_game_by_label
-from chart import Numeric, round_val, fmt_tally
+from chart import fmt_pct
 
 ###################
 # blueprint stuff #
@@ -102,7 +102,7 @@ def tie_breaker(tourn: TournInfo) -> str:
             cohort_rpt = {}
             team_list = []
             pos_rpt[cohort_pos] = cohort_rpt
-            pos_info[cohort_pos] = f"Win Pct: {round(cohort_win_pct, 2)}%"
+            pos_info[cohort_pos] = f"Win Pct: {fmt_pct(cohort_win_pct)}"
             pos_cohort[cohort_pos] = team_list
             for tm in cohort:
                 games = tm.get_opps_games(cohort)  # list[TournGame]
@@ -132,7 +132,7 @@ def tie_breaker(tourn: TournInfo) -> str:
         'title'       : TIE_BREAKER,
         'tourn'       : tourn,
         'len'         : len,
-        'round'       : round,
+        'fmt_pct'     : fmt_pct,
         'div_rpt'     : div_rpt,
         'div_info'    : div_info,
         'div_cohort'  : div_cohort,

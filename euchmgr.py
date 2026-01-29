@@ -287,9 +287,9 @@ def validate_seed_round(finalize: bool = False) -> None:
         assert pl.seed_pts_against == stats['seed_pts_against']
 
         ngames  = stats['seed_wins'] + stats['seed_losses']
-        win_pct = rnd_pct(stats['seed_wins'] / ngames * 100.0)
+        win_pct = rnd_pct(stats['seed_wins'] / ngames)
         pts_tot = stats['seed_pts_for'] + stats['seed_pts_against']
-        pts_pct = rnd_pct(stats['seed_pts_for'] / pts_tot * 100.0)
+        pts_pct = rnd_pct(stats['seed_pts_for'] / pts_tot)
 
         # note that floating point values should have been similarly rounded, so using
         # `==` should be robust (for equivalence) as well as help validate consistent
@@ -608,9 +608,9 @@ def validate_tourn(finalize: bool = False) -> None:
         assert tm.tourn_pts_against == stats['tourn_pts_against']
 
         ngames  = stats['tourn_wins'] + stats['tourn_losses']
-        win_pct = rnd_pct(stats['tourn_wins'] / ngames * 100.0)
+        win_pct = rnd_pct(stats['tourn_wins'] / ngames)
         pts_tot = stats['tourn_pts_for'] + stats['tourn_pts_against']
-        pts_pct = rnd_pct(stats['tourn_pts_for'] / pts_tot * 100.0)
+        pts_pct = rnd_pct(stats['tourn_pts_for'] / pts_tot)
 
         # note that floating point values should have been similarly rounded, so using
         # `==` should be robust (for equivalence) as well as help validate consistent
@@ -658,8 +658,8 @@ def rank_team_cohort(teams: list[Team]) -> tuple[list[Team], dict[tuple], dict[d
             wl_factor = -1
         else:
             cohrt_tot_pts = st['team_pts'] + st['opp_pts']
-            cohrt_win_pct = rnd_pct(st['wins'] / st['games'] * 100.0)
-            cohrt_pts_pct = rnd_pct(st['team_pts'] / cohrt_tot_pts * 100.0)
+            cohrt_win_pct = rnd_pct(st['wins'] / st['games'])
+            cohrt_pts_pct = rnd_pct(st['team_pts'] / cohrt_tot_pts)
             data[tm.team_seed] = {
                 'wins'       : st['wins'],
                 'losses'     : cohrt_games - st['wins'],

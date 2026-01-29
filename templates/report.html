@@ -145,10 +145,22 @@
         <article class="team">
           <h4>{{team.team_name}} [{{team.div_seed}}]</h4>
           <p>
-            TB Rank: <span>{{team.div_rank}}</span>
-            Win-Loss: <span>{{team.div_tb_data['wins']}}-{{team.div_tb_data['losses']}}</span>
-            PF-PA: <span>{{team.div_tb_data['pts_for']}}-{{team.div_tb_data['pts_against']}}</span>
-            Pts Pct (total): <span>{{round(team.tourn_pts_pct, 2)}}%</span>
+            TB Rank:
+            <span>
+              {{team.div_rank}}
+            </span>
+            Win-Loss (cohort):
+            <span>
+              {{team.div_tb_data['wins']}}-{{team.div_tb_data['losses']}}
+            </span>
+            Pts Pct (cohort):
+            <span>
+              {{fmt_pct(team.div_tb_pts_pct)|safe}}
+            </span>
+            Pts Pct (total):
+            <span>
+              {{fmt_pct(team.tourn_pts_pct)|safe}}
+            </span>
           </p>
           <table>
             <thead>

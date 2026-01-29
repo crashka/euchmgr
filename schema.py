@@ -35,7 +35,7 @@ BRACKET_NAME = {
 
 # hard-wired floating point precision (depending on field type), helpful for neater
 # display as well as equivalence determination (without additional rounding)
-rnd_pct = lambda x: round(x, 3)
+rnd_pct = lambda x: round(x, 5)
 rnd_avg = lambda x: round(x, 2)
 
 # stage values are chronologically sequenced
@@ -1022,8 +1022,8 @@ class SeedGame(BaseModel):
 
             ngames = player.seed_wins + player.seed_losses
             totpts = player.seed_pts_for + player.seed_pts_against
-            player.seed_win_pct = rnd_pct(player.seed_wins / ngames * 100.0)
-            player.seed_pts_pct = rnd_pct(player.seed_pts_for / totpts * 100.0)
+            player.seed_win_pct = rnd_pct(player.seed_wins / ngames)
+            player.seed_pts_pct = rnd_pct(player.seed_pts_for / totpts)
             upd += player.save()
 
         return upd
@@ -1103,6 +1103,9 @@ EMPTY_TEAM_STATS = {
     'tourn_pts_for'    : None,
     'tourn_pts_against': None
 }
+
+# special (i.e. hack) value representing n/a (must be a float)
+PTS_PCT_NA = -1.0
 
 class Team(BaseModel):
     """
@@ -1283,6 +1286,17 @@ class Team(BaseModel):
         if not self.div_tb_data:
             return None
         return f"{self.div_tb_data['pts_for']}-{self.div_tb_data['pts_against']}"
+
+    @property
+    def div_tb_pts_pct(self) -> float | None:
+        """Tie-breaker (head-to-head) points percentage (points-for over total points)
+        """
+        if not self.div_tb_data:
+            return None
+        tb_pts_tot = self.div_tb_data['pts_for'] + self.div_tb_data['pts_against']
+        if tb_pts_tot == 0.0:
+            return PTS_PCT_NA
+        return rnd_pct(self.div_tb_data['pts_for'] / tb_pts_tot)
 
     @property
     def div_rank_final(self, annotated: bool = False) -> int | str:
@@ -1570,8 +1584,8 @@ class TournGame(BaseModel):
 
             ngames = team.tourn_wins + team.tourn_losses
             totpts = team.tourn_pts_for + team.tourn_pts_against
-            team.tourn_win_pct = rnd_pct(team.tourn_wins / ngames * 100.0)
-            team.tourn_pts_pct = rnd_pct(team.tourn_pts_for / totpts * 100.0)
+            team.tourn_win_pct = rnd_pct(team.tourn_wins / ngames)
+            team.tourn_pts_pct = rnd_pct(team.tourn_pts_for / totpts)
             upd += team.save()
 
         return upd

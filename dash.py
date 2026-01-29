@@ -7,7 +7,7 @@ from flask import Blueprint, session, render_template, abort
 
 from database import now_str
 from schema import GAME_PTS, TournInfo, Player, PlayerGame, Team, TeamGame, PartnerPick
-from chart import Numeric, round_val, fmt_tally
+from chart import Numeric, fmt_pct, fmt_tally
 
 #################
 # utility stuff #
@@ -45,7 +45,7 @@ def fmt_dash_stat(val: DashStat, prev_val: DashStat = UNDEF, no_style: bool = Fa
     if prev_val == UNDEF or no_style:
         # no previous reference is treated as no change, no styling
         if isinstance(val, float):
-            return f"{round_val(val)}%"
+            return f"{fmt_pct(val)}"
         elif isinstance(val, int):
             return str(val)
         assert isinstance(val, str)
@@ -53,14 +53,14 @@ def fmt_dash_stat(val: DashStat, prev_val: DashStat = UNDEF, no_style: bool = Fa
     elif prev_val is None:
         # previously empty represents changed value
         if isinstance(val, float):
-            return f"<b>{round_val(val)}%</b>"
+            return f"<b>{fmt_pct(val)}</b>"
         return f"<b>{val}</b>"
 
     if isinstance(val, float):
         assert isinstance(prev_val, float)
-        if round_val(val) == round_val(prev_val):
-            return f"{round_val(val)}%"
-        return f"<b>{round_val(val)}%</b>"
+        if fmt_pct(val) == fmt_pct(prev_val):
+            return f"{fmt_pct(val)}"
+        return f"<b>{fmt_pct(val)}</b>"
     elif isinstance(val, int):
         assert isinstance(prev_val, int)
         if val == prev_val:
@@ -415,7 +415,7 @@ def rr_dash(tourn: TournInfo) -> str:
                     tm.div_pos_str,
                     tm.tourn_pts_pct,
                     tm.div_tb_win_rec,
-                    tm.div_tb_pts_rec,
+                    tm.div_tb_pts_pct,
                     tm.div_rank_final
                 )
                 stats_fmt[tm_id] = (
@@ -452,7 +452,7 @@ def rr_dash(tourn: TournInfo) -> str:
                 tm.div_pos_str,
                 tm.tourn_pts_pct,
                 tm.div_tb_win_rec,
-                tm.div_tb_pts_rec,
+                tm.div_tb_pts_pct,
                 tm.div_rank_final
             )
             stats_fmt[tm_id] = (

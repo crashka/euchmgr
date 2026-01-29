@@ -40,7 +40,7 @@ def fmt_score(pts: int) -> str:
     """
     # special case for byes (no markup)
     if pts == -1:
-        return '-'
+        return '&ndash;'
 
     ret = str(pts)
     if pts >= GAME_PTS:

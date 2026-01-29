@@ -22,7 +22,7 @@ def fmt_dash_score(pts: int, prev_pts: int = -1) -> str:
     """
     # special case for byes (no markup)
     if pts == -1:
-        return '-'
+        return '&ndash;'
 
     ret = str(pts)
     #if pts >= GAME_PTS:
@@ -246,7 +246,7 @@ def sd_dash(tourn: TournInfo) -> str:
                     mvmt[pl_num] = str(rank_diff)
                     colcls[pl_num] = COLCLS_DOWN
             if pl_num not in mvmt:
-                mvmt[pl_num] = '-'
+                mvmt[pl_num] = '&ndash;'
                 colcls[pl_num] = ''
         else:
             for rnd, cur_pts in team_pts[pl_num].items():
@@ -439,7 +439,7 @@ def rr_dash(tourn: TournInfo) -> str:
                     mvmt[tm_id] = str(rank_diff)
                     colcls[tm_id] = COLCLS_DOWN
             if tm_id not in mvmt:
-                mvmt[tm_id] = '-'
+                mvmt[tm_id] = '&ndash;'
                 colcls[tm_id] = ''
         else:
             for rnd, cur_pts in team_pts[tm_id].items():

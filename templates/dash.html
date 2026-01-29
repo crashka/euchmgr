@@ -210,7 +210,7 @@
               <td class="">{{stats_fmt[pl.player_num][1]|safe}}</td>
               <td class="">{{stats_fmt[pl.player_num][2]|safe}}</td>
               <td class="vert_sect">{{stats_fmt[pl.player_num][3]|safe}}</td>
-              <td class="">{{mvmt[pl.player_num]}}</td>
+              <td class="">{{mvmt[pl.player_num]|safe}}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -271,7 +271,7 @@
               <td class="vert_sect">{{stats_fmt[tm.id][3]|safe}}</td>
               <td class="">{{stats_fmt[tm.id][4]|safe}}</td>
               <td class="vert_sect">{{stats_fmt[tm.id][5]|safe}}</td>
-              <td class="">{{mvmt[tm.id]}}</td>
+              <td class="">{{mvmt[tm.id]|safe}}</td>
             </tr>
             {% endfor %}
           </tbody>

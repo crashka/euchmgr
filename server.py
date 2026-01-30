@@ -231,10 +231,10 @@ def create_app(config: object | Config = Config) -> Flask:
         """Log out the current user.  Note that this call, for admins, does not reset the
         server database identification and/or connection state.
         """
-        user = current_user.name
-        current_user.logout()
-        #session.clear()  # REVISIT (coupled with revamp of /tourn)!!!
-        flash(f"User \\\"{user}\\\" logged out")
+        if current_user.is_authenticated:
+            user = current_user.name
+            current_user.logout()
+            flash(f"User \\\"{user}\\\" logged out")
         return redirect(url_for('login_page'))
 
     #################
@@ -274,6 +274,9 @@ def create_app(config: object | Config = Config) -> Flask:
     def view() -> str:
         """Render the requested view directly.
         """
+        if not current_user.is_authenticated:
+            return redirect(url_for('login_page'))
+
         if is_mobile():
             return render_error(403, desc="Mobile access unauthorized")
 
@@ -291,6 +294,9 @@ def create_app(config: object | Config = Config) -> Flask:
     def tourn() -> str:
         """View used to manage tournament information, as well as create new tournaments.
         """
+        if not current_user.is_authenticated:
+            return redirect(url_for('login_page'))
+
         if is_mobile():
             return render_error(403, desc="Mobile access unauthorized")
 
@@ -360,6 +366,8 @@ def create_app(config: object | Config = Config) -> Flask:
         """Process submitted form, switch on ``submit_func``, which is validated against
         paths and values in ``SUBMIT_FUNCS``
         """
+        if not current_user.is_authenticated:
+            abort(401, f"Not authenticated")
         func = request.form['submit_func']
         view = request.path
         if view not in SUBMIT_FUNCS:
@@ -368,6 +376,7 @@ def create_app(config: object | Config = Config) -> Flask:
             abort(400, f"Submit func '{func}' not registered for {view}")
         return globals()[func](request.form)
 
+    # end of `def login_page()`
     return app
 
 ##############

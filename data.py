@@ -9,6 +9,7 @@ from ckautils import typecast
 from peewee import IntegrityError
 from flask import Blueprint, request
 
+from security import login_required
 from schema import TournStage, TournInfo, Player, SeedGame, Team, TournGame
 
 ###################
@@ -47,6 +48,7 @@ pl_layout = [
 ]
 
 @data.get("/players")
+@login_required
 def get_players() -> dict:
     """
     """
@@ -59,6 +61,7 @@ def get_players() -> dict:
     return ajax_data(pl_data)
 
 @data.post("/players")
+@login_required
 def post_players() -> dict:
     """
     """
@@ -104,6 +107,7 @@ sg_layout = [
 ]
 
 @data.get("/seeding")
+@login_required
 def get_seeding() -> dict:
     """
     """
@@ -116,6 +120,7 @@ def get_seeding() -> dict:
     return ajax_data(sg_data)
 
 @data.post("/seeding")
+@login_required
 def post_seeding() -> dict:
     """Post scrores to seeding round game.
     """
@@ -168,6 +173,7 @@ pt_layout = [
 ]
 
 @data.get("/partners")
+@login_required
 def get_partners() -> dict:
     """Ajax call to load datatable for partners view.
     """
@@ -184,6 +190,7 @@ def get_partners() -> dict:
     return ajax_data(pt_data)
 
 @data.post("/partners")
+@login_required
 def post_partners() -> dict:
     """Handle POST of partner pick data--the entire row is submitted, but we only look at
     the `id` and `picks_info` fields.
@@ -276,6 +283,7 @@ tm_layout = [
 ]
 
 @data.get("/teams")
+@login_required
 def get_teams() -> dict:
     """
     """
@@ -288,6 +296,7 @@ def get_teams() -> dict:
     return ajax_data(tm_data)
 
 @data.post("/teams")
+@login_required
 def post_teams() -> dict:
     """
     """
@@ -334,6 +343,7 @@ tg_layout = [
 ]
 
 @data.get("/round_robin")
+@login_required
 def get_round_robin() -> dict:
     """
     """
@@ -346,6 +356,7 @@ def get_round_robin() -> dict:
     return ajax_data(tg_data)
 
 @data.post("/round_robin")
+@login_required
 def post_round_robin() -> dict:
     """
     """

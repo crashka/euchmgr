@@ -83,7 +83,6 @@
      }
      .tbl_wrapper {
        min-height: calc(100vh - 13.5rem);
-       /*display: none;*/
        visibility: hidden;
      }
      #view_tbl {
@@ -316,7 +315,6 @@
        ],
        order: [[{{view_info.tbl_order}}, 'asc']],
        initComplete: function(settings, json) {
-         //$(".tbl_wrapper").css('display', 'block');
          $(".tbl_wrapper").css('visibility', 'visible');
          table.columns.adjust().draw();
        }

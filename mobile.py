@@ -244,10 +244,13 @@ ACTIONS = [
     'pick_partner'
 ]
 
+
 @mobile.post("/")
 def submit() -> str:
     """Handle post action
     """
+    if not current_user.is_authenticated:
+        abort(403, f"Not authenticated")
     if 'action' not in request.form:
         abort(400, "Invalid request, no action specified")
     action = request.form['action']

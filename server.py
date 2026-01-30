@@ -441,7 +441,7 @@ VIEW_INFO = {
 }
 
 STAGE_MAPPING = [
-    (TournStage.TEAM_RANKS,    View.TEAMS),
+    (TournStage.TEAM_RANKS,    View.ROUND_ROBIN),
     (TournStage.TOURN_RESULTS, View.ROUND_ROBIN),
     (TournStage.TEAM_SEEDS,    View.TEAMS),
     (TournStage.PARTNER_PICK,  View.PARTNERS),
@@ -709,17 +709,14 @@ BUTTON_INFO = {
     'create_tourn'          : ("Create Tournament",           [TOURN_INIT]),
     'update_tourn'          : ("Update Tournament",           list(ACTIVE_STAGES)),
     'pause_tourn'           : ("Pause Tournament",            list(ACTIVE_STAGES)),
-    'gen_player_nums'       : ("Generate Player Nums",        [TournStage.PLAYER_ROSTER,
-                                                               TournStage.PLAYER_NUMS]),
+    'gen_player_nums'       : ("Generate Player Nums",        [TournStage.PLAYER_ROSTER]),
     'gen_seed_bracket'      : ("Create Seeding Bracket",      [TournStage.PLAYER_NUMS]),
-    'fake_seed_results'     : ("Generate Fake Results",       [TournStage.SEED_BRACKET,
-                                                               TournStage.SEED_RESULTS]),
+    'fake_seed_results'     : ("Generate Fake Results",       [TournStage.SEED_BRACKET]),
     'tabulate_seed_results' : ("Tabulate Results",            [TournStage.SEED_RESULTS]),
     'fake_partner_picks'    : ("Generate Fake Picks",         [TournStage.SEED_RANKS]),
     'comp_team_seeds'       : ("Compute Team Seeds",          [TournStage.PARTNER_PICK]),
     'gen_tourn_brackets'    : ("Create Round Robin Brackets", [TournStage.TEAM_SEEDS]),
-    'fake_tourn_results'    : ("Generate Fake Results",       [TournStage.TOURN_BRACKET,
-                                                               TournStage.TOURN_RESULTS]),
+    'fake_tourn_results'    : ("Generate Fake Results",       [TournStage.TOURN_BRACKET]),
     'tabulate_tourn_results': ("Tabulate Results",            [TournStage.TOURN_RESULTS])
 }
 

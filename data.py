@@ -11,6 +11,7 @@ from flask import Blueprint, request
 
 from security import login_required
 from schema import TournStage, TournInfo, Player, SeedGame, Team, TournGame
+from euchmgr import compute_player_ranks, compute_team_ranks
 
 ###################
 # blueprint stuff #
@@ -140,6 +141,7 @@ def post_seeding() -> dict:
         if game.winner:
             game.update_player_stats()
             game.insert_player_games()
+            compute_player_ranks()
             sg_props = {prop: getattr(game, prop) for prop in sg_addl_props}
             sg_data = game.__data__ | sg_props
     except RuntimeError as e:
@@ -376,6 +378,7 @@ def post_round_robin() -> dict:
         if game.winner:
             game.update_team_stats()
             game.insert_team_games()
+            compute_team_ranks()
             tg_props = {prop: getattr(game, prop) for prop in tg_addl_props}
             tg_data = game.__data__ | tg_props
     except RuntimeError as e:

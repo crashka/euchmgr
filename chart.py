@@ -119,21 +119,26 @@ def sd_bracket(tourn: TournInfo) -> str:
     rnd_byes = tourn.players % 4
 
     matchups = {}  # key sequence: rnd, tbl -> matchup_html
-    labels = {}
+    labels   = {}
+    complete = {}
     sg_iter = SeedGame.iter_games(include_byes=True)
     for sg in sg_iter:
         rnd = sg.round_num
         tbl = sg.table_num
         if rnd not in matchups:
             matchups[rnd] = {}
-            labels[rnd] = {}
+            labels[rnd]   = {}
+            complete[rnd] = {}
         assert tbl not in matchups[rnd]
         assert tbl not in labels[rnd]
+        assert tbl not in complete[rnd]
         labels[rnd][tbl] = sg.label
+        complete[rnd][tbl] = False
         if tbl:
             if sg.winner:
                 tm1_str = f"{sg.team_tags[0]}{SPC(3)}<u class='u2'>{PTS(sg.team1_pts)}</u>"
                 tm2_str = f"{sg.team_tags[1]}{SPC(3)}<u class='u2'>{PTS(sg.team2_pts)}</u>"
+                complete[rnd][tbl] = True
             else:
                 tm1_str = f"{sg.team_tags[0]}{SPC(3)}<u class='u2'>{SPC(5)}</u>"
                 tm2_str = f"{sg.team_tags[1]}{SPC(3)}<u class='u2'>{SPC(5)}</u>"
@@ -154,6 +159,7 @@ def sd_bracket(tourn: TournInfo) -> str:
         'rnd_byes'  : rnd_byes,
         'matchups'  : matchups,
         'labels'    : labels,
+        'complete'  : complete,
         'bold_color': '#555555'
     }
     return render_chart(context)
@@ -233,7 +239,8 @@ def rr_brackets(tourn: TournInfo) -> str:
 
     # key sequence for sub-dict: rnd, tbl -> matchup_html
     matchups = {div: {} for div in div_list}
-    labels = {div: {} for div in div_list}
+    labels   = {div: {} for div in div_list}
+    complete = {div: {} for div in div_list}
     tg_iter = TournGame.iter_games(include_byes=True)
     for tg in tg_iter:
         div = tg.div_num
@@ -241,14 +248,18 @@ def rr_brackets(tourn: TournInfo) -> str:
         tbl = tg.table_num
         if rnd not in matchups[div]:
             matchups[div][rnd] = {}
-            labels[div][rnd] = {}
+            labels[div][rnd]   = {}
+            complete[div][rnd] = {}
         assert tbl not in matchups[div][rnd]
         assert tbl not in labels[div][rnd]
+        assert tbl not in complete[div][rnd]
         labels[div][rnd][tbl] = tg.label
+        complete[div][rnd][tbl] = False
         if tbl:
             if tg.winner:
                 tm1_str = f"{tg.team_tags[0]}{SPC(3)}<u class='u2'>{PTS(tg.team1_pts)}</u>"
                 tm2_str = f"{tg.team_tags[1]}{SPC(3)}<u class='u2'>{PTS(tg.team2_pts)}</u>"
+                complete[div][rnd][tbl] = True
             else:
                 tm1_str = f"{tg.team_tags[0]}{SPC(3)}<u class='u2'>{SPC(5)}</u>"
                 tm2_str = f"{tg.team_tags[1]}{SPC(3)}<u class='u2'>{SPC(5)}</u>"
@@ -271,6 +282,7 @@ def rr_brackets(tourn: TournInfo) -> str:
         'div_byes'  : div_byes,
         'matchups'  : matchups,
         'labels'    : labels,
+        'complete'  : complete,
         'bold_color': '#555555'
     }
     return render_chart(context)

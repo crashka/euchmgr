@@ -28,6 +28,8 @@ fi
 set -x
 
 docker run --name "${IMAGE}${SFX}" -d -p ${PORT}:5050 \
+       --hostname "${IMAGE}${SFX}" \
+       --mount type=bind,src=/var/docker/app/config,dst=/app/config \
        --mount type=bind,src=/var/docker/app${INST}/data,dst=/app/data \
        --mount type=bind,src=/var/docker/app${INST}/log,dst=/app/log \
        "${IMAGE}"

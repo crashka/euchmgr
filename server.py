@@ -688,7 +688,7 @@ def tabulate_tourn_results(form: dict) -> str:
     """
     validate_tourn(finalize=True)
     compute_team_ranks(finalize=True)
-    return render_view(View.TEAMS)
+    return render_view(View.ROUND_ROBIN)
 
 #############
 # renderers #

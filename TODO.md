@@ -22,6 +22,7 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 
 ## Bugs/Nits
 
+- invalidate player sessions when switching (and pausing?) tournaments
 - don't overwrite existing scores from `PostScore`
 - add transaction boundaries to euchmgr.py
 - neatly flag and/or rectify duplicate player nick names

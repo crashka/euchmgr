@@ -1645,6 +1645,34 @@ class TournGame(BaseModel):
                     self.winner = None
         return super().save(*args, **kwargs)
 
+###############
+# PlayoffGame #
+###############
+
+class PlayoffGame(BaseModel):
+    """
+    """
+    # required info
+    bracket        = TextField()              # "sf" or "fn"
+    matchup_num    = IntegerField()
+    game_num       = IntegerField()
+    label          = TextField(unique=True)   # {brckt}-{mtchup}-{gm}
+    team1          = ForeignKeyField(Team, column_name='team1_id')
+    team2          = ForeignKeyField(Team, column_name='team2_id')
+    team1_name     = TextField()              # denorm
+    team2_name     = TextField()              # denorm
+    team1_div_rank = IntegerField()
+    team2_div_rank = IntegerField()
+    # results
+    team1_pts      = IntegerField(null=True)
+    team2_pts      = IntegerField(null=True)
+    winner         = TextField(null=True)     # team name
+
+    class Meta:
+        indexes = (
+            (('bracket', 'matchup_num', 'game_num'), True),
+        )
+
 ##############
 # PlayerGame #
 ##############
@@ -1653,7 +1681,7 @@ class PlayerGame(BaseModel):
     """Denormalization of SeedGame (and possibly TournGame data), for use in computing
     stats, determining head-to-head match-ups, etc.
     """
-    bracket        = TextField()            # "seed", "tourn", etc.
+    bracket        = TextField()            # "sd" (or "rr", etc. if tabulating for players)
     round_num      = IntegerField()
     game_label     = TextField()            # sd-{rnd}-{tbl}, rr-{div}-{rnd}-{tbl}, etc.
     player         = ForeignKeyField(Player, field='player_num', column_name='player_num')
@@ -1829,7 +1857,8 @@ class PostScore(BaseModel):
 # schema_create #
 #################
 
-ALL_MODELS = [TournInfo, Player, SeedGame, Team, TournGame, PlayerGame, TeamGame, PostScore]
+ALL_MODELS = [TournInfo, Player, SeedGame, Team, TournGame, PlayoffGame, PlayerGame,
+              TeamGame, PostScore]
 
 def schema_create(models: list[BaseModel | str] | str = None, force = False) -> None:
     """Create tables for specified models (list of objects or comma-separated list of

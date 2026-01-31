@@ -13,9 +13,11 @@ from flask_login import current_user
 from ckautils import typecast
 
 from core import ImplementationError
-from schema import (GAME_PTS, Bracket, TournStage, TournInfo, Player, PlayerRegister,
-                    PartnerPick, SeedGame, Team, TournGame, PostScore, ScoreAction)
+from schema import (GAME_PTS, PTS_PCT_NA, Bracket, TournStage, TournInfo, Player,
+                    PlayerRegister, PartnerPick, SeedGame, Team, TournGame, PostScore,
+                    ScoreAction)
 from euchmgr import compute_player_ranks, compute_team_ranks, get_bracket, get_game_by_label
+from chart import fmt_pct
 
 ###################
 # blueprint stuff #
@@ -100,20 +102,20 @@ def post_info(post: PostScore, team_idx: int = 0) -> str:
     return f"{poster} {action} a score of '{score}'"
 
 def get_leaderboard(bracket: str, div: int = None) -> list[tuple[int, str, str, str, str]]:
-    """Return tuples of (id, player/team tag, W-L, PF-PA, rank) ordered by rank.  `div`
+    """Return tuples of (id, player/team tag, W-L, pts_pct, rank) ordered by rank.  `div`
     must be specified for Bracket.TOURN.
     """
     if bracket == Bracket.SEED:
         pl_list = list(Player.iter_players(by_rank=True))
         return [(pl.id, pl.player_tag, fmt_rec(pl.seed_wins, pl.seed_losses),
-                 fmt_rec(pl.seed_pts_for, pl.seed_pts_against), pl.player_rank or "")
+                 fmt_pct(pl.seed_pts_pct or PTS_PCT_NA), pl.player_rank or "")
                 for pl in pl_list]
     else:
         assert bracket == Bracket.TOURN
         assert div
         tm_list = list(Team.iter_teams(div=div, by_rank=True))
         return [(tm.id, tm.team_tag, fmt_rec(tm.tourn_wins, tm.tourn_losses),
-                 fmt_rec(tm.tourn_pts_for, tm.tourn_pts_against), tm.div_rank or "")
+                 fmt_pct(tm.tourn_pts_pct or PTS_PCT_NA), tm.div_rank or "")
                 for tm in tm_list]
 
 def update_rankings(bracket: str) -> bool:
@@ -585,7 +587,7 @@ INFO_FIELDS = {
         UserInfo("plyr_name",  "med",  "Name",   TournStage.PLAYER_NUMS),
         UserInfo("plyr_num",   "",     "Num",    TournStage.PLAYER_NUMS),
         UserInfo("win_rec_sd", "",     "W-L",    TournStage.SEED_BRACKET),
-        UserInfo("pts_rec_sd", "",     "PF-PA",  TournStage.SEED_BRACKET),
+        UserInfo("pts_pct_sd", "",     "Pts %",  TournStage.SEED_BRACKET),
         UserInfo("seed_rank",  "",     "Rank",   TournStage.SEED_BRACKET)
     ],
     PHASE_PARTNERS: [
@@ -600,7 +602,7 @@ INFO_FIELDS = {
         UserInfo("div_num",    "",     "Div",    TournStage.TOURN_TEAMS),
         UserInfo("div_seed",   "",     "Seed",   TournStage.TOURN_TEAMS),
         UserInfo("win_rec_rr", "",     "W-L",    TournStage.TOURN_BRACKET),
-        UserInfo("pts_rec_rr", "",     "PF-PA",  TournStage.TOURN_BRACKET),
+        UserInfo("pts_pct_rr", "",     "Pts %",  TournStage.TOURN_BRACKET),
         UserInfo("div_rank",   "",     "Rank",   TournStage.TOURN_BRACKET)
     ]
 }
@@ -632,9 +634,9 @@ def render_mobile(context: dict, view: str = VIEW_INDEX) -> str:
     team_idx    = None
     cur_pick    = None
     win_rec_sd  = None
-    pts_rec_sd  = None
+    pts_pct_sd  = None
     win_rec_rr  = None
-    pts_rec_rr  = None
+    pts_pct_rr  = None
     ref_score   = None
     opp_idx     = None
     team_tag    = None
@@ -653,20 +655,20 @@ def render_mobile(context: dict, view: str = VIEW_INDEX) -> str:
         cur_game   = team.current_game
         team_idx   = cur_game.team_idx(team) if cur_game else None
         win_rec_sd = fmt_rec(player.seed_wins, player.seed_losses)
-        pts_rec_sd = fmt_rec(player.seed_pts_for, player.seed_pts_against)
+        pts_pct_sd = fmt_pct(player.seed_pts_pct)
         win_rec_rr = fmt_rec(team.tourn_wins, team.tourn_losses)
-        pts_rec_rr = fmt_rec(team.tourn_pts_for, team.tourn_pts_against)
+        pts_pct_rr = fmt_pct(team.tourn_pts_pct)
     elif tourn.stage_start >= TournStage.PARTNER_PICK:
         cur_phase  = PHASE_PARTNERS
         cur_pick   = PartnerPick.current_pick()
         win_rec_sd = fmt_rec(player.seed_wins, player.seed_losses)
-        pts_rec_sd = fmt_rec(player.seed_pts_for, player.seed_pts_against)
+        pts_pct_sd = fmt_pct(player.seed_pts_pct)
     elif tourn.stage_start >= TournStage.SEED_BRACKET:
         cur_phase  = PHASE_SEEDING
         cur_game   = player.current_game
         team_idx   = cur_game.team_idx(player) if cur_game else None
         win_rec_sd = fmt_rec(player.seed_wins, player.seed_losses)
-        pts_rec_sd = fmt_rec(player.seed_pts_for, player.seed_pts_against)
+        pts_pct_sd = fmt_pct(player.seed_pts_pct)
     elif tourn.stage_start >= TournStage.PLAYER_NUMS:
         cur_phase  = PHASE_REGISTER
 
@@ -710,7 +712,7 @@ def render_mobile(context: dict, view: str = VIEW_INDEX) -> str:
             player.nick_name,
             player.player_num,
             win_rec_sd,
-            pts_rec_sd,
+            pts_pct_sd,
             player.player_rank
         ]
     if display_phase == PHASE_PARTNERS:
@@ -730,7 +732,7 @@ def render_mobile(context: dict, view: str = VIEW_INDEX) -> str:
                 team.div_num,
                 team.div_seed,
                 win_rec_rr,
-                pts_rec_rr,
+                pts_pct_rr,
                 team.div_rank
             ]
         else:

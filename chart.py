@@ -21,7 +21,9 @@ def fmt_pct(val: float) -> str:
     """Provide consistent formatting for percentage values (appropriate rounding and
     look), used for charts, dashboards, and reports.
     """
-    if val == PTS_PCT_NA:
+    if val is None:
+        return ''
+    elif val == PTS_PCT_NA:
         return '&ndash;'  # or "n/a"?
     # take care of (possible!) exceptions first--yes, the code below may produce the same
     # string, but we want to allow ourselves the freedom to make this something different

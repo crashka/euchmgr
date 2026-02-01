@@ -722,15 +722,22 @@ BUTTON_INFO = {
 
 BTN_DISABLED = ' disabled'
 
+# tuples: (url, label, link enabled starting stage)
 LINK_INFO = {
-    View.SEEDING    : [('/chart/sd_bracket',   "Seeding Round Bracket"),
-                       ('/chart/sd_scores',    "Seeding Round Scores"),
-                       ('/dash/sd_dash',       "Live Dashboard")],
-    View.PARTNERS   : [('/dash/pt_dash',       "Live Dashboard")],
-    View.ROUND_ROBIN: [('/chart/rr_brackets',  "Round Robin Brackets"),
-                       ('/chart/rr_scores',    "Round Robin Scores"),
-                       ('/dash/rr_dash',       "Live Dashboard"),
-                       ('/report/tie_breaker', "Tie-Breaker Report")]
+    View.SEEDING: [
+        ('/chart/sd_bracket',   "Seeding Round Bracket", TournStage.SEED_BRACKET),
+        ('/chart/sd_scores',    "Seeding Round Scores",  TournStage.SEED_BRACKET),
+        ('/dash/sd_dash',       "Live Dashboard",        TournStage.SEED_BRACKET)
+    ],
+    View.PARTNERS: [
+        ('/dash/pt_dash',       "Live Dashboard",        TournStage.SEED_RANKS)
+    ],
+    View.ROUND_ROBIN: [
+        ('/chart/rr_brackets',  "Round Robin Brackets",  TournStage.TOURN_BRACKET),
+        ('/chart/rr_scores',    "Round Robin Scores",    TournStage.TOURN_BRACKET),
+        ('/dash/rr_dash',       "Live Dashboard",        TournStage.TOURN_BRACKET),
+        ('/report/tie_breaker', "Tie-Breaker Report",    TournStage.TEAM_RANKS)
+    ]
 }
 
 def render_view(view: View) -> str:

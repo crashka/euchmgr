@@ -100,6 +100,9 @@
        margin-right: 0.5rem;
        /* padding: 0.2rem 0.2rem; */
      }
+     a.disabled {
+       color: grey;
+     }
      .lnk_lbl {
        margin-left: 1.0rem;
        margin-right: 0.3rem;
@@ -173,9 +176,14 @@
         {% if links %}
         <span class="lnk_lbl">Display:</span>
         {% for lnk in links %}
-        <a href="#" onclick="window.open('{{lnk[0]}}', '_blank')"">{{lnk[1]}}</a>
-        {% endfor %}
-        {% endif %}
+        {% set lnk_enabled = (tourn.stage_compl >= lnk[2]) %}
+        {% if lnk_enabled %}
+        <a href="{{lnk[0]}}" target="_blank">{{lnk[1]}}</a>
+        {% else %}  {# lnk_enabled #}
+        <a class="disabled" href="{{lnk[0]}}">{{lnk[1]}}</a>
+        {% endif %}  {# lnk_enabled #}
+        {% endfor %}  {# lnk in links #}
+        {% endif %}  {# links #}
       </form>
     </section>
   </body>
@@ -318,6 +326,12 @@
          $(".tbl_wrapper").css('visibility', 'visible');
          table.columns.adjust().draw();
        }
+     });
+
+     // links for charts, dashboards, reports
+     $('.actions a.disabled').on('click', function() {
+       show_error("Cannot display \"" + $(this).text() + "\", data not yet available");
+       return false;
      });
 
      // TODO: set initial focus (and/or highlight) here!!!

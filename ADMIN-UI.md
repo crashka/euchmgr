@@ -10,7 +10,7 @@ its stages.
 
 Here is a list of the views:
 
-- [**Tournament**](#tournament-view) - create and manage tournaments
+- [**Tournament**](#tournament-view) - select, create, and manage tournaments (3 views)
 - [**Players**](#players-view) - manage player info and track player seeding round stats
 - [**Seeding**](#seeding-view) - track and manage seeding round brackets and games
 - [**Partners**](#partners-view) - track and manage the partner picking process
@@ -24,7 +24,7 @@ Here is a list of the views:
 Later we will add views for tracking and managing the playoff rounds, as well as computing
 and reporting the final overall tournament results.
 
-## Tournament View
+## Tournament Views
 
 Multiple tournaments may be created and managed in the application.  An tournament
 instance may represent a currently running event, or may represent support for browsing
@@ -34,7 +34,8 @@ application or testing/validating its features and workflows.
 
 ### Creating a New Tournament
 
-After logging in as "admin", you will see the following empty Tournament Selection view:
+After logging in as "admin", you will see the following empty **Tournament Selection**
+view:
 
 <p align="left">
   <img src="resources/screenshots/tourn_select_1.png"
@@ -42,7 +43,7 @@ After logging in as "admin", you will see the following empty Tournament Selecti
 </p>
 
 From the "Select Tournament" dropdown list, choosing the "**(create new)**" option will
-yield the following New Tournament Info view:
+yield the following **New Tournament Info** view:
 
 <p align="left">
   <img src="resources/screenshots/tourn_create_new.png"
@@ -93,8 +94,8 @@ tracking and management process.
 
 ### Managing Existing Tournaments
 
-The Tournament Info view is reached by clicking on the "**admin**" label, next to the
-"\[logout\]" link, in the upper righthand corner of any admin page (see "General Note on
+The **Tournament Info** view is reached by clicking on the "**admin**" label, next to the
+"\[Logout\]" link, in the upper righthand corner of any admin page (see "General Note on
 Application Data/Navigation", below), and basically represents the same screen used for
 creating new tournaments (see above).  Certain fields may be updated here (namely Dates,
 Venue, and Default Player Password), but the other fields are locked-in once the

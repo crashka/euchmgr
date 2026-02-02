@@ -42,7 +42,7 @@ After logging in as "admin", you will see the following empty Tournament Selecti
 </p>
 
 From the "Select Tournament" dropdown list, choosing the "**(create new)**" option will
-yield the following New Tournament view:
+yield the following New Tournament Info view:
 
 <p align="left">
   <img src="resources/screenshots/tourn_create_new.png"
@@ -93,11 +93,12 @@ tracking and management process.
 
 ### Managing Existing Tournaments
 
-This capability is reached by clicking on the "**admin**" label in the upper righthand
-corner of the admin UI (see note on navigation, below), and basically entails the same
-screen used for creating tournaments (see above).  Certain fields may be updated here
-(namely Dates, Venue, and Default Player Password), but the other fields are locked-in
-once the tournament is started.
+The Tournament Info view is reached by clicking on the "**admin**" label, next to the
+"\[logout\]" link, in the upper righthand corner of any admin page (see "General Note on
+Application Data/Navigation", below), and basically represents the same screen used for
+creating new tournaments (see above).  Certain fields may be updated here (namely Dates,
+Venue, and Default Player Password), but the other fields are locked-in once the
+tournament is started.
 
 <p align="left">
   <img src="resources/screenshots/tourn_management.png"
@@ -174,7 +175,7 @@ Explanation:
   implemented for admin views).
 - Clicking the "**admin**" label in the upper righthand corner (highlighted in <span
   style="color: seagreen; font-weight: bold;">green</span>) will navigate to the
-  **Tournament Management** view (see above).
+  **Tournament Info** view (see above).
   
 ### Completing the Player Registration
 
@@ -290,7 +291,7 @@ Here is the initial look of the Round Robin view, after the tournament matchups 
 determined:
 
 <p align="left">
-  <img src="resources/screenshots/teams_1.png"
+  <img src="resources/screenshots/round_robin_1.png"
        alt="Teams view (initial)" style="width: 90%;">
 </p>
 

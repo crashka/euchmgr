@@ -10,12 +10,16 @@ its stages.
 
 Here is a list of the views:
 
-- **Tournament** - create and manage tournaments
-- **Players** - manage player info and track player seeding round stats
-- **Seeding** - track and manage seeding round brackets and games
-- **Partners** - track and manage the partner picking process
-- **Teams** - track team info (division assignments/seeds) and team round robin stats
-- **Round Robin** - track and manage main tournament round robin brackets and games
+- [**Tournament**](#tournament-view) - create and manage tournaments
+- [**Players**](#players-view) - manage player info and track player seeding round stats
+- [**Seeding**](#seeding-view) - track and manage seeding round brackets and games
+- [**Partners**](#partners-view) - track and manage the partner picking process
+- [**Teams**](#teams-view) - track team info (division assignments/seeds) and team round
+  robin stats
+- [**Round Robin**](#round-robin-view) - track and manage main tournament round robin
+  brackets and games
+- [**Playoffs**](#playoffs-view-not-yet-developed) - *\[not yet developed\]* track and
+  report playoff rounds and final overall tournament results
 
 Later we will add views for tracking and managing the playoff rounds, as well as computing
 and reporting the final overall tournament results.
@@ -62,7 +66,7 @@ The following fields may be used to specify information about the tournament:
   tournament (all of its data will be deleted—later, we will support archiving of
   data for tournaments)
 
-### Roster File
+### Roster File Format
 
 The uploaded roster file must be a CSV that includes the following columns (header row
 should include these exact labels):
@@ -81,10 +85,40 @@ should include these exact labels):
 Note that nick names may also be specified through the mobile app during the player
 registration process (see more on names, below).
 
-### Completing New Tournament Creation
+### Completing Tournament Creation
 
 Click the "**Create Tournament**" button to save the information and begin the tournament
 tracking and management process.
+
+
+### Managing Existing Tournaments
+
+This capability is reached by clicking on the "**admin**" label in the upper righthand
+corner of the admin UI (see note on navigation, below), and basically entails the same
+screen used for creating tournaments (see above).  Certain fields may be updated here
+(namely Dates, Venue, and Default Player Password), but the other fields are locked-in
+once the tournament is started.
+
+<p align="left">
+  <img src="resources/screenshots/tourn_management.png"
+       alt="Tournament management view" style="width: 90%;">
+</p>
+
+Note that only one tournament may be active at a time, so this view can also be used to
+switch to a different tournament—either another existing tournament, or a new tournament
+to be created.
+
+Functionality:
+
+- The admin may choose to pause the current tournament, in which case the initial empty
+  Tournament Selection view will be shown.
+- Or, if the admin selects a different tournament from the dropdown list—or "(create
+  new)", as previously presented—, the current tournament will be implicitly paused, which
+  will be indicated by an informational message at the bottom of the page.  The newly
+  selected (or created) tournament will then be marked as active.
+
+Clicking "\[cancel\]" or the "**admin**" label in the upper righthand corner of the screen,
+will effect a return to the current stage for the active tournament.
 
 ## Players View
 
@@ -140,7 +174,7 @@ Explanation:
   implemented for admin views).
 - Clicking the "**admin**" label in the upper righthand corner (highlighted in <span
   style="color: seagreen; font-weight: bold;">green</span>) will jump to the **Tournament
-  Management** view (see below).
+  Management** view (see above).
   
 ### Completing the Player Registration
 
@@ -272,36 +306,9 @@ The "Tie-Breaker Report" can be used to see how the final rankings are determine
 teams within a division that have the same win percentage (the details are documented
 separately, in [`RANKING.md`](RANKING.md)).
 
-## Playoff Views (not yet developed)
+## Playoffs View (not yet developed)
 
 The top two teams in each division, after the tie-breaking rules have been applied, will
 move onto the playoffs.  The app views (and charts, dashboards, and reports) used to track
 the scores and results for the playoff rounds will work similarly to the current views.
 Final tournament results will be computed as the final step of the process.
-
-## Tournament Management View
-
-This is basically the same screen that is used for creating tournaments.  Certain fields
-may be updated here (namely Dates, Venue, and Default Player Password), but the other
-fields are locked-in once the tournament has begun.
-
-<p align="left">
-  <img src="resources/screenshots/tourn_management.png"
-       alt="Tournament management view" style="width: 90%;">
-</p>
-
-Note that only one tournament may be active at a time, so this view can also be used to
-switch to a different tournament—either another existing tournament, or a new tournament
-to be created.
-
-Functionality:
-
-- The admin may choose to pause the current tournament, in which case the initial empty
-  Tournament Selection view will be shown.
-- Or, if the admin selects a different tournament from the dropdown list—or "(create
-  new)", as previously presented—, the current tournament will be implicitly paused, which
-  will be indicated by an informational message at the bottom of the page.  The newly
-  selected (or created) tournament will then be marked as active.
-
-Clicking "\[cancel\]" or the "**admin**" label in the upper righthand corner of the screen,
-will effect a return to the current stage for the active tournament.

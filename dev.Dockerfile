@@ -37,8 +37,7 @@ RUN mkdir log data sessions uploads
 COPY requirements.txt *.py ./
 COPY templates ./templates
 COPY static ./static
-COPY resources ./resources
-COPY scripts ./scripts
+COPY brackets ./brackets
 
 ENTRYPOINT ["flask", "--app", "server", "run", "--host=0.0.0.0"]
 CMD ["--port=5050", "--debug"]

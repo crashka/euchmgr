@@ -18,6 +18,7 @@ FILE_DIR     = os.path.dirname(os.path.realpath(__file__))
 BASE_DIR     = FILE_DIR
 DATA_DIR     = os.path.join(BASE_DIR, 'data')
 LOG_DIR      = os.path.join(BASE_DIR, 'log')
+BRACKETS_DIR = os.path.join(BASE_DIR, 'brackets')
 RESOURCE_DIR = os.path.join(BASE_DIR, 'resources')
 UPLOAD_DIR   = os.path.join(BASE_DIR, 'uploads')
 TEST_DIR     = os.path.join(BASE_DIR, 'tests')
@@ -31,6 +32,11 @@ def DataFile(file_name: str, rel_path: str | list[str] = DATA_DIR) -> str:
     file_dir = os.path.join(BASE_DIR, *rel_path)
     makedirs(file_dir, exist_ok=True)
     return os.path.join(file_dir, file_name)
+
+def BracketsFile(file_name: str) -> str:
+    """Convenience wrapper around DataFile
+    """
+    return DataFile(file_name, BRACKETS_DIR)
 
 def ResourceFile(file_name: str) -> str:
     """Convenience wrapper around DataFile

@@ -37,8 +37,7 @@ RUN mkdir log data sessions uploads
 COPY requirements.txt *.py ./
 COPY templates ./templates
 COPY static ./static
-COPY resources ./resources
-COPY scripts ./scripts
+COPY brackets ./brackets
 
 ENTRYPOINT ["gunicorn", "server:create_app()", "--access-logfile=-"]
 CMD ["--bind=0.0.0.0:5050", "--threads=3"]

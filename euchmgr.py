@@ -15,7 +15,7 @@ import os
 
 from ckautils import rankdata
 
-from core import ResourceFile, DEBUG
+from core import BracketsFile, DEBUG
 from database import db_init, db_close, db_name
 from schema import (rnd_pct, rnd_avg, Bracket, TournStage, TournInfo, Player, SeedGame,
                     Team, TournGame, schema_create)
@@ -160,7 +160,7 @@ def build_seed_bracket() -> list[SeedGame]:
     bracket_file = f'seed-{nplayers}-{nrounds}.csv'  # need to reconcile with Bracket.SEED!!!
 
     games = []
-    with open(ResourceFile(bracket_file), newline='') as f:
+    with open(BracketsFile(bracket_file), newline='') as f:
         reader = csv.reader(f)
         for rnd_i, row in enumerate(reader):
             seats = (int(x) for x in row)
@@ -483,7 +483,7 @@ def build_tourn_bracket() -> list[TournGame]:
         bye_div_seed = brckt_teams + 1  # TODO: only if odd number of teams!!!
         bracket_file = f'rr-{brckt_teams}-{nrounds}.csv'  # need to reconcile with Bracket.TOURN!!!
         div_map = Team.get_div_map(div_i + 1)
-        with open(ResourceFile(bracket_file), newline='') as f:
+        with open(BracketsFile(bracket_file), newline='') as f:
             reader = csv.reader(f)
             for rnd_j, row in enumerate(reader):
                 seats = (int(x) for x in row)

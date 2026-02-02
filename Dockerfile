@@ -40,5 +40,5 @@ COPY static ./static
 COPY resources ./resources
 COPY scripts ./scripts
 
-ENTRYPOINT ["gunicorn", "server:create_app()", "--access-logfile", "-"]
-CMD ["-b", "0.0.0.0:5050", "--threads", "4"]
+ENTRYPOINT ["gunicorn", "server:create_app()", "--access-logfile=-"]
+CMD ["--bind=0.0.0.0:5050", "--threads=3"]

@@ -31,13 +31,20 @@ WORKDIR /app/
 COPY --from=build /app/venv /app/venv
 ENV PATH="/app/venv/bin:${PATH}"
 
-# NOTE: `log` and `data` may be bind mounts in deployment
-RUN mkdir log data sessions uploads
-
+# NOTES:
+# - even though we have a (hopefully) functionally complete .dockerignore, we still do
+#   opt-in copying rather than a scary looking `COPY . ./`
+# - inclusion of requirements.txt is purely for reference
+# - `config` may be shadowed by a bind mount in deployment
+# - `static` content may be served by an upstream (or "downstream" in nginx-speak) proxy
 COPY requirements.txt *.py ./
+COPY config ./config
 COPY templates ./templates
 COPY static ./static
 COPY brackets ./brackets
+
+# NOTE: `log` and `data` may be bind mounts in deployment
+RUN mkdir log data sessions uploads
 
 ENTRYPOINT ["gunicorn", "server:create_app()", "--access-logfile=-"]
 CMD ["--bind=0.0.0.0:5050", "--threads=3"]

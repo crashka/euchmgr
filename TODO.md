@@ -46,12 +46,11 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 ## Framework
 
 - auth/password management (admin and players)
-  - implement player password checking (two levels)
-  - add default player password to /tourn UI
   - add change password to mobile (registration/user admin)
+  - confirm new password (tourn admin and mobile)
 - named admin users
-- merge application-level logging with flask logging
-- audit trailing (and/or snapshotting)?
+- merge application-level logging with flask/gunicorn logging?
+- audit trailing (and/or snapshotting/archiving)?
   - created\_by/updated\_by metadata fields
 - optimistic locking (or other concurrency control)?
 
@@ -59,6 +58,6 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 
 - highest seeds (across divisions) should get all byes (if any)
 - measure/ensure fairness for inter-divisional play (if needed for either the bye problem
-  or just numbers)
+  or just based on numbers)
 - euchmgr needs to use new omni-bracket format
 - optimize for combination of r-squared value and RMSE (relative to ideal)

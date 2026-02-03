@@ -16,20 +16,14 @@ high number for new issue entry).*
 
 - *Created - Jan 19, 2026*
 - Currently just a small dash, could be bigger/bolder, an "X", the word "bye", etc.
+- *\[Update - Jan 28, 2026\]* changed hyphen to an en-dash for now, but will try out some
+  other alternatives to present and see if we can get to consensus
 
 **#9** - For Partner Picks dashboard - strike through names of picked players on available list (rather than removing them) [Struble]
 
 - *Created - Jan 19, 2026*
 - Note: can implement both visualizations and let admin toggle between them
 - Can also provide the ability to toggle between listing available players by rank or by name
-
-**#10** - Show Pts Pct (instead of PF-PA) within the cohort as tie-breaking stats [multiple]
-
-- *Created - Jan 19, 2026*
-- Some people like the 4-digit decimal version (e.g. .6853 over 68.53%) better—will get
-  consensus on the format
-- Related topic: probably leave W-L as is (rather than Win Pct) within the cohort for same
-  views (e.g. so that 1-0 shows as distinct from 2-0)
 
 ## Feature/Enhancement Requests
 
@@ -82,7 +76,7 @@ high number for new issue entry).*
 
 - *Created - Jan 19, 2026*
 - Technical write-up on current implementation: [here](RANKING.md)
-- Template for specifying test scenarios: [here](resources/tie-breaker%20scenario%20template.xlsx)
+- Template for specifying test scenarios: [here](resources/examples/tie-breaker%20scenario%20template.xlsx)
 
 **#18** - Ability to configure and deploy for smaller, local tournaments [Rooze]
 
@@ -137,3 +131,12 @@ entering) scores after each player or team in the matchup [Struble]
 - Other players in the same game should be notified in the app, and given the ability to
   confirm, correct, or dispute
 - *Fixed - Jan 12, 2026*
+
+**#10** - Show Pts Pct (instead of PF-PA) within the cohort as tie-breaking stats [multiple]
+
+- *Created - Jan 19, 2026*
+- Some people like the 4-digit decimal version (e.g. .6853 over 68.53%) better—will get
+  consensus on the format
+- Related topic: probably leave W-L as is (rather than Win Pct) within the cohort for same
+  views (e.g. so that 1-0 shows as distinct from 2-0)
+- *Fixed - Jan 28, 2026*

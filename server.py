@@ -104,7 +104,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
     """
     app = Flask(__name__)
     if proxied:
-        print("Using ProxyFix")
+        log.info("creating app using ProxyFix (default args)")
         app.wsgi_app = ProxyFix(app.wsgi_app)
 
     app.config.from_object(config)

@@ -19,12 +19,14 @@ Dockerfile
 .dockerignore
 .gitignore
 pyproject.toml
+.python-version
 *.csv
 *.sh
 
 # subdirectories and files (by type)
-**/examples
-**/screenshots
+**/examples/
+**/favicon/
+**/screenshots/
 
 **/*.excalidraw
 **/*.html

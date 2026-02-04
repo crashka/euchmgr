@@ -30,6 +30,7 @@ from flask import (Flask, request, session, render_template, Response, abort, re
                    url_for, flash, get_flashed_messages)
 from flask_session import Session
 from cachelib.file import FileSystemCache
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash
 
@@ -97,11 +98,14 @@ class Config:
 sess_ext = Session()
 login = EuchmgrLogin()
 
-def create_app(config: object | Config = Config) -> Flask:
+def create_app(config: object | Config = Config, proxied: bool = False) -> Flask:
     """Application factory for the euchmgr server.  Configuration may be specified as a
     class (e.g. `Config` subclass) or `Config` instance.
     """
     app = Flask(__name__)
+    if proxied:
+        print("Using ProxyFix")
+        app.wsgi_app = ProxyFix(app.wsgi_app)
 
     app.config.from_object(config)
     app.register_blueprint(mobile, url_prefix="/mobile")

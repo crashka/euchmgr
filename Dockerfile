@@ -46,5 +46,5 @@ COPY brackets ./brackets
 # NOTE: `log` and `data` may be bind mounts in deployment
 RUN mkdir log data sessions uploads
 
-ENTRYPOINT ["gunicorn", "server:create_app()", "--access-logfile=-"]
+ENTRYPOINT ["gunicorn", "server:create_app(proxied=True)", "--access-logfile=-"]
 CMD ["--bind=0.0.0.0:5050", "--threads=3"]

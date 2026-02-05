@@ -18,7 +18,7 @@ from ckautils import rankdata
 from core import BracketsFile, DEBUG
 from database import db_init, db_close, db_name
 from schema import (rnd_pct, rnd_avg, Bracket, TournStage, TournInfo, Player, SeedGame,
-                    Team, TournGame, schema_create)
+                    Team, TournGame, PlayoffGame, schema_create)
 
 #####################
 # utility functions #
@@ -612,9 +612,7 @@ def validate_tourn(finalize: bool = False) -> None:
         pts_tot = stats['tourn_pts_for'] + stats['tourn_pts_against']
         pts_pct = rnd_pct(stats['tourn_pts_for'] / pts_tot)
 
-        # note that floating point values should have been similarly rounded, so using
-        # `==` should be robust (for equivalence) as well as help validate consistent
-        # rounding in code
+        # see note about floating points and rounding in `validate_seed_round` (above)
         assert tm.tourn_win_pct == win_pct
         assert tm.tourn_pts_pct == pts_pct
 
@@ -844,7 +842,176 @@ def compute_team_ranks(finalize: bool = False) -> None:
                 tm.save()
 
     if finalize:
-        tourn.complete_stage(TournStage.TEAM_RANKS)
+        tourn.complete_stage(TournStage.TOURN_RANKS)
+
+def build_playoff_bracket(bracket: Bracket) -> list[PlayoffGame]:
+    """
+    """
+    tourn = TournInfo.get()
+    nrounds = 3  # for all playoff matchups (where the third round might not be played)
+
+    stage = None
+    if bracket == Bracket.SEMIS:
+        # NOTE: we were needlessly clever in generalizing the division assignment and
+        # round robin bracket building above--we're not going to do that here!  Instead,
+        # we are hard-coding exactly two divisions, where top rank in each division plays
+        # second rank in the other, in a best 2-out-of-3 matchup.
+        assert tourn.divisions == 2
+        divisions = (1, 2)
+
+        teams = list(Team.iter_playoff_teams(by_rank=True))
+        # make sure best tourn_rank gets top billing here (matchup_num = 1)
+        sign = 1 if teams[0].div_num == 1 else -1
+        teams.sort(key=lambda x: (x.div_rank, sign * x.div_num))
+        matchups = {
+            1: (teams[0], teams[3]),
+            2: (teams[1], teams[2])
+        }
+        stage = TournStage.SEMIS_BRACKET
+    else:
+        assert bracket == Bracket.FINALS
+        stage = TournStage.FINALS_BRACKET
+        assert False, "Not yet implemented"
+
+    games = []
+    for matchup_num, (team1, team2) in matchups.items():
+        for round_num in range(1, nrounds + 1):
+            label = f'{bracket}-{matchup_num}-{round_num}'
+            info = {'bracket'       : bracket,
+                    'matchup_num'   : matchup_num,
+                    'round_num'     : round_num,
+                    'label'         : label,
+                    'team1'         : team1,
+                    'team2'         : team2,
+                    'team1_name'    : team1.team_name,
+                    'team2_name'    : team2.team_name,
+                    'team1_div_rank': team1.div_rank,
+                    'team2_div_rank': team2.div_rank}
+            game = PlayoffGame.create(**info)
+            games.append(game)
+
+    assert stage is not None
+    tourn.complete_stage(stage)
+    return games
+
+def validate_playoffs(bracket: Bracket, finalize: bool = False) -> None:
+    """Note that we always validate all playoff stages/rounds.  There is more integrity
+    check that can be done (e.g. ensure that semifinal winner are on the only ones with
+    finals games, etc.), but it's probably not urgent (aggregious errors will be evident
+    in the UI, since there are only four teams in play here--oh gee, I guess that's
+    something else we could check as well...).
+    """
+    tm_list = list(Team.iter_playoff_teams())
+
+    stats_tmpl = {
+        'playoff_match_wins':   0,
+        'playoff_match_losses': 0,
+        'playoff_wins':         0,
+        'playoff_losses':       0,
+        'playoff_pts_for':      0,
+        'playoff_pts_against':  0
+    }
+    tm_stats = {tm.id: stats_tmpl.copy() for tm in tm_list}
+
+    by_matchup = PlayoffGame.iter_games(by_matchup=True)
+    for k, g in groupby(by_matchup, key=lambda x: (x.bracket, x.matchup_num)):
+        # TODO: track stats for the matchup to tabulate/validate match wins/losses!!!
+        matchup_stats1 = stats_tmpl.copy()
+        matchup_stats2 = stats_tmpl.copy()
+        for gm in g:
+            stats1 = tm_stats[gm.team1_id]
+            stats2 = tm_stats[gm.team2_id]
+
+            if gm.winner == gm.team1_name:
+                stats1['playoff_wins'] += 1
+                stats2['playoff_losses'] += 1
+                matchup_stats1['playoff_wins'] += 1
+                matchup_stats2['playoff_losses'] += 1
+            else:
+                stats1['playoff_losses'] += 1
+                stats2['playoff_wins'] += 1
+                matchup_stats1['playoff_losses'] += 1
+                matchup_stats2['playoff_wins'] += 1
+
+            stats1['playoff_pts_for'] += gm.team1_pts
+            stats2['playoff_pts_for'] += gm.team2_pts
+            stats1['playoff_pts_against'] += gm.team2_pts
+            stats2['playoff_pts_against'] += gm.team1_pts
+            matchup_stats1['playoff_pts_for'] += gm.team1_pts
+            matchup_stats2['playoff_pts_for'] += gm.team2_pts
+            matchup_stats1['playoff_pts_against'] += gm.team2_pts
+            matchup_stats2['playoff_pts_against'] += gm.team1_pts
+
+        # note that team1 and team2 (and hence stats1 and stats2) will be the same for all
+        # games in this group (TODO: actually validate that here!!!), and we can continue
+        # using the stats1/stats2 references from the last loop to do the matchup-level
+        # stuff now
+        if matchup_stats1['playoff_wins'] == 2:
+            assert matchup_stats2['playoff_wins'] < 2
+            stats1['playoff_match_wins'] += 1
+            stats2['playoff_match_losses'] += 1
+        elif matchup_stats2['playoff_wins'] == 2:
+            assert matchup_stats1['playoff_wins'] < 2
+            stats2['playoff_match_wins'] += 1
+            stats1['playoff_match_losses'] += 1
+
+    stats_tot = stats_tmpl.copy()
+    for tm in tm_list:
+        stats = tm_stats[tm.id]
+        for k, v in stats.items():
+            stats_tot[k] += v
+
+        assert tm.playoff_match_wins   == stats['playoff_match_wins']
+        assert tm.playoff_match_losses == stats['playoff_match_losses']
+        assert tm.playoff_wins         == stats['playoff_wins']
+        assert tm.playoff_losses       == stats['playoff_losses']
+        assert tm.playoff_pts_for      == stats['playoff_pts_for']
+        assert tm.playoff_pts_against  == stats['playoff_pts_against']
+
+        ngames  = stats['playoff_wins'] + stats['playoff_losses']
+        win_pct = rnd_pct(stats['playoff_wins'] / ngames)
+        pts_tot = stats['playoff_pts_for'] + stats['playoff_pts_against']
+        pts_pct = rnd_pct(stats['playoff_pts_for'] / pts_tot)
+
+        # see note about floating points and rounding in `validate_seed_round` (above)
+        assert tm.playoff_win_pct == win_pct
+        assert tm.playoff_pts_pct == pts_pct
+
+    assert stats_tot['playoff_match_wins'] == stats_tot['playoff_match_losses']
+    assert stats_tot['playoff_wins']       == stats_tot['playoff_losses']
+    assert stats_tot['playoff_pts_for']    == stats_tot['playoff_pts_against']
+
+    if finalize:
+        if bracket == Bracket.SEMIS:
+            assert stats_tot['playoff_match_wins'] == 2
+            TournInfo.mark_stage_complete(TournStage.SEMIS_TABULATE)
+        else:
+            assert bracket == Bracket.FINALS
+            assert stats_tot['playoff_match_wins'] == 3
+            TournInfo.mark_stage_complete(TournStage.FINALS_TABULATE)
+
+def compute_playoff_ranks(bracket: Bracket, finalize: bool = False) -> None:
+    """We don't have to get fancy here at all, since the rules are pretty simple: best
+    2-out-of-3 for each hed-to-head matchup, and playoff win_pct followed by pts_pct to
+    determine third and fourth place
+    """
+    tourn = TournInfo.get()
+
+    teams = list(Team.iter_playoff_teams())
+    teams.sort(key=lambda x: (-x.playoff_match_wins, -x.playoff_win_pct, -x.playoff_pts_pct))
+    for i, team in enumerate(teams):
+        team.playoff_rank = i + 1
+        team.save()
+
+    # TODO: either compute final overall tournament rankings here, or create a new stage
+    # and euchmgr function for that!!!
+
+    if finalize:
+        if bracket == Bracket.SEMIS:
+            TournInfo.mark_stage_complete(TournStage.SEMIS_RANKS)
+        else:
+            assert bracket == Bracket.FINALS
+            TournInfo.mark_stage_complete(TournStage.FINALS_RANKS)
 
 ########
 # main #
@@ -870,7 +1037,8 @@ MOD_FUNCS = [
     'build_tourn_bracket',
     'fake_tourn_games',
     'validate_tourn',
-    'compute_team_ranks'
+    'compute_team_ranks',
+    'build_semis_bracket'
 ]
 
 def main() -> int:
@@ -894,6 +1062,7 @@ def main() -> int:
       - fake_tourn_games
       - tabulate_tourn
       - compute_team_ranks
+      - build_semis_bracket
     """
     if len(sys.argv) < 2:
         print(main.__doc__)

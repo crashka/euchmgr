@@ -11,7 +11,7 @@ from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_se
                      fake_seed_games, validate_seed_round, compute_player_ranks,
                      prepick_champ_partners, fake_pick_partners, build_tourn_teams,
                      compute_team_seeds, build_tourn_bracket, fake_tourn_games,
-                     validate_tourn, compute_team_ranks)
+                     validate_tourn, compute_team_ranks, build_semis_bracket)
 
 ROSTER_FILE = DataFile("test_roster.csv", TEST_DIR)
 RAND_SEEDS = list(x * 10 for x in range(10))
@@ -93,5 +93,10 @@ def test_end_to_end() -> None:
 
     compute_team_ranks(finalize=True)
     tourn_info = TournInfo.get()
-    assert tourn_info.stage_compl == TournStage.TEAM_RANKS
-    save_stage_db(TournStage.TEAM_RANKS)
+    assert tourn_info.stage_compl == TournStage.TOURN_RANKS
+    save_stage_db(TournStage.TOURN_RANKS)
+
+    build_semis_bracket()
+    tourn_info = TournInfo.get()
+    assert tourn_info.stage_compl == TournStage.SEMIS_BRACKET
+    save_stage_db(TournStage.SEMIS_BRACKET)

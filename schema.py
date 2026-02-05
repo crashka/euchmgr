@@ -10,7 +10,7 @@ from playhouse.sqlite_ext import JSONField
 from flask_login import current_user, login_user, logout_user
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from core import DEBUG, log, ImplementationError, LogicError
+from core import DEBUG, log, ImplementationError, LogicError, DataError
 from security import EuchmgrUser, AuthenticationError
 from database import BaseModel
 
@@ -40,20 +40,28 @@ rnd_avg = lambda x: round(x, 2)
 
 # stage values are chronologically sequenced
 TournStage = IntEnum('TournStage',
-                     ['TOURN_CREATE',   # 1
+                     ['TOURN_CREATE',    # 1
                       'PLAYER_ROSTER',
                       'PLAYER_NUMS',
                       'SEED_BRACKET',
-                      'SEED_RESULTS',   # 5
+                      'SEED_RESULTS',    # 5
                       'SEED_TABULATE',
                       'SEED_RANKS',
                       'PARTNER_PICK',
                       'TOURN_TEAMS',
-                      'TEAM_SEEDS',     # 10
+                      'TEAM_SEEDS',      # 10
                       'TOURN_BRACKET',
                       'TOURN_RESULTS',
                       'TOURN_TABULATE',
-                      'TEAM_RANKS'])    # 14
+                      'TOURN_RANKS',
+                      'SEMIS_BRACKET',   # 15
+                      'SEMIS_RESULTS',
+                      'SEMIS_TABULATE',
+                      'SEMIS_RANKS',
+                      'FINALS_BRACKET',
+                      'FINALS_RESULTS',  # 20
+                      'FINALS_TABULATE',
+                      'FINALS_RANKS'])
 
 # represents virtual stages before and after TournStage entries
 TOURN_INIT = 0
@@ -96,7 +104,15 @@ STAGE_DATA = [
     StageInfo(False, True,  None,                            "Round robin brackets created"),
     StageInfo(True,  False, "Round robin play active",       "Round robin results completed"),
     StageInfo(False, False, "Tabulate round robin results",  "Round robin results tabulated"),
-    StageInfo(False, False, None,                            "Team rankings computed")
+    StageInfo(False, False, None,                            "Team rankings computed"),
+    StageInfo(False, True,  None,                            "Semifinals brackets created"),
+    StageInfo(True,  False, "Semifinals play active",        "Semifinals results completed"),
+    StageInfo(False, False, "Tabulate semifinals results",   "Semifinals results tabulated"),
+    StageInfo(False, False, None,                            "Semifinals rankings computed"),
+    StageInfo(False, True,  None,                            "Finals brackets created"),
+    StageInfo(True,  False, "Finals play active",            "Finals results completed"),
+    StageInfo(False, False, "Tabulate finals results",       "Finals results tabulated"),
+    StageInfo(False, False, None,                            "Finals rankings computed")
 ]
 
 assert len(STAGE_DATA) == len(TournStage)  # not ensured by zip
@@ -231,7 +247,7 @@ class TournInfo(BaseModel):
         """Official way to check if round robin is complete (scores validated and final
         team rankings computed)
         """
-        return self.stage_compl >= TournStage.TEAM_RANKS
+        return self.stage_compl >= TournStage.TOURN_RANKS
 
 ##########
 # Player #
@@ -1104,6 +1120,15 @@ EMPTY_TEAM_STATS = {
     'tourn_pts_against': None
 }
 
+EMPTY_FINAL_FOUR_STATS = {
+    'playoff_match_wins'  : None,
+    'playoff_match_losses': None,
+    'playoff_wins'        : None,
+    'playoff_losses'      : None,
+    'playoff_pts_for'     : None,
+    'playoff_pts_against' : None
+}
+
 # special (i.e. hack) value representing n/a (must be a float)
 PTS_PCT_NA = -1.0
 
@@ -1141,8 +1166,8 @@ class Team(BaseModel):
     playoff_pts_for = IntegerField(default=0)
     playoff_pts_against = IntegerField(default=0)
     playoff_pts_pct = FloatField(null=True)
-    playoff_pos    = IntegerField(default=0)  # REVISIT: probably don't need this!!!
-    playoff_rank   = IntegerField(default=0)  # apply to top four tourn_rank_adj
+    playoff_pos    = IntegerField(null=True)  # REVISIT: probably don't need this!!!
+    playoff_rank   = IntegerField(null=True)  # apply to top four tourn_rank_adj
     # tie-breaker stuff
     div_tb_crit    = JSONField(null=True)     # stats criteria used to compute final rank
     div_tb_data    = JSONField(null=True)     # raw data for reference
@@ -1208,6 +1233,19 @@ class Team(BaseModel):
             yield t
 
     @classmethod
+    def iter_playoff_teams(cls, by_rank: bool = False) -> Iterator[Self]:
+        """Iterator for playoff teams (wrap ORM details).  Note that this also clears out
+        local cache, if populated.
+        """
+        # NOTE: we don't need to clear out cache here, since this is not used exactly like
+        # `iter_teams()`, above
+        query = cls.select().where(cls.div_rank.in_([1, 2]))
+        if by_rank:
+            query = query.order_by(cls.tourn_rank.asc(nulls='last'))
+        for t in query.iterator():
+            yield t
+
+    @classmethod
     def ident_div_tbs(cls, div_num: int, div_pos: int) -> list[list[Self]]:
         """Report teams with identical tie-break criteria for a divisional cohort
         (identical overall win percentage)
@@ -1234,6 +1272,16 @@ class Team(BaseModel):
         tourn = TournInfo.get()
         if tourn.stage_compl < TournStage.TOURN_BRACKET:
             return self.__data__ | EMPTY_TEAM_STATS
+        return self.__data__
+
+    @property
+    def final_four_data(self) -> dict:
+        """Return final four team data as a dict, removing distracting default values if
+        not relevant
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.SEMIS_BRACKET:
+            return self.__data__ | EMPTY_FINAL_FOUR_STATS
         return self.__data__
 
     @property
@@ -1425,7 +1473,7 @@ class TournGame(BaseModel):
 
     @classmethod
     def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
-        """Iterator for seed_games (wrap ORM details).
+        """Iterator for tourn_games (wrap ORM details).
         """
         sel = cls.select()
         if not include_byes:
@@ -1455,7 +1503,7 @@ class TournGame(BaseModel):
 
         if ngames < round_games:
             return round_num
-        if round_num < tourn.seed_rounds:
+        if round_num < tourn.tourn_rounds:
             return round_num + 1
         return -1
 
@@ -1655,8 +1703,8 @@ class PlayoffGame(BaseModel):
     # required info
     bracket        = TextField()              # "sf" or "fn"
     matchup_num    = IntegerField()
-    game_num       = IntegerField()
-    label          = TextField(unique=True)   # {brckt}-{mtchup}-{gm}
+    round_num      = IntegerField()
+    label          = TextField(unique=True)   # {brckt}-{mtchup}-{rnd}
     team1          = ForeignKeyField(Team, column_name='team1_id')
     team2          = ForeignKeyField(Team, column_name='team2_id')
     team1_name     = TextField()              # denorm
@@ -1670,8 +1718,115 @@ class PlayoffGame(BaseModel):
 
     class Meta:
         indexes = (
-            (('bracket', 'matchup_num', 'game_num'), True),
+            (('bracket', 'matchup_num', 'round_num'), True),
         )
+
+    @classmethod
+    def iter_games(cls, bracket: Bracket = None, by_matchup: bool = False) -> Iterator[Self]:
+        """Iterator for playoff_games (wrap ORM details).
+        """
+        sel = cls.select()
+        if bracket:
+            sel = sel.where(cls.bracket == bracket)
+        if by_matchup:
+            sel = sel.order_by(cls.bracket, cls.matchup_num)
+        for t in sel.iterator():
+            yield t
+
+    @classmethod
+    def bracket_complete(cls, bracket: Bracket) -> bool:
+        """Check if all play associated with the specified bracket is complete.  Must be
+        called after `update_team_stats()` for the most recent game.
+        """
+        tourn = TournInfo.get()
+        if bracket == Bracket.SEMIS:
+            if tourn.stage_compl < TournStage.SEMIS_BRACKET:
+                return False
+        else:
+            assert bracket == Bracket.FINALS
+            if tourn.stage_compl < TournStage.FINALS_BRACKET:
+                return False
+
+        query = Team.select(fn.sum(Team.playoff_match_wins))
+        nmatches = query.scalar()
+        if nmatches > 3:
+            raise DataError(f"too many playoff match wins ({nmatches})")
+
+        if bracket == Bracket.SEMIS:
+            return nmatches >= 2
+        else
+            assert bracket == Bracket.FINALS
+            return nmatches == 3
+
+    @property
+    def team_ranks(self) -> str:
+        """Show matchup of tournament (after round robin) rankings.
+        """
+        tm_ranks = (self.team1.tourn_rank, self.team2.tourn_rank)
+        return ' vs. '.join(str(x) for x in tm_ranks if x)
+
+    def add_scores(self, team1_pts: int, team2_pts: int) -> None:
+        """Record scores for completed (or incomplete) game.  It is no longer required
+        that score updates come through here (since denorms are now managed elsewhere),
+        but there is a little bit of integrity checking here that is slightly useful
+        """
+        if self.winner:
+            raise RuntimeError("Completed game score cannot be overwritten")
+        if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
+            raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points")
+
+        self.team1_pts = team1_pts
+        self.team2_pts = team2_pts
+
+    def update_team_stats(self) -> int:
+        """Update stats for teams involved in the game; returns number of records updated.
+        Called by front-end after the game is complete (i.e. winner determined).  There is
+        no need to support partial-game stats.
+        """
+        teams       = [self.team1, self.team2]
+        team_scores = [self.team1_pts, self.team2_pts]
+
+        match_idx = None
+        for tm_idx, team in enumerate([self.team1, self.team2]):
+            op_idx   = tm_idx ^ 0x01
+            team_pts = team_scores[tm_idx]
+            opp_pts  = team_scores[op_idx]
+
+            team.playoff_wins        += int(team_pts > opp_pts)
+            team.playoff_losses      += int(team_pts < opp_pts)
+            team.playoff_pts_for     += team_pts
+            team.playoff_pts_against += opp_pts
+
+            if team.playoff_wins == 2:
+                match_idx = tm_idx
+
+            ngames = team.playoff_wins + team.playoff_losses
+            totpts = team.playoff_pts_for + team.playoff_pts_against
+            team.playoff_win_pct = rnd_pct(team.playoff_wins / ngames)
+            team.playoff_pts_pct = rnd_pct(team.playoff_pts_for / totpts)
+
+        if match_idx is not None:
+            op_idx = match_idx ^ 0x01
+            teams[match_idx].playoff_match_wins += 1
+            teams[op_idx].playoff_match_losses += 1
+
+        upd = teams[0].save() + teams[1].save()
+        return upd
+
+    def save(self, *args, **kwargs):
+        """Compute winner if both scores have been entered
+        """
+        if set(self._dirty) & {'team1_pts', 'team2_pts'}:
+            if None not in {self.team1_pts, self.team2_pts}:
+                if self.team1_pts >= GAME_PTS:
+                    if self.team2_pts >= GAME_PTS:
+                        raise RuntimeError(f"Only one team can score game-winning points ({GAME_PTS})")
+                    self.winner = self.team1_name
+                elif self.team2_pts >= GAME_PTS:
+                    self.winner = self.team2_name
+                else:
+                    self.winner = None
+        return super().save(*args, **kwargs)
 
 ##############
 # PlayerGame #

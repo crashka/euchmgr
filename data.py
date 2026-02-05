@@ -10,8 +10,8 @@ from peewee import IntegrityError
 from flask import Blueprint, request
 
 from security import login_required
-from schema import TournStage, TournInfo, Player, SeedGame, Team, TournGame
-from euchmgr import compute_player_ranks, compute_team_ranks
+from schema import TournStage, TournInfo, Player, SeedGame, Team, TournGame, PlayoffGame
+from euchmgr import (compute_player_ranks, compute_team_ranks, compute_playoff_ranks)
 
 ###################
 # blueprint stuff #
@@ -142,6 +142,8 @@ def post_seeding() -> dict:
             game.update_player_stats()
             game.insert_player_games()
             compute_player_ranks()
+            if SeedGame.current_round() == -1:
+                TournInfo.mark_stage_complete(TournStage.SEED_RESULTS)
             sg_props = {prop: getattr(game, prop) for prop in sg_addl_props}
             sg_data = game.__data__ | sg_props
     except RuntimeError as e:
@@ -197,9 +199,6 @@ def post_partners() -> dict:
     """Handle POST of partner pick data--the entire row is submitted, but we only look at
     the `id` and `picks_info` fields.
     """
-    pt_err = None
-    pt_upd = False
-
     data = request.form
     upd_info = {x[0]: typecast(data.get(x[0])) for x in pt_layout if x[2] == EDITABLE}
     picks_info = upd_info.pop('picks_info')
@@ -252,12 +251,14 @@ def post_partners() -> dict:
         player.pick_partners(*partners)
         player.save()
         avail = []
-        pt_upd = True
     else:
         player.pick_partners(partner)
         player.save()
-        pt_upd = True
+        # TODO: pop or remove both player and partner from `avail`, if we are still going
+        # to do something with it!!!
 
+    if PartnerPick.current_round() == -1:
+        TournInfo.mark_stage_complete(TournStage.PARTNER_PICK)
     # REVISIT: return available players? (...and if so, by num or seed?)
     return ajax_data('all')
 
@@ -379,12 +380,149 @@ def post_round_robin() -> dict:
             game.update_team_stats()
             game.insert_team_games()
             compute_team_ranks()
+            if TournGame.current_round() == -1:
+                TournInfo.mark_stage_complete(TournStage.TOURN_RESULTS)
             tg_props = {prop: getattr(game, prop) for prop in tg_addl_props}
             tg_data = game.__data__ | tg_props
     except RuntimeError as e:
         return ajax_error(str(e))
 
     return ajax_data(tg_data)
+
+###############
+# /final_four #
+###############
+
+ff_addl_props = [
+    'player_nums'
+]
+
+ff_layout = [
+    ('id',                   "ID",              HIDDEN),
+    ('tourn_rank',           "Team Rank",       None),
+    ('player_nums',          "Player Nums",     None),
+    ('team_name',            "Team",            None),
+    ('div_num',              "Div",             None),
+    ('div_rank',             "Div Rank",        None),
+    ('playoff_match_wins',   "Playoff Match Wins", None),
+    ('playoff_match_losses', "Playoff Match Losses", None),
+    ('playoff_wins',         "Playoff Wins",    None),
+    ('playoff_losses',       "Playoff Losses",  None),
+    ('playoff_pts_for',      "Playoff Pts",     None),
+    ('playoff_pts_against',  "Playoff Opp Pts", None),
+    ('playoff_rank',         "Playoff Rank",    None)
+]
+
+@data.get("/final_four")
+@login_required
+def get_final_four() -> dict:
+    """
+    """
+    ff_iter = Team.iter_playoff_teams(by_rank=True)
+    ff_data = []
+    for team in ff_iter:
+        ff_props = {prop: getattr(team, prop) for prop in ff_addl_props}
+        ff_data.append(team.final_four_data | ff_props)
+
+    return ajax_data(ff_data)
+
+@data.post("/final_four")
+@login_required
+def post_final_four() -> dict:
+    """
+    """
+    ff_data = None
+
+    data = request.form
+    upd_info = {x[0]: typecast(data.get(x[0])) for x in ff_layout if x[2] == EDITABLE}
+    try:
+        team = Team[data['id']]
+        for col, val in upd_info.items():
+            setattr(team, col, val)
+        team.save()
+
+        # NOTE: no need to update row data for now (LATER, may need this if denorm or
+        # derived fields are updated when saving)
+        if False:
+            ff_props = {prop: getattr(team, prop) for prop in ff_addl_props}
+            ff_data = team.__data__ | ff_props
+    except IntegrityError as e:
+        return ajax_error(str(e))
+
+    return ajax_data(ff_data)
+
+#############
+# /playoffs #
+#############
+
+pg_addl_props = [
+    'team_ranks'
+]
+
+pg_layout = [
+    ('id',          "ID",         HIDDEN),
+    ('bracket',     "Brckt",      None),
+    ('label',       "Game",       None),
+    ('matchup_num', "Matchup",    None),
+    ('round_num',   "Round",      None),
+    ('team_ranks',  "Team Ranks", None),
+    ('team1_name',  "Team 1",     None),
+    ('team2_name',  "Team 2",     None),
+    ('team1_pts',   "Team 1 Pts", EDITABLE),
+    ('team2_pts',   "Team 2 Pts", EDITABLE),
+    ('winner',      "Winner",     None)
+]
+
+@data.get("/playoffs")
+@login_required
+def get_playoffs() -> dict:
+    """
+    """
+    pg_iter = PlayoffGame.iter_games()
+    pg_data = []
+    for game in pg_iter:
+        pg_props = {prop: getattr(game, prop) for prop in pg_addl_props}
+        pg_data.append(game.__data__ | pg_props)
+
+    return ajax_data(pg_data)
+
+@data.post("/playoffs")
+@login_required
+def post_playoffs() -> dict:
+    """
+    """
+    pg_data = None
+
+    data = request.form
+    upd_info = {x[0]: typecast(data.get(x[0])) for x in pg_layout if x[2] == EDITABLE}
+    team1_pts = upd_info.pop('team1_pts')
+    team2_pts = upd_info.pop('team2_pts')
+    assert len(upd_info) == 0
+    try:
+        # TODO: wrap this entire try block in a transaction!!!
+        game = PlayoffGame[data['id']]
+        game.add_scores(team1_pts, team2_pts)
+        game.save()
+
+        if game.winner:
+            game.update_team_stats()
+            # FIX: we can actually finalize the playoff ranks if the bracket is complete
+            # (have to move this call a little lower to do so), but that may screw up the
+            # UI flow--need to figure out how to reconcile!!!  The same thing applies to
+            # seeding and round robin updates, as well!
+            compute_playoff_ranks(game.bracket)
+            if PlayoffGame.bracket_complete(game.bracket):
+                if game.bracket == Bracket.SEMIS:
+                    TournInfo.mark_stage_complete(TournStage.SEMIS_RESULTS)
+                else:
+                    assert game.bracket == Bracket.FINALS
+                    TournInfo.mark_stage_complete(TournStage.FINALS_RESULTS)
+            pg_props = {prop: getattr(game, prop) for prop in pg_addl_props}
+            pg_data = game.__data__ | pg_props
+    except RuntimeError as e:
+        return ajax_error(str(e))
+
+    return ajax_data(pg_data)
 
 #############
 # renderers #

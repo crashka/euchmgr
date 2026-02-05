@@ -45,8 +45,10 @@ from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_se
                      fake_seed_games, validate_seed_round, compute_player_ranks,
                      prepick_champ_partners, fake_pick_partners, build_tourn_teams,
                      compute_team_seeds, build_tourn_bracket, fake_tourn_games,
-                     validate_tourn, compute_team_ranks)
-from data import data, Layout, pl_layout, sg_layout, pt_layout, tm_layout, tg_layout
+                     validate_tourn, compute_team_ranks, build_playoff_bracket,
+                     validate_playoffs, compute_playoff_ranks)
+from data import (data, Layout, pl_layout, sg_layout, pt_layout, tm_layout, tg_layout,
+                  ff_layout, pg_layout)
 from chart import chart
 from dash import dash
 from report import report
@@ -275,6 +277,8 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
     @app.get("/partners")
     @app.get("/teams")
     @app.get("/round_robin")
+    @app.get("/final_four")
+    @app.get("/playoffs")
     def view() -> str:
         """Render the requested view directly.
         """
@@ -366,6 +370,8 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
     @app.post("/partners")
     @app.post("/teams")
     @app.post("/round_robin")
+    @app.post("/final_four")
+    @app.post("/playoffs")
     def submit() -> str:
         """Process submitted form, switch on ``submit_func``, which is validated against
         paths and values in ``SUBMIT_FUNCS``
@@ -395,6 +401,8 @@ class View(StrEnum):
     PARTNERS    = '/partners'
     TEAMS       = '/teams'
     ROUND_ROBIN = '/round_robin'
+    FINAL_FOUR  = '/final_four'
+    PLAYOFFS    = '/playoffs'
 
 class ViewInfo(NamedTuple):
     """This is not super-pretty, but we want to make this as data-driven as possible
@@ -441,11 +449,26 @@ VIEW_INFO = {
         "label",
         0,
         2
+    ),
+    View.FINAL_FOUR: ViewInfo(
+        "Final Four",
+        ff_layout,
+        "team_name",
+        1,  # team_seed
+        2
+    ),
+    View.PLAYOFFS: ViewInfo(
+        "Playoffs",
+        pg_layout,
+        "label",
+        0,
+        2
     )
 }
 
 STAGE_MAPPING = [
-    (TournStage.TEAM_RANKS,    View.ROUND_ROBIN),
+    (TournStage.SEMIS_RESULTS, View.PLAYOFFS),
+    (TournStage.TOURN_RANKS,   View.FINAL_FOUR),
     (TournStage.TOURN_RESULTS, View.ROUND_ROBIN),
     (TournStage.TEAM_SEEDS,    View.TEAMS),
     (TournStage.PARTNER_PICK,  View.PARTNERS),
@@ -492,6 +515,14 @@ SUBMIT_FUNCS = {
     View.ROUND_ROBIN: [
         'fake_tourn_results',
         'tabulate_tourn_results'
+    ],
+    View.FINAL_FOUR: [
+        'gen_semis_bracket',
+        'gen_finals_bracket'
+    ],
+    View.PLAYOFFS: [
+        'tabulate_semis_results',
+        'tabulate_finals_results'
     ]
 }
 
@@ -692,7 +723,33 @@ def tabulate_tourn_results(form: dict) -> str:
     """
     validate_tourn(finalize=True)
     compute_team_ranks(finalize=True)
-    return render_view(View.ROUND_ROBIN)
+    return render_view(View.FINAL_FOUR)
+
+def gen_semis_bracket(form: dict) -> str:
+    """
+    """
+    build_playoff_bracket(Bracket.SEMIS)
+    return render_view(View.PLAYOFFS)
+
+def tabulate_semis_results(form: dict) -> str:
+    """
+    """
+    validate_playoffs(Bracket.SEMIS, finalize=True)
+    compute_playoff_ranks(Bracket.SEMIS, finalize=True)
+    return render_view(View.FINAL_FOUR)
+
+def gen_finals_bracket(form: dict) -> str:
+    """
+    """
+    build_playoff_bracket(Bracket.FINALS)
+    return render_view(View.PLAYOFFS)
+
+def tabulate_finals_results(form: dict) -> str:
+    """
+    """
+    validate_playoffs(Bracket.FINALS, finalize=True)
+    compute_playoff_ranks(Bracket.FINALS, finalize=True)
+    return render_view(View.FINAL_FOUR)
 
 #############
 # renderers #
@@ -709,19 +766,23 @@ SEL_NEW = "(create new)"
 # keys: button name (must be kept in sync with SUBMIT_FUNCS above)
 # values: tuple(button label, list of stages for which button is enabled)
 BUTTON_INFO = {
-    'select_tourn'          : ("[Ceci n'existe pas]",         [None]),
-    'create_tourn'          : ("Create Tournament",           [TOURN_INIT]),
-    'update_tourn'          : ("Update Tournament",           list(ACTIVE_STAGES)),
-    'pause_tourn'           : ("Pause Tournament",            list(ACTIVE_STAGES)),
-    'gen_player_nums'       : ("Generate Player Nums",        [TournStage.PLAYER_ROSTER]),
-    'gen_seed_bracket'      : ("Create Seeding Bracket",      [TournStage.PLAYER_NUMS]),
-    'fake_seed_results'     : ("Generate Fake Results",       [TournStage.SEED_BRACKET]),
-    'tabulate_seed_results' : ("Tabulate Results",            [TournStage.SEED_RESULTS]),
-    'fake_partner_picks'    : ("Generate Fake Picks",         [TournStage.SEED_RANKS]),
-    'comp_team_seeds'       : ("Compute Team Seeds",          [TournStage.PARTNER_PICK]),
-    'gen_tourn_brackets'    : ("Create Round Robin Brackets", [TournStage.TEAM_SEEDS]),
-    'fake_tourn_results'    : ("Generate Fake Results",       [TournStage.TOURN_BRACKET]),
-    'tabulate_tourn_results': ("Tabulate Results",            [TournStage.TOURN_RESULTS])
+    'select_tourn'           : ("[Ceci n'existe pas]",         [None]),
+    'create_tourn'           : ("Create Tournament",           [TOURN_INIT]),
+    'update_tourn'           : ("Update Tournament",           list(ACTIVE_STAGES)),
+    'pause_tourn'            : ("Pause Tournament",            list(ACTIVE_STAGES)),
+    'gen_player_nums'        : ("Generate Player Nums",        [TournStage.PLAYER_ROSTER]),
+    'gen_seed_bracket'       : ("Create Seeding Bracket",      [TournStage.PLAYER_NUMS]),
+    'fake_seed_results'      : ("Generate Fake Results",       [TournStage.SEED_BRACKET]),
+    'tabulate_seed_results'  : ("Tabulate Results",            [TournStage.SEED_RESULTS]),
+    'fake_partner_picks'     : ("Generate Fake Picks",         [TournStage.SEED_RANKS]),
+    'comp_team_seeds'        : ("Compute Team Seeds",          [TournStage.PARTNER_PICK]),
+    'gen_tourn_brackets'     : ("Create Round Robin Brackets", [TournStage.TEAM_SEEDS]),
+    'fake_tourn_results'     : ("Generate Fake Results",       [TournStage.TOURN_BRACKET]),
+    'tabulate_tourn_results' : ("Tabulate Results",            [TournStage.TOURN_RESULTS]),
+    'gen_semis_bracket'      : ("Create Semifinals Bracket",   [TournStage.TOURN_RANKS]),
+    'tabulate_semis_results' : ("Tabulate Semis Results",      [TournStage.SEMIS_RESULTS]),
+    'gen_finals_bracket'     : ("Create Finals Bracket",       [TournStage.SEMIS_RANKS]),
+    'tabulate_finals_results': ("Tabulate Finals Results",     [TournStage.FINALS_RESULTS])
 }
 
 BTN_DISABLED = ' disabled'
@@ -740,7 +801,7 @@ LINK_INFO = {
         ('/chart/rr_brackets',  "Round Robin Brackets",  TournStage.TOURN_BRACKET),
         ('/chart/rr_scores',    "Round Robin Scores",    TournStage.TOURN_BRACKET),
         ('/dash/rr_dash',       "Live Dashboard",        TournStage.TOURN_BRACKET),
-        ('/report/tie_breaker', "Tie-Breaker Report",    TournStage.TEAM_RANKS)
+        ('/report/tie_breaker', "Tie-Breaker Report",    TournStage.TOURN_RANKS)
     ]
 }
 

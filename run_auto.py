@@ -25,8 +25,12 @@ def get_func_args(func: str, tourn_name: str) -> dict:
     """Return dict representing arguments to pass into ``func``
     """
     func_args = {
-        'tourn_create':  {'force': True},
-        'upload_roster': {'csv_path': f"{tourn_name}_roster.csv"}
+        'tourn_create'        : {'force': True},
+        'upload_roster'       : {'csv_path': f"{tourn_name}_roster.csv"},
+        'validate_seed_round' : {'finalize': True},
+        'compute_player_ranks': {'finalize': True},
+        'validate_tourn'      : {'finalize': True},
+        'compute_team_ranks'  : {'finalize': True}
     }
 
     if func not in func_args:
@@ -56,6 +60,7 @@ def main() -> int:
       - fake_tourn_games
       - tabulate_tourn
       - compute_team_ranks
+      - build_semis_bracket
 
     Note that a roster file of ``<tourn_name>_roster.csv`` will be used by default, and
     ``addl_args`` represents keyword args that will be passed into the specified function

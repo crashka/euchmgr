@@ -39,8 +39,8 @@ from security import (current_user, DUMMY_PW_STR, EuchmgrUser, ADMIN_USER, ADMIN
                       EuchmgrLogin, AuthenticationError)
 from database import (DB_FILETYPE, db_init, db_name, db_reset, db_is_initialized, db_connect,
                       db_close, db_is_closed)
-from schema import (clear_schema_cache, TournStage, TOURN_INIT, ACTIVE_STAGES, TournInfo,
-                    Player)
+from schema import (clear_schema_cache, Bracket, TournStage, TOURN_INIT, ACTIVE_STAGES,
+                    TournInfo, Player)
 from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_seed_bracket,
                      fake_seed_games, validate_seed_round, compute_player_ranks,
                      prepick_champ_partners, fake_pick_partners, build_tourn_teams,
@@ -454,7 +454,7 @@ VIEW_INFO = {
         "Final Four",
         ff_layout,
         "team_name",
-        1,  # team_seed
+        1,  # tourn_rank
         2
     ),
     View.PLAYOFFS: ViewInfo(
@@ -866,6 +866,18 @@ def render_app(context: dict) -> str:
         btn_lbl.append(label)
         btn_attr.append('' if stage_compl in stages else BTN_DISABLED)
 
+    view_info = VIEW_INFO[view]
+    # TEMP: for now, do this manual hack for testing--really need to put a little
+    # structure around conditional view_info (will still be hacky, though)!!!
+    if view == View.FINAL_FOUR and stage_compl >= TournStage.SEMIS_RANKS:
+        view_info = ViewInfo(
+            "Final Four",
+            ff_layout,
+            "team_name",
+            12,  # playoff_rank
+            2
+        )
+
     base_ctx = {
         'title'    : APP_NAME,
         'user'     : current_user,
@@ -873,7 +885,7 @@ def render_app(context: dict) -> str:
         'err_msg'  : None,       # ditto
         'view_defs': VIEW_INFO,
         'view_path': view,
-        'view_info': VIEW_INFO[view],
+        'view_info': view_info,
         'buttons'  : buttons,
         'btn_lbl'  : btn_lbl,
         'btn_attr' : btn_attr,

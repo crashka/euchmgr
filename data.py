@@ -10,7 +10,8 @@ from peewee import IntegrityError
 from flask import Blueprint, request
 
 from security import login_required
-from schema import TournStage, TournInfo, Player, SeedGame, Team, TournGame, PlayoffGame
+from schema import (Bracket, TournStage, TournInfo, Player, SeedGame, Team, TournGame,
+                    PlayoffGame)
 from euchmgr import (compute_player_ranks, compute_team_ranks, compute_playoff_ranks)
 
 ###################
@@ -210,9 +211,9 @@ def post_partners() -> dict:
 
     player = Player[typecast(data['id'])]
     if not player.available:
-        return ajax_error(f"Invalid selection; current player ({player.nick_name}) already on a team")
+        return ajax_error(f"Specified pick ({player.nick_name}) already on a team")
     if player != avail[0]:
-        return ajax_error(f"Selection out of turn; active pick belongs to {avail[0].seed_ident}")
+        return ajax_error(f"Current pick belongs to {avail[0].seed_ident}")
 
     if isinstance(picks_info, int):
         partner = Player.fetch_by_rank(picks_info)
@@ -222,13 +223,15 @@ def post_partners() -> dict:
         if len(match_av) > 1:
             av_by_name = sorted(match_av, key=lambda pl: pl.nick_name)
             samples = ', '.join([p.nick_name for p in av_by_name][:2]) + ", etc."
-            return ajax_error(f"Multiple available matches found for name starting with \"{picks_info}\" ({samples}); please respecify pick")
+            return ajax_error(f"Multiple matches for name starting with \"{picks_info}\" "
+                              f"available ({samples}); please respecify")
         elif len(match_av) == 1:
             partner = match_av.pop()
         elif len(match) > 1:
             by_name = sorted(match, key=lambda pl: pl.nick_name)
             samples = ', '.join([p.nick_name for p in by_name][:2]) + ", etc."
-            return ajax_error(f"All matches for name starting with \"{picks_info}\" ({samples}) already on a team")
+            return ajax_error(f"All matches for name starting with \"{picks_info}\" "
+                              f"already on a team ({samples})")
         elif len(match) == 1:
             partner = match.pop()  # will get caught as unavailable, below
         else:
@@ -506,10 +509,10 @@ def post_playoffs() -> dict:
 
         if game.winner:
             game.update_team_stats()
-            # FIX: we can actually finalize the playoff ranks if the bracket is complete
-            # (have to move this call a little lower to do so), but that may screw up the
-            # UI flow--need to figure out how to reconcile!!!  The same thing applies to
-            # seeding and round robin updates, as well!
+            # NOTE that we don't automatically finalize the playoff ranks if the bracket
+            # is complete, since the workflow (currently) requires the tabulation to be
+            # manually done by the admin.  This same thing applies to seeding, partner
+            # pick, and round robin updates (all above).
             compute_playoff_ranks(game.bracket)
             if PlayoffGame.bracket_complete(game.bracket):
                 if game.bracket == Bracket.SEMIS:

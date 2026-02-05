@@ -9,6 +9,7 @@ import sys
 from ckautils import parse_argv
 
 from database import db_init, db_close
+from schema import Bracket
 import euchmgr
 
 ########
@@ -21,16 +22,24 @@ if PROFILE:
     from pyinstrument import Profiler
     profiler = Profiler(interval=PROF_INTERVAL)
 
+EXCLUDE_FUNCS = [
+    'validate_playoffs',
+    'compute_playoff_ranks'
+]
+
+ALL_FUNCS = list(filter(lambda x: x not in EXCLUDE_FUNCS, euchmgr.MOD_FUNCS))
+
 def get_func_args(func: str, tourn_name: str) -> dict:
     """Return dict representing arguments to pass into ``func``
     """
     func_args = {
-        'tourn_create'        : {'force': True},
-        'upload_roster'       : {'csv_path': f"{tourn_name}_roster.csv"},
-        'validate_seed_round' : {'finalize': True},
-        'compute_player_ranks': {'finalize': True},
-        'validate_tourn'      : {'finalize': True},
-        'compute_team_ranks'  : {'finalize': True}
+        'tourn_create'         : {'force': True},
+        'upload_roster'        : {'csv_path': f"{tourn_name}_roster.csv"},
+        'validate_seed_round'  : {'finalize': True},
+        'compute_player_ranks' : {'finalize': True},
+        'validate_tourn'       : {'finalize': True},
+        'compute_team_ranks'   : {'finalize': True},
+        'build_playoff_bracket': {'bracket': Bracket.SEMIS}
     }
 
     if func not in func_args:
@@ -60,7 +69,9 @@ def main() -> int:
       - fake_tourn_games
       - tabulate_tourn
       - compute_team_ranks
-      - build_semis_bracket
+      - build_playoff_bracket
+      - validate_playoffs
+      - compute_playoff_ranks
 
     Note that a roster file of ``<tourn_name>_roster.csv`` will be used by default, and
     ``addl_args`` represents keyword args that will be passed into the specified function
@@ -75,11 +86,11 @@ def main() -> int:
     tourn_name = sys.argv[1]
     func_list = sys.argv[2]
     if func_list == 'all':
-        funcs = euchmgr.MOD_FUNCS
+        funcs = ALL_FUNCS
     else:
         funcs = func_list.split(',')
         for func in funcs:
-            if func not in euchmgr.MOD_FUNCS:
+            if func not in ALL_FUNCS:
                 return usage(f"Unknown function '{func}'")
 
     args, kwargs = parse_argv(sys.argv[3:])  # pick up additional args

@@ -1241,7 +1241,10 @@ class Team(BaseModel):
         # `iter_teams()`, above
         query = cls.select().where(cls.div_rank.in_([1, 2]))
         if by_rank:
-            query = query.order_by(cls.tourn_rank.asc(nulls='last'))
+            tourn = TournInfo.get()
+            sort_col = (cls.tourn_rank if tourn.stage_compl < TournStage.SEMIS_RANKS
+                        else cls.playoff_rank)
+            query = query.order_by(sort_col.asc(nulls='last'))
         for t in query.iterator():
             yield t
 
@@ -1748,15 +1751,21 @@ class PlayoffGame(BaseModel):
                 return False
 
         query = Team.select(fn.sum(Team.playoff_match_wins))
-        nmatches = query.scalar()
-        if nmatches > 3:
-            raise DataError(f"too many playoff match wins ({nmatches})")
+        match_wins = query.scalar()
+        if match_wins > 3:
+            raise DataError(f"too many playoff match wins ({match_wins})")
 
         if bracket == Bracket.SEMIS:
-            return nmatches >= 2
-        else
+            return match_wins >= 2
+        else:
             assert bracket == Bracket.FINALS
-            return nmatches == 3
+            return match_wins == 3
+
+    @property
+    def matchup_ident(self) -> str:
+        """Identifier for the matchup
+        """
+        return f"{self.bracket}-{self.matchup_num}"
 
     @property
     def team_ranks(self) -> str:
@@ -1764,6 +1773,28 @@ class PlayoffGame(BaseModel):
         """
         tm_ranks = (self.team1.tourn_rank, self.team2.tourn_rank)
         return ' vs. '.join(str(x) for x in tm_ranks if x)
+
+    def matchup_winner(self) -> str | None:
+        """Return name of winner (if any) for the current matchup.  This is currently
+        hard-wired with the assumption of best 2-out-of-3 matchups (as with the rest of
+        the playoff locic for now).
+        """
+        cls = self.__class__
+        query = (cls
+                 .select(cls.winner, fn.count(cls.id).alias('wins'))
+                 .where(cls.bracket == self.bracket,
+                        cls.matchup_num == self.matchup_num,
+                        cls.winner.is_null(False))
+                 .group_by(cls.winner)
+                 .order_by(fn.count(cls.id).desc()))
+        if not query or query[0].wins < 2:
+            return None
+        if query[0].wins > 2:
+            raise DataError(f"More than 2 wins ({query[0].wins}) for '{query[0].winner}' "
+                            f"in matchup {self.matchup_ident}")
+        if query.count() > 1 and query[1].wins > 1:
+            raise DataError(f"More than one winner for matchup {self.matchup_ident}")
+        return query[0].winner
 
     def add_scores(self, team1_pts: int, team2_pts: int) -> None:
         """Record scores for completed (or incomplete) game.  It is no longer required
@@ -1775,6 +1806,9 @@ class PlayoffGame(BaseModel):
         if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
             raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points")
 
+        if winner := self.matchup_winner():
+            raise RuntimeError(f"Matchup already complete (winner '{winner}')")
+
         self.team1_pts = team1_pts
         self.team2_pts = team2_pts
 
@@ -1783,10 +1817,11 @@ class PlayoffGame(BaseModel):
         Called by front-end after the game is complete (i.e. winner determined).  There is
         no need to support partial-game stats.
         """
-        teams       = [self.team1, self.team2]
-        team_scores = [self.team1_pts, self.team2_pts]
+        teams        = [self.team1, self.team2]
+        team_scores  = [self.team1_pts, self.team2_pts]
+        match_winner = self.matchup_winner()
 
-        match_idx = None
+        upd = 0
         for tm_idx, team in enumerate([self.team1, self.team2]):
             op_idx   = tm_idx ^ 0x01
             team_pts = team_scores[tm_idx]
@@ -1797,20 +1832,18 @@ class PlayoffGame(BaseModel):
             team.playoff_pts_for     += team_pts
             team.playoff_pts_against += opp_pts
 
-            if team.playoff_wins == 2:
-                match_idx = tm_idx
+            if match_winner:
+                if team.team_name == match_winner:
+                    team.playoff_match_wins += 1
+                else:
+                    team.playoff_match_losses += 1
 
             ngames = team.playoff_wins + team.playoff_losses
             totpts = team.playoff_pts_for + team.playoff_pts_against
             team.playoff_win_pct = rnd_pct(team.playoff_wins / ngames)
             team.playoff_pts_pct = rnd_pct(team.playoff_pts_for / totpts)
+            upd += team.save()
 
-        if match_idx is not None:
-            op_idx = match_idx ^ 0x01
-            teams[match_idx].playoff_match_wins += 1
-            teams[op_idx].playoff_match_losses += 1
-
-        upd = teams[0].save() + teams[1].save()
         return upd
 
     def save(self, *args, **kwargs):

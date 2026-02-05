@@ -15,7 +15,7 @@ import os
 
 from ckautils import rankdata
 
-from core import BracketsFile, DEBUG
+from core import BracketsFile, DEBUG, log
 from database import db_init, db_close, db_name
 from schema import (rnd_pct, rnd_avg, Bracket, TournStage, TournInfo, Player, SeedGame,
                     Team, TournGame, PlayoffGame, schema_create)
@@ -627,7 +627,7 @@ def rank_team_cohort(teams: list[Team]) -> tuple[list[Team], dict[tuple], dict[d
     here, since we don't really care), return list of teams ranked by the following stats
     tuple:
 
-      (cohrt_win_pct, wl_factor, cohrt_pts_pct, seed_pts_pct)
+      (cohrt_win_pct, wl_factor, cohrt_pts_pct, tourn_pts_pct)
 
     where `wl_factor` (win-loss factor) is used to ensure that more wins is better (if all
     wins), more losses is worse (if all losses), and 0-0 sorts below 1-1, 2-2, etc.
@@ -870,8 +870,16 @@ def build_playoff_bracket(bracket: Bracket) -> list[PlayoffGame]:
         stage = TournStage.SEMIS_BRACKET
     else:
         assert bracket == Bracket.FINALS
+        # this now sorts by playoff_rank (based on TournInfo stage)
+        teams = list(Team.iter_playoff_teams(by_rank=True))
+        assert teams[0].playoff_match_wins == 1
+        assert teams[1].playoff_match_wins == 1
+        assert teams[2].playoff_match_wins == 0
+        assert teams[3].playoff_match_wins == 0
+        matchups = {
+            1: (teams[0], teams[1])
+        }
         stage = TournStage.FINALS_BRACKET
-        assert False, "Not yet implemented"
 
     games = []
     for matchup_num, (team1, team2) in matchups.items():
@@ -913,12 +921,19 @@ def validate_playoffs(bracket: Bracket, finalize: bool = False) -> None:
     }
     tm_stats = {tm.id: stats_tmpl.copy() for tm in tm_list}
 
+    unnecc = []
     by_matchup = PlayoffGame.iter_games(by_matchup=True)
     for k, g in groupby(by_matchup, key=lambda x: (x.bracket, x.matchup_num)):
         # TODO: track stats for the matchup to tabulate/validate match wins/losses!!!
         matchup_stats1 = stats_tmpl.copy()
         matchup_stats2 = stats_tmpl.copy()
         for gm in g:
+            if not gm.winner:
+                assert not gm.team1_pts
+                assert not gm.team2_pts
+                unnecc.append(gm)
+                continue
+
             stats1 = tm_stats[gm.team1_id]
             stats2 = tm_stats[gm.team2_id]
 
@@ -981,7 +996,14 @@ def validate_playoffs(bracket: Bracket, finalize: bool = False) -> None:
     assert stats_tot['playoff_wins']       == stats_tot['playoff_losses']
     assert stats_tot['playoff_pts_for']    == stats_tot['playoff_pts_against']
 
+    for gm in unnecc:
+        assert gm.matchup_winner()
+
     if finalize:
+        for gm in unnecc:
+            log.info(f"deleting unnecessary playoff game '{gm.label}'")
+            gm.delete_instance()
+
         if bracket == Bracket.SEMIS:
             assert stats_tot['playoff_match_wins'] == 2
             TournInfo.mark_stage_complete(TournStage.SEMIS_TABULATE)
@@ -996,10 +1018,11 @@ def compute_playoff_ranks(bracket: Bracket, finalize: bool = False) -> None:
     determine third and fourth place
     """
     tourn = TournInfo.get()
+    tm_list = list(Team.iter_playoff_teams())
+    played = list(filter(lambda x: x.playoff_wins + x.playoff_losses, tm_list))
 
-    teams = list(Team.iter_playoff_teams())
-    teams.sort(key=lambda x: (-x.playoff_match_wins, -x.playoff_win_pct, -x.playoff_pts_pct))
-    for i, team in enumerate(teams):
+    played.sort(key=lambda x: (-x.playoff_match_wins, -x.playoff_win_pct, -x.playoff_pts_pct))
+    for i, team in enumerate(played):
         team.playoff_rank = i + 1
         team.save()
 
@@ -1038,7 +1061,9 @@ MOD_FUNCS = [
     'fake_tourn_games',
     'validate_tourn',
     'compute_team_ranks',
-    'build_semis_bracket'
+    'build_playoff_bracket',
+    'validate_playoffs',
+    'compute_playoff_ranks'
 ]
 
 def main() -> int:
@@ -1062,7 +1087,9 @@ def main() -> int:
       - fake_tourn_games
       - tabulate_tourn
       - compute_team_ranks
-      - build_semis_bracket
+      - build_playoff_bracket
+      - validate_playoffs
+      - compute_playoff_ranks
     """
     if len(sys.argv) < 2:
         print(main.__doc__)

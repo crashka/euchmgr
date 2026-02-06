@@ -627,7 +627,7 @@ def rank_tourn_cohort(teams: list[Team]) -> tuple[list[Team], dict[tuple], dict[
     here, since we don't really care), return list of teams ranked by the following stats
     tuple:
 
-      (tourn_pts_pct)
+      (tourn_pts_pct,)
 
     The other two return elements are the actual stats tuples and aggregated head-to-head
     game data for the cohort teams, both indexed by team seed.
@@ -818,6 +818,11 @@ def compute_tourn_ranks(teams: list[Team], finalize: bool = False) -> None:
             continue
         cohort_pos = cohort[0].tourn_pos
         ranked, stats, data = rank_tourn_cohort(cohort)
+        # REVISIT: we are not elevating head-to-head winners in determining overall
+        # tournament rankings (for now), since it may not be possible to do this and
+        # maintain fairness to cohort members across divisions (where tourn_pts_pct
+        # matters)--but this will need some additional thinking!!!
+        """
         ranked, elevs, win_grps, _ = elevate_winners(ranked)
         if elevs and DEBUG:
             for tm, opp in elevs:
@@ -827,6 +832,7 @@ def compute_tourn_ranks(teams: list[Team], finalize: bool = False) -> None:
             for grp in win_grps:
                 grp_seeds = set(tm.team_seed for tm in grp)
                 log.debug(f"Cyclic win group for tourn rank, pos {cohort_pos}, seeds {grp_seeds}")
+        """
         for i, tm in enumerate(ranked):
             tm.tourn_rank = cohort_pos + i
             tm.tourn_tb_crit = stats[tm.team_seed]
@@ -839,8 +845,8 @@ def compute_team_ranks(finalize: bool = False) -> None:
     """
     tourn = TournInfo.get()
     div_iter = range(1, tourn.divisions + 1)
-    tm_list = Team.get_team_map().values()
-    played = list(filter(lambda x: x.tourn_wins + x.tourn_losses, tm_list))
+    tm_iter = Team.iter_teams()
+    played = list(filter(lambda x: x.tourn_wins + x.tourn_losses, tm_iter))
 
     div_teams = {div: [] for div in div_iter}
     for i, tm in enumerate(played):
@@ -1063,10 +1069,12 @@ def compute_playoff_ranks(bracket: Bracket, finalize: bool = False) -> None:
     matchups, and playoff win_pct followed by pts_pct to determine third and fourth place.
     """
     tourn = TournInfo.get()
-    tm_list = Team.get_team_map().values()
+    tm_list = list(Team.iter_teams())
     final_four = list(filter(lambda x: x.div_rank in [1, 2], tm_list))
 
-    playoff_key = lambda x: (x.playoff_match_wins, x.playoff_win_pct, x.playoff_pts_pct)
+    playoff_key = lambda x: (x.playoff_match_wins,
+                             x.playoff_win_pct or 0.0,
+                             x.playoff_pts_pct or 0.0)
     final_four.sort(key=playoff_key, reverse=True)
     for i, team in enumerate(final_four):
         team.playoff_rank = i + 1

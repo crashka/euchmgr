@@ -607,8 +607,8 @@ class Player(BaseModel, EuchmgrUser):
         """
         """
         if DEBUG:
-            print(f"player: {self.player_num} ({self.nick_name})")
-            print(f"  - picks partner {partner.player_num} ({partner.nick_name})")
+            log.debug(f"player: {self.player_num} ({self.nick_name})")
+            log.debug(f"  - picks partner {partner.player_num} ({partner.nick_name})")
         assert self.partner is None
         assert partner.picked_by is None
         self.partner = partner
@@ -616,7 +616,7 @@ class Player(BaseModel, EuchmgrUser):
 
         if partner2:
             if DEBUG:
-                print(f"  - picks partner {partner2.player_num} ({partner2.nick_name})")
+                log.debug(f"  - picks partner {partner2.player_num} ({partner2.nick_name})")
             assert self.partner2 is None
             assert partner2.picked_by is None
             self.partner2 = partner2

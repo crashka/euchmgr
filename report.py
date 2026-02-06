@@ -6,9 +6,8 @@ from itertools import groupby
 
 from flask import Blueprint, session, render_template, abort
 
-from schema import GAME_PTS, TournInfo, Player, PlayerGame, Team, TeamGame, PostScore
+from schema import fmt_pct, GAME_PTS, TournInfo, Player, PlayerGame, Team, TeamGame, PostScore
 from euchmgr import Elevs, TeamGrps, rank_team_cohort, elevate_winners, get_game_by_label
-from chart import fmt_pct
 
 ###################
 # blueprint stuff #

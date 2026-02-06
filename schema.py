@@ -14,6 +14,55 @@ from core import DEBUG, log, ImplementationError, LogicError, DataError
 from security import EuchmgrUser, AuthenticationError
 from database import BaseModel
 
+#################
+# utility stuff #
+#################
+
+# hard-wired floating point precision (depending on field type), helpful for neater
+# display as well as equivalence determination (without additional rounding)
+rnd_pct = lambda x: round(x, 5)
+rnd_avg = lambda x: round(x, 2)
+
+# special (i.e. hack) value representing n/a for percentages (must be a float)
+PTS_PCT_NA = -1.0
+
+PCT_PREC = 3
+PCT_FMT = '.03f'
+
+def fmt_pct(val: float) -> str:
+    """Provide consistent formatting for percentage values (appropriate rounding and
+    look), used for grids, charts, dashboards, and reports.
+    """
+    if val is None:
+        return ''
+    elif val == PTS_PCT_NA:
+        return '&ndash;'  # or "n/a"?
+    # take care of (possible!) exceptions first--yes, the code below may produce the same
+    # string, but we want to allow ourselves the freedom to make this something different
+    if val == 1.0:
+        return '1.000'
+
+    # make everything else look like .xxx (with trailing zeros)
+    as_str = f"{round(val, PCT_PREC):{PCT_FMT}}"
+    if as_str.startswith('0.'):
+        return as_str[1:]
+    # not expecting negative input or anything >1.0
+    assert False, f"unexpected percentage value of '{val}'"
+
+def clear_schema_cache() -> None:
+    """This needs to be called every time we switch (or reset) databases.
+
+    FIX: this is currently only called from `conftest.py`, but also needs to be
+    incorporated into the database management logic in `server.py`!!!
+    """
+    TournInfo.clear_cache()
+    Player.clear_cache()
+    Team.clear_cache()
+
+######################
+# bracket/game stuff #
+######################
+
 DFLT_SEED_ROUNDS  = 8
 DFLT_TOURN_ROUNDS = 8
 DFLT_DIVISIONS    = 2
@@ -33,10 +82,9 @@ BRACKET_NAME = {
     Bracket.FINALS: "Finals",
 }
 
-# hard-wired floating point precision (depending on field type), helpful for neater
-# display as well as equivalence determination (without additional rounding)
-rnd_pct = lambda x: round(x, 5)
-rnd_avg = lambda x: round(x, 2)
+##########################
+# tournament stage stuff #
+##########################
 
 # stage values are chronologically sequenced
 TournStage = IntEnum('TournStage',
@@ -117,16 +165,6 @@ STAGE_DATA = [
 
 assert len(STAGE_DATA) == len(TournStage)  # not ensured by zip
 StageData = dict(zip(TournStage, STAGE_DATA))
-
-def clear_schema_cache() -> None:
-    """This needs to be called every time we switch (or reset) databases.
-
-    FIX: this is currently only called from `conftest.py`, but also needs to be
-    incorporated into the database management logic in `server.py`!!!
-    """
-    TournInfo.clear_cache()
-    Player.clear_cache()
-    Team.clear_cache()
 
 #############
 # TournInfo #
@@ -517,6 +555,18 @@ class Player(BaseModel, EuchmgrUser):
         elif not self.seed_tb_crit:
             return str(self.player_pos)
         return f"{self.player_pos}*"
+
+    @property
+    def seed_win_pct_str(self) -> str:
+        """Return seed_win_pct formatted as a string.
+        """
+        return fmt_pct(self.seed_win_pct)
+
+    @property
+    def seed_pts_pct_str(self) -> str:
+        """Return seed_pts_pct formatted as a string.
+        """
+        return fmt_pct(self.seed_pts_pct)
 
     @property
     def player_rank_final(self, annotated: bool = False) -> int | str:
@@ -1129,9 +1179,6 @@ EMPTY_FINAL_FOUR_STATS = {
     'playoff_pts_against' : None
 }
 
-# special (i.e. hack) value representing n/a (must be a float)
-PTS_PCT_NA = -1.0
-
 class Team(BaseModel):
     """
     """
@@ -1312,6 +1359,48 @@ class Team(BaseModel):
                                      self.player2_num,
                                      self.player3_num)))
         return ' / '.join(map(str, pl_nums))
+
+    @property
+    def tourn_win_pct_str(self) -> str:
+        """Return tourn_win_pct formatted as a string.
+        """
+        return fmt_pct(self.tourn_win_pct)
+
+    @property
+    def tourn_pts_pct_str(self) -> str:
+        """Return tourn_pts_pct formatted as a string.
+        """
+        return fmt_pct(self.tourn_pts_pct)
+
+    @property
+    def playoff_win_pct_str(self) -> str:
+        """Return playoff_win_pct formatted as a string.
+        """
+        return fmt_pct(self.playoff_win_pct)
+
+    @property
+    def playoff_pts_pct_str(self) -> str:
+        """Return playoff_pts_pct formatted as a string.
+        """
+        return fmt_pct(self.playoff_pts_pct)
+
+    @property
+    def playoff_match_rec(self) -> str | None:
+        """Return playoff match record (W-L) as a string
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.SEMIS_BRACKET:
+            return None
+        return f"{self.playoff_match_wins}-{self.playoff_match_losses}"
+
+    @property
+    def playoff_win_rec(self) -> str | None:
+        """Return playoff game win record (W-L) as a string
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.SEMIS_BRACKET:
+            return None
+        return f"{self.playoff_wins}-{self.playoff_losses}"
 
     @property
     def div_pos_str(self) -> str | None:

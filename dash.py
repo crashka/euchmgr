@@ -6,8 +6,8 @@
 from flask import Blueprint, session, render_template, abort
 
 from database import now_str
-from schema import GAME_PTS, TournInfo, Player, PlayerGame, Team, TeamGame, PartnerPick
-from chart import Numeric, fmt_pct, fmt_tally
+from schema import fmt_pct, GAME_PTS, TournInfo, Player, PlayerGame, Team, TeamGame, PartnerPick
+from chart import Numeric, fmt_tally
 
 #################
 # utility stuff #

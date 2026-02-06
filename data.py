@@ -33,20 +33,24 @@ Layout = list[tuple[str, str, str]]
 
 pl_addl_props = [
     'display_name',
-    'champ'
+    'champ',
+    'seed_win_pct_str',
+    'seed_pts_pct_str'
 ]
 
 pl_layout = [
-    ('id',               "ID",           HIDDEN),
-    ('display_name',     "Person Name",  None),
-    ('player_num',       "Player Num",   EDITABLE),
-    ('nick_name',        "Player Name",  EDITABLE),
-    ('champ',            "Champ?",       CENTERED),
-    ('seed_wins',        "Seed Wins",    None),
-    ('seed_losses',      "Seed Losses",  None),
-    ('seed_pts_for',     "Seed Pts",     None),
-    ('seed_pts_against', "Seed Opp Pts", None),
-    ('player_rank',      "Seed Rank",    None)
+    ('id',               "ID",          HIDDEN),
+    ('display_name',     "Person Name", None),
+    ('player_num',       "Player Num",  EDITABLE),
+    ('nick_name',        "Player Name", EDITABLE),
+    ('champ',            "Champ?",      CENTERED),
+    ('seed_wins',        "Wins",        None),
+    ('seed_losses',      "Losses",      None),
+    ('seed_win_pct_str', "Win Pct",     None),
+    ('seed_pts_for',     "Pts For",     None),
+    ('seed_pts_against', "Pts Against", None),
+    ('seed_pts_pct_str', "Pts Pct",     None),
+    ('player_rank',      "Seed Rank",   None)
 ]
 
 @data.get("/players")
@@ -270,23 +274,27 @@ def post_partners() -> dict:
 ##########
 
 tm_addl_props = [
-    'player_nums'
+    'player_nums',
+    'tourn_win_pct_str',
+    'tourn_pts_pct_str'
 ]
 
 tm_layout = [
-    ('id',                "ID",            HIDDEN),
-    ('team_seed',         "Team Seed",     None),
-    ('player_nums',       "Player Nums",   None),
-    ('team_name',         "Team",          None),
-    ('div_num',           "Div",           None),
-    ('div_seed',          "Div Seed",      None),
-    ('tourn_wins',        "Tourn Wins",    None),
-    ('tourn_losses',      "Tourn Losses",  None),
-    ('tourn_pts_for',     "Tourn Pts",     None),
-    ('tourn_pts_against', "Tourn Opp Pts", None),
-    ('tourn_rank',        "Tourn Rank",    None),
-    ('div_rank',          "Div Rank",      None),
-    ('final_rank',        "Final Rank",    None)
+    ('id',                "ID",          HIDDEN),
+    ('team_seed',         "Team Seed",   None),
+    ('player_nums',       "Player Nums", None),
+    ('team_name',         "Team",        None),
+    ('div_num',           "Div",         None),
+    ('div_seed',          "Div Seed",    None),
+    ('tourn_wins',        "Wins",        None),
+    ('tourn_losses',      "Losses",      None),
+    ('tourn_win_pct_str', "Win Pct",     None),
+    ('tourn_pts_for',     "Pts For",     None),
+    ('tourn_pts_against', "Pts Against", None),
+    ('tourn_pts_pct_str', "Pts Pct",     None),
+    ('tourn_rank',        "Team Rank",   None),
+    ('div_rank',          "Div Rank",    None),
+    ('final_rank',        "Tourn Rank",  None)
 ]
 
 @data.get("/teams")
@@ -398,23 +406,27 @@ def post_round_robin() -> dict:
 ###############
 
 ff_addl_props = [
-    'playoff_status'
+    'playoff_status',
+    'playoff_match_rec',
+    'playoff_win_rec',
+    'playoff_win_pct_str',
+    'playoff_pts_pct_str'
 ]
 
 ff_layout = [
-    ('id',                   "ID",              HIDDEN),
-    ('tourn_rank',           "Tourn Rank",      None),
-    ('team_name',            "Team",            None),
-    ('playoff_status',       "Status",          None),
-    ('div_num',              "Div",             None),
-    ('div_rank',             "Div Rank",        None),
-    ('playoff_match_wins',   "Match Wins",      None),
-    ('playoff_match_losses', "Match Losses",    None),
-    ('playoff_wins',         "Game Wins",       None),
-    ('playoff_losses',       "Game Losses",     None),
-    ('playoff_pts_for',      "Playoff Pts",     None),
-    ('playoff_pts_against',  "Playoff Opp Pts", None),
-    ('playoff_rank',         "Playoff Rank",    None)
+    ('id',                   "ID",           HIDDEN),
+    ('tourn_rank',           "Tourn Rank",   None),
+    ('team_name',            "Team",         None),
+    ('playoff_status',       "Status",       None),
+    ('div_num',              "Div",          None),
+    ('div_rank',             "Div Rank",     None),
+    ('playoff_match_rec',    "Match W-L",    CENTERED),
+    ('playoff_win_rec',      "Game W-L",     CENTERED),
+    ('playoff_win_pct_str',  "Win Pct",      None),
+    ('playoff_pts_for',      "Pts For",      None),
+    ('playoff_pts_against',  "Pts Against",  None),
+    ('playoff_pts_pct_str',  "Pts Pct",      None),
+    ('playoff_rank',         "Playoff Rank", None)
 ]
 
 @data.get("/final_four")

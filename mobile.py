@@ -13,11 +13,10 @@ from flask_login import current_user
 from ckautils import typecast
 
 from core import ImplementationError
-from schema import (GAME_PTS, PTS_PCT_NA, Bracket, TournStage, TournInfo, Player,
+from schema import (fmt_pct, GAME_PTS, PTS_PCT_NA, Bracket, TournStage, TournInfo, Player,
                     PlayerRegister, PartnerPick, SeedGame, Team, TournGame, PostScore,
                     ScoreAction)
 from euchmgr import compute_player_ranks, compute_team_ranks, get_bracket, get_game_by_label
-from chart import fmt_pct
 
 ###################
 # blueprint stuff #

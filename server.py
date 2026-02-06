@@ -874,7 +874,7 @@ def render_app(context: dict) -> str:
             "Players",
             pl_layout,
             "nick_name",
-            [9],  # player_rank
+            [11],  # player_rank
             3
         )
     elif view == View.TEAMS:
@@ -883,7 +883,7 @@ def render_app(context: dict) -> str:
                 "Teams",
                 tm_layout,
                 "team_name",
-                [12],  # final_rank
+                [14],  # final_rank
                 2
             )
         elif stage_compl >= TournStage.TOURN_RANKS:
@@ -891,7 +891,7 @@ def render_app(context: dict) -> str:
                 "Teams",
                 tm_layout,
                 "team_name",
-                [11, 10],  # div_rank, tourn_rank
+                [13, 12],  # div_rank, tourn_rank
                 2
             )
     elif view == View.FINAL_FOUR and stage_compl >= TournStage.SEMIS_RANKS:

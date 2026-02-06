@@ -5,7 +5,7 @@
 
 from flask import Blueprint, session, render_template, abort
 
-from schema import (GAME_PTS, PTS_PCT_NA, TournInfo, Player, SeedGame, Team, TournGame,
+from schema import (fmt_pct, GAME_PTS, TournInfo, Player, SeedGame, Team, TournGame,
                     PlayerGame, TeamGame)
 from euchmgr import get_div_teams
 
@@ -14,28 +14,6 @@ from euchmgr import get_div_teams
 #################
 
 Numeric = int | float
-PCT_PREC = 3
-PCT_FMT = '.03f'
-
-def fmt_pct(val: float) -> str:
-    """Provide consistent formatting for percentage values (appropriate rounding and
-    look), used for charts, dashboards, and reports.
-    """
-    if val is None:
-        return ''
-    elif val == PTS_PCT_NA:
-        return '&ndash;'  # or "n/a"?
-    # take care of (possible!) exceptions first--yes, the code below may produce the same
-    # string, but we want to allow ourselves the freedom to make this something different
-    if val == 1.0:
-        return '1.000'
-
-    # make everything else look like .xxx (with trailing zeros)
-    as_str = f"{round(val, PCT_PREC):{PCT_FMT}}"
-    if as_str.startswith('0.'):
-        return as_str[1:]
-    # not expecting negative input or anything >1.0
-    assert False, f"unexpected percentage value of '{val}'"
 
 def fmt_score(pts: int) -> str:
     """Version for scoring charts--markup score if game-winning (bold)

@@ -419,49 +419,49 @@ VIEW_INFO = {
         "Players",
         pl_layout,
         "nick_name",
-        0,
+        [0],  # id
         3
     ),
     View.SEEDING: ViewInfo(
         "Seeding",
         sg_layout,
         "label",
-        0,
+        [0],  # id
         3
     ),
     View.PARTNERS: ViewInfo(
         "Partners",
         pt_layout,
         "nick_name",
-        1,  # player_rank
+        [1],  # player_rank
         3
     ),
     View.TEAMS: ViewInfo(
         "Teams",
         tm_layout,
         "team_name",
-        1,  # team_seed
+        [1],  # team_seed
         2
     ),
     View.ROUND_ROBIN: ViewInfo(
         "Round Robin",
         tg_layout,
         "label",
-        0,
+        [0],  # id
         2
     ),
     View.FINAL_FOUR: ViewInfo(
         "Final Four",
         ff_layout,
         "team_name",
-        1,  # tourn_rank
+        [1],  # tourn_rank
         2
     ),
     View.PLAYOFFS: ViewInfo(
         "Playoffs",
         pg_layout,
         "label",
-        0,
+        [0],  # id
         2
     )
 }
@@ -869,12 +869,37 @@ def render_app(context: dict) -> str:
     view_info = VIEW_INFO[view]
     # TEMP: for now, do this manual hack for testing--really need to put a little
     # structure around conditional view_info (will still be hacky, though)!!!
-    if view == View.FINAL_FOUR and stage_compl >= TournStage.SEMIS_RANKS:
+    if view == View.PLAYERS and stage_compl >= TournStage.SEED_RANKS:
+        view_info = ViewInfo(
+            "Players",
+            pl_layout,
+            "nick_name",
+            [9],  # player_rank
+            3
+        )
+    elif view == View.TEAMS:
+        if stage_compl >= TournStage.FINALS_RANKS:
+            view_info = ViewInfo(
+                "Teams",
+                tm_layout,
+                "team_name",
+                [10],  # tourn_rank
+                2
+            )
+        elif stage_compl >= TournStage.TOURN_RANKS:
+            view_info = ViewInfo(
+                "Teams",
+                tm_layout,
+                "team_name",
+                [11, 10],  # div_rank, tourn_rank
+                2
+            )
+    elif view == View.FINAL_FOUR and stage_compl >= TournStage.SEMIS_RANKS:
         view_info = ViewInfo(
             "Final Four",
             ff_layout,
             "team_name",
-            12,  # playoff_rank
+            [12],  # playoff_rank
             2
         )
 

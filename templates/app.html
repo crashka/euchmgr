@@ -325,7 +325,11 @@
          {% endif %}
          {% endfor %}
        ],
-       order: [[{{view_info.tbl_order}}, 'asc']],
+       order: [
+         {% for ord_col in view_info.tbl_order %}
+         [{{ord_col}}, 'asc'],
+         {% endfor %}
+       ],
        initComplete: function(settings, json) {
          $(".tbl_wrapper").css('visibility', 'visible');
          table.columns.adjust().draw();

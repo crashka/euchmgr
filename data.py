@@ -465,8 +465,8 @@ pg_addl_props = [
 
 pg_layout = [
     ('id',            "ID",         HIDDEN),
-    ('bracket_ident', "Bracket",    None),
     ('label',         "Game",       None),
+    ('bracket_ident', "Bracket",    None),
     ('matchup_num',   "Matchup",    None),
     ('round_num',     "Round",      None),
     ('team_ranks',    "Team Ranks", None),

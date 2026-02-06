@@ -644,8 +644,8 @@ def rank_team_cohort(teams: list[Team]) -> tuple[list[Team], dict[tuple], dict[d
         cohrt_games = st['games']
         if cohrt_games == 0:
             # REVISIT: should this be 0.0 instead???
-            cohrt_win_pct = 50.0
-            cohrt_pts_pct = 50.0
+            cohrt_win_pct = 0.5
+            cohrt_pts_pct = 0.5
             data[tm.team_seed] = {
                 'wins'       : 0,
                 'losses'     : 0,

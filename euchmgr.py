@@ -307,19 +307,22 @@ def rank_player_cohort(players: list[Player]) -> list[tuple[Player, tuple, dict]
     """Given a list of players (generally with the same record, though we are not checking
     here, since we don't really care), return list ranked by the following stats tuple:
 
-      (seed_pts_pct,)
+      (seed_pts_pct, -player_num)
 
     The `data` dict (last return element) is no longer used for the seeding round.
     """
-    # larger is better for all stats components
-    sort_key = lambda x: (-x.seed_pts_pct,)
-    ranked = sorted(players, key=sort_key)
-    return [(pl, (pl.seed_pts_pct,), None) for pl in ranked]
+    # player_num serves as an ersatz pre-seed position, where lower is better
+    sort_key = lambda x: (x.seed_pts_pct, -x.player_num)
+    ranked = sorted(players, key=sort_key, reverse=True)
+    return [(pl, sort_key(pl), None) for pl in ranked]
 
 def compute_player_ranks(finalize: bool = False) -> None:
     """Note that we use `rankdata` to do the computation here, and `rank_player_cohort` to
     break ties.
     """
+    # REVISIT: should we be going through `iter_players` here instead (to follow the same
+    # pattern as computing team raks)???  We really want to make the design informed and
+    # consistent!!!
     pl_list = Player.get_player_map().values()
     played = list(filter(lambda x: x.seed_wins + x.seed_losses, pl_list))
 
@@ -627,20 +630,20 @@ def rank_tourn_cohort(teams: list[Team]) -> tuple[list[Team], dict[tuple], dict[
     here, since we don't really care), return list of teams ranked by the following stats
     tuple:
 
-      (tourn_pts_pct,)
+      (tourn_pts_pct, -team_seed)
 
-    The other two return elements are the actual stats tuples and aggregated head-to-head
-    game data for the cohort teams, both indexed by team seed.
+    We also return the actual stats tuples used to rank (for reference).  Since we are not
+    considering head-to-head play, the aggregate game data is empty (but not null).
     """
     stats = {}
     data = {}
     for tm in teams:
-        stats[tm.team_seed] = (tm.tourn_pts_pct,)
+        stats[tm.team_seed] = (tm.tourn_pts_pct, -tm.team_seed)
         data[tm.team_seed] = {}
 
-    # larger is better for all stats components
-    sort_key = lambda tm: tuple(-x for x in stats[tm.team_seed])
-    ranked = sorted(teams, key=sort_key)
+    # inclusion of team_seed acknowledges individual player seeding rounds
+    sort_key = lambda tm: tuple(x for x in stats[tm.team_seed])
+    ranked = sorted(teams, key=sort_key, reverse=True)
     return ranked, stats, data
 
 def rank_team_cohort(teams: list[Team]) -> tuple[list[Team], dict[tuple], dict[dict]]:
@@ -648,7 +651,7 @@ def rank_team_cohort(teams: list[Team]) -> tuple[list[Team], dict[tuple], dict[d
     here, since we don't really care), return list of teams ranked by the following stats
     tuple:
 
-      (cohrt_win_pct, wl_factor, cohrt_pts_pct, tourn_pts_pct)
+      (cohrt_win_pct, wl_factor, cohrt_pts_pct, tourn_pts_pct, -team_seed)
 
     where `wl_factor` (win-loss factor) is used to ensure that more wins is better (if all
     wins), more losses is worse (if all losses), and 0-0 sorts below 1-1, 2-2, etc.
@@ -685,18 +688,19 @@ def rank_team_cohort(teams: list[Team]) -> tuple[list[Team], dict[tuple], dict[d
                 'pts_for'    : st['team_pts'],
                 'pts_against': st['opp_pts']
             }
-            # add weight (positive or negative) to all winning or all losing records,
+            # add weight (positive or negative) to all-winning or all-losing records,
             # based on number of cohort head-to-head games; otherwise treat all other
             # records as a pure percentage
             if st['wins'] == cohrt_games:
                 wl_factor = cohrt_games
             elif st['wins'] == 0:
                 wl_factor = -cohrt_games
-        stats[tm.team_seed] = (cohrt_win_pct, wl_factor, cohrt_pts_pct, tm.tourn_pts_pct)
+        stats[tm.team_seed] = (cohrt_win_pct, wl_factor, cohrt_pts_pct, tm.tourn_pts_pct,
+                               -tm.team_seed)
 
-    # larger is better for all stats components
-    sort_key = lambda tm: tuple(-x for x in stats[tm.team_seed])
-    ranked = sorted(teams, key=sort_key)
+    # larger is better for all stats components (except team_seed)
+    sort_key = lambda tm: tuple(x for x in stats[tm.team_seed])
+    ranked = sorted(teams, key=sort_key, reverse=True)
     return ranked, stats, data
 
 TeamGrps = list[set[Team]]
@@ -783,29 +787,26 @@ def elevate_winners(ranked: list[Team]) -> tuple[list[Team], Elevs, TeamGrps, Te
 
     return reranked, elevs, win_grps, team_wins
 
-MAX_TEAMS = 1000
+def compute_tourn_ranks(teams: list[Team]) -> None:
+    """This is similar to `compute_team_ranks`, except we disregard division assignments
+    and head-to-head play.  The rankings here are provisional and purely informational,
+    used as a (partial) basis for final ranking of non-playoff teams, but also used to
+    identify/track teams through the playoff round.
 
-def compute_tourn_ranks(teams: list[Team], finalize: bool = False) -> None:
-    """This is similar to `compute_team_ranks`, except we use `rank_tourn_cohort` for
-    tie-breaking and disregard division assignments and head-to-head play.  In addition,
-    playoff results are factored in (when they are available), which we use to overwrite
-    the provisional rankings from just after round robin play.
-
-    TEMP: currently ignoring the `finalize` flag, but later should be used to ensure
-    integrity for final overall tournament ranking!!!
+    Note: playoff teams are determined by division rankings, and may not be the same as
+    the top 4 teams here.
     """
     tourn = TournInfo.get()
     tm_list = list(teams)  # make a shallow copy, since we will sort in-place
 
-    rank_key = lambda x: (-(x.playoff_rank or MAX_TEAMS), x.tourn_win_pct)
+    rank_key = lambda x: x.tourn_win_pct
     team_rank_data = [rank_key(tm) for tm in tm_list]
     tourn_ranks = rankdata(team_rank_data, method='min')
 
     for i, tm in enumerate(tm_list):
         tm.tourn_pos = tourn_ranks[i]
 
-    # tournament ranking based on playoff_rank and then round robin win percentage, before
-    # tie-breaking
+    # tournament ranking based on win percentage, before tie-breaking
     tm_list.sort(key=rank_key, reverse=True)
     for k, g in groupby(tm_list, key=rank_key):
         cohort = list(g)
@@ -818,21 +819,6 @@ def compute_tourn_ranks(teams: list[Team], finalize: bool = False) -> None:
             continue
         cohort_pos = cohort[0].tourn_pos
         ranked, stats, data = rank_tourn_cohort(cohort)
-        # REVISIT: we are not elevating head-to-head winners in determining overall
-        # tournament rankings (for now), since it may not be possible to do this and
-        # maintain fairness to cohort members across divisions (where tourn_pts_pct
-        # matters)--but this will need some additional thinking!!!
-        """
-        ranked, elevs, win_grps, _ = elevate_winners(ranked)
-        if elevs and DEBUG:
-            for tm, opp in elevs:
-                log.debug(f"Elevating {tm.team_seed} above {opp.team_seed} for tourn rank, "
-                      f"pos {cohort_pos}")
-        if win_grps and DEBUG:
-            for grp in win_grps:
-                grp_seeds = set(tm.team_seed for tm in grp)
-                log.debug(f"Cyclic win group for tourn rank, pos {cohort_pos}, seeds {grp_seeds}")
-        """
         for i, tm in enumerate(ranked):
             tm.tourn_rank = cohort_pos + i
             tm.tourn_tb_crit = stats[tm.team_seed]
@@ -840,8 +826,8 @@ def compute_tourn_ranks(teams: list[Team], finalize: bool = False) -> None:
             tm.save()
 
 def compute_team_ranks(finalize: bool = False) -> None:
-    """Note that we use `rankdata` to do the computation here, and `rank_team_cohort` to
-    break ties.
+    """Note that we use `rankdata` to identify cohorts (same win percentage), and then
+    `rank_team_cohort` to do the tie-breaking.
     """
     tourn = TournInfo.get()
     div_iter = range(1, tourn.divisions + 1)
@@ -853,20 +839,19 @@ def compute_team_ranks(finalize: bool = False) -> None:
         div_teams[tm.div_num].append(tm)
 
     # FIX: overall tournament rankings piggyback off of us right now (for legacy reasons),
-    # but we should disentangle and make callers decide what/which to invoke!!!  Note that
-    # there are no playoff results yet, so only win and points percentage from round robin
-    # play matters (for now).
+    # but we should disentangle and make callers decide what/which to invoke!!!
     compute_tourn_ranks(played)
 
     for div, teams in div_teams.items():
-        div_win_pcts = [tm.tourn_win_pct for tm in teams]
+        rank_key = lambda x: x.tourn_win_pct
+        div_win_pcts = [rank_key(tm) for tm in teams]
         div_ranks = rankdata(div_win_pcts, method='min')
         for i, tm in enumerate(teams):
             tm.div_pos = div_ranks[i]
 
         # division ranking based on win percentage, before tie-breaking
-        teams.sort(key=lambda x: x.tourn_win_pct, reverse=True)
-        for k, g in groupby(teams, key=lambda x: x.tourn_win_pct):
+        teams.sort(key=rank_key, reverse=True)
+        for k, g in groupby(teams, key=rank_key):
             cohort = list(g)
             if len(cohort) == 1:
                 tm = cohort[0]
@@ -1064,9 +1049,13 @@ def validate_playoffs(bracket: Bracket, finalize: bool = False) -> None:
             assert stats_tot['playoff_match_wins'] == 3
             TournInfo.mark_stage_complete(TournStage.FINALS_TABULATE)
 
+MAX_TEAMS = 1000
+
 def compute_playoff_ranks(bracket: Bracket, finalize: bool = False) -> None:
     """We don't have to get fancy here, since the rules are pretty simple: best 2-out-of-3
     matchups, and playoff win_pct followed by pts_pct to determine third and fourth place.
+    We also use the playoff rankings to compute the final overall tournament rankings,
+    leveraging both div_rank and tourn_rank computations.
     """
     tourn = TournInfo.get()
     tm_list = list(Team.iter_teams())
@@ -1074,14 +1063,24 @@ def compute_playoff_ranks(bracket: Bracket, finalize: bool = False) -> None:
 
     playoff_key = lambda x: (x.playoff_match_wins,
                              x.playoff_win_pct or 0.0,
-                             x.playoff_pts_pct or 0.0)
+                             x.playoff_pts_pct or 0.0,
+                             -x.tourn_rank)  # <-- reward better round robin play
     final_four.sort(key=playoff_key, reverse=True)
     for i, team in enumerate(final_four):
         team.playoff_rank = i + 1
         team.save()
 
-    if bracket == Bracket.FINALS:
-        compute_tourn_ranks(tm_list, finalize)
+    # NOTE that the direction of this sort is different than above--we do ascending here,
+    # since most of the elements are previous rankings (and not higher-is-better stats,
+    # with one exception)
+    final_key = lambda x: (x.playoff_rank or MAX_TEAMS,  # playoff rank is preserved
+                           -x.tourn_win_pct,  # group prior cohorts (within and across divs)
+                           x.div_rank,        # div tie-breaking (includes head-to-head)
+                           x.tourn_rank)      # fairness across divisions
+    tm_list.sort(key=final_key, reverse=False)
+    for i, team in enumerate(tm_list):
+        team.final_rank = i + 1
+        team.save()
 
     if finalize:
         if bracket == Bracket.SEMIS:

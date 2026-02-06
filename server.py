@@ -878,12 +878,12 @@ def render_app(context: dict) -> str:
             3
         )
     elif view == View.TEAMS:
-        if stage_compl >= TournStage.FINALS_RANKS:
+        if stage_compl >= TournStage.SEMIS_RANKS:
             view_info = ViewInfo(
                 "Teams",
                 tm_layout,
                 "team_name",
-                [10],  # tourn_rank
+                [12],  # final_rank
                 2
             )
         elif stage_compl >= TournStage.TOURN_RANKS:

@@ -1156,7 +1156,15 @@ class Team(BaseModel):
     tourn_pts_against = IntegerField(default=0)
     tourn_pts_pct  = FloatField(null=True)
     tourn_pos      = IntegerField(null=True)  # based on win_pct, ties possible
-    div_pos        = IntegerField(null=True)  # same
+    tourn_tb_crit  = JSONField(null=True)     # stats criteria used to compute rank
+    tourn_tb_data  = JSONField(null=True)     # raw data for reference
+    tourn_rank     = IntegerField(null=True)  # stack-ranked, no ties
+    tourn_rank_adj = IntegerField(null=True)  # manual overrides
+    div_pos        = IntegerField(null=True)  # based on win_pct, ties possible
+    div_tb_crit    = JSONField(null=True)     # stats criteria used to compute rank
+    div_tb_data    = JSONField(null=True)     # raw data for reference
+    div_rank       = IntegerField(null=True)  # stack-ranked, no ties
+    div_rank_adj   = IntegerField(null=True)  # manual overrides
     # playoff play
     playoff_match_wins = IntegerField(default=0)
     playoff_match_losses = IntegerField(default=0)
@@ -1166,17 +1174,10 @@ class Team(BaseModel):
     playoff_pts_for = IntegerField(default=0)
     playoff_pts_against = IntegerField(default=0)
     playoff_pts_pct = FloatField(null=True)
-    playoff_pos    = IntegerField(null=True)  # REVISIT: probably don't need this!!!
-    playoff_rank   = IntegerField(null=True)  # apply to top four tourn_rank_adj
-    # tie-breaker stuff
-    div_tb_crit    = JSONField(null=True)     # stats criteria used to compute final rank
-    div_tb_data    = JSONField(null=True)     # raw data for reference
-    div_rank       = IntegerField(null=True)  # stack-ranked, no ties
-    div_rank_adj   = IntegerField(null=True)  # playoff determination overrides
-    tourn_tb_crit  = JSONField(null=True)     # stats criteria used to compute final rank
-    tourn_tb_data  = JSONField(null=True)     # raw data for reference
-    tourn_rank     = IntegerField(null=True)  # stack-ranked, no ties
-    tourn_rank_adj = IntegerField(null=True)  # includes playoff_rank overwrite
+    playoff_rank   = IntegerField(null=True)  # final four teams only
+    # final rankings
+    final_rank     = IntegerField(null=True)  # stack-ranked, no ties
+    final_rank_adj = IntegerField(null=True)  # manual overrides
 
     # class variables
     team_map: ClassVar[dict[int, Self]] = None  # indexed by id

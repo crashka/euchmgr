@@ -221,7 +221,9 @@
        window.location.href = './';
      });
      $('.view_body h2').on('click', function() {
-       // FIX: only need to refresh table data!!!
+       // NOTE: we currently refresh the page (rather than just reloading the table data),
+       // since we would like to pick up stage/state changes (e.g. button enablement)
+       //table.ajax.reload(null, false);
        window.location.href = "";
      });
      $('.login_info span').on('click', function() {

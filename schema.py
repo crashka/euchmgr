@@ -892,7 +892,7 @@ class SeedGame(BaseModel):
             return f"Round {cur_round}"
 
     @property
-    def bracket(self) -> str:
+    def bracket_ident(self) -> str:
         """Display name for the bracket
         """
         return BRACKET_NAME[Bracket.SEED]
@@ -1382,6 +1382,18 @@ class Team(BaseModel):
               .order_by(TournGame.round_num))
         return cg[0] if len(cg) > 0 else None
 
+    @property
+    def playoff_status(self) -> str:
+        """For the Final Four view.  Note, this call is only valid for actual final four
+        teams (garbage will be returned for non-playoff teams).
+        """
+        if self.playoff_match_wins == 2:
+            return "Champion"
+        elif self.playoff_match_wins == 1:
+            return "Finalist"
+        else:
+            return "Semifinalist"
+
     def get_games(self, all_games: bool = False) -> list[BaseModel]:
         """Get completed TournGame records (including possible byes up to the current
         round for the stage).
@@ -1523,7 +1535,7 @@ class TournGame(BaseModel):
             return f"Round {cur_round}"
 
     @property
-    def bracket(self) -> str:
+    def bracket_ident(self) -> str:
         """Display name for the bracket
         """
         return BRACKET_NAME[Bracket.TOURN]
@@ -1760,6 +1772,12 @@ class PlayoffGame(BaseModel):
         else:
             assert bracket == Bracket.FINALS
             return match_wins == 3
+
+    @property
+    def bracket_ident(self) -> str:
+        """Display name for the bracket
+        """
+        return BRACKET_NAME[self.bracket]
 
     @property
     def matchup_ident(self) -> str:

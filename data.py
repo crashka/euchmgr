@@ -397,20 +397,20 @@ def post_round_robin() -> dict:
 ###############
 
 ff_addl_props = [
-    'player_nums'
+    'playoff_status'
 ]
 
 ff_layout = [
     ('id',                   "ID",              HIDDEN),
-    ('tourn_rank',           "Team Rank",       None),
-    ('player_nums',          "Player Nums",     None),
+    ('tourn_rank',           "Tourn Rank",      None),
     ('team_name',            "Team",            None),
+    ('playoff_status',       "Status",          None),
     ('div_num',              "Div",             None),
     ('div_rank',             "Div Rank",        None),
-    ('playoff_match_wins',   "Playoff Match Wins", None),
-    ('playoff_match_losses', "Playoff Match Losses", None),
-    ('playoff_wins',         "Playoff Wins",    None),
-    ('playoff_losses',       "Playoff Losses",  None),
+    ('playoff_match_wins',   "Match Wins",      None),
+    ('playoff_match_losses', "Match Losses",    None),
+    ('playoff_wins',         "Game Wins",       None),
+    ('playoff_losses',       "Game Losses",     None),
     ('playoff_pts_for',      "Playoff Pts",     None),
     ('playoff_pts_against',  "Playoff Opp Pts", None),
     ('playoff_rank',         "Playoff Rank",    None)
@@ -459,21 +459,22 @@ def post_final_four() -> dict:
 #############
 
 pg_addl_props = [
+    'bracket_ident',
     'team_ranks'
 ]
 
 pg_layout = [
-    ('id',          "ID",         HIDDEN),
-    ('bracket',     "Brckt",      None),
-    ('label',       "Game",       None),
-    ('matchup_num', "Matchup",    None),
-    ('round_num',   "Round",      None),
-    ('team_ranks',  "Team Ranks", None),
-    ('team1_name',  "Team 1",     None),
-    ('team2_name',  "Team 2",     None),
-    ('team1_pts',   "Team 1 Pts", EDITABLE),
-    ('team2_pts',   "Team 2 Pts", EDITABLE),
-    ('winner',      "Winner",     None)
+    ('id',            "ID",         HIDDEN),
+    ('bracket_ident', "Bracket",    None),
+    ('label',         "Game",       None),
+    ('matchup_num',   "Matchup",    None),
+    ('round_num',     "Round",      None),
+    ('team_ranks',    "Team Ranks", None),
+    ('team1_name',    "Team 1",     None),
+    ('team2_name',    "Team 2",     None),
+    ('team1_pts',     "Team 1 Pts", EDITABLE),
+    ('team2_pts',     "Team 2 Pts", EDITABLE),
+    ('winner',        "Winner",     None)
 ]
 
 @data.get("/playoffs")

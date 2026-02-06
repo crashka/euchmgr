@@ -70,8 +70,6 @@ def main() -> int:
       - tabulate_tourn
       - compute_team_ranks
       - build_playoff_bracket
-      - validate_playoffs
-      - compute_playoff_ranks
 
     Note that a roster file of ``<tourn_name>_roster.csv`` will be used by default, and
     ``addl_args`` represents keyword args that will be passed into the specified function

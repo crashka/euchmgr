@@ -39,7 +39,9 @@ def get_func_args(func: str, tourn_name: str) -> dict:
         'compute_player_ranks' : {'finalize': True},
         'validate_tourn'       : {'finalize': True},
         'compute_team_ranks'   : {'finalize': True},
-        'build_playoff_bracket': {'bracket': Bracket.SEMIS}
+        'build_playoff_bracket': {'bracket': Bracket.SEMIS},
+        'validate_playoffs'    : {'bracket': Bracket.FINALS, 'finalize': True},
+        'compute_playoff_ranks': {'bracket': Bracket.FINALS, 'finalize': True}
     }
 
     if func not in func_args:
@@ -70,6 +72,10 @@ def main() -> int:
       - tabulate_tourn
       - compute_team_ranks
       - build_playoff_bracket
+      - validate_playoffs*
+      - compute_playoff_ranks*
+
+    * not included in ``all``
 
     Note that a roster file of ``<tourn_name>_roster.csv`` will be used by default, and
     ``addl_args`` represents keyword args that will be passed into the specified function
@@ -88,7 +94,7 @@ def main() -> int:
     else:
         funcs = func_list.split(',')
         for func in funcs:
-            if func not in ALL_FUNCS:
+            if func not in euchmgr.MOD_FUNCS:
                 return usage(f"Unknown function '{func}'")
 
     args, kwargs = parse_argv(sys.argv[3:])  # pick up additional args

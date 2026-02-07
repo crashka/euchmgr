@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{title}}</title>
+
+    <style>
+     main {
+       width: max-content;
+     }
+     h1 {
+       display: inline-block;
+       font-size: 1.75rem;
+       margin-top: 0.5rem;
+       margin-bottom: 0.5rem;
+     }
+     h2 {
+       display: inline-block;
+       font-size: 1.375rem;
+       margin-top: 0.5rem;
+       margin-bottom: 0.0rem;
+     }
+     .updated {
+       display: block;
+       float: right;
+       margin-top: 0.8rem;
+     }
+     .updated button {
+       margin-left: 0.8rem;
+       padding: 0.2rem 0.8rem;
+     }
+     .updated button[value="pause_upd"] {
+       display: inline;
+     }
+     .updated button[value="resume_upd"],
+     .updated button[value="restart_upd"] {
+       display: none;
+     }
+     :root {
+       --top-gp: 5rem;
+       --base-ht: 12rem;
+       --base-gp: 8rem;
+       --total-ht: calc(var(--base-ht) * 2.0 + var(--base-gp));
+       --base-wd: 24.0rem;
+       --team-off: -1.8rem;
+       --score-off: 3.5rem;
+     }
+     .bracket {
+       padding: 2.0rem;
+     }
+     .bracket div {
+       width: var(--base-wd);
+       margin: 0.0rem;
+     }
+     .round {
+       display: inline-block;
+     }
+     .round h2 {
+       text-align: center;
+       width: var(--base-wd);
+     }
+     .round div:first-of-type {
+       margin-top: var(--top-gp);
+     }
+     .round .matchup {
+       position: relative;
+       border-top: 2px solid black;
+       border-right: 2px solid black;
+       border-bottom: 2px solid black;
+     }
+     .round .empty {
+       position: relative;
+     }
+     .semis .matchup {
+       height: var(--base-ht);
+     }
+     .semis .empty {
+       height: var(--base-gp);
+     }
+     .semis .empty:last-child {
+       height: 0.0rem;
+     }
+     .finals .matchup {
+       height: calc(var(--total-ht) - var(--base-ht));
+     }
+     .finals .empty {
+       height: calc(var(--base-ht) / 2.0);
+     }
+     .champs .empty {
+       height: calc(var(--total-ht) / 2.0);
+     }
+     .champs .empty:last-of-type {
+       border-top: 2px solid black;
+     }
+     .round .team {
+       display: inline-block;
+       position: absolute;
+       font-size: larger;
+       text-align: center;
+       width: 100%;
+       top: var(--team-off);
+     }
+     .round .scores {
+       display: inline-block;
+       position: absolute;
+       font-size: larger;
+       text-align: left;
+       margin-left: calc(50% - 4.2rem);
+     }
+     .semis .scores {
+       top: calc(var(--base-ht) / 2.0 - 2.3rem);
+     }
+     .finals .scores {
+       top: calc((var(--total-ht) - var(--base-ht)) / 2.0 - 2.3rem);
+     }
+     .red-bg {
+       background-color: #FFECEC;
+     }
+     .grn-bg {
+       background-color: #E1FFDC;
+     }
+     .red-fg {
+       color: #D70000;
+     }
+     .grn-fg {
+       color: #108810;
+     }
+    </style>
+  </head>
+
+  <body>
+    <main>
+      <h1>{{tourn.name}} &ndash; {{title}}</h1>
+      <input class="start" type="hidden" name="start" value="">
+      <span class="updated">
+        Updated: {{updated}} (<span class="elapsed">0 secs ago</span>)
+        <button value="pause_upd">Pause Updates</button>
+        <button value="resume_upd">Resume Updates</button>
+        <button value="restart_upd">Restart Updates</button>
+      </span>
+
+      <section class="bracket">
+        <div class="round semis">
+          <h2>Semifinals</h2>
+          <div class="matchup" id="sf-1">
+            <span class="team">{{brckt["sf-1"][0].team_tag_pl|safe}}</span>
+            <span class="scores">{{fmt_scores(brckt["sf-1"][3])|safe}}</span>
+          </div>
+          <div class="empty">
+            <span class="team">{{brckt["sf-1"][1].team_tag_pl|safe}}</span>
+          </div>
+          <div class="matchup" id="sf-2">
+            <span class="team">{{brckt["sf-2"][0].team_tag_pl|safe}}</span>
+            <span class="scores">{{fmt_scores(brckt["sf-2"][3])|safe}}</span>
+          </div>
+          <div class="empty">
+            <span class="team">{{brckt["sf-2"][1].team_tag_pl|safe}}</span>
+          </div>
+        </div>
+        <div class="round finals">
+          <h2>Finals</h2>
+          <div class="empty">
+          </div>
+          <div class="matchup" id="fn-1">
+            {% if "fn-1" in brckt %}
+            <span class="team">{{brckt["fn-1"][0].team_tag_pl|safe}}</span>
+            <span class="scores">{{fmt_scores(brckt["fn-1"][3])|safe}}</span>
+            {% endif %}
+          </div>
+          <div class="empty">
+            {% if "fn-1" in brckt %}
+            <span class="team">{{brckt["fn-1"][1].team_tag_pl|safe}}</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="round champs">
+          <h2>Champions</h2>
+          <div class="empty">
+          </div>
+          <div class="empty">
+            {% if "fn-1" in brckt and brckt["fn-1"][2] %}
+            <span class="team">{{brckt["fn-1"][2].team_tag_pl|safe}}</span>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+
+  <script src="/static/jquery-3.7.1.min.js"></script>
+  <script>
+   $(function() {
+     // document ready
+     let paused = false;
+     let done = {{'true' if done else 'false'}};
+     let intervalId;
+     let timeoutId;
+
+     function updElapsed(startVal) {
+       const nowVal = Math.round(Date.now() / 1000.0);
+       const elapsed = nowVal - startVal
+       $(".elapsed").text(elapsed + " secs ago");
+     };
+
+     function startElapsed() {
+       const $start = $("input.start");
+       if (!$start.val()) {
+         $start.val(Math.round(Date.now() / 1000.0));
+       }
+       intervalId = setInterval(updElapsed, 1000, $start.val());
+     };
+
+     $("button[value='pause_upd']").on('click', function() {
+       paused = true;
+       if (timeoutId) {
+         window.clearTimeout(timeoutId);
+         timeoutId = null;
+       }
+       if (intervalId) {
+         window.clearInterval(intervalId);
+         intervalId = null;
+       }
+       $(this).css('display', 'none');
+       $("button[value='resume_upd']").css('display', 'inline');
+       $(".elapsed").text("paused");
+     });
+
+     $("button[value='resume_upd']").on('click', function() {
+       paused = false;
+       $(this).css('display', 'none');
+       $("button[value='pause_upd']").css('display', 'inline');
+       window.setTimeout(function() {
+         window.location.reload();
+       }, 1000);
+       $(".elapsed").text("resuming");
+     });
+
+     $("button[value='restart_upd']").on('click', function() {
+       paused = false;
+       done = false;
+       $(this).css('display', 'none');
+       $("button[value='pause_upd']").css('display', 'inline');
+       window.setTimeout(function() {
+         window.location.reload();
+       }, 1000);
+       $(".elapsed").text("restarting");
+     });
+
+     {% if done %}
+     $("button[value='pause_upd']").css('display', 'none');
+     $("button[value='restart_upd']").css('display', 'inline');
+     $(".elapsed").text("done");
+     {% else %}
+     startElapsed();
+     {% endif %}
+     if (!paused && !done) {
+       timeoutId = window.setTimeout(function() {
+         window.location.reload();
+       }, {{update_int}});
+     }
+   });
+  </script>
+</html>

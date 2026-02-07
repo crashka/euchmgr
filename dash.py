@@ -3,10 +3,13 @@
 """Blueprint for live dashboard rendering
 """
 
+from itertools import groupby
+
 from flask import Blueprint, session, render_template, abort
 
 from database import now_str
-from schema import fmt_pct, GAME_PTS, TournInfo, Player, PlayerGame, Team, TeamGame, PartnerPick
+from schema import (fmt_pct, GAME_PTS, TournInfo, Player, PlayerGame, Team, TeamGame,
+                    PartnerPick, PlayoffGame)
 from chart import Numeric, fmt_tally
 
 #################
@@ -78,23 +81,28 @@ def fmt_dash_stat(val: DashStat, prev_val: DashStat = UNDEF, no_style: bool = Fa
 
 dash = Blueprint('dash', __name__)
 DASH_TEMPLATE = "dash.html"
+BRACKET_TEMPLATE = "bracket.html"
 
 SD_DASH = "Seeding Round Live Dashboard"
 RR_DASH = "Round Robin Live Dashboard"
 PT_DASH = "Partner Picks Live Dashboard"
+FF_DASH = "Final Four Live Bracket"
 
 DASH_FUNCS = [
     'sd_dash',
     'rr_dash',
-    'pt_dash'
+    'pt_dash',
+    'ff_dash'
 ]
 
 # update intervals specified in msecs
-BASE_UPDATE_INT = 5000
+DASH_UPDATE_INT = 5000
+BRACKET_UPDATE_INT = 10000
 # adjustments are related to time spent processing
 SD_UPDATE_ADJ = 350
 RR_UPDATE_ADJ = 200
 PT_UPDATE_ADJ = 100
+FF_UPDATE_ADJ = 100
 
 # CSS class to use for up and down movement
 COLCLS_UP   = 'grn_fg'
@@ -104,6 +112,7 @@ COLCLS_DOWN = 'red_fg'
 SD_DASH_KEY = 'sd_dash'
 RR_DASH_KEY = 'rr_dash'
 PT_DASH_KEY = 'pt_dash'
+FF_DASH_KEY = 'ff_dash'
 
 @dash.get("/<dash>")
 def get_dash(dash: str) -> str:
@@ -121,6 +130,12 @@ def render_dash(context: dict) -> str:
     """
     return render_template(DASH_TEMPLATE, **context)
 
+def render_bracket(context: dict) -> str:
+    """Common post-processing of context before rendering live dashboard pages through
+    Jinja
+    """
+    return render_template(BRACKET_TEMPLATE, **context)
+
 ###########
 # sd_dash #
 ###########
@@ -128,7 +143,7 @@ def render_dash(context: dict) -> str:
 def sd_dash(tourn: TournInfo) -> str:
     """Render seed round live dashboard
     """
-    update_int = BASE_UPDATE_INT - SD_UPDATE_ADJ
+    update_int = DASH_UPDATE_INT - SD_UPDATE_ADJ
     done = tourn.seeding_done()
 
     sort_key = lambda pl: pl.player_rank_final or tourn.players
@@ -312,7 +327,7 @@ def sd_dash(tourn: TournInfo) -> str:
 def rr_dash(tourn: TournInfo) -> str:
     """Render round robin live dashboard
     """
-    update_int = BASE_UPDATE_INT - RR_UPDATE_ADJ
+    update_int = DASH_UPDATE_INT - RR_UPDATE_ADJ
     done = tourn.round_robin_done()
 
     div_list = list(range(1, tourn.divisions + 1))
@@ -510,7 +525,7 @@ def rr_dash(tourn: TournInfo) -> str:
 def pt_dash(tourn: TournInfo) -> str:
     """Render seed round live dashboard
     """
-    update_int = BASE_UPDATE_INT - PT_UPDATE_ADJ
+    update_int = DASH_UPDATE_INT - PT_UPDATE_ADJ
     done = tourn.partner_picks_done()
 
     picks_made  = PartnerPick.get_picks() or []
@@ -547,3 +562,64 @@ def pt_dash(tourn: TournInfo) -> str:
         'prev_count'  : prev_count
     }
     return render_dash(context)
+
+###########
+# ff_dash #
+###########
+
+def fmt_scores(games: list[PlayoffGame]) -> str:
+    """Format matchup game scores for display.
+    """
+    scores = []
+    for i, gm in enumerate(games):
+        if not gm.winner:
+            continue
+        scores.append(f"Game {i + 1}:&nbsp;&nbsp;{gm.team1_pts} - {gm.team2_pts}")
+    return "<br>".join(scores)
+
+def ff_dash(tourn: TournInfo) -> str:
+    """Render final four live bracket
+    """
+    update_int = BRACKET_UPDATE_INT - FF_UPDATE_ADJ
+    done = tourn.playoffs_done()
+
+    # match_ident: (team1, team2, winner, [games])
+    brckt_info = {}
+    ncomplete = 0
+    prev_count  = 0
+
+    by_matchup = PlayoffGame.iter_games(by_matchup=True)
+    for k, g in groupby(by_matchup, key=lambda x: x.matchup_ident):
+        matchup = k
+        games = list(g)
+        team1 = games[0].team1
+        team2 = games[0].team2
+        winner = games[0].matchup_winner
+        brckt_info[matchup] = (team1, team2, winner, games)
+        ncomplete += sum(1 for x in games if x.winner)
+
+    if prev_frame := session.get(FF_DASH_KEY):
+        if str(tourn.created_at) > prev_frame['updated']:
+            session.pop(FF_DASH_KEY)
+        else:
+            prev_count = prev_frame['ncomplete']
+
+    updated = now_str()
+    if ncomplete > prev_count:
+        session[FF_DASH_KEY] = {
+            'updated'  : updated,
+            'done'     : done,
+            'ncomplete': ncomplete
+        }
+
+    context = {
+        'dash_num'  : 3,
+        'title'     : FF_DASH,
+        'updated'   : updated,
+        'update_int': update_int,
+        'done'      : done,
+        'tourn'     : tourn,
+        'brckt'     : brckt_info,
+        'fmt_scores': fmt_scores
+    }
+    return render_bracket(context)

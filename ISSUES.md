@@ -38,13 +38,6 @@ high number for new issue entry).*
 
 ## Core Requirements
 
-**#7** - Final tournament rankings need to include playoff results [Struble]
-
-- *Created - Dec 15, 2025*
-- First and second place are determined by finals result
-- Third and fourth place are determined by playoff win pct, followed by playoff pts pct
-  - If stats are identical, a tie for third is declared
-
 **#13** - Support for seeding round absentees (e.g. travel delays), make them pickable for the tournament [Struble]
 
 - *Created - Jan 19, 2026*
@@ -140,3 +133,11 @@ entering) scores after each player or team in the matchup [Struble]
 - Related topic: probably leave W-L as is (rather than Win Pct) within the cohort for same
   views (e.g. so that 1-0 shows as distinct from 2-0)
 - *Fixed - Jan 28, 2026*
+
+**#7** - Final tournament rankings need to include playoff results [Struble]
+
+- *Created - Dec 15, 2025*
+- First and second place are determined by finals result
+- Third and fourth place are determined by playoff win pct, followed by playoff pts pct
+  - If stats are identical, a tie for third is declared
+- *Fixed - Feb 06, 2026*

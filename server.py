@@ -802,6 +802,9 @@ LINK_INFO = {
         ('/chart/rr_scores',    "Round Robin Scores",    TournStage.TOURN_BRACKET),
         ('/dash/rr_dash',       "Live Dashboard",        TournStage.TOURN_BRACKET),
         ('/report/tie_breaker', "Tie-Breaker Report",    TournStage.TOURN_RANKS)
+    ],
+    View.PLAYOFFS: [
+        ('/dash/ff_dash',       "Live Playoff Bracket",  TournStage.SEMIS_BRACKET)
     ]
 }
 

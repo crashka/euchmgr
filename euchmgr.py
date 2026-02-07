@@ -913,9 +913,12 @@ def build_playoff_bracket(bracket: Bracket) -> list[PlayoffGame]:
         assert teams[1].playoff_match_wins == 1
         assert teams[2].playoff_match_wins == 0
         assert teams[3].playoff_match_wins == 0
-        matchups = {
-            1: (teams[0], teams[1])
-        }
+        # team1 and team2 must correspond with semifinal matchup_num
+        sf_match1 = next(PlayoffGame.iter_games(Bracket.SEMIS, by_matchup=True))
+        if sf_match1.matchup_winner == teams[0]:
+            matchups = {1: (teams[0], teams[1])}
+        else:
+            matchups = {1: (teams[1], teams[0])}
         stage = TournStage.FINALS_BRACKET
 
     games = []
@@ -1034,7 +1037,7 @@ def validate_playoffs(bracket: Bracket, finalize: bool = False) -> None:
     assert stats_tot['playoff_pts_for']    == stats_tot['playoff_pts_against']
 
     for gm in unnec:
-        assert gm.matchup_winner()
+        assert gm.matchup_winner
 
     if finalize:
         for gm in unnec:

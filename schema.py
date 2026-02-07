@@ -287,6 +287,12 @@ class TournInfo(BaseModel):
         """
         return self.stage_compl >= TournStage.TOURN_RANKS
 
+    def playoffs_done(self) -> bool:
+        """Official way to check if playoffs (and hence the tournament) is complete
+        (scores validated and final team rankings computed)
+        """
+        return self.stage_compl >= TournStage.FINALS_RANKS
+
 ##########
 # Player #
 ##########
@@ -1352,6 +1358,12 @@ class Team(BaseModel):
         return f"<b>{self.div_seed}</b>&nbsp;&nbsp;<u>{self.team_name}</u>"
 
     @property
+    def team_tag_pl(self) -> str:
+        """Same as `team_tag`, but for playoff bracket (so tourn_rank)
+        """
+        return f"<b>{self.tourn_rank}</b>&nbsp;&nbsp;{self.team_name}"
+
+    @property
     def player_nums(self) -> str:
         """
         """
@@ -1834,7 +1846,7 @@ class PlayoffGame(BaseModel):
         if bracket:
             sel = sel.where(cls.bracket == bracket)
         if by_matchup:
-            sel = sel.order_by(cls.bracket, cls.matchup_num)
+            sel = sel.order_by(cls.bracket, cls.matchup_num, cls.round_num)
         for t in sel.iterator():
             yield t
 
@@ -1882,7 +1894,8 @@ class PlayoffGame(BaseModel):
         tm_ranks = (self.team1.tourn_rank, self.team2.tourn_rank)
         return ' vs. '.join(str(x) for x in tm_ranks if x)
 
-    def matchup_winner(self) -> str | None:
+    @property
+    def matchup_winner(self) -> Team | None:
         """Return name of winner (if any) for the current matchup.  This is currently
         hard-wired with the assumption of best 2-out-of-3 matchups (as with the rest of
         the playoff locic for now).
@@ -1902,7 +1915,7 @@ class PlayoffGame(BaseModel):
                             f"in matchup {self.matchup_ident}")
         if query.count() > 1 and query[1].wins > 1:
             raise DataError(f"More than one winner for matchup {self.matchup_ident}")
-        return query[0].winner
+        return self.team1 if query[0].winner == self.team1.team_name else self.team2
 
     def add_scores(self, team1_pts: int, team2_pts: int) -> None:
         """Record scores for completed (or incomplete) game.  It is no longer required
@@ -1914,8 +1927,8 @@ class PlayoffGame(BaseModel):
         if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
             raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points")
 
-        if winner := self.matchup_winner():
-            raise RuntimeError(f"Matchup already complete (winner '{winner}')")
+        if self.matchup_winner:
+            raise RuntimeError(f"Matchup already complete (winner '{self.matchup_winner.team_name}')")
 
         self.team1_pts = team1_pts
         self.team2_pts = team2_pts
@@ -1925,9 +1938,8 @@ class PlayoffGame(BaseModel):
         Called by front-end after the game is complete (i.e. winner determined).  There is
         no need to support partial-game stats.
         """
-        teams        = [self.team1, self.team2]
-        team_scores  = [self.team1_pts, self.team2_pts]
-        match_winner = self.matchup_winner()
+        teams = [self.team1, self.team2]
+        team_scores = [self.team1_pts, self.team2_pts]
 
         upd = 0
         for tm_idx, team in enumerate([self.team1, self.team2]):
@@ -1940,8 +1952,8 @@ class PlayoffGame(BaseModel):
             team.playoff_pts_for     += team_pts
             team.playoff_pts_against += opp_pts
 
-            if match_winner:
-                if team.team_name == match_winner:
+            if self.matchup_winner:
+                if team == self.matchup_winner:
                     team.playoff_match_wins += 1
                 else:
                     team.playoff_match_losses += 1

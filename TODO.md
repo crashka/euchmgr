@@ -18,8 +18,6 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 - detect end of stage for manual updates (entering player nums, seeding round play,
   partner picking, round robin play)
 - handle updates/revisions to completed game scores (i.e. manage stats and denorm)
-- implement playoff rounds? (or at least, generate playoff brackets)
-- tournament-level rankings?
 
 ## Bugs/Nits
 
@@ -36,7 +34,6 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 - get all HTML and UI display stuff out of schema.py (should be purely functional)
 - get rid of schema level caching (and fix requery flags)--REVISIT
 - improve HTML and CSS design
-  - make admin interface more responsive (both height and width)
   - prettier styling in general
 - fix naming throughout (e.g. seed vs seeding, seed vs rank, etc.)
 - replace `player.nick_name` with `player.name` (except when dealing explicitly with the

@@ -36,16 +36,15 @@
      .updated button[value="restart_upd"] {
        display: none;
      }
-     :root {
+     .bracket {
        --top-gp: 5rem;
        --base-ht: 12rem;
        --base-gp: 8rem;
        --total-ht: calc(var(--base-ht) * 2.0 + var(--base-gp));
        --base-wd: 24.0rem;
-       --team-off: -1.8rem;
-       --score-off: 3.5rem;
-     }
-     .bracket {
+       --team-off-y: -1.8rem;
+       --score-off-x: -4.2rem;
+       --score-off-y: -2.3rem;
        padding: 2.0rem;
      }
      .bracket div {
@@ -98,20 +97,20 @@
        font-size: larger;
        text-align: center;
        width: 100%;
-       top: var(--team-off);
+       top: var(--team-off-y);
      }
      .round .scores {
        display: inline-block;
        position: absolute;
        font-size: larger;
        text-align: left;
-       margin-left: calc(50% - 4.2rem);
+       margin-left: calc(50% + var(--score-off-x));
      }
      .semis .scores {
-       top: calc(var(--base-ht) / 2.0 - 2.3rem);
+       top: calc(var(--base-ht) / 2.0 + var(--score-off-y));
      }
      .finals .scores {
-       top: calc((var(--total-ht) - var(--base-ht)) / 2.0 - 2.3rem);
+       top: calc((var(--total-ht) - var(--base-ht)) / 2.0 + var(--score-off-y));
      }
      .red-bg {
        background-color: #FFECEC;

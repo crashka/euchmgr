@@ -205,7 +205,7 @@
      $('.err_dlg button').on('click', function() {
        $('.err_dlg')[0].close();
      });
-     const show_error = function(err_text) {
+     const showError = function(err_text) {
        $('.err_dlg div').html(err_text);
        $('.err_dlg')[0].showModal();
      };
@@ -257,14 +257,14 @@
            const row = table.row(e.target.parentElement);
            cell.data(e.target.textContent).draw();
 
-           const post_data = $.extend({tourn: "{{tourn.name}}"}, row.data());
-           $.post('/data{{view_path}}', post_data)
+           const postData = $.extend({tourn: "{{tourn.name}}"}, row.data());
+           $.post('/data{{view_path}}', postData)
             .done(function(resp) {
               console.log('POST /data{{view_path}} done: ', resp);
               if (resp.err) {
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
-                show_error(resp.err);
+                showError(resp.err);
               }
               else if (resp.succ) {
                 if (resp.data == 'all') {
@@ -275,16 +275,16 @@
                   console.log('Updating row data: ', resp.data);
                   row.data(resp.data).draw();
                 }
-                if (resp.data.enable_button) {
-                  const btn_selector = 'button[value="' + resp.data.enable_button + '"]';
+                if (resp.data.enableButton) {
                   // REVISIT: should we be doing some integrity checking here and/or better
                   // (or any?) state management for buttons in general???
-                  $(btn_selector).prop('disabled', false);
+                  const btnSelector = 'button[value="' + resp.data.enableButton + '"]';
+                  $(btnSelector).prop('disabled', false);
                 }
-                if (resp.data.disable_button) {
-                  const btn_selector = 'button[value="' + resp.data.disable_button + '"]';
+                if (resp.data.disableButton) {
                   // same comment appies here
-                  $(btn_selector).prop('disabled', true);
+                  const btnSelector = 'button[value="' + resp.data.disableButton + '"]';
+                  $(btnSelector).prop('disabled', true);
                 }
               }
             })
@@ -292,7 +292,7 @@
               console.log('POST /data{{view_path}} fail: ', resp);
               cell.data(orig_val).draw();
               $(e.target).addClass("attn");
-              show_error(resp.statusText);
+              showError(resp.statusText);
               win = window.open('', '_blank')
               win.document.body.innerHTML = resp.responseText;
             });
@@ -349,14 +349,14 @@
 
      // links for charts, dashboards, reports
      $('.actions .disabled').on('click', function() {
-       //show_error("Cannot display \"" + $(this).text() + "\", data not yet available");
+       //showError("Cannot display \"" + $(this).text() + "\", data not yet available");
        return false;
      });
 
      // TODO: set initial focus (and/or highlight) here!!!
 
      {% if err_msg %}
-     show_error('{{err_msg|safe}}');
+     showError('{{err_msg|safe}}');
      {% endif %}
    });
   </script>

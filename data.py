@@ -542,7 +542,7 @@ def post_playoffs() -> dict:
                     enable_button = 'tabulate_finals_results'
             pg_props = {prop: getattr(game, prop) for prop in pg_addl_props}
             if enable_button:
-                pg_props['enable_button'] = enable_button
+                pg_props['enableButton'] = enable_button
             pg_data = game.__data__ | pg_props
     except RuntimeError as e:
         return ajax_error(str(e))

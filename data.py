@@ -523,18 +523,26 @@ def post_playoffs() -> dict:
 
         if game.winner:
             game.update_team_stats()
-            # NOTE that we don't automatically finalize the playoff ranks if the bracket
+            # Note that we don't automatically finalize the playoff ranks if the bracket
             # is complete, since the workflow (currently) requires the tabulation to be
             # manually done by the admin.  This same thing applies to seeding, partner
             # pick, and round robin updates (all above).
             compute_playoff_ranks(game.bracket)
+            # KINDA HOKEY: we are hard-coding the names of the buttons here (because this
+            # feature is too cool not to wire up right now)--LATER, we should really make
+            # button identification more symbolic!  See associated comments in app.html.
+            enable_button = None
             if PlayoffGame.bracket_complete(game.bracket):
                 if game.bracket == Bracket.SEMIS:
                     TournInfo.mark_stage_complete(TournStage.SEMIS_RESULTS)
+                    enable_button = 'tabulate_semis_results'
                 else:
                     assert game.bracket == Bracket.FINALS
                     TournInfo.mark_stage_complete(TournStage.FINALS_RESULTS)
+                    enable_button = 'tabulate_finals_results'
             pg_props = {prop: getattr(game, prop) for prop in pg_addl_props}
+            if enable_button:
+                pg_props['enable_button'] = enable_button
             pg_data = game.__data__ | pg_props
     except RuntimeError as e:
         return ajax_error(str(e))

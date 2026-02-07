@@ -275,6 +275,17 @@
                   console.log('Updating row data: ', resp.data);
                   row.data(resp.data).draw();
                 }
+                if (resp.data.enable_button) {
+                  const btn_selector = 'button[value="' + resp.data.enable_button + '"]';
+                  // REVISIT: should we be doing some integrity checking here and/or better
+                  // (or any?) state management for buttons in general???
+                  $(btn_selector).prop('disabled', false);
+                }
+                if (resp.data.disable_button) {
+                  const btn_selector = 'button[value="' + resp.data.disable_button + '"]';
+                  // same comment appies here
+                  $(btn_selector).prop('disabled', true);
+                }
               }
             })
             .fail(function(resp) {

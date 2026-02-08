@@ -875,14 +875,15 @@ def render_app(context: dict) -> str:
     view_info = VIEW_INFO[view]
     # TEMP: for now, do this manual hack for testing--really need to put a little
     # structure around conditional view_info (will still be hacky, though)!!!
-    if view == View.PLAYERS and stage_compl >= TournStage.SEED_RANKS:
-        view_info = ViewInfo(
-            "Players",
-            pl_layout,
-            "nick_name",
-            [11],  # player_rank
-            3
-        )
+    if view == View.PLAYERS:
+        if stage_compl >= TournStage.SEED_RANKS:
+            view_info = ViewInfo(
+                "Players",
+                pl_layout,
+                "nick_name",
+                [11],  # player_rank
+                3
+            )
     elif view == View.TEAMS:
         if stage_compl >= TournStage.SEMIS_RANKS:
             view_info = ViewInfo(
@@ -900,14 +901,15 @@ def render_app(context: dict) -> str:
                 [13, 12],  # div_rank, tourn_rank
                 2
             )
-    elif view == View.FINAL_FOUR and stage_compl >= TournStage.SEMIS_RANKS:
-        view_info = ViewInfo(
-            "Final Four",
-            ff_layout,
-            "team_name",
-            [12],  # playoff_rank
-            2
-        )
+    elif view == View.FINAL_FOUR:
+        if stage_compl >= TournStage.SEMIS_RANKS:
+            view_info = ViewInfo(
+                "Final Four",
+                ff_layout,
+                "team_name",
+                [12],  # playoff_rank
+                2
+            )
 
     base_ctx = {
         'title'    : APP_NAME,

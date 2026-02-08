@@ -415,7 +415,7 @@ ff_addl_props = [
 
 ff_layout = [
     ('id',                   "ID",           HIDDEN),
-    ('tourn_rank',           "Tourn Rank",   None),
+    ('tourn_rank',           "Team Rank",    None),
     ('team_name',            "Team",         None),
     ('playoff_status',       "Status",       None),
     ('div_num',              "Div",          None),

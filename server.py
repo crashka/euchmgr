@@ -780,7 +780,7 @@ BUTTON_INFO = {
     'fake_tourn_results'     : ("Generate Fake Results",       [TournStage.TOURN_BRACKET]),
     'tabulate_tourn_results' : ("Tabulate Results",            [TournStage.TOURN_RESULTS]),
     'gen_semis_bracket'      : ("Create Semifinals Bracket",   [TournStage.TOURN_RANKS]),
-    'tabulate_semis_results' : ("Tabulate Semis Results",      [TournStage.SEMIS_RESULTS]),
+    'tabulate_semis_results' : ("Tabulate Semifinals Results", [TournStage.SEMIS_RESULTS]),
     'gen_finals_bracket'     : ("Create Finals Bracket",       [TournStage.SEMIS_RANKS]),
     'tabulate_finals_results': ("Tabulate Finals Results",     [TournStage.FINALS_RESULTS])
 }

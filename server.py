@@ -467,13 +467,16 @@ VIEW_INFO = {
 }
 
 STAGE_MAPPING = [
-    (TournStage.SEMIS_RESULTS, View.PLAYOFFS),
-    (TournStage.TOURN_RANKS,   View.FINAL_FOUR),
-    (TournStage.TOURN_RESULTS, View.ROUND_ROBIN),
-    (TournStage.TEAM_SEEDS,    View.TEAMS),
-    (TournStage.PARTNER_PICK,  View.PARTNERS),
-    (TournStage.SEED_RESULTS,  View.SEEDING),
-    (TournStage.PLAYER_NUMS,   View.PLAYERS),
+    (TournStage.FINALS_RANKS,   View.FINAL_FOUR),
+    (TournStage.FINALS_RESULTS, View.PLAYOFFS),
+    (TournStage.SEMIS_RANKS,    View.FINAL_FOUR),
+    (TournStage.SEMIS_RESULTS,  View.PLAYOFFS),
+    (TournStage.TOURN_RANKS,    View.FINAL_FOUR),
+    (TournStage.TOURN_RESULTS,  View.ROUND_ROBIN),
+    (TournStage.TEAM_SEEDS,     View.TEAMS),
+    (TournStage.PARTNER_PICK,   View.PARTNERS),
+    (TournStage.SEED_RESULTS,   View.SEEDING),
+    (TournStage.PLAYER_NUMS,    View.PLAYERS),
 ]
 
 def dflt_view(tourn: TournInfo) -> View:

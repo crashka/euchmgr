@@ -783,8 +783,7 @@ class PartnerPick(Player):
         npicks = query.scalar()
         if npicks < tourn.teams:
             return npicks + 1
-        else:
-            return -1
+        return -1
 
     @classmethod
     def phase_status(cls) -> str:
@@ -1291,14 +1290,23 @@ class Team(BaseModel):
         """Iterator for playoff teams (wrap ORM details).  Note that this also clears out
         local cache, if populated.
         """
-        # NOTE: we don't need to clear out cache here, since this is not used exactly like
-        # `iter_teams()`, above
+        # NOTE: we don't need to clear out cache here since this is not used exactly like
+        # `iter_teams()` (above)
         query = cls.select().where(cls.div_rank.in_([1, 2]))
         if by_rank:
-            tourn = TournInfo.get()
-            sort_col = (cls.tourn_rank if tourn.stage_compl < TournStage.SEMIS_RANKS
-                        else cls.playoff_rank)
-            query = query.order_by(sort_col.asc(nulls='last'))
+            query = query.order_by(cls.playoff_rank.asc(nulls='last'), cls.tourn_rank.asc())
+        for t in query.iterator():
+            yield t
+
+    @classmethod
+    def iter_finals_teams(cls, by_rank: bool = False) -> Iterator[Self]:
+        """Iterator for playoff teams (wrap ORM details).  Note that this also clears out
+        local cache, if populated.
+        """
+        # NOTE: we don't need to clear out cache here (see `iter_playoff_teams()` above)
+        query = cls.select().where(cls.playoff_match_wins > 0)
+        if by_rank:
+            query = query.order_by(cls.playoff_rank.asc())
         for t in query.iterator():
             yield t
 
@@ -1383,6 +1391,26 @@ class Team(BaseModel):
         """Return tourn_pts_pct formatted as a string.
         """
         return fmt_pct(self.tourn_pts_pct)
+
+    @property
+    def playoff_team(self) -> bool:
+        """Return true if a playoff team.  `None` returned if called before playoff teams
+        have been determined.
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.TOURN_RANKS:
+            return None
+        return self.div_rank in (1, 2)
+
+    @property
+    def finals_team(self) -> bool:
+        """Return true if team is in the playoff finals round.  `None` returned if called
+        before finals teams have been determined.
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.SEMIS_RANKS:
+            return None
+        return self.playoff_match_wins > 0
 
     @property
     def playoff_win_pct_str(self) -> str:
@@ -1485,6 +1513,39 @@ class Team(BaseModel):
         return cg[0] if len(cg) > 0 else None
 
     @property
+    def current_playoff_game(self) -> BaseModel:
+        """Return current TournGame for team (only if round robin stage is active)
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.SEMIS_BRACKET:
+            return None
+
+        if tourn.stage_compl < TournStage.FINALS_BRACKET:
+            if not self.playoff_team:
+                return None
+            bracket = Bracket.SEMIS
+        else:
+            if not self.finals_team:
+                return None
+            bracket = Bracket.FINALS
+
+        query = (PlayoffGame
+                 .select()
+                 .where((PlayoffGame.team1 == self) |
+                        (PlayoffGame.team2 == self))
+                 .where(PlayoffGame.bracket == bracket)
+                 .order_by(PlayoffGame.round_num))
+        wins = [0, 0]
+        for game in query.iterator():
+            if not game.winner:
+                return game
+            win_idx = bool(game.winner == game.team2_name)
+            wins[win_idx] += 1
+            if max(wins) > 1:
+                break
+        return None
+
+    @property
     def playoff_status(self) -> str:
         """For the Final Four view.  Note, this call is only valid for actual final four
         teams (garbage will be returned for non-playoff teams).
@@ -1510,6 +1571,28 @@ class Team(BaseModel):
                  .order_by(TournGame.round_num))
         if cur_round != -1 and not all_games:
             query = query.where(TournGame.round_num <= cur_round)
+        return list(query)
+
+    def get_playoff_games(self, bracket: Bracket, all_games: bool = False) -> list[BaseModel]:
+        """Get completed PlayoffGame records.
+        """
+        if not all_games:
+            raise ImplementationError("`all_games=False` not yet implemented")
+        tourn = TournInfo.get()
+        if bracket == Bracket.SEMIS:
+            if tourn.stage_compl < TournStage.SEMIS_BRACKET:
+                return None
+        else:
+            assert bracket == Bracket.FINALS
+            if tourn.stage_compl < TournStage.FINALS_BRACKET:
+                return None
+
+        query = (PlayoffGame
+                 .select()
+                 .where(PlayoffGame.bracket == bracket)
+                 .where((PlayoffGame.team1 == self) |
+                        (PlayoffGame.team2 == self))
+                 .order_by(PlayoffGame.round_num))
         return list(query)
 
     def get_opps_games(self, opps: list[Self]) -> list[BaseModel]:
@@ -1820,7 +1903,7 @@ class PlayoffGame(BaseModel):
     # required info
     bracket        = TextField()              # "sf" or "fn"
     matchup_num    = IntegerField()
-    round_num      = IntegerField()
+    round_num      = IntegerField()           # shown as "game" number
     label          = TextField(unique=True)   # {brckt}-{mtchup}-{rnd}
     team1          = ForeignKeyField(Team, column_name='team1_id')
     team2          = ForeignKeyField(Team, column_name='team2_id')
@@ -1851,18 +1934,56 @@ class PlayoffGame(BaseModel):
             yield t
 
     @classmethod
+    def current_round(cls, bracket: Bracket) -> int:
+        """Return the current round of play, with the special values of `0` to indicate
+        that the specified playoff bracket has not yet been created, and `-1` to indicate
+        that the associated playoff stage is complete.  Note that "round", for playoff
+        brackets, means the lowest active game number for any matchup in the stage.
+        """
+        compl = cls.bracket_complete(bracket)
+        if compl is None:
+            return 0
+        elif compl:
+            return -1
+
+        query = (cls
+                 .select(cls.matchup_num, fn.count(cls.winner))
+                 .group_by(cls.matchup_num)
+                 .order_by(fn.count(cls.winner).asc()))
+        matchup_num, ngames = query.scalar(as_tuple=True)
+
+        assert ngames < 3
+        return ngames + 1
+
+    @classmethod
+    def phase_status(cls, bracket: Bracket) -> str:
+        """Return current status of the playoff round phase (for mobile UI).
+        """
+        cur_round = cls.current_round(bracket)
+        if cur_round == 0:
+            return "Not Started"
+        elif cur_round == -1:
+            return "Done"
+        else:
+            # see docheader for `current_round()` on terminology here
+            return f"Game {cur_round}"
+
+    @classmethod
     def bracket_complete(cls, bracket: Bracket) -> bool:
-        """Check if all play associated with the specified bracket is complete.  Must be
-        called after `update_team_stats()` for the most recent game.
+        """Check if all play associated with the specified bracket is complete.  `None`
+        indicates that the bracket has not started, whereas `False` indicates that play
+        has started but not yet complete.
+
+        Must be called after `update_team_stats()` for the most recent game.
         """
         tourn = TournInfo.get()
         if bracket == Bracket.SEMIS:
             if tourn.stage_compl < TournStage.SEMIS_BRACKET:
-                return False
+                return None
         else:
             assert bracket == Bracket.FINALS
             if tourn.stage_compl < TournStage.FINALS_BRACKET:
-                return False
+                return None
 
         query = Team.select(fn.sum(Team.playoff_match_wins))
         match_wins = query.scalar()
@@ -1895,6 +2016,14 @@ class PlayoffGame(BaseModel):
         return ' vs. '.join(str(x) for x in tm_ranks if x)
 
     @property
+    def team_tags(self) -> tuple[str, str]:
+        """Team tags with embedded HTML annotation (used for bracket and scores/results
+        displays).
+        """
+        assert self.team1 and self.team2
+        return self.team1.team_tag_pl, self.team2.team_tag_pl
+
+    @property
     def matchup_winner(self) -> Team | None:
         """Return name of winner (if any) for the current matchup.  This is currently
         hard-wired with the assumption of best 2-out-of-3 matchups (as with the rest of
@@ -1916,6 +2045,12 @@ class PlayoffGame(BaseModel):
         if query.count() > 1 and query[1].wins > 1:
             raise DataError(f"More than one winner for matchup {self.matchup_ident}")
         return self.team1 if query[0].winner == self.team1.team_name else self.team2
+
+    def team_idx(self, team: Team) -> int:
+        """Return the team index for the specified team.  This is used to map into
+        `team_tags`.
+        """
+        return bool(team == self.team2)
 
     def add_scores(self, team1_pts: int, team2_pts: int) -> None:
         """Record scores for completed (or incomplete) game.  It is no longer required
@@ -2158,6 +2293,13 @@ class PostScore(BaseModel):
             if game.winner:
                 game.update_team_stats()
                 game.insert_team_games()
+        elif self.bracket in (Bracket.SEMIS, Bracket.FINALS):
+            game = PlayoffGame.get(PlayoffGame.label == self.game_label)
+            game.add_scores(self.team1_pts, self.team2_pts)
+            game.save()
+            if game.winner:
+                game.update_team_stats()
+                #game.insert_team_games()
         else:
             raise LogicError(f"Invalid bracket '{self.bracket}'")
 

@@ -6,7 +6,7 @@
 
     <style>
      html {
-       font-size: 16px;
+       font-size: 15px;
        font-size: 3.9vmin;
        /*font-size: calc(1.2vh + 1.2vw);*/
        /*scroll-padding-top: 2.8rem;*/
@@ -327,8 +327,8 @@
       <div class="wrapper">
         <a class="nav view_nav" href="javascript:void(0);">Stage</a>
         <div class="view_menu">
-          {% for href in view_menu %}
-          <a class="nav2" href="{{href}}">{{view_menu[href]|safe}}</a>
+          {% for href, label in view_menu %}
+          <a class="nav2" href="{{href}}">{{label|safe}}</a>
           {% endfor %}
         </div>
       </div>
@@ -341,7 +341,7 @@
     </div>
     {% with tooltip = "Tap here to refresh view" %}
     <section class="info_stats" id="info-stats" title='{{tooltip}}'>
-      <h2>{{view_menu[view]}}</h2>
+      <h2>{{view_phase}}</h2>
       <section>
         {% for info_sect in info_data %}
         {% if info_sect %}
@@ -414,8 +414,8 @@
     </section>
     {% endif %}  {# view == register #}
 
-    {% if view == seeding or view == round_robin %}
-    {% set stage_ent = team if view == round_robin else user %}
+    {% if view in (seeding, round_robin, semifinals, finals) %}
+    {% set stage_ent = user if view == seeding else team %}
     <section class="games" id="sd-games">
       {% if stage_games %}
       {% set view_active = true %}
@@ -425,10 +425,11 @@
         <input type="hidden" name="posted_by_num" value="{{user.player_num}}">
         <input type="hidden" name="team_idx" value="{{team_idx}}">
         <input type="hidden" name="ref_score_id" value="{{ref_score_id}}">
+        {% set gm_lbl = "Game" if view in (semifinals, finals) else "Round" %}
         {% for gm in stage_games %}
         {% set gm_cls = " active" if gm == cur_game else ("" if gm.winner else " pending") %}
         <article class="game{{gm_cls}}" id="{{gm.label}}">
-          <h4>Round {{gm.round_num}}</h4>
+          <h4>{{gm_lbl}} {{gm.round_num}}</h4>
           {% set matchup_str = fmt_matchup(gm, stage_ent) %}
           <p class="matchup">
             {{matchup_str[0]|safe}}
@@ -503,12 +504,13 @@
     {% if leaderboard %}
     <section class="leaderboard">
       <h3>Leaderboard</h3><span>(tap here for Games)</span>
-      {% set ent_hdr = "Team (by seed)" if view == round_robin else "Player (by num)" %}
+      {% set ent_hdr = "Player (num)" if view == seeding else ("Team (seed)") if view == round_robin else "Team (rank)" %}
+      {% set rank_hdr = "Pos" if view in (semifinals, finals) else "Rank" %}
       <p class="lb_hdr">
         <span>{{ent_hdr}}</span>
         <span>W-L</span>
         <span>Pts %</span>
-        <span>Rank</span>
+        <span>{{rank_hdr}}</span>
       </p>
       {% for pos in leaderboard %}
       {% set pos_cls = "active" if stage_ent.id == pos[0] else "" %}
@@ -521,7 +523,7 @@
       {% endfor %}
     </section>
     {% endif %}  {# leaderboard #}
-    {% endif %}  {# view == seeding/round_robin #}
+    {% endif %}  {# view in (seeding, round_robin, semifinals, finals) #}
 
     {% if view == partners %}
     <section class="picks" id="pt-picks">

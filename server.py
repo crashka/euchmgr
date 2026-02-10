@@ -902,12 +902,12 @@ def render_app(context: dict) -> str:
                 2
             )
     elif view == View.FINAL_FOUR:
-        if stage_compl >= TournStage.SEMIS_RANKS:
+        if stage_compl >= TournStage.TOURN_RANKS:
             view_info = ViewInfo(
                 "Final Four",
                 ff_layout,
                 "team_name",
-                [12],  # playoff_rank
+                [12, 1],  # playoff_rank, tourn_rank
                 2
             )
 

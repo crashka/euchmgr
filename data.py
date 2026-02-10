@@ -523,10 +523,12 @@ def post_playoffs() -> dict:
 
         if game.winner:
             game.update_team_stats()
-            # Note that we don't automatically finalize the playoff ranks if the bracket
+            #game.insert_team_games()
+
+            # NOTE that we don't automatically finalize the playoff ranks when the bracket
             # is complete, since the workflow (currently) requires the tabulation to be
-            # manually done by the admin.  This same thing applies to seeding, partner
-            # pick, and round robin updates (all above).
+            # manually initiated by the admin.  This same principle applies to seeding,
+            # partner pick, and round robin updates (all above).
             compute_playoff_ranks(game.bracket)
             # KINDA HOKEY: we are hard-coding the names of the buttons here (because this
             # feature is too cool not to wire up right now)--LATER, we should really make

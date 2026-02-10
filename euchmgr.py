@@ -24,6 +24,13 @@ from schema import (rnd_pct, rnd_avg, Bracket, TournStage, TournInfo, Player, Se
 # utility functions #
 #####################
 
+BRACKET_GAME_CLS = {
+    Bracket.SEED  : SeedGame,
+    Bracket.TOURN : TournGame,
+    Bracket.SEMIS : PlayoffGame,
+    Bracket.FINALS: PlayoffGame
+}
+
 def get_div_teams(tourn: TournInfo, requery: bool = False) -> list[int]:
     """Return number of teams by division, where index is `div_num - 1` (not pretty, but a
     little more expeditious)
@@ -57,14 +64,14 @@ def get_bracket(label: str) -> str:
     proper representations of bracket definitions overall!!!
     """
     pfx = label.split('-', 1)[0]
-    assert pfx in (Bracket.SEED, Bracket.TOURN)
+    assert pfx in (Bracket.SEED, Bracket.TOURN, Bracket.SEMIS, Bracket.FINALS)
     return pfx
 
 def get_game_by_label(label: str) -> SeedGame | TournGame:
     """Use a little ORM knowledge to fetch from the appropriate table--LATER: can put this
     in the right place (or refactor the whole bracket-game thing)!!!
     """
-    game_cls = SeedGame if get_bracket(label) == Bracket.SEED else TournGame
+    game_cls = BRACKET_GAME_CLS.get(get_bracket(label))
     query = (game_cls
              .select()
              .where(game_cls.label == label))
@@ -231,9 +238,7 @@ def fake_seed_games(clear_existing: bool = False, limit: int = None, rand_seed: 
             compute_player_ranks()
             return
 
-    if limit and nfake and nfake < limit:
-        compute_player_ranks()
-
+    compute_player_ranks()
     TournInfo.mark_stage_complete(TournStage.SEED_RESULTS)
 
 def validate_seed_round(finalize: bool = False) -> None:
@@ -565,9 +570,7 @@ def fake_tourn_games(clear_existing: bool = False, limit: int = None, rand_seed:
             compute_team_ranks()
             return
 
-    if limit and nfake and nfake < limit:
-        compute_team_ranks()
-
+    compute_team_ranks()
     TournInfo.mark_stage_complete(TournStage.TOURN_RESULTS)
 
 def validate_tourn(finalize: bool = False) -> None:
@@ -1062,7 +1065,7 @@ def compute_playoff_ranks(bracket: Bracket, finalize: bool = False) -> None:
     """
     tourn = TournInfo.get()
     tm_list = list(Team.iter_teams())
-    final_four = list(filter(lambda x: x.div_rank in [1, 2], tm_list))
+    final_four = list(filter(lambda x: x.playoff_team, tm_list))
 
     playoff_key = lambda x: (x.playoff_match_wins,
                              x.playoff_win_pct or 0.0,

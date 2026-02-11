@@ -23,7 +23,7 @@ from data import data
 from chart import chart
 from dash import dash
 from report import report
-from mobile import mobile, MOBILE_URL_PFX, is_mobile, render_error, index as mobile_index
+from mobile import mobile, MOBILE_URL_PFX, is_mobile, render_error
 from admin import admin, dflt_view, render_view, SEL_NEW
 
 #################

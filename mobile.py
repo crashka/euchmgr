@@ -9,7 +9,6 @@ from http import HTTPStatus
 from peewee import IntegrityError
 from flask import (Blueprint, request, render_template, abort, redirect, url_for, flash,
                    get_flashed_messages)
-from werkzeug.utils import secure_filename
 from ckautils import typecast
 
 from core import ImplementationError, LogicError

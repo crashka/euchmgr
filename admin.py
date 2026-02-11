@@ -37,7 +37,7 @@ from mobile import is_mobile, render_error
 
 admin = Blueprint('admin', __name__)
 APP_NAME = "Euchre Manager"
-APP_TEMPLATE = "app.html"
+ADMIN_TEMPLATE = "admin.html"
 TOURN_TEMPLATE = "tourn.html"
 
 ###############
@@ -83,7 +83,7 @@ class ViewInfo(NamedTuple):
     tbl_order:  int
     fixed_cols: int
 
-# only include views using APP_TEMPLATE
+# only include views using ADMIN_TEMPLATE
 VIEW_INFO = {
     View.PLAYERS: ViewInfo(
         "Players",
@@ -247,7 +247,7 @@ def view() -> str:
         'view'   : request.path,
         'err_msg': err_msg
     }
-    return render_app(context)
+    return render_admin(context)
 
 ################
 # POST actions #
@@ -659,7 +659,7 @@ def render_view(view: View) -> str:
     """
     return redirect(view)
 
-def render_app(context: dict) -> str:
+def render_admin(context: dict) -> str:
     """Common post-processing of context before rendering the main app page through Jinja
     """
     view = context.get('view')
@@ -730,7 +730,7 @@ def render_app(context: dict) -> str:
         'links'    : LINK_INFO.get(view),
         'help_txt' : help_txt
     }
-    return render_template(APP_TEMPLATE, **(base_ctx | context))
+    return render_template(ADMIN_TEMPLATE, **(base_ctx | context))
 
 #########################
 # content / metacontent #

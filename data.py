@@ -538,7 +538,7 @@ def post_playoffs() -> dict:
             compute_playoff_ranks(game.bracket)
             # KINDA HOKEY: we are hard-coding the names of the buttons here (because this
             # feature is too cool not to wire up right now)--LATER, we should really make
-            # button identification more symbolic!  See associated comments in app.html.
+            # button identification more symbolic!  See associated comments in admin.html.
             enable_button = None
             if PlayoffGame.bracket_complete(game.bracket):
                 if game.bracket == Bracket.SEMIS:

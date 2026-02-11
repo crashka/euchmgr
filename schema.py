@@ -471,7 +471,7 @@ class Player(BaseModel, EuchmgrUser):
 
     @property
     def name(self) -> str:
-        """Alias/shortcut for nick_name
+        """Alias/shortcut for nick_name (reads only)
         """
         return self.nick_name
 
@@ -485,15 +485,15 @@ class Player(BaseModel, EuchmgrUser):
     def display_name(self) -> str:
         """For UI support (especially if/when sorting by last name)
         """
-        friendly = self.nick_name if self.nick_name != self.last_name else self.first_name
+        friendly = self.name if self.name != self.last_name else self.first_name
         return f"{self.last_name} ({friendly})"
 
     @property
     def player_tag(self) -> str:
-        """Combination of player_num and nick_name with embedded HTML annotation (used for
+        """Combination of player_num and name with embedded HTML annotation (used for
         bracket and scores/results displays)
         """
-        return f"<b>{self.player_num}</b>&nbsp;&nbsp;<u>{self.nick_name}</u>"
+        return f"<b>{self.player_num}</b>&nbsp;&nbsp;<u>{self.name}</u>"
 
     @property
     def player_data(self) -> dict:
@@ -521,7 +521,7 @@ class Player(BaseModel, EuchmgrUser):
     def seed_ident(self) -> str:
         """Player "name (rank)", for partner picking UI
         """
-        return f"{self.nick_name} ({self.player_rank})"
+        return f"{self.name} ({self.player_rank})"
 
     @property
     def picks_info(self) -> str | None:
@@ -662,8 +662,8 @@ class Player(BaseModel, EuchmgrUser):
         """
         """
         if DEBUG:
-            log.debug(f"player: {self.player_num} ({self.nick_name})")
-            log.debug(f"  - picks partner {partner.player_num} ({partner.nick_name})")
+            log.debug(f"player: {self.player_num} ({self.name})")
+            log.debug(f"  - picks partner {partner.player_num} ({partner.name})")
         assert self.partner is None
         assert partner.picked_by is None
         self.partner = partner
@@ -671,7 +671,7 @@ class Player(BaseModel, EuchmgrUser):
 
         if partner2:
             if DEBUG:
-                log.debug(f"  - picks partner {partner2.player_num} ({partner2.nick_name})")
+                log.debug(f"  - picks partner {partner2.player_num} ({partner2.name})")
             assert self.partner2 is None
             assert partner2.picked_by is None
             self.partner2 = partner2
@@ -1014,14 +1014,14 @@ class SeedGame(BaseModel):
     def team1_tag(self) -> str:
         """REVISIT: need to reconcile this with fmt_team_name (in euchmgr.py)!!!
         """
-        pl_tag = lambda x: f"{x.nick_name} ({x.player_num})"
+        pl_tag = lambda x: f"{x.name} ({x.player_num})"
         return f"{pl_tag(self.player1)} / {pl_tag(self.player2)}"
 
     @property
     def team2_tag(self) -> str:
         """REVISIT: need to reconcile this with fmt_team_name (in euchmgr.py)!!!
         """
-        pl_tag = lambda x: f"{x.nick_name} ({x.player_num})"
+        pl_tag = lambda x: f"{x.name} ({x.player_num})"
         return f"{pl_tag(self.player3)} / {pl_tag(self.player4)}"
 
     def team_idx(self, player: Player) -> int:
@@ -1032,7 +1032,7 @@ class SeedGame(BaseModel):
             return 0 if self.table_num else -1
         if player in (self.player3, self.player4):
             return 1 if self.table_num else -1
-        raise LogicError(f"player '{player.nick_name}' not in seed_game '{self.label}'")
+        raise LogicError(f"player '{player.name}' not in seed_game '{self.label}'")
 
     def team_info(self, player: Player) -> tuple[str, int, int]:
         """Returns tuple(team_name, team_pts)
@@ -1138,8 +1138,8 @@ class SeedGame(BaseModel):
                        'player'       : player,
                        'partners'     : [partner.player_num],
                        'opponents'    : [p.player_num for p in opps_tup],
-                       'partner_names': [partner.nick_name],
-                       'opp_names'    : [p.nick_name for p in opps_tup],
+                       'partner_names': [partner.name],
+                       'opp_names'    : [p.name for p in opps_tup],
                        'team_pts'     : team_pts,
                        'opp_pts'      : opp_pts,
                        'is_winner'    : team_pts > opp_pts}
@@ -2159,7 +2159,7 @@ class PlayerGame(BaseModel):
         """Set player name (denorm field) as player's nick name
         """
         if not self.player_name:
-            self.player_name = self.player.nick_name
+            self.player_name = self.player.name
         return super().save(*args, **kwargs)
 
 ############

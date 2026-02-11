@@ -149,8 +149,8 @@ STAGE_MAPPING = [
     (TournStage.PLAYER_NUMS,    View.PLAYERS),
 ]
 
-def dflt_view(tourn: TournInfo) -> View:
-    """Return most relevant view for the current stage of the tournament
+def active_view(tourn: TournInfo) -> View:
+    """Return active view for the current stage of the tournament
     """
     if tourn.stage_start is None:
         return None
@@ -195,8 +195,8 @@ def tourn() -> str:
         # resume managing previously active tournament
         tourn = TournInfo.get()
         assert tourn.name == tourn_name
-        view = dflt_view(tourn)
-        return render_view(view)
+        view = active_view(tourn)
+        return redirect(view)
         """
         tourn = TournInfo.get()
         assert tourn.name == tourn_name

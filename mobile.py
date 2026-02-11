@@ -791,7 +791,7 @@ def render_mobile(context: dict, view: str) -> str:
     elif view_phase == PHASE_SEEDING:
         info_data[PHASE_SEEDING] = [
             SeedGame.phase_status(),
-            player.nick_name,
+            player.name,
             player.player_num,
             win_rec_sd,
             pts_pct_sd,
@@ -801,7 +801,7 @@ def render_mobile(context: dict, view: str) -> str:
         info_data[PHASE_PARTNERS] = [
             PartnerPick.phase_status(),
             cur_pick.player_rank if cur_pick else None,
-            player.nick_name,
+            player.name,
             player.player_rank
         ]
     elif view_phase == PHASE_ROUND_ROBIN:

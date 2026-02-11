@@ -24,7 +24,7 @@ from chart import chart
 from dash import dash
 from report import report
 from mobile import mobile, MOBILE_URL_PFX, is_mobile, render_error
-from admin import admin, dflt_view, render_view, SEL_NEW
+from admin import admin, active_view, SEL_NEW
 
 #################
 # utility stuff #
@@ -34,13 +34,12 @@ from admin import admin, dflt_view, render_view, SEL_NEW
 cap_first = lambda x: x[0].upper() + x[1:]
 
 def get_logins() -> list[tuple[str, str]]:
-    """Login identifiers are tuples of nick_name (index into `Player`) and familiar
-    display name
+    """Login identifiers are tuples of nick_name (referenced in `Player.fetch_by_name`)
+    and familiar display name
     """
     if db_is_closed():
         return []
     pl_sel = Player.select().order_by(Player.last_name)
-    friendly = lambda x: x.nick_name if x.nick_name != x.last_name else x.first_name
     return [(pl.nick_name, pl.display_name) for pl in pl_sel]
 
 #############
@@ -234,8 +233,8 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
             session['tourn'] = tourn.name
             log.info(f"re-setting tourn = '{tourn.name}' in session state")
 
-        view = dflt_view(tourn)
-        return render_view(view)
+        view = active_view(tourn)
+        return redirect(view)
 
     # end of `def create_app()`
     return app

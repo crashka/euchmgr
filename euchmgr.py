@@ -49,15 +49,15 @@ def fmt_player_list(player_nums: list[int]) -> str:
     """Consistently delimited list of player names, e.g. byes for a round
     """
     pl_map = Player.get_player_map()
-    nick_names = [pl_map[p].nick_name for p in player_nums]
-    return ', '.join(nick_names)
+    names = [pl_map[p].name for p in player_nums]
+    return ', '.join(names)
 
 def fmt_team_name(player_nums: list[int]) -> str:
     """Consistent concatenation of member player names
     """
     pl_map = Player.get_player_map()
-    nick_names = [pl_map[p].nick_name for p in player_nums]
-    return ' / '.join(nick_names)
+    names = [pl_map[p].name for p in player_nums]
+    return ' / '.join(names)
 
 def get_bracket(label: str) -> str:
     """Get bracket for the specified game label.  FIX: quick and dirty for now--need a

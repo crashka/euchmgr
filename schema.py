@@ -1948,6 +1948,7 @@ class PlayoffGame(BaseModel):
 
         query = (cls
                  .select(cls.matchup_num, fn.count(cls.winner))
+                 .where(cls.bracket == bracket)
                  .group_by(cls.matchup_num)
                  .order_by(fn.count(cls.winner).asc()))
         matchup_num, ngames = query.scalar(as_tuple=True)

@@ -162,7 +162,20 @@ class BaseModel(Model):
     created_at = DateTimeField(default=now_str)
     updated_at = DateTimeField()
 
+    __hash__ = Model.__hash__
+
+    def __eq__(self, other):
+        """Handle the case of comparing against a subclass instance.
+        """
+        return (
+            (other.__class__ == self.__class__ or
+             issubclass(other.__class__, self.__class__)) and
+            self._pk is not None and
+            self._pk == other._pk)
+
     def save(self, *args, **kwargs):
+        """Support for system columns.
+        """
         if not self._dirty:
             return False  # this is what peewee does if no dirty fields
         if not self.updated_at:

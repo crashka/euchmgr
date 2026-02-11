@@ -13,11 +13,11 @@ from ckautils import typecast
 
 from core import ImplementationError, LogicError
 from security import current_user
-from schema import (fmt_pct, GAME_PTS, PTS_PCT_NA, Bracket, TournStage, TournInfo, Player,
-                    PlayerRegister, PartnerPick, SeedGame, Team, TournGame, PlayoffGame,
-                    PostScore, ScoreAction)
+from schema import (fmt_pct, GAME_PTS, PTS_PCT_NA, Bracket, TournStage, TournInfo,
+                    SeedGame, Team, TournGame, PlayoffGame, PostScore, ScoreAction)
 from euchmgr import (compute_player_ranks, compute_team_ranks, compute_playoff_ranks,
                      get_bracket, get_game_by_label)
+from ui import UIPlayer as Player, PlayerRegister, PartnerPick
 
 ###################
 # blueprint stuff #

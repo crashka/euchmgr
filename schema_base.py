@@ -4,8 +4,12 @@ from enum import IntEnum, StrEnum
 from typing import ClassVar, Self, NamedTuple
 from datetime import datetime, date
 
-from peewee import Model, DateTimeField, TextField, IntegerField
+from peewee import (Model, DateTimeField, TextField, IntegerField, BooleanField, FloatField,
+                    ForeignKeyField, DeferredForeignKey, OperationalError, DoesNotExist, fn)
+from playhouse.sqlite_ext import JSONField
 
+from core import log, LogicError
+from security import current_user, login_user, logout_user, EuchmgrUser, AuthenticationError
 from database import db
 
 #####################
@@ -184,18 +188,22 @@ class TournInfoBase(BaseModel):
     def clear_cache(cls) -> None:
         """See `clear_schema_cache` (above)
         """
-        cls.inst = None
+        # see IMPORTANT note in get(), below
+        TournInfoBase.inst = None
 
     @classmethod
     def get(cls, requery: bool = False) -> Self:
         """Return cached singleton instance (purposefully shadows more general base class
         method).
         """
-        if cls.inst is None or requery:
+        # IMPORTANT: we have to hardwire the base class name when setting `inst`, so that
+        # class variables are not created for subclasses (optional for the reads here, but
+        # we definitely want to keep things consistent)!
+        if TournInfoBase.inst is None or requery:
             res = [t for t in cls.select().limit(2).iterator()]
             assert len(res) == 1  # fails if not initialized, or unexpected multiple records
-            cls.inst = res[0]
-        return cls.inst
+            TournInfoBase.inst = res[0]
+        return TournInfoBase.inst
 
     @classmethod
     def mark_stage_start(cls, stage: TournStage) -> None:
@@ -239,8 +247,8 @@ class TournInfoBase(BaseModel):
             # TODO: should also log this information!!!
 
         if self.id is None:
-            cls = type(self)
-            cls.inst = None
+            cls = self.__class__
+            cls.clear_cache()
         return super().save(*args, **kwargs)
 
     def start_stage(self, stage: TournStage, auto_save: bool = True) -> None:
@@ -280,3 +288,139 @@ class TournInfoBase(BaseModel):
         (scores validated and final team rankings computed)
         """
         return self.stage_compl >= TournStage.FINALS_RANKS
+
+##############
+# PlayerBase #
+##############
+
+TournInfo = TournInfoBase
+
+class PlayerBase(BaseModel, EuchmgrUser):
+    """Represents a player in the tournament, as well as a mobile (i.e. non-admin) user of
+    the app.
+    """
+    # identifying info
+    first_name     = TextField()
+    last_name      = TextField()
+    nick_name      = TextField(unique=True)  # serves as player_name (defaults to last_name)
+    reigning_champ = BooleanField(default=False)
+    player_num     = IntegerField(unique=True, null=True)  # 1-based, must be contiguous
+    pw_hash        = TextField(null=True)    # default pw_hash (in TournInfo) is used, if null
+    # seeding round
+    seed_wins      = IntegerField(default=0)
+    seed_losses    = IntegerField(default=0)
+    seed_win_pct   = FloatField(null=True)
+    seed_pts_for   = IntegerField(default=0)
+    seed_pts_against = IntegerField(default=0)
+    seed_pts_pct   = FloatField(null=True)
+    player_pos     = IntegerField(null=True)  # based on win_pct, ties possible
+    # tie-breaker stuff
+    seed_tb_crit   = JSONField(null=True)     # stats criteria used to compute final rank
+    seed_tb_data   = JSONField(null=True)     # raw data for reference
+    player_rank    = IntegerField(null=True)  # stack-ranked, no ties
+    player_rank_adj = IntegerField(null=True) # partner picking determination overrides
+    # partner picks
+    partner        = ForeignKeyField('self', field='player_num', column_name='partner_num',
+                                     null=True)
+    partner2       = ForeignKeyField('self', field='player_num', column_name='partner2_num',
+                                     null=True)
+    picked_by      = ForeignKeyField('self', field='player_num', column_name='picked_by_num',
+                                     null=True)
+    team           = DeferredForeignKey('Team', null=True)
+
+    # class variables
+    player_map: ClassVar[dict[int, Self]] = None  # indexed by player_num
+
+    class Meta:
+        table_name = 'player'
+        indexes = (
+            (('last_name', 'first_name'), True),
+        )
+
+    @classmethod
+    def clear_cache(cls) -> None:
+        """See `clear_schema_cache` (above)
+        """
+        PlayerBase.player_map = None
+
+    @classmethod
+    def get_player_map(cls, requery: bool = False) -> dict[int, Self]:
+        """Return dict of all players, indexed by player_num
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.PLAYER_NUMS:
+            raise LogicError("player_nums not yet assigned")
+
+        if PlayerBase.player_map and not requery:
+            return PlayerBase.player_map
+
+        PlayerBase.player_map = {}
+        for p in cls.select().iterator():
+            PlayerBase.player_map[p.player_num] = p
+        return PlayerBase.player_map
+
+    @property
+    def name(self) -> str:
+        """Alias/shortcut for nick_name (reads only)
+        """
+        return self.nick_name
+
+    def save(self, *args, **kwargs):
+        """Ensure that nick_name is not null, since it is used as the display name in
+        brackets (defaults to last_name if not otherwise specified)
+        """
+        if 'nick_name' in self._dirty:
+            if not self.nick_name:
+                self.nick_name = self.last_name
+        if 'player_num' in self._dirty and self.player_num is not None:
+            tourn = TournInfo.get()
+            if self.player_num < 1 or self.player_num > tourn.players:
+                raise ValueError(f"Player Num must be between 1 and {tourn.players}")
+        # cascade commit to partner(s), if dirty
+        if self.partner and self.partner._dirty:
+            self.partner.save()
+            if self.partner2 and self.partner2._dirty:
+                self.partner2.save()
+        return super().save(*args, **kwargs)
+
+    def login(self, password: str) -> bool:
+        """See `EuchmgrUser` (in security.py).
+
+        Also see note about logging of clear password in `AdminUser.login`.
+        """
+        if password and not isinstance(password, str):
+            log.info(f"login denied ({self.name}): invalid pw type {type(password)} "
+                     f"('{password}')")
+            raise AuthenticationError("Bad password specified")
+
+        tourn = TournInfo.get()
+        pw_hash = self.pw_hash or tourn.dflt_pw_hash
+        if pw_hash:
+            if not check_password_hash(pw_hash, password):
+                log.info(f"login failed ({self.name}): bad password ('{password}')")
+                raise AuthenticationError("Bad password specified")
+        elif password:
+            # give no outbound indication that password is not needed
+            log.info(f"login failed ({self.name}): bad password ('{password}')")
+            raise AuthenticationError("Bad password specified")
+
+        login_user(self)
+        log.info(f"login successful ({self.name})")
+        return True
+
+    def logout(self) -> bool:
+        """See `EuchmgrUser` (in security.py).
+        """
+        assert current_user == self
+        logout_user()
+        return True
+
+    def setpass(self, password: str) -> None:
+        """See `EuchmgrUser` (in security.py).
+        """
+        # TODO: enforce password policy (length, diversity, etc.) here!!!
+        pw_exists = bool(self.pw_hash)
+        self.pw_hash = generate_password_hash(password)
+        self.save()
+        save = "changed" if pw_exists else "saved"
+        log.info(f"password {saved} for user '{self.name}'")

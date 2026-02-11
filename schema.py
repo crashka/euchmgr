@@ -10,8 +10,8 @@ from playhouse.sqlite_ext import JSONField
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from core import DEBUG, log, ImplementationError, LogicError, DataError
-from security import current_user, login_user, logout_user, EuchmgrUser, AuthenticationError
-from schema_base import (GAME_PTS, Bracket, BRACKET_NAME, BaseModel, TournStage, TournInfoBase)
+from schema_base import (GAME_PTS, Bracket, BRACKET_NAME, BaseModel, TournStage, TournInfoBase,
+                         PlayerBase)
 
 #################
 # utility stuff #
@@ -80,68 +80,12 @@ EMPTY_PLYR_STATS = {
     'seed_pts_against': None
 }
 
-class Player(BaseModel, EuchmgrUser):
+class Player(PlayerBase):
     """Represents a player in the tournament, as well as a mobile (i.e. non-admin) user of
     the app.
     """
-    # identifying info
-    first_name     = TextField()
-    last_name      = TextField()
-    nick_name      = TextField(unique=True)  # serves as player_name (defaults to last_name)
-    reigning_champ = BooleanField(default=False)
-    player_num     = IntegerField(unique=True, null=True)  # 1-based, must be contiguous
-    pw_hash        = TextField(null=True)    # default pw_hash (in TournInfo) is used, if null
-    # seeding round
-    seed_wins      = IntegerField(default=0)
-    seed_losses    = IntegerField(default=0)
-    seed_win_pct   = FloatField(null=True)
-    seed_pts_for   = IntegerField(default=0)
-    seed_pts_against = IntegerField(default=0)
-    seed_pts_pct   = FloatField(null=True)
-    player_pos     = IntegerField(null=True)  # based on win_pct, ties possible
-    # tie-breaker stuff
-    seed_tb_crit   = JSONField(null=True)     # stats criteria used to compute final rank
-    seed_tb_data   = JSONField(null=True)     # raw data for reference
-    player_rank    = IntegerField(null=True)  # stack-ranked, no ties
-    player_rank_adj = IntegerField(null=True) # partner picking determination overrides
-    # partner picks
-    partner        = ForeignKeyField('self', field='player_num', column_name='partner_num',
-                                     null=True)
-    partner2       = ForeignKeyField('self', field='player_num', column_name='partner2_num',
-                                     null=True)
-    picked_by      = ForeignKeyField('self', field='player_num', column_name='picked_by_num',
-                                     null=True)
-    team           = DeferredForeignKey('Team', null=True)
-
-    # class variables
-    player_map: ClassVar[dict[int, Self]] = None  # indexed by player_num
-
     class Meta:
-        indexes = (
-            (('last_name', 'first_name'), True),
-        )
-
-    @classmethod
-    def clear_cache(cls) -> None:
-        """See `clear_schema_cache` (above)
-        """
-        cls.player_map = None
-
-    @classmethod
-    def get_player_map(cls, requery: bool = False) -> dict[int, Self]:
-        """Return dict of all players, indexed by player_num
-        """
-        tourn = TournInfo.get()
-        if tourn.stage_compl < TournStage.PLAYER_NUMS:
-            raise LogicError("player_nums not yet assigned")
-
-        if cls.player_map and not requery:
-            return cls.player_map
-
-        cls.player_map = {}
-        for p in cls.select().iterator():
-            cls.player_map[p.player_num] = p
-        return cls.player_map
+        table_name = PlayerBase._meta.table_name
 
     @classmethod
     def clear_player_nums(cls, ids: list[int] = None) -> int:
@@ -152,7 +96,7 @@ class Player(BaseModel, EuchmgrUser):
             raise ImplementationError("list of IDs not yet supported")
         upd = Player.update(player_num=None)
         res = upd.execute()
-        cls.player_map = None
+        cls.clear_cache()
         return res
 
     @classmethod
@@ -188,7 +132,7 @@ class Player(BaseModel, EuchmgrUser):
             raise ImplementationError("list of IDs not yet supported")
         upd = Player.update(partner=None, partner2=None, picked_by=None)
         res = upd.execute()
-        cls.player_map = None
+        cls.clear_cache()
         return res
 
     @classmethod
@@ -235,9 +179,7 @@ class Player(BaseModel, EuchmgrUser):
         """Iterator for players (wrap ORM details).  Note that this also clears out local
         cache, if populated.
         """
-        if cls.player_map:
-            cls.player_map = None
-
+        cls.clear_cache()
         query = cls.select()
         if no_nums:
             query = query.where(cls.player_num.is_null(True))
@@ -245,12 +187,6 @@ class Player(BaseModel, EuchmgrUser):
             query = query.order_by(cls.player_rank.asc(nulls='last'))
         for p in query.iterator():
             yield p
-
-    @property
-    def name(self) -> str:
-        """Alias/shortcut for nick_name (reads only)
-        """
-        return self.nick_name
 
     @property
     def full_name(self) -> str:
@@ -453,66 +389,6 @@ class Player(BaseModel, EuchmgrUser):
             assert partner2.picked_by is None
             self.partner2 = partner2
             partner2.picked_by = self
-
-    def save(self, *args, **kwargs):
-        """Ensure that nick_name is not null, since it is used as the display name in
-        brackets (defaults to last_name if not otherwise specified)
-        """
-        if 'nick_name' in self._dirty:
-            if not self.nick_name:
-                self.nick_name = self.last_name
-        if 'player_num' in self._dirty and self.player_num is not None:
-            tourn = TournInfo.get()
-            if self.player_num < 1 or self.player_num > tourn.players:
-                raise ValueError(f"Player Num must be between 1 and {tourn.players}")
-        # cascade commit to partner(s), if dirty
-        if self.partner and self.partner._dirty:
-            self.partner.save()
-            if self.partner2 and self.partner2._dirty:
-                self.partner2.save()
-        return super().save(*args, **kwargs)
-
-    def login(self, password: str) -> bool:
-        """See `EuchmgrUser` (in security.py).
-
-        Also see note about logging of clear password in `AdminUser.login`.
-        """
-        if password and not isinstance(password, str):
-            log.info(f"login denied ({self.name}): invalid pw type {type(password)} "
-                     f"('{password}')")
-            raise AuthenticationError("Bad password specified")
-
-        tourn = TournInfo.get()
-        pw_hash = self.pw_hash or tourn.dflt_pw_hash
-        if pw_hash:
-            if not check_password_hash(pw_hash, password):
-                log.info(f"login failed ({self.name}): bad password ('{password}')")
-                raise AuthenticationError("Bad password specified")
-        elif password:
-            # give no outbound indication that password is not needed
-            log.info(f"login failed ({self.name}): bad password ('{password}')")
-            raise AuthenticationError("Bad password specified")
-
-        login_user(self)
-        log.info(f"login successful ({self.name})")
-        return True
-
-    def logout(self) -> bool:
-        """See `EuchmgrUser` (in security.py).
-        """
-        assert current_user == self
-        logout_user()
-        return True
-
-    def setpass(self, password: str) -> None:
-        """See `EuchmgrUser` (in security.py).
-        """
-        # TODO: enforce password policy (length, diversity, etc.) here!!!
-        pw_exists = bool(self.pw_hash)
-        self.pw_hash = generate_password_hash(password)
-        self.save()
-        save = "changed" if pw_exists else "saved"
-        log.info(f"password {saved} for user '{self.name}'")
 
 class PlayerRegister(Player):
     """Subclass of `Player` that represents the process of player registration process.

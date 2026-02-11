@@ -12,11 +12,11 @@ from schema import TournStage, TournInfo, Player, SeedGame, PlayerGame
 ###########
 
 class UIMixin:
-    """Mixin to support compatibility with base schema instances.
+    """Mixin to support compatibility with base schema instances.  NOTE: `ui` module
+    classes must inherit from this mixin then the associated `schema` class.
     """
     def __hash__(self):
-        """Use the hash of the base schema class (requires module classes to inherit from
-        this mixin then the schema class).
+        """Use the hash of the base schema class (see NOTE in the docheader).
         """
         return hash((self.__class__.__mro__[2], self._pk))
 
@@ -220,7 +220,7 @@ class UIPlayer(UIMixin, Player):
                             (PlayerGame.opponents.extract_text('1').in_(opps_nums)))
         return list(query)
 
-class PlayerRegister(Player):
+class PlayerRegister(UIMixin, Player):
     """Subclass of `Player` that represents the process of player registration process.
     Note that the cached player map is avoided in all calls, to avoid integrity problems.
     """
@@ -245,7 +245,7 @@ class PlayerRegister(Player):
         """
         return "Registered" if player.player_num else "Pending"
 
-class PartnerPick(Player):
+class PartnerPick(UIMixin, Player):
     """Subclass of `Player` that represents the process of picking partners.  Note that
     the cached player map is avoided in all calls, to avoid integrity problems.
     """

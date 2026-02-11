@@ -156,11 +156,17 @@ def db_is_closed() -> bool:
 #############
 
 class BaseModel(Model):
-    """Base model for this module, with defaults and system columns
+    """Base model for `schema` module entities.  Contains support for system columns and
+    entity subclassing.
     """
     # system columns
     created_at = DateTimeField(default=now_str)
     updated_at = DateTimeField()
+
+    class Meta:
+        database = db
+        legacy_table_names = False
+        only_save_dirty = True
 
     __hash__ = Model.__hash__
 
@@ -183,8 +189,3 @@ class BaseModel(Model):
         elif 'updated_at' not in self._dirty:
             self.updated_at = now_str()
         return super().save(*args, **kwargs)
-
-    class Meta:
-        database = db
-        legacy_table_names = False
-        only_save_dirty = True

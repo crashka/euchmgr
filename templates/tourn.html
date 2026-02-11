@@ -99,7 +99,7 @@
   <body>
     <header>
       <form action="/tourn" method="post">
-        <input type="hidden" name="submit_func" value="select_tourn">
+        <input type="hidden" name="action" value="select_tourn">
         <label>Select Tournament:</label>
         <select name="tourn" class="sel_tourn" onchange="this.form.submit();">
           {% if new_tourn %}
@@ -214,7 +214,7 @@
      // add css and attributes
      $(".submit").attr({
        type: 'submit',
-       name: "submit_func"
+       name: "action"
      });
 
      // shortcuts (navigation) and local actions

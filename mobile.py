@@ -9,10 +9,10 @@ from http import HTTPStatus
 from peewee import IntegrityError
 from flask import (Blueprint, request, render_template, abort, redirect, url_for, flash,
                    get_flashed_messages)
-from flask_login import current_user
 from ckautils import typecast
 
 from core import ImplementationError, LogicError
+from security import current_user
 from schema import (fmt_pct, GAME_PTS, PTS_PCT_NA, Bracket, TournStage, TournInfo, Player,
                     PlayerRegister, PartnerPick, SeedGame, Team, TournGame, PlayoffGame,
                     PostScore, ScoreAction)
@@ -27,6 +27,7 @@ mobile = Blueprint('mobile', __name__)
 MOBILE_TITLE = "Euchmgr"
 MOBILE_TEMPLATE = "mobile.html"
 ERROR_TEMPLATE = "error.html"
+MOBILE_URL_PFX = '/mobile'
 
 #################
 # utility stuff #
@@ -223,7 +224,7 @@ def index() -> str:
     """
     if not current_user.is_authenticated:
         flash("Please reauthenticate in order to access the app")
-        return redirect('/login')
+        return redirect(url_for('login_page'))
 
     tourn = TournInfo.get()
     view = dflt_view(tourn, current_user)
@@ -245,7 +246,7 @@ def view() -> str:
     """
     if not current_user.is_authenticated:
         flash("Please reauthenticate in order to access the app")
-        return redirect('/login')
+        return redirect(url_for('login_page'))
     view = request.path.split('/')[-1]
 
     context = {}
@@ -288,7 +289,6 @@ ACTIONS = [
     'correct_score',
     'pick_partner'
 ]
-
 
 @mobile.post("/")
 def submit() -> str:
@@ -692,7 +692,7 @@ INFO_FIELDS = {
 def render_view(view: str) -> str:
     """Render the specified view using redirect (called from POST action handlers).
     """
-    return redirect('/mobile/' + view)
+    return redirect(MOBILE_URL_PFX + '/' + view)
 
 def render_game_in_view(label: str) -> str:
     """Return the url for jumping to the specified game in its stage view.  We do a tricky

@@ -7,11 +7,10 @@ import re
 from peewee import (TextField, IntegerField, BooleanField, FloatField, ForeignKeyField,
                     DeferredForeignKey, OperationalError, DoesNotExist, fn)
 from playhouse.sqlite_ext import JSONField
-from flask_login import current_user, login_user, logout_user
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from core import DEBUG, log, ImplementationError, LogicError, DataError
-from security import EuchmgrUser, AuthenticationError
+from security import current_user, login_user, logout_user, EuchmgrUser, AuthenticationError
 from database import BaseModel
 
 #################

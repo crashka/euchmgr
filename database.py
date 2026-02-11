@@ -1,24 +1,10 @@
 # -*- coding: utf-8 -*-
 
-import re
-from datetime import datetime, date
 import os.path
 
-from peewee import SqliteDatabase, Model, DateTimeField
 from playhouse.sqlite_ext import CSqliteExtDatabase
 
 from core import DataFile, log, LogicError
-
-#####################
-# utility functions #
-#####################
-
-TIME_FMT = '%Y-%m-%d %H:%M:%S'
-
-def now_str() -> str:
-    """Readable format that works for string comparisons
-    """
-    return datetime.now().strftime(TIME_FMT)
 
 ############
 # database #
@@ -52,7 +38,7 @@ def db_filepath(name: str, db_dir: str = None) -> str:
     else:
         return DataFile(db_file)
 
-def db_init(name: str, force: bool = False) -> SqliteDatabase:
+def db_init(name: str, force: bool = False) -> CSqliteExtDatabase:
     """Initialize database for the specified name (if not already bound); return the ORM
     `Database` object (to discourage importing `db` directly).  Use the `force` flag if
     okay to overwrite an existing database file.  Implicitly connects to the database
@@ -133,7 +119,7 @@ def db_connect(name: str | None = None) -> bool:
     log.debug(f"db_connect({name}), db connected")
     return True
 
-def db_close() -> SqliteDatabase:
+def db_close() -> CSqliteExtDatabase:
     """Ensure that the current database is closed (e.g. for checkpointing the WAL); return
     the ORM `Database` object for convenience (see note in `db_init`).  Note that this
     call is idempotent.
@@ -150,28 +136,3 @@ def db_is_closed() -> bool:
     """Whether the database is closed (i.e. not able to perform SQL operations).
     """
     return db.is_closed()
-
-#############
-# BaseModel #
-#############
-
-class BaseModel(Model):
-    """Base model for this module, with defaults and system columns
-    """
-    # system columns
-    created_at = DateTimeField(default=now_str)
-    updated_at = DateTimeField()
-
-    def save(self, *args, **kwargs):
-        if not self._dirty:
-            return False  # this is what peewee does if no dirty fields
-        if not self.updated_at:
-            self.updated_at = self.created_at
-        elif 'updated_at' not in self._dirty:
-            self.updated_at = now_str()
-        return super().save(*args, **kwargs)
-
-    class Meta:
-        database = db
-        legacy_table_names = False
-        only_save_dirty = True

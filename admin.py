@@ -19,8 +19,8 @@ from werkzeug.security import generate_password_hash
 from core import DATA_DIR, UPLOAD_DIR, log, ImplementationError
 from security import current_user, DUMMY_PW_STR
 from database import DB_FILETYPE, db_init, db_name, db_reset, db_is_initialized
-from schema import (clear_schema_cache, Bracket, TournStage, TOURN_INIT, ACTIVE_STAGES,
-                    TournInfo)
+from schema_base import Bracket, TournStage, TOURN_INIT, ACTIVE_STAGES
+from schema import clear_schema_cache, TournInfo
 from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_seed_bracket,
                      fake_seed_games, validate_seed_round, compute_player_ranks,
                      prepick_champ_partners, fake_pick_partners, build_tourn_teams,

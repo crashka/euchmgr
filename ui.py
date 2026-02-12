@@ -14,6 +14,9 @@ from schema import (rnd_pct, Bracket, BRACKET_NAME, TournStage, TournInfo, Playe
 # utility stuff #
 #################
 
+# used for various `fmt_stat` functions
+Numeric = int | float
+
 # special (i.e. hack) value representing n/a for percentages (must be a float)
 PTS_PCT_NA = -1.0
 
@@ -39,6 +42,19 @@ def fmt_pct(val: float) -> str:
         return as_str[1:]
     # not expecting negative input or anything >1.0
     assert False, f"unexpected percentage value of '{val}'"
+
+TALLY_FILE_PFX = "/static/tally_"
+TALLY_FILE_SFX = ".png"
+TALLY_HEIGHT = 15
+TALLY_WIDTH = 50
+
+def fmt_tally(pts: int) -> str:
+    """Print arguments for <img> tag for showing point tallies
+    """
+    if pts == 0:
+        return ''
+    tally_file = f"{TALLY_FILE_PFX}{pts}{TALLY_FILE_SFX}"
+    return f'src="{tally_file}" height="{TALLY_HEIGHT}" width="{TALLY_WIDTH}"'
 
 ###########
 # UIMixin #

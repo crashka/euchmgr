@@ -5,7 +5,7 @@ from typing import Self, Iterator
 from peewee import fn
 
 from database import BaseModel
-from schema import TournStage, TournInfo, Player, SeedGame, PlayerGame
+from schema import Bracket, TournStage, TournInfo, Player, SeedGame, PlayerGame, Team
 
 ###########
 # UIMixin #
@@ -214,7 +214,7 @@ class UIPlayer(UIMixin, Player):
                  .select()
                  .join(PlayerGame, on=(PlayerGame.game_label == SeedGame.label))
                  .where(PlayerGame.player == self))
-        # see NOTE below (in get_game_stats())
+        # see NOTE in get_game_stats() (schema.py)
         opps_nums = [pl.player_num for pl in opps]
         query = query.where((PlayerGame.opponents.extract_text('0').in_(opps_nums)) |
                             (PlayerGame.opponents.extract_text('1').in_(opps_nums)))
@@ -349,3 +349,274 @@ class PartnerPick(UIMixin, Player):
         picks = filter(includer, pl_list)
         return sorted(picks, key=lambda x: (-x.reigning_champ, x.player_rank))
 
+########
+# Team #
+########
+
+EMPTY_TEAM_STATS = {
+    'tourn_wins'       : None,
+    'tourn_losses'     : None,
+    'tourn_pts_for'    : None,
+    'tourn_pts_against': None
+}
+
+EMPTY_FINAL_FOUR_STATS = {
+    'playoff_match_wins'  : None,
+    'playoff_match_losses': None,
+    'playoff_wins'        : None,
+    'playoff_losses'      : None,
+    'playoff_pts_for'     : None,
+    'playoff_pts_against' : None
+}
+
+class UITeam(UIMixin, Team):
+    """
+    """
+    class Meta:
+        table_name = Team._meta.table_name
+
+    @property
+    def team_data(self) -> dict:
+        """Return team data as a dict, removing distracting default values if not relevant
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.TOURN_BRACKET:
+            return self.__data__ | EMPTY_TEAM_STATS
+        return self.__data__
+
+    @property
+    def final_four_data(self) -> dict:
+        """Return final four team data as a dict, removing distracting default values if
+        not relevant
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.SEMIS_BRACKET:
+            return self.__data__ | EMPTY_FINAL_FOUR_STATS
+        return self.__data__
+
+    @property
+    def player_nums(self) -> str:
+        """Used for the teams view of the UI
+        """
+        pl_nums = list(filter(bool, (self.player1_num,
+                                     self.player2_num,
+                                     self.player3_num)))
+        return ' / '.join(map(str, pl_nums))
+
+    @property
+    def tourn_win_pct_str(self) -> str:
+        """Return tourn_win_pct formatted as a string.
+        """
+        return fmt_pct(self.tourn_win_pct)
+
+    @property
+    def tourn_pts_pct_str(self) -> str:
+        """Return tourn_pts_pct formatted as a string.
+        """
+        return fmt_pct(self.tourn_pts_pct)
+
+    @property
+    def team_tag(self) -> str:
+        """Combination of div_seed and team_name with embedded HTML annotation (used for
+        bracket and scores/results displays)
+        """
+        return f"<b>{self.div_seed}</b>&nbsp;&nbsp;<u>{self.team_name}</u>"
+
+    @property
+    def team_tag_pl(self) -> str:
+        """Same as `team_tag`, but for playoff bracket (so tourn_rank)
+        """
+        return f"<b>{self.tourn_rank}</b>&nbsp;&nbsp;{self.team_name}"
+
+    @property
+    def playoff_win_pct_str(self) -> str:
+        """Return playoff_win_pct formatted as a string.
+        """
+        return fmt_pct(self.playoff_win_pct)
+
+    @property
+    def playoff_pts_pct_str(self) -> str:
+        """Return playoff_pts_pct formatted as a string.
+        """
+        return fmt_pct(self.playoff_pts_pct)
+
+    @property
+    def playoff_match_rec(self) -> str | None:
+        """Return playoff match record (W-L) as a string
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.SEMIS_BRACKET:
+            return None
+        return f"{self.playoff_match_wins}-{self.playoff_match_losses}"
+
+    @property
+    def playoff_win_rec(self) -> str | None:
+        """Return playoff game win record (W-L) as a string
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.SEMIS_BRACKET:
+            return None
+        return f"{self.playoff_wins}-{self.playoff_losses}"
+
+    @property
+    def div_pos_str(self) -> str | None:
+        """Same as div_pos, except annotated if tied with others
+        """
+        if self.div_pos is None:
+            return None
+        elif not self.div_tb_crit:
+            return str(self.div_pos)
+        return f"{self.div_pos}*"
+
+    @property
+    def div_tb_win_rec(self) -> str | None:
+        """Tie-breaker (head-to-head) win-loss record as a string
+        """
+        if not self.div_tb_data:
+            return None
+        return f"{self.div_tb_data['wins']}-{self.div_tb_data['losses']}"
+
+    @property
+    def div_tb_pts_rec(self) -> str | None:
+        """Tie-breaker (head-to-head) points for-and-against record as a string
+        """
+        if not self.div_tb_data:
+            return None
+        return f"{self.div_tb_data['pts_for']}-{self.div_tb_data['pts_against']}"
+
+    @property
+    def div_tb_pts_pct(self) -> float | None:
+        """Tie-breaker (head-to-head) points percentage (points-for over total points)
+        """
+        if not self.div_tb_data:
+            return None
+        tb_pts_tot = self.div_tb_data['pts_for'] + self.div_tb_data['pts_against']
+        if tb_pts_tot == 0.0:
+            return PTS_PCT_NA
+        return rnd_pct(self.div_tb_data['pts_for'] / tb_pts_tot)
+
+    @property
+    def div_rank_final(self, annotated: bool = False) -> int | str:
+        """The official value for division ranking (defaults to div_rank, with override
+        from div_rank_adj).  String value is returned if `annotated` is specified as True,
+        with override indicated (if present).
+        """
+        if annotated:
+            if self.div_rank_adj:
+                return f"{self.div_rank_adj} ({self.div_rank})"
+            else:
+                return str(self.div_rank)
+
+        return self.div_rank_adj or self.div_rank
+
+    @property
+    def current_game(self) -> BaseModel:
+        """Return current TournGame for team (only if round robin stage is active)
+        """
+        tg = (TeamGame
+              .select(fn.max(TeamGame.round_num))
+              .where(TeamGame.team == self,
+                     TeamGame.is_bye == False)
+              .get())
+        last_round = tg.round_num or 0
+        cg = (TournGame
+              .select()
+              .where((TournGame.team1 == self) |
+                     (TournGame.team2 == self))
+              .where(TournGame.table_num.is_null(False),
+                     TournGame.round_num > last_round)
+              .order_by(TournGame.round_num))
+        return cg[0] if len(cg) > 0 else None
+
+    @property
+    def current_playoff_game(self) -> BaseModel:
+        """Return current TournGame for team (only if round robin stage is active)
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.SEMIS_BRACKET:
+            return None
+
+        if tourn.stage_compl < TournStage.FINALS_BRACKET:
+            if not self.playoff_team:
+                return None
+            bracket = Bracket.SEMIS
+        else:
+            if not self.finals_team:
+                return None
+            bracket = Bracket.FINALS
+
+        query = (PlayoffGame
+                 .select()
+                 .where((PlayoffGame.team1 == self) |
+                        (PlayoffGame.team2 == self))
+                 .where(PlayoffGame.bracket == bracket)
+                 .order_by(PlayoffGame.round_num))
+        wins = [0, 0]
+        for game in query.iterator():
+            if not game.winner:
+                return game
+            win_idx = bool(game.winner == game.team2_name)
+            wins[win_idx] += 1
+            if max(wins) > 1:
+                break
+        return None
+
+    @property
+    def playoff_status(self) -> str:
+        """For the Final Four view.  Note, this call is only valid for actual final four
+        teams (garbage will be returned for non-playoff teams).
+        """
+        if self.playoff_match_wins == 2:
+            return "Champion"
+        elif self.playoff_match_wins == 1:
+            return "Finalist"
+        else:
+            return "Semifinalist"
+
+    def get_games(self, all_games: bool = False) -> list[BaseModel]:
+        """Get completed TournGame records (including possible byes up to the current
+        round for the stage).
+        """
+        cur_round = TournGame.current_round()
+        if cur_round == 0:
+            return None  # as distinct from [], e.g. game 1 in progress
+        query = (TournGame
+                 .select()
+                 .where((TournGame.team1 == self) |
+                        (TournGame.team2 == self))
+                 .order_by(TournGame.round_num))
+        if cur_round != -1 and not all_games:
+            query = query.where(TournGame.round_num <= cur_round)
+        return list(query)
+
+    def get_playoff_games(self, bracket: Bracket, all_games: bool = False) -> list[BaseModel]:
+        """Get completed PlayoffGame records.
+        """
+        if not all_games:
+            raise ImplementationError("`all_games=False` not yet implemented")
+        tourn = TournInfo.get()
+        if bracket == Bracket.SEMIS:
+            if tourn.stage_compl < TournStage.SEMIS_BRACKET:
+                return None
+        else:
+            assert bracket == Bracket.FINALS
+            if tourn.stage_compl < TournStage.FINALS_BRACKET:
+                return None
+
+        query = (PlayoffGame
+                 .select()
+                 .where(PlayoffGame.bracket == bracket)
+                 .where((PlayoffGame.team1 == self) |
+                        (PlayoffGame.team2 == self))
+                 .order_by(PlayoffGame.round_num))
+        return list(query)
+
+    def get_opps_games(self, opps: list[Self]) -> list[BaseModel]:
+        """Get TournGame records for all games versus specified opponents
+        """
+        query = (TournGame
+                 .select()
+                 .join(TeamGame, on=(TeamGame.game_label == TournGame.label))
+                 .where(TeamGame.team == self,
+                        TeamGame.opponent.in_(opps)))
+        return list(query)

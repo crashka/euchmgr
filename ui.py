@@ -8,11 +8,13 @@ from database import BaseModel
 from schema import (rnd_pct, Bracket, BRACKET_NAME, TournStage, TournInfo, Player as BasePlayer,
                     SeedGame as BaseSeedGame, Team as BaseTeam, TournGame as BaseTournGame,
                     PlayoffGame as BasePlayoffGame, PlayerGame as BasePlayerGame,
-                    TeamGame as BaseTeamGame, ScoreAction, PostScore as BasePostScore)
+                    TeamGame as BaseTeamGame, PostScore as BasePostScore)
 
 #################
 # utility stuff #
 #################
+
+# NOTE: more utility stuff at the bottom of this file
 
 # used for various `fmt_stat` functions
 Numeric = int | float
@@ -1132,3 +1134,34 @@ class PostScore(UIMixin, BasePostScore):
 
     class Meta:
         table_name = BasePostScore._meta.table_name
+
+######################
+# more utility stuff #
+######################
+
+# NOTE: this stuff here depends on types created above
+
+BRACKET_GAME_CLS = {
+    Bracket.SEED  : SeedGame,
+    Bracket.TOURN : TournGame,
+    Bracket.SEMIS : PlayoffGame,
+    Bracket.FINALS: PlayoffGame
+}
+
+def get_bracket(label: str) -> str:
+    """Get bracket for the specified game label.  FIX: quick and dirty for now--need a
+    proper representations of bracket definitions overall!!!
+    """
+    pfx = label.split('-', 1)[0]
+    assert pfx in (Bracket.SEED, Bracket.TOURN, Bracket.SEMIS, Bracket.FINALS)
+    return pfx
+
+def get_game_by_label(label: str) -> SeedGame | TournGame:
+    """Use a little ORM knowledge to fetch from the appropriate table--LATER: can put this
+    in the right place (or refactor the whole bracket-game thing)!!!
+    """
+    game_cls = BRACKET_GAME_CLS.get(get_bracket(label))
+    query = (game_cls
+             .select()
+             .where(game_cls.label == label))
+    return query.get_or_none()

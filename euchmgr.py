@@ -24,16 +24,10 @@ from schema import (rnd_pct, rnd_avg, Bracket, TournStage, TournInfo, Player, Se
 # utility functions #
 #####################
 
-BRACKET_GAME_CLS = {
-    Bracket.SEED  : SeedGame,
-    Bracket.TOURN : TournGame,
-    Bracket.SEMIS : PlayoffGame,
-    Bracket.FINALS: PlayoffGame
-}
-
 def get_div_teams(tourn: TournInfo, requery: bool = False) -> list[int]:
     """Return number of teams by division, where index is `div_num - 1` (not pretty, but a
-    little more expeditious)
+    little more expeditious).  Okay to call this from a UI module, since it doesn't return
+    any schema objects.
     """
     div_teams = [0] * tourn.divisions
     for tm in Team.get_team_map(requery=requery).values():
@@ -58,24 +52,6 @@ def fmt_team_name(player_nums: list[int]) -> str:
     pl_map = Player.get_player_map()
     names = [pl_map[p].name for p in player_nums]
     return ' / '.join(names)
-
-def get_bracket(label: str) -> str:
-    """Get bracket for the specified game label.  FIX: quick and dirty for now--need a
-    proper representations of bracket definitions overall!!!
-    """
-    pfx = label.split('-', 1)[0]
-    assert pfx in (Bracket.SEED, Bracket.TOURN, Bracket.SEMIS, Bracket.FINALS)
-    return pfx
-
-def get_game_by_label(label: str) -> SeedGame | TournGame:
-    """Use a little ORM knowledge to fetch from the appropriate table--LATER: can put this
-    in the right place (or refactor the whole bracket-game thing)!!!
-    """
-    game_cls = BRACKET_GAME_CLS.get(get_bracket(label))
-    query = (game_cls
-             .select()
-             .where(game_cls.label == label))
-    return query.get_or_none()
 
 #####################
 # euchmgr functions #
@@ -657,10 +633,12 @@ def rank_team_cohort(teams: list[Team]) -> tuple[list[Team], dict[tuple], dict[d
       (cohrt_win_pct, wl_factor, cohrt_pts_pct, tourn_pts_pct, -team_seed)
 
     where `wl_factor` (win-loss factor) is used to ensure that more wins is better (if all
-    wins), more losses is worse (if all losses), and 0-0 sorts below 1-1, 2-2, etc.
+    wins), more losses is worse (if all losses), and 0-0 sorts below 1-1, 2-2, etc.  The
+    other two return elements are the actual stats tuples and aggregated head-to-head game
+    data for the cohort teams, both indexed by team seed.
 
-    The other two return elements are the actual stats tuples and aggregated head-to-head
-    game data for the cohort teams, both indexed by team seed.
+    Note: it is okay to call this from a UI module, since the return elements only contain
+    schema objects that were passed in (and not queried from the `schema` base layer).
     """
     stats = {}
     data = {}
@@ -759,11 +737,13 @@ Elevs = list[tuple[Team, Team]]  # tuple(winner, loser)
 def elevate_winners(ranked: list[Team]) -> tuple[list[Team], Elevs, TeamGrps, TeamWins]:
     """Walk list of ranked teams from the bottom up, elevating head-to-head winners above
     their highest ranked losing opponent.  Elevation is skipped if the two teams are part
-    of the same cyclic win group.  Note that (in the spirit of immutabile) a new list is
-    created/returned even if no changes.
+    of the same cyclic win group.  Note that (in the spirit of immutable) a new list is
+    created/returned even if there are no changes.  We also return win_grps and team_wins
+    (as passthroughs) since the caller may want the intermediary data/computation behind
+    the reranking (e.g. for tie-breaking reports).
 
-    We also return win_grps and team_wins (as passthroughs) since the caller may want the
-    intermediary data/computation behind the reranking (e.g. for tie-breaking reports).
+    Note: it is okay to call this from a UI module, since the return elements only contain
+    schema objects that were passed in (and not queried from the `schema` base layer).
     """
     reranked = ranked.copy()
     win_grps, team_wins = cyclic_win_groups(reranked)

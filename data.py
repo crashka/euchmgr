@@ -10,9 +10,9 @@ from peewee import IntegrityError
 from flask import Blueprint, request
 
 from security import login_required
-from schema import (Bracket, TournStage, TournInfo, Player, SeedGame, Team, TournGame,
-                    PlayoffGame)
-from euchmgr import (compute_player_ranks, compute_team_ranks, compute_playoff_ranks)
+from schema import Bracket, TournStage, TournInfo
+from euchmgr import compute_player_ranks, compute_team_ranks, compute_playoff_ranks
+from ui import Player, SeedGame, Team, TournGame, PlayoffGame
 
 ###################
 # blueprint stuff #

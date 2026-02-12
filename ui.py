@@ -5,8 +5,39 @@ from typing import Self, Iterator
 from peewee import ForeignKeyField, DeferredForeignKey, fn
 
 from database import BaseModel
-from schema import (Bracket, TournStage, TournInfo, Player as BasePlayer,
-                    SeedGame as BaseSeedGame, Team as BaseTeam, PlayerGame)
+from schema import (rnd_pct, Bracket, BRACKET_NAME, TournStage, TournInfo, Player as BasePlayer,
+                    SeedGame as BaseSeedGame, Team as BaseTeam, TournGame as BaseTournGame,
+                    PlayoffGame as BasePlayoffGame, PlayerGame, TeamGame, ScoreAction, PostScore)
+
+#################
+# utility stuff #
+#################
+
+# special (i.e. hack) value representing n/a for percentages (must be a float)
+PTS_PCT_NA = -1.0
+
+PCT_PREC = 3
+PCT_FMT = '.03f'
+
+def fmt_pct(val: float) -> str:
+    """Provide consistent formatting for percentage values (appropriate rounding and
+    look), used for grids, charts, dashboards, and reports.
+    """
+    if val is None:
+        return ''
+    elif val == PTS_PCT_NA:
+        return '&ndash;'  # or "n/a"?
+    # take care of (possible!) exceptions first--yes, the code below may produce the same
+    # string, but we want to allow ourselves the freedom to make this something different
+    if val == 1.0:
+        return '1.000'
+
+    # make everything else look like .xxx (with trailing zeros)
+    as_str = f"{round(val, PCT_PREC):{PCT_FMT}}"
+    if as_str.startswith('0.'):
+        return as_str[1:]
+    # not expecting negative input or anything >1.0
+    assert False, f"unexpected percentage value of '{val}'"
 
 ###########
 # UIMixin #
@@ -804,3 +835,266 @@ class Team(UIMixin, BaseTeam):
                  .where(TeamGame.team == self,
                         TeamGame.opponent.in_(opps)))
         return list(query)
+
+#############
+# TournGame #
+#############
+
+class TournGame(UIMixin, BaseTournGame):
+    """
+    """
+    team1 = ForeignKeyField(Team, column_name='team1_id')
+    team2 = ForeignKeyField(Team, column_name='team2_id', null=True)
+
+    class Meta:
+        table_name = BaseTournGame._meta.table_name
+
+    @classmethod
+    def current_round(cls) -> int:
+        """Return the current round of play, with the special values of `0` to indicate
+        that the round robin brackets have not yet been created, and `-1` to indicate that
+        the round robin stage is complete.
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.TOURN_BRACKET:
+            return 0
+
+        round_games = tourn.teams // 2
+        query = (cls
+                 .select(cls.round_num, fn.count(cls.id))
+                 .where(cls.winner.is_null(False))
+                 .group_by(cls.round_num)
+                 .order_by(cls.round_num.desc()))
+        if not query:
+            return 1  # no games yet played
+        round_num, ngames = query.scalar(as_tuple=True)
+
+        if ngames < round_games:
+            return round_num
+        if round_num < tourn.tourn_rounds:
+            return round_num + 1
+        return -1
+
+    @classmethod
+    def phase_status(cls) -> str:
+        """Return current status of the round robin phase (for mobile UI).
+        """
+        cur_round = cls.current_round()
+        if cur_round == 0:
+            return "Not Started"
+        elif cur_round == -1:
+            return "Done"
+        else:
+            return f"Round {cur_round}"
+
+    @property
+    def bracket_ident(self) -> str:
+        """Display name for the bracket
+        """
+        return BRACKET_NAME[Bracket.TOURN]
+
+    @property
+    def team_seeds(self) -> str:
+        """
+        """
+        tm_seeds = (self.team1_div_seed, self.team2_div_seed)
+        return ' vs. '.join(str(x) for x in tm_seeds if x)
+
+    @property
+    def team_tags(self) -> tuple[str, str]:
+        """Team tags with embedded HTML annotation (used for bracket and scores/results
+        displays)--currently, can only be called for actual matchup, and not bye records
+        """
+        assert self.team1 and self.team2
+        return self.team1.team_tag, self.team2.team_tag
+
+    @property
+    def bye_tag(self) -> str:
+        """Bye reference based on team tags with embedded HTML annotation (used for
+        bracket and scores/results displays)--currently, can only be called for bye
+        records
+        """
+        assert self.team1 and self.team2 is None  # ...or return None?
+        return self.team1.team_tag
+
+    @property
+    def winner_info(self) -> tuple[str, int, int]:
+        """Returns tuple(name, div_seed, pts)
+        """
+        if self.team1_name == self.winner:
+            return self.team1_name, self.team1_div_seed, self.team1_pts
+        else:
+            return self.team2_name, self.team2_div_seed, self.team2_pts
+
+    @property
+    def loser_info(self) -> tuple[str, int, int]:
+        """Returns tuple(name, div_seed, pts)
+        """
+        if self.team1_name == self.winner:
+            return self.team2_name, self.team2_div_seed, self.team2_pts
+        else:
+            return self.team1_name, self.team1_div_seed, self.team1_pts
+
+    def team_idx(self, team: Team) -> int:
+        """Return the team index for the specified team: `0`, `1`, or `-1`, representing
+        team1, team2, or a bye (respectively).  This is used to map into `team_tags`.
+        """
+        if team == self.team1:
+            return 0 if self.table_num else -1
+        if team == self.team2:
+            return 1 if self.table_num else -1
+        raise LogicError(f"team '{team.team_name}' not in tourn_game '{self.label}'")
+
+    def team_info(self, team: Team) -> tuple[str, int, int]:
+        """Returns tuple(name, div_seed, pts)
+        """
+        if self.is_winner(team):
+            return self.winner_info
+        else:
+            return self.loser_info
+
+    def opp_info(self, team: Team) -> tuple[str, int, int]:
+        """Returns tuple(name, div_seed, pts)
+        """
+        if self.is_winner(team):
+            return self.loser_info
+        else:
+            return self.winner_info
+
+    def is_winner(self, team: Team) -> bool:
+        """Cleaner interface for use in templates
+        """
+        return team.team_name == self.winner
+
+###############
+# PlayoffGame #
+###############
+
+class PlayoffGame(UIMixin, BasePlayoffGame):
+    """
+    """
+    team1 = ForeignKeyField(Team, column_name='team1_id')
+    team2 = ForeignKeyField(Team, column_name='team2_id')
+
+    class Meta:
+        table_name = BasePlayoffGame._meta.table_name
+
+    @classmethod
+    def current_round(cls, bracket: Bracket) -> int:
+        """Return the current round of play, with the special values of `0` to indicate
+        that the specified playoff bracket has not yet been created, and `-1` to indicate
+        that the associated playoff stage is complete.  Note that "round", for playoff
+        brackets, means the lowest active game number for any matchup in the stage.
+        """
+        compl = cls.bracket_complete(bracket)
+        if compl is None:
+            return 0
+        elif compl:
+            return -1
+
+        query = (cls
+                 .select(cls.matchup_num, fn.count(cls.winner))
+                 .where(cls.bracket == bracket)
+                 .group_by(cls.matchup_num)
+                 .order_by(fn.count(cls.winner).asc()))
+        matchup_num, ngames = query.scalar(as_tuple=True)
+
+        assert ngames < 3
+        return ngames + 1
+
+    @classmethod
+    def phase_status(cls, bracket: Bracket) -> str:
+        """Return current status of the playoff round phase (for mobile UI).
+        """
+        cur_round = cls.current_round(bracket)
+        if cur_round == 0:
+            return "Not Started"
+        elif cur_round == -1:
+            return "Done"
+        else:
+            # see docheader for `current_round()` on terminology here
+            return f"Game {cur_round}"
+
+    @classmethod
+    def bracket_complete(cls, bracket: Bracket) -> bool:
+        """Check if all play associated with the specified bracket is complete.  `None`
+        indicates that the bracket has not started, whereas `False` indicates that play
+        has started but not yet complete.
+
+        Must be called after `update_team_stats()` for the most recent game.
+        """
+        tourn = TournInfo.get()
+        if bracket == Bracket.SEMIS:
+            if tourn.stage_compl < TournStage.SEMIS_BRACKET:
+                return None
+        else:
+            assert bracket == Bracket.FINALS
+            if tourn.stage_compl < TournStage.FINALS_BRACKET:
+                return None
+
+        query = Team.select(fn.sum(Team.playoff_match_wins))
+        match_wins = query.scalar()
+        if match_wins > 3:
+            raise DataError(f"too many playoff match wins ({match_wins})")
+
+        if bracket == Bracket.SEMIS:
+            return match_wins >= 2
+        else:
+            assert bracket == Bracket.FINALS
+            return match_wins == 3
+
+    @property
+    def bracket_ident(self) -> str:
+        """Display name for the bracket
+        """
+        return BRACKET_NAME[self.bracket]
+
+    @property
+    def matchup_ident(self) -> str:
+        """Identifier for the matchup
+        """
+        return f"{self.bracket}-{self.matchup_num}"
+
+    @property
+    def team_ranks(self) -> str:
+        """Show matchup of tournament (after round robin) rankings.
+        """
+        tm_ranks = (self.team1.tourn_rank, self.team2.tourn_rank)
+        return ' vs. '.join(str(x) for x in tm_ranks if x)
+
+    @property
+    def team_tags(self) -> tuple[str, str]:
+        """Team tags with embedded HTML annotation (used for bracket and scores/results
+        displays).
+        """
+        assert self.team1 and self.team2
+        return self.team1.team_tag_pl, self.team2.team_tag_pl
+
+    @property
+    def matchup_winner(self) -> Team | None:
+        """Return name of winner (if any) for the current matchup.  This is currently
+        hard-wired with the assumption of best 2-out-of-3 matchups (as with the rest of
+        the playoff locic for now).
+        """
+        cls = self.__class__
+        query = (cls
+                 .select(cls.winner, fn.count(cls.id).alias('wins'))
+                 .where(cls.bracket == self.bracket,
+                        cls.matchup_num == self.matchup_num,
+                        cls.winner.is_null(False))
+                 .group_by(cls.winner)
+                 .order_by(fn.count(cls.id).desc()))
+        if not query or query[0].wins < 2:
+            return None
+        if query[0].wins > 2:
+            raise DataError(f"More than 2 wins ({query[0].wins}) for '{query[0].winner}' "
+                            f"in matchup {self.matchup_ident}")
+        if query.count() > 1 and query[1].wins > 1:
+            raise DataError(f"More than one winner for matchup {self.matchup_ident}")
+        return self.team1 if query[0].winner == self.team1.team_name else self.team2
+
+    def team_idx(self, team: Team) -> int:
+        """Return the team index for the specified team.  This is used to map into
+        `team_tags`.
+        """
+        return bool(team == self.team2)

@@ -5,8 +5,8 @@
 
 from flask import Blueprint, session, render_template, abort
 
-from schema import (fmt_pct, GAME_PTS, TournInfo, Player, SeedGame, Team, TournGame,
-                    PlayerGame, TeamGame)
+from schema import GAME_PTS
+from ui import fmt_pct, TournInfo, Player, SeedGame, Team, TournGame, PlayerGame, TeamGame
 from euchmgr import get_div_teams
 
 #################

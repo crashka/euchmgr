@@ -2,11 +2,11 @@
 
 from typing import Self, Iterator
 
-from peewee import fn
+from peewee import ForeignKeyField, DeferredForeignKey, fn
 
 from database import BaseModel
 from schema import (Bracket, TournStage, TournInfo, Player as BasePlayer,
-                    SeedGame, Team as BaseTeam, PlayerGame)
+                    SeedGame as BaseSeedGame, Team as BaseTeam, PlayerGame)
 
 ###########
 # UIMixin #
@@ -45,6 +45,11 @@ class Player(UIMixin, BasePlayer):
     """Represents a player in the tournament, as well as a mobile (i.e. non-admin) user of
     the app.
     """
+    partner   = ForeignKeyField('self', field='player_num', column_name='partner_num', null=True)
+    partner2  = ForeignKeyField('self', field='player_num', column_name='partner2_num', null=True)
+    picked_by = ForeignKeyField('self', field='player_num', column_name='picked_by_num', null=True)
+    team      = DeferredForeignKey('Team', null=True)
+
     class Meta:
         table_name = BasePlayer._meta.table_name
 
@@ -358,6 +363,172 @@ class PartnerPick(UIMixin, BasePlayer):
         picks = filter(includer, pl_list)
         return sorted(picks, key=lambda x: (-x.reigning_champ, x.player_rank))
 
+############
+# SeedGame #
+############
+
+class SeedGame(UIMixin, BaseSeedGame):
+    """Represents a player in the tournament, as well as a mobile (i.e. non-admin) user of
+    the app.
+    """
+    player1 = ForeignKeyField(Player, field='player_num', column_name='player1_num')
+    player2 = ForeignKeyField(Player, field='player_num', column_name='player2_num', null=True)
+    player3 = ForeignKeyField(Player, field='player_num', column_name='player3_num', null=True)
+    player4 = ForeignKeyField(Player, field='player_num', column_name='player4_num', null=True)
+
+    class Meta:
+        table_name = BaseSeedGame._meta.table_name
+
+    @classmethod
+    def current_round(cls) -> int:
+        """Return the current round of play, with the special values of `0` to indicate
+        that the seeding bracket has not yet been created, and `-1` to indicate that the
+        seeding stage is complete.
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.SEED_BRACKET:
+            return 0
+
+        round_games = tourn.players // 4
+        query = (cls
+                 .select(cls.round_num, fn.count(cls.id))
+                 .where(cls.winner.is_null(False))
+                 .group_by(cls.round_num)
+                 .order_by(cls.round_num.desc()))
+        if not query:
+            return 1  # no games yet played
+        round_num, ngames = query.scalar(as_tuple=True)
+
+        if ngames < round_games:
+            return round_num
+        if round_num < tourn.seed_rounds:
+            return round_num + 1
+        return -1
+
+    @classmethod
+    def phase_status(cls) -> str:
+        """Return current status of the seeding round phase (for mobile UI).
+        """
+        cur_round = cls.current_round()
+        if cur_round == 0:
+            return "Not Started"
+        elif cur_round == -1:
+            return "Done"
+        else:
+            return f"Round {cur_round}"
+
+    @property
+    def bracket_ident(self) -> str:
+        """Display name for the bracket
+        """
+        return BRACKET_NAME[Bracket.SEED]
+
+    @property
+    def player_nums(self) -> str:
+        """Used for the seeding view of the UI
+        """
+        pl_nums = list(filter(bool, (self.player1_num,
+                                     self.player2_num,
+                                     self.player3_num,
+                                     self.player4_num)))
+        if len(pl_nums) < 4:
+            return ', '.join(map(str, pl_nums))
+
+        return f"{pl_nums[0]} / {pl_nums[1]} vs. {pl_nums[2]} / {pl_nums[3]}"
+
+    @property
+    def team_tags(self) -> tuple[str, str]:
+        """Team references based on player tags with embedded HTML annotation (used for
+        bracket and scores/results displays)--currently, can only be called for actual
+        matchup, and not bye records
+        """
+        p1 = self.player1
+        p2 = self.player2
+        p3 = self.player3
+        p4 = self.player4
+        assert p1 and p2 and p3 and p4
+        team1_tag = f"{p1.player_tag}&nbsp;&nbsp;/&nbsp;&nbsp;{p2.player_tag}"
+        team2_tag = f"{p3.player_tag}&nbsp;&nbsp;/&nbsp;&nbsp;{p4.player_tag}"
+        return team1_tag, team2_tag
+
+    @property
+    def bye_tags(self) -> list[str]:
+        """Bye references based on player tags with embedded HTML annotation (used for
+        bracket and scores/results displays)--currently, can only be called for bye
+        records
+        """
+        pl_list = list(filter(bool, (self.player1,
+                                     self.player2,
+                                     self.player3,
+                                     self.player4)))
+        assert len(pl_list) < 4  # ...or return None?
+        return [pl.player_tag for pl in pl_list]
+
+    @property
+    def winner_info(self) -> tuple[str, int, int]:
+        """Returns tuple(team_name, team_pts)
+        """
+        if self.team1_name == self.winner:
+            return self.team1_tag, self.team1_pts
+        else:
+            return self.team2_tag, self.team2_pts
+
+    @property
+    def loser_info(self) -> tuple[str, int, int]:
+        """Returns tuple(team_name, team_pts)
+        """
+        if self.team1_name == self.winner:
+            return self.team2_tag, self.team2_pts
+        else:
+            return self.team1_tag, self.team1_pts
+
+    @property
+    def team1_tag(self) -> str:
+        """REVISIT: need to reconcile this with fmt_team_name (in euchmgr.py)!!!
+        """
+        pl_tag = lambda x: f"{x.name} ({x.player_num})"
+        return f"{pl_tag(self.player1)} / {pl_tag(self.player2)}"
+
+    @property
+    def team2_tag(self) -> str:
+        """REVISIT: need to reconcile this with fmt_team_name (in euchmgr.py)!!!
+        """
+        pl_tag = lambda x: f"{x.name} ({x.player_num})"
+        return f"{pl_tag(self.player3)} / {pl_tag(self.player4)}"
+
+    def team_idx(self, player: Player) -> int:
+        """Return the team index for the specified player: `0`, `1`, or `-1`, representing
+        team1, team2, or a bye (respectively).  This is used to map into `team_tags`.
+        """
+        if player in (self.player1, self.player2):
+            return 0 if self.table_num else -1
+        if player in (self.player3, self.player4):
+            return 1 if self.table_num else -1
+        raise LogicError(f"player '{player.name}' not in seed_game '{self.label}'")
+
+    def team_info(self, player: Player) -> tuple[str, int, int]:
+        """Returns tuple(team_name, team_pts)
+        """
+        if self.is_winner(player):
+            return self.winner_info
+        else:
+            return self.loser_info
+
+    def opp_info(self, player: Player) -> tuple[str, int, int]:
+        """Returns tuple(team_name, team_pts)
+        """
+        if self.is_winner(player):
+            return self.loser_info
+        else:
+            return self.winner_info
+
+    def is_winner(self, player: Player) -> bool:
+        """Cleaner interface for use in templates
+        """
+        pg = PlayerGame.get(PlayerGame.player == player,
+                            PlayerGame.game_label == self.label)
+        return pg.is_winner
+
 ########
 # Team #
 ########
@@ -381,6 +552,10 @@ EMPTY_FINAL_FOUR_STATS = {
 class Team(UIMixin, BaseTeam):
     """
     """
+    player1 = ForeignKeyField(Player, field='player_num', column_name='player1_num')
+    player2 = ForeignKeyField(Player, field='player_num', column_name='player2_num')
+    player3 = ForeignKeyField(Player, field='player_num', column_name='player3_num', null=True)
+
     class Meta:
         table_name = BaseTeam._meta.table_name
 

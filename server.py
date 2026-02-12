@@ -19,7 +19,7 @@ from security import (current_user, EuchmgrUser, ADMIN_USER, ADMIN_ID, AdminUser
                       AuthenticationError)
 from database import db_is_initialized, db_connect, db_close, db_is_closed
 from schema import TournInfo
-from ui import UIPlayer as Player
+from ui import Player
 from data import data
 from chart import chart
 from dash import dash

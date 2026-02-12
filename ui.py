@@ -5,7 +5,8 @@ from typing import Self, Iterator
 from peewee import fn
 
 from database import BaseModel
-from schema import Bracket, TournStage, TournInfo, Player, SeedGame, PlayerGame, Team
+from schema import (Bracket, TournStage, TournInfo, Player as BasePlayer,
+                    SeedGame, Team as BaseTeam, PlayerGame)
 
 ###########
 # UIMixin #
@@ -29,9 +30,9 @@ class UIMixin:
             self._pk is not None and
             self._pk == other._pk)
 
-############
-# UIPlayer #
-############
+##########
+# Player #
+##########
 
 EMPTY_PLYR_STATS = {
     'seed_wins'       : None,
@@ -40,12 +41,12 @@ EMPTY_PLYR_STATS = {
     'seed_pts_against': None
 }
 
-class UIPlayer(UIMixin, Player):
+class Player(UIMixin, BasePlayer):
     """Represents a player in the tournament, as well as a mobile (i.e. non-admin) user of
     the app.
     """
     class Meta:
-        table_name = Player._meta.table_name
+        table_name = BasePlayer._meta.table_name
 
     @classmethod
     def fetch_by_rank(cls, player_rank: int) -> Self:
@@ -220,12 +221,16 @@ class UIPlayer(UIMixin, Player):
                             (PlayerGame.opponents.extract_text('1').in_(opps_nums)))
         return list(query)
 
-class PlayerRegister(UIMixin, Player):
+##################
+# PlayerRegister #
+##################
+
+class PlayerRegister(UIMixin, BasePlayer):
     """Subclass of `Player` that represents the process of player registration process.
     Note that the cached player map is avoided in all calls, to avoid integrity problems.
     """
     class Meta:
-        table_name = Player._meta.table_name
+        table_name = BasePlayer._meta.table_name
 
     @classmethod
     def phase_status(cls) -> str:
@@ -245,12 +250,16 @@ class PlayerRegister(UIMixin, Player):
         """
         return "Registered" if player.player_num else "Pending"
 
-class PartnerPick(UIMixin, Player):
+###############
+# PartnerPick #
+###############
+
+class PartnerPick(UIMixin, BasePlayer):
     """Subclass of `Player` that represents the process of picking partners.  Note that
     the cached player map is avoided in all calls, to avoid integrity problems.
     """
     class Meta:
-        table_name = Player._meta.table_name
+        table_name = BasePlayer._meta.table_name
 
     @classmethod
     def current_round(cls) -> int:
@@ -369,11 +378,11 @@ EMPTY_FINAL_FOUR_STATS = {
     'playoff_pts_against' : None
 }
 
-class UITeam(UIMixin, Team):
+class Team(UIMixin, BaseTeam):
     """
     """
     class Meta:
-        table_name = Team._meta.table_name
+        table_name = BaseTeam._meta.table_name
 
     @property
     def team_data(self) -> dict:

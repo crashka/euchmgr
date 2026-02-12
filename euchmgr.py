@@ -18,7 +18,7 @@ from ckautils import rankdata
 from core import BracketsFile, DEBUG, log
 from database import db_init, db_close, db_name
 from schema import (rnd_pct, rnd_avg, Bracket, TournStage, TournInfo, Player, SeedGame,
-                    Team, TournGame, PlayoffGame, schema_create)
+                    Team, TournGame, PlayoffGame, TeamGame, schema_create)
 
 #####################
 # utility functions #

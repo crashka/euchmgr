@@ -1073,6 +1073,29 @@ class PlayoffGame(BaseModel):
         for t in sel.iterator():
             yield t
 
+    @property
+    def matchup_winner(self) -> Team | None:
+        """Return name of winner (if any) for the current matchup.  This is currently
+        hard-wired with the assumption of best 2-out-of-3 matchups (as with the rest of
+        the playoff locic for now).
+        """
+        cls = self.__class__
+        query = (cls
+                 .select(cls.winner, fn.count(cls.id).alias('wins'))
+                 .where(cls.bracket == self.bracket,
+                        cls.matchup_num == self.matchup_num,
+                        cls.winner.is_null(False))
+                 .group_by(cls.winner)
+                 .order_by(fn.count(cls.id).desc()))
+        if not query or query[0].wins < 2:
+            return None
+        if query[0].wins > 2:
+            raise DataError(f"More than 2 wins ({query[0].wins}) for '{query[0].winner}' "
+                            f"in matchup {self.matchup_ident}")
+        if query.count() > 1 and query[1].wins > 1:
+            raise DataError(f"More than one winner for matchup {self.matchup_ident}")
+        return self.team1 if query[0].winner == self.team1.team_name else self.team2
+
     def add_scores(self, team1_pts: int, team2_pts: int) -> None:
         """Record scores for completed (or incomplete) game.  It is no longer required
         that score updates come through here (since denorms are now managed elsewhere),
@@ -1241,8 +1264,7 @@ class ScoreAction(StrEnum):
     DISCARD = " (discarded)"
 
 class PostScore(BaseModel):
-    """Denormalization of TournGame data, for use in computing stats, determining
-    head-to-head match-ups, etc.
+    """
     """
     bracket        = TextField()              # "sd", "rr", "sf", or "fn"
     game_label     = TextField()              # sd-{rnd}-{tbl}, rr-{div}-{rnd}-{tbl}, etc.

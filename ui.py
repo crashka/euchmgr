@@ -7,7 +7,8 @@ from peewee import ForeignKeyField, DeferredForeignKey, fn
 from database import BaseModel
 from schema import (rnd_pct, Bracket, BRACKET_NAME, TournStage, TournInfo, Player as BasePlayer,
                     SeedGame as BaseSeedGame, Team as BaseTeam, TournGame as BaseTournGame,
-                    PlayoffGame as BasePlayoffGame, PlayerGame, TeamGame, ScoreAction, PostScore)
+                    PlayoffGame as BasePlayoffGame, PlayerGame as BasePlayerGame,
+                    TeamGame as BaseTeamGame, ScoreAction, PostScore as BasePostScore)
 
 #################
 # utility stuff #
@@ -1070,31 +1071,48 @@ class PlayoffGame(UIMixin, BasePlayoffGame):
         assert self.team1 and self.team2
         return self.team1.team_tag_pl, self.team2.team_tag_pl
 
-    @property
-    def matchup_winner(self) -> Team | None:
-        """Return name of winner (if any) for the current matchup.  This is currently
-        hard-wired with the assumption of best 2-out-of-3 matchups (as with the rest of
-        the playoff locic for now).
-        """
-        cls = self.__class__
-        query = (cls
-                 .select(cls.winner, fn.count(cls.id).alias('wins'))
-                 .where(cls.bracket == self.bracket,
-                        cls.matchup_num == self.matchup_num,
-                        cls.winner.is_null(False))
-                 .group_by(cls.winner)
-                 .order_by(fn.count(cls.id).desc()))
-        if not query or query[0].wins < 2:
-            return None
-        if query[0].wins > 2:
-            raise DataError(f"More than 2 wins ({query[0].wins}) for '{query[0].winner}' "
-                            f"in matchup {self.matchup_ident}")
-        if query.count() > 1 and query[1].wins > 1:
-            raise DataError(f"More than one winner for matchup {self.matchup_ident}")
-        return self.team1 if query[0].winner == self.team1.team_name else self.team2
-
     def team_idx(self, team: Team) -> int:
         """Return the team index for the specified team.  This is used to map into
         `team_tags`.
         """
         return bool(team == self.team2)
+
+##############
+# PlayerGame #
+##############
+
+class PlayerGame(UIMixin, BasePlayerGame):
+    """Denormalization of SeedGame (and possibly TournGame data), for use in computing
+    stats, determining head-to-head match-ups, etc.
+    """
+    player = ForeignKeyField(Player, field='player_num', column_name='player_num')
+
+    class Meta:
+        table_name = BasePlayerGame._meta.table_name
+
+############
+# TeamGame #
+############
+
+class TeamGame(UIMixin, BaseTeamGame):
+    """Denormalization of TournGame data, for use in computing stats, determining
+    head-to-head match-ups, etc.
+    """
+    team     = ForeignKeyField(Team)
+    opponent = ForeignKeyField(Team, column_name='opp_id', null=True)
+
+    class Meta:
+        table_name = BaseTeamGame._meta.table_name
+
+#############
+# PostScore #
+#############
+
+class PostScore(UIMixin, BasePostScore):
+    """
+    """
+    posted_by = ForeignKeyField(Player, field='player_num', column_name='posted_by_num')
+    ref_score = ForeignKeyField('self', null=True)
+
+    class Meta:
+        table_name = BasePostScore._meta.table_name

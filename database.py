@@ -156,13 +156,32 @@ def db_is_closed() -> bool:
 #############
 
 class BaseModel(Model):
-    """Base model for this module, with defaults and system columns
+    """Base model for `schema` module entities.  Contains support for system columns and
+    entity subclassing.
     """
     # system columns
     created_at = DateTimeField(default=now_str)
     updated_at = DateTimeField()
 
+    class Meta:
+        database = db
+        legacy_table_names = False
+        only_save_dirty = True
+
+    __hash__ = Model.__hash__
+
+    def __eq__(self, other):
+        """Handle the case of comparing against a subclass instance.
+        """
+        return (
+            (other.__class__ == self.__class__ or
+             issubclass(other.__class__, self.__class__)) and
+            self._pk is not None and
+            self._pk == other._pk)
+
     def save(self, *args, **kwargs):
+        """Support for system columns.
+        """
         if not self._dirty:
             return False  # this is what peewee does if no dirty fields
         if not self.updated_at:
@@ -170,8 +189,3 @@ class BaseModel(Model):
         elif 'updated_at' not in self._dirty:
             self.updated_at = now_str()
         return super().save(*args, **kwargs)
-
-    class Meta:
-        database = db
-        legacy_table_names = False
-        only_save_dirty = True

@@ -8,9 +8,9 @@ from itertools import groupby
 from flask import Blueprint, session, render_template, abort
 
 from database import now_str
-from schema import (fmt_pct, GAME_PTS, TournInfo, Player, PlayerGame, Team, TeamGame,
-                    PartnerPick, PlayoffGame)
-from chart import Numeric, fmt_tally
+from schema import GAME_PTS
+from ui import (Numeric, fmt_pct, fmt_tally, TournInfo, Player, PartnerPick, Team, PlayerGame,
+                TeamGame, PlayoffGame)
 
 #################
 # utility stuff #

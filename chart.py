@@ -5,15 +5,14 @@
 
 from flask import Blueprint, session, render_template, abort
 
-from schema import (fmt_pct, GAME_PTS, TournInfo, Player, SeedGame, Team, TournGame,
-                    PlayerGame, TeamGame)
+from schema import GAME_PTS
+from ui import (Numeric, fmt_pct, fmt_tally, TournInfo, Player, SeedGame, Team, TournGame,
+                PlayerGame, TeamGame)
 from euchmgr import get_div_teams
 
 #################
 # utility stuff #
 #################
-
-Numeric = int | float
 
 def fmt_score(pts: int) -> str:
     """Version for scoring charts--markup score if game-winning (bold)
@@ -39,14 +38,6 @@ def fmt_stat(val: Numeric) -> str:
     else:
         assert isinstance(val, int)
         return str(val)
-
-def fmt_tally(pts: int) -> str:
-    """Print arguments for <img> tag for showing point tallies
-    """
-    if pts == 0:
-        return ''
-    tally_file = f"/static/tally_{pts}.png"
-    return f'src="{tally_file}" height="15" width="50"'
 
 # quick and dirty stuff (yucky!)
 SPC = lambda x: '&nbsp;' * x

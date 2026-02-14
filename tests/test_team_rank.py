@@ -13,12 +13,17 @@ from euchmgr import cyclic_win_groups, elevate_winners
 # (nteams, ref_cycle_grps), where groups are represented by team seeds
 CycleFixture = tuple[int, list[set[int]]]
 
+def get_team_map() -> dict[int: Team]:
+    """Stand-in for function removed from schema.
+    """
+    return {tm.id: tm for tm in Team.iter_teams()}
+
 def add_games(gm_defs: list[tuple]) -> None:
     """Add TournGame entries (and associated TeamGame records) based on specified game
     definitions.  `gm_defs` tuples have the following fields: (team1_id, team2_id,
     team1_pts, team2_pts)
     """
-    tm_map = Team.get_team_map()
+    tm_map = get_team_map()
 
     for i, gm_def in enumerate(gm_defs):
         team1 = tm_map[gm_def[0]]
@@ -130,7 +135,7 @@ def identical_tbs(stage_14_db) -> tuple[tuple[int, int], list[float], int]:
 
 def validate_cycle_grps(result: CycleFixture) -> None:
     nteams, ref_cycle_grps = result
-    tm_map = Team.get_team_map()
+    tm_map = get_team_map()
     teams = [tm_map[i] for i in range(1, nteams + 1)]
     cycle_grps, _ = cyclic_win_groups(teams)
     assert len(cycle_grps) == len(ref_cycle_grps)
@@ -154,7 +159,7 @@ def test_double_cycle2(double_cycle2) -> None:
 
 def test_simple_elevate(simple_elevate) -> None:
     nteams, ref_elevs = simple_elevate
-    tm_map = Team.get_team_map()
+    tm_map = get_team_map()
     teams = [tm_map[i] for i in range(1, nteams + 1)]
     _, elevs, _, _ = elevate_winners(teams)
     assert len(elevs) == len(ref_elevs)

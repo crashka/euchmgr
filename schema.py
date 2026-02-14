@@ -29,8 +29,6 @@ def clear_schema_cache() -> None:
     incorporated into the database management logic in `server.py`!!!
     """
     TournInfo.clear_cache()
-    Player.clear_cache()
-    Team.clear_cache()
 
 ######################
 # bracket/game stuff #
@@ -169,6 +167,8 @@ class TournInfo(BaseModel):
     def clear_cache(cls) -> None:
         """See `clear_schema_cache` (above)
         """
+        if cls != TournInfo:
+            raise ImplementationError(f"cannot cache TournInfo subclass instance")
         cls.inst = None
 
     @classmethod
@@ -176,6 +176,8 @@ class TournInfo(BaseModel):
         """Return cached singleton instance (purposefully shadows more general base class
         method).
         """
+        if cls != TournInfo:
+            raise ImplementationError(f"cannot cache TournInfo subclass instance")
         if cls.inst is None or requery:
             res = [t for t in cls.select().limit(2).iterator()]
             assert len(res) == 1  # fails if not initialized, or unexpected multiple records
@@ -309,35 +311,23 @@ class Player(BaseModel, EuchmgrUser):
                                      null=True)
     team           = DeferredForeignKey('Team', null=True)
 
-    # class variables
-    player_map: ClassVar[dict[int, Self]] = None  # indexed by player_num
-
     class Meta:
         indexes = (
             (('last_name', 'first_name'), True),
         )
 
     @classmethod
-    def clear_cache(cls) -> None:
-        """See `clear_schema_cache` (above)
-        """
-        cls.player_map = None
-
-    @classmethod
-    def get_player_map(cls, requery: bool = False) -> dict[int, Self]:
+    def get_player_map(cls) -> dict[int, Self]:
         """Return dict of all players, indexed by player_num
         """
         tourn = TournInfo.get()
         if tourn.stage_compl < TournStage.PLAYER_NUMS:
             raise LogicError("player_nums not yet assigned")
 
-        if cls.player_map and not requery:
-            return cls.player_map
-
-        cls.player_map = {}
+        player_map = {}
         for p in cls.select().iterator():
-            cls.player_map[p.player_num] = p
-        return cls.player_map
+            player_map[p.player_num] = p
+        return player_map
 
     @classmethod
     def clear_player_nums(cls, ids: list[int] = None) -> int:
@@ -348,7 +338,6 @@ class Player(BaseModel, EuchmgrUser):
             raise ImplementationError("list of IDs not yet supported")
         upd = Player.update(player_num=None)
         res = upd.execute()
-        cls.clear_cache()
         return res
 
     @classmethod
@@ -384,32 +373,20 @@ class Player(BaseModel, EuchmgrUser):
             raise ImplementationError("list of IDs not yet supported")
         upd = Player.update(partner=None, partner2=None, picked_by=None)
         res = upd.execute()
-        cls.clear_cache()
         return res
 
     @classmethod
-    def available_players(cls, requery: bool = False) -> list[Self]:
-        """Return list of available players, sorted by player_rank.  Note that this goes
-        against the cached player map, so can be reused locally (e.g. in a loop without
-        requerying when faking partner picks).
+    def available_players(cls) -> list[Self]:
+        """Return list of available players, sorted by player_rank.
         """
-        pl_list = cls.get_player_map(requery).values()
-        avail = filter(lambda x: x.available, pl_list)
-        return sorted(avail, key=lambda x: x.player_rank)
-
-    @classmethod
-    def get_player(cls, player_num: int) -> Self:
-        """Return player by player_num (from cached map)
-        """
-        pl_map = cls.get_player_map()
-        return pl_map[player_num]
+        pl_iter = cls.iter_players(by_rank=True)
+        return list(filter(lambda x: x.available, pl_iter))
 
     @classmethod
     def iter_players(cls, by_rank: bool = False, no_nums: bool = False) -> Iterator[Self]:
         """Iterator for players (wrap ORM details).  Note that this also clears out local
         cache, if populated.
         """
-        cls.clear_cache()
         query = cls.select()
         if no_nums:
             query = query.where(cls.player_num.is_null(True))
@@ -735,49 +712,16 @@ class Team(BaseModel):
     final_rank     = IntegerField(null=True)  # stack-ranked, no ties
     final_rank_adj = IntegerField(null=True)  # manual overrides
 
-    # class variables
-    team_map: ClassVar[dict[int, Self]] = None  # indexed by id
-
     class Meta:
         indexes = (
             (('div_num', 'div_seed'), True),
         )
 
     @classmethod
-    def clear_cache(cls) -> None:
-        """See `clear_schema_cache` (above)
-        """
-        cls.team_map = None
-
-    @classmethod
-    def get_team_map(cls, requery: bool = False) -> dict[int, Self]:
-        """Return dict of all teams, indexed by id
-        """
-        tourn = TournInfo.get()
-        if tourn.stage_compl < TournStage.TOURN_TEAMS:
-            raise LogicError("tournament teams not yet created")
-
-        if cls.team_map and not requery:
-            return cls.team_map
-
-        cls.team_map = {}
-        for t in cls.select().iterator():
-            cls.team_map[t.id] = t
-        return cls.team_map
-
-    @classmethod
-    def get_div_map(cls, div: int, requery: bool = False) -> dict[int, Self]:
-        """Return dict of division teams, indexed by div_seed
-        """
-        tm_list = cls.get_team_map(requery).values()
-        return {t.div_seed: t for t in tm_list if t.div_num == div}
-
-    @classmethod
     def iter_teams(cls, div: int = None, by_rank: bool = False) -> Iterator[Self]:
         """Iterator for teams (wrap ORM details).  Note that this also clears out local
         cache, if populated.
         """
-        cls.clear_cache()
         query = cls.select()
         if div:
             query = query.where(cls.div_num == div)

@@ -564,7 +564,7 @@ def pick_partner(form: dict) -> str:
     partner_num = typecast(form['partner_num'])
 
     # note that we are making sure the cached player map gets this update
-    pl_map = Player.get_player_map(requery=True)
+    pl_map = Player.get_player_map()
     player = pl_map[player_num]
     partner = pl_map[partner_num]
     player.pick_partners(partner)

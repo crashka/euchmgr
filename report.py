@@ -60,16 +60,14 @@ def render_popup(context: dict) -> str:
 # tie_breaker #
 ################
 
-# HORRIBLY HACKY: this same format func is hacked into schema.py a few places (as well as
-# in fmt_team_name [euchmgr.py])--we really need to refactor/consolidate all of this!!!
+# HORRIBLE: this shouldn't have the same name as a different format function in ui.py--we
+# really need to refactor/consolidate all of this!!!
 team_tag = lambda x: f"{x.team_name} [{x.div_seed}]"
 
 def tie_breaker(tourn: TournInfo) -> str:
     """Render round robin tie-breaker report
     """
     div_iter = range(1, tourn.divisions + 1)
-    tm_list = Team.get_team_map().values()
-    by_rank = sorted(tm_list, key=lambda x: x.div_rank)
 
     # dict keys: div (int), cohort_pos (int), team (Team)
     div_rpt: dict[int, dict[int, dict[Team, list[SeedGame]]]] = {}
@@ -92,8 +90,8 @@ def tie_breaker(tourn: TournInfo) -> str:
         div_win_grps[div] = pos_win_grps
         div_idents[div] = pos_idents
 
-        div_teams = list(filter(lambda x: x.div_num == div, by_rank))
-        for k, g in groupby(div_teams, key=lambda x: x.div_pos):
+        tm_iter = Team.iter_teams(div=div, by_rank=True)
+        for k, g in groupby(tm_iter, key=lambda x: x.div_pos):
             cohort = list(g)
             if len(cohort) == 1:
                 continue

@@ -381,12 +381,12 @@ class PartnerPick(UIMixin, BasePlayer):
             return None  # as distinguished from `[]` (below)
 
         # NOTE: need to instantiate `Player` instances here (as above)
-        pl_query = Player.select()
-        avail = list(filter(lambda x: x.available, pl_query))
+        pl_iter = Player.iter_players(by_rank=True)
+        avail = list(filter(lambda x: x.available, pl_iter))
         if not avail:
             return []
         assert len(avail) > 1
-        return sorted(avail, key=lambda x: x.player_rank)[1:]
+        return avail[1:]
 
     @classmethod
     def get_picks(cls, all_picks: bool = False) -> list[BaseModel]:

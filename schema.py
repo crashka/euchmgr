@@ -179,7 +179,7 @@ class TournInfo(BaseModel):
         if cls != TournInfo:
             raise ImplementationError(f"cannot cache TournInfo subclass instance")
         if cls.inst is None or requery:
-            res = [t for t in cls.select().limit(2).iterator()]
+            res = [t for t in cls.select().limit(2)]
             assert len(res) == 1  # fails if not initialized, or unexpected multiple records
             cls.inst = res[0]
         return cls.inst
@@ -403,7 +403,7 @@ class Player(BaseModel, EuchmgrUser):
             query = query.where(cls.player_num.is_null(True))
         if by_rank:
             query = query.order_by(cls.player_rank.asc(nulls='last'))
-        for p in query.iterator():
+        for p in query:
             yield p
 
     @property
@@ -560,10 +560,10 @@ class SeedGame(BaseModel):
     def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
         """Iterator for seed_games (wrap ORM details).
         """
-        sel = cls.select()
+        query = cls.select()
         if not include_byes:
-            sel = sel.where(cls.table_num.is_null(False))
-        for t in sel.iterator():
+            query = query.where(cls.table_num.is_null(False))
+        for t in query:
             yield t
 
     def add_scores(self, team1_pts: int, team2_pts: int) -> None:
@@ -739,7 +739,7 @@ class Team(BaseModel):
                 query = query.order_by(cls.div_rank.asc(nulls='last'))
         elif by_rank:
             query = query.order_by(cls.tourn_rank.asc(nulls='last'))
-        for t in query.iterator():
+        for t in query:
             yield t
 
     @classmethod
@@ -749,7 +749,7 @@ class Team(BaseModel):
         query = cls.select().where(cls.div_rank.in_([1, 2]))
         if by_rank:
             query = query.order_by(cls.playoff_rank.asc(nulls='last'), cls.tourn_rank.asc())
-        for t in query.iterator():
+        for t in query:
             yield t
 
     @classmethod
@@ -759,7 +759,7 @@ class Team(BaseModel):
         query = cls.select().where(cls.playoff_match_wins > 0)
         if by_rank:
             query = query.order_by(cls.playoff_rank.asc())
-        for t in query.iterator():
+        for t in query:
             yield t
 
     @classmethod
@@ -883,10 +883,10 @@ class TournGame(BaseModel):
     def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
         """Iterator for tourn_games (wrap ORM details).
         """
-        sel = cls.select()
+        query = cls.select()
         if not include_byes:
-            sel = sel.where(cls.table_num.is_null(False))
-        for t in sel.iterator():
+            query = query.where(cls.table_num.is_null(False))
+        for t in query:
             yield t
 
     def add_scores(self, team1_pts: int, team2_pts: int) -> None:
@@ -1016,12 +1016,12 @@ class PlayoffGame(BaseModel):
     def iter_games(cls, bracket: Bracket = None, by_matchup: bool = False) -> Iterator[Self]:
         """Iterator for playoff_games (wrap ORM details).
         """
-        sel = cls.select()
+        query = cls.select()
         if bracket:
-            sel = sel.where(cls.bracket == bracket)
+            query = query.where(cls.bracket == bracket)
         if by_matchup:
-            sel = sel.order_by(cls.bracket, cls.matchup_num, cls.round_num)
-        for t in sel.iterator():
+            query = query.order_by(cls.bracket, cls.matchup_num, cls.round_num)
+        for t in query:
             yield t
 
     @property
@@ -1144,10 +1144,10 @@ class PlayerGame(BaseModel):
     def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
         """Iterator for seed_games (wrap ORM details).
         """
-        sel = cls.select()
+        query = cls.select()
         if not include_byes:
-            sel = sel.where(cls.is_bye == False)
-        for t in sel.iterator():
+            query = query.where(cls.is_bye == False)
+        for t in query:
             yield t
 
     def save(self, *args, **kwargs):
@@ -1188,10 +1188,10 @@ class TeamGame(BaseModel):
     def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
         """Iterator for tourn_games (wrap ORM details).
         """
-        sel = cls.select()
+        query = cls.select()
         if not include_byes:
-            sel = sel.where(cls.is_bye == False)
-        for t in sel.iterator():
+            query = query.where(cls.is_bye == False)
+        for t in query:
             yield t
 
     def save(self, *args, **kwargs):

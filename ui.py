@@ -126,7 +126,7 @@ class Player(UIMixin, BasePlayer):
         """Iterator returning players matching the specified (nick) name prefix.
         """
         query = cls.select().where(cls.nick_name.startswith(name_pfx))
-        for p in query.iterator():
+        for p in query:
             yield p
 
     @property
@@ -790,7 +790,7 @@ class Team(UIMixin, BaseTeam):
                  .where(PlayoffGame.bracket == bracket)
                  .order_by(PlayoffGame.round_num))
         wins = [0, 0]
-        for game in query.iterator():
+        for game in query:
             if not game.winner:
                 return game
             win_idx = bool(game.winner == game.team2_name)

@@ -29,8 +29,6 @@ def clear_schema_cache() -> None:
     incorporated into the database management logic in `server.py`!!!
     """
     TournInfo.clear_cache()
-    Player.clear_cache()
-    Team.clear_cache()
 
 ######################
 # bracket/game stuff #
@@ -167,8 +165,10 @@ class TournInfo(BaseModel):
 
     @classmethod
     def clear_cache(cls) -> None:
-        """See `clear_schema_cache` (above)
+        """See `clear_schema_cache` (above).
         """
+        if cls != TournInfo:
+            raise ImplementationError(f"cannot cache TournInfo subclass instance")
         cls.inst = None
 
     @classmethod
@@ -176,28 +176,30 @@ class TournInfo(BaseModel):
         """Return cached singleton instance (purposefully shadows more general base class
         method).
         """
+        if cls != TournInfo:
+            raise ImplementationError(f"cannot cache TournInfo subclass instance")
         if cls.inst is None or requery:
-            res = [t for t in cls.select().limit(2).iterator()]
+            res = [t for t in cls.select().limit(2)]
             assert len(res) == 1  # fails if not initialized, or unexpected multiple records
             cls.inst = res[0]
         return cls.inst
 
     @classmethod
     def mark_stage_start(cls, stage: TournStage) -> None:
-        """Mark the start of the specified stage (and save) for the cached singleton
+        """Mark the start of the specified stage (and save) for the cached singleton.
         """
         tourn = TournInfo.get()
         tourn.start_stage(stage)
 
     @classmethod
     def mark_stage_complete(cls, stage: TournStage) -> None:
-        """Mark the completion of the specified stage (and save) for the cached singleton
+        """Mark the completion of the specified stage (and save) for the cached singleton.
         """
         tourn = TournInfo.get()
         tourn.complete_stage(stage)
 
     def save(self, *args, **kwargs):
-        """Manage stage changes and associated message text
+        """Manage stage changes and associated message text.
         """
         if 'stage_compl' in self._dirty:
             stage_data = StageData[self.stage_compl]
@@ -228,14 +230,14 @@ class TournInfo(BaseModel):
         return super().save(*args, **kwargs)
 
     def start_stage(self, stage: TournStage, auto_save: bool = True) -> None:
-        """Mark the start of the specified stage (and save, by default)
+        """Mark the start of the specified stage (and save, by default).
         """
         self.stage_start = stage
         if auto_save:
             self.save()
 
     def complete_stage(self, stage: TournStage, auto_save: bool = True) -> None:
-        """Mark the completion of the specified stage (and save, by default)
+        """Mark the completion of the specified stage (and save, by default).
         """
         self.stage_compl = stage
         if auto_save:
@@ -243,25 +245,25 @@ class TournInfo(BaseModel):
 
     def seeding_done(self) -> bool:
         """Official way to check if seeding is complete (scores validated and final player
-        rankings computed)
+        rankings computed).
         """
         return self.stage_compl >= TournStage.SEED_RANKS
 
     def partner_picks_done(self) -> bool:
         """Official way to check if partner picking is complete (all picks made and teams
-        determined)
+        determined).
         """
         return self.stage_compl >= TournStage.TOURN_TEAMS
 
     def round_robin_done(self) -> bool:
         """Official way to check if round robin is complete (scores validated and final
-        team rankings computed)
+        team rankings computed).
         """
         return self.stage_compl >= TournStage.TOURN_RANKS
 
     def playoffs_done(self) -> bool:
         """Official way to check if playoffs (and hence the tournament) is complete
-        (scores validated and final team rankings computed)
+        (scores validated and final team rankings computed).
         """
         return self.stage_compl >= TournStage.FINALS_RANKS
 
@@ -309,46 +311,45 @@ class Player(BaseModel, EuchmgrUser):
                                      null=True)
     team           = DeferredForeignKey('Team', null=True)
 
-    # class variables
-    player_map: ClassVar[dict[int, Self]] = None  # indexed by player_num
-
     class Meta:
         indexes = (
             (('last_name', 'first_name'), True),
         )
 
     @classmethod
-    def clear_cache(cls) -> None:
-        """See `clear_schema_cache` (above)
-        """
-        cls.player_map = None
-
-    @classmethod
-    def get_player_map(cls, requery: bool = False) -> dict[int, Self]:
-        """Return dict of all players, indexed by player_num
+    def get_player_map(cls, join_partners: bool = False, by_rank: bool = False) -> dict[int, Self]:
+        """Return dict of all players, indexed by player_num.
         """
         tourn = TournInfo.get()
         if tourn.stage_compl < TournStage.PLAYER_NUMS:
             raise LogicError("player_nums not yet assigned")
 
-        if cls.player_map and not requery:
-            return cls.player_map
-
-        cls.player_map = {}
-        for p in cls.select().iterator():
-            cls.player_map[p.player_num] = p
-        return cls.player_map
+        player_map = {}
+        if join_partners:
+            Partner = cls.alias()
+            Partner2 = cls.alias()
+            query = (cls
+                     .select(cls, Partner, Partner2)
+                     .left_outer_join(Partner, on=cls.partner)
+                     .switch()
+                     .left_outer_join(Partner2, on=cls.partner2))
+        else:
+            query = cls.select()
+        if by_rank:
+            query = query.order_by(cls.player_rank.asc(nulls='last'))
+        for p in query:
+            player_map[p.player_num] = p
+        return player_map
 
     @classmethod
     def clear_player_nums(cls, ids: list[int] = None) -> int:
         """Delete player_num values for all rows (or specified IDs); return number of
-        records updated.  Also refreshes (or clears) the cached player map.
+        records updated.
         """
         if ids is not None:
             raise ImplementationError("list of IDs not yet supported")
         upd = Player.update(player_num=None)
         res = upd.execute()
-        cls.clear_cache()
         return res
 
     @classmethod
@@ -378,44 +379,31 @@ class Player(BaseModel, EuchmgrUser):
     @classmethod
     def clear_partner_picks(cls, ids: list[int] = None) -> int:
         """Delete partner_picks for all rows (or specified IDs); return number of records
-        updated.  Also refreshes (or clears) the cached player map.
+        updated.
         """
         if ids is not None:
             raise ImplementationError("list of IDs not yet supported")
         upd = Player.update(partner=None, partner2=None, picked_by=None)
         res = upd.execute()
-        cls.clear_cache()
         return res
 
     @classmethod
-    def available_players(cls, requery: bool = False) -> list[Self]:
-        """Return list of available players, sorted by player_rank.  Note that this goes
-        against the cached player map, so can be reused locally (e.g. in a loop without
-        requerying when faking partner picks).
+    def available_players(cls) -> list[Self]:
+        """Return list of available players, sorted by player_rank.
         """
-        pl_list = cls.get_player_map(requery).values()
-        avail = filter(lambda x: x.available, pl_list)
-        return sorted(avail, key=lambda x: x.player_rank)
-
-    @classmethod
-    def get_player(cls, player_num: int) -> Self:
-        """Return player by player_num (from cached map)
-        """
-        pl_map = cls.get_player_map()
-        return pl_map[player_num]
+        pl_iter = cls.iter_players(by_rank=True)
+        return list(filter(lambda x: x.available, pl_iter))
 
     @classmethod
     def iter_players(cls, by_rank: bool = False, no_nums: bool = False) -> Iterator[Self]:
-        """Iterator for players (wrap ORM details).  Note that this also clears out local
-        cache, if populated.
+        """Iterator for players (wrap ORM details).
         """
-        cls.clear_cache()
         query = cls.select()
         if no_nums:
             query = query.where(cls.player_num.is_null(True))
         if by_rank:
             query = query.order_by(cls.player_rank.asc(nulls='last'))
-        for p in query.iterator():
+        for p in query:
             yield p
 
     @property
@@ -572,10 +560,10 @@ class SeedGame(BaseModel):
     def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
         """Iterator for seed_games (wrap ORM details).
         """
-        sel = cls.select()
+        query = cls.select()
         if not include_byes:
-            sel = sel.where(cls.table_num.is_null(False))
-        for t in sel.iterator():
+            query = query.where(cls.table_num.is_null(False))
+        for t in query:
             yield t
 
     def add_scores(self, team1_pts: int, team2_pts: int) -> None:
@@ -596,7 +584,7 @@ class SeedGame(BaseModel):
         updated.  Called by front-end after the game is complete (i.e. winner determined).
         There is no need to support partial-game stats.
         """
-        players     = [self.player1, self.player2, self.player3, self.player4]
+        players = [self.player1, self.player2, self.player3, self.player4]
         team_scores = [self.team1_pts, self.team2_pts]
 
         upd = 0
@@ -637,11 +625,11 @@ class SeedGame(BaseModel):
                            'game_label': self.label,
                            'player'    : player,
                            'is_bye'    : True}
-                tm_game = PlayerGame.create(**pg_info)
+                pl_game = PlayerGame.create(**pg_info)
             return len(byes)
 
-        partners    = [self.player2, self.player1, self.player4, self.player3]
-        opps_tups   = [(self.player3, self.player4), (self.player1, self.player2)]
+        partners = [players[1], players[0], players[3], players[2]]
+        opps_tups = [(players[2], players[3]), (players[0], players[1])]
         team_scores = [self.team1_pts, self.team2_pts]
 
         pl_games = []
@@ -735,49 +723,15 @@ class Team(BaseModel):
     final_rank     = IntegerField(null=True)  # stack-ranked, no ties
     final_rank_adj = IntegerField(null=True)  # manual overrides
 
-    # class variables
-    team_map: ClassVar[dict[int, Self]] = None  # indexed by id
-
     class Meta:
         indexes = (
             (('div_num', 'div_seed'), True),
         )
 
     @classmethod
-    def clear_cache(cls) -> None:
-        """See `clear_schema_cache` (above)
-        """
-        cls.team_map = None
-
-    @classmethod
-    def get_team_map(cls, requery: bool = False) -> dict[int, Self]:
-        """Return dict of all teams, indexed by id
-        """
-        tourn = TournInfo.get()
-        if tourn.stage_compl < TournStage.TOURN_TEAMS:
-            raise LogicError("tournament teams not yet created")
-
-        if cls.team_map and not requery:
-            return cls.team_map
-
-        cls.team_map = {}
-        for t in cls.select().iterator():
-            cls.team_map[t.id] = t
-        return cls.team_map
-
-    @classmethod
-    def get_div_map(cls, div: int, requery: bool = False) -> dict[int, Self]:
-        """Return dict of division teams, indexed by div_seed
-        """
-        tm_list = cls.get_team_map(requery).values()
-        return {t.div_seed: t for t in tm_list if t.div_num == div}
-
-    @classmethod
     def iter_teams(cls, div: int = None, by_rank: bool = False) -> Iterator[Self]:
-        """Iterator for teams (wrap ORM details).  Note that this also clears out local
-        cache, if populated.
+        """Iterator for teams (wrap ORM details).
         """
-        cls.clear_cache()
         query = cls.select()
         if div:
             query = query.where(cls.div_num == div)
@@ -785,32 +739,27 @@ class Team(BaseModel):
                 query = query.order_by(cls.div_rank.asc(nulls='last'))
         elif by_rank:
             query = query.order_by(cls.tourn_rank.asc(nulls='last'))
-        for t in query.iterator():
+        for t in query:
             yield t
 
     @classmethod
     def iter_playoff_teams(cls, by_rank: bool = False) -> Iterator[Self]:
-        """Iterator for playoff teams (wrap ORM details).  Note that this also clears out
-        local cache, if populated.
+        """Iterator for playoff teams (wrap ORM details).
         """
-        # NOTE: we don't need to clear out cache here since this is not used exactly like
-        # `iter_teams()` (above)
         query = cls.select().where(cls.div_rank.in_([1, 2]))
         if by_rank:
             query = query.order_by(cls.playoff_rank.asc(nulls='last'), cls.tourn_rank.asc())
-        for t in query.iterator():
+        for t in query:
             yield t
 
     @classmethod
     def iter_finals_teams(cls, by_rank: bool = False) -> Iterator[Self]:
-        """Iterator for playoff teams (wrap ORM details).  Note that this also clears out
-        local cache, if populated.
+        """Iterator for playoff teams (wrap ORM details).
         """
-        # NOTE: we don't need to clear out cache here (see `iter_playoff_teams()` above)
         query = cls.select().where(cls.playoff_match_wins > 0)
         if by_rank:
             query = query.order_by(cls.playoff_rank.asc())
-        for t in query.iterator():
+        for t in query:
             yield t
 
     @classmethod
@@ -863,10 +812,12 @@ class Team(BaseModel):
         return self.playoff_match_wins > 0
 
     def get_wins(self, opps: list[Self]) -> list[BaseModel]:
-        """Get TeamGame records for all wins versus specified opponents
+        """Get TeamGame records for all wins versus specified opponents.
         """
+        Opponent = Team.alias()
         query = (TeamGame
-                 .select()
+                 .select(TeamGame, Opponent)
+                 .left_outer_join(Opponent, on=TeamGame.opponent)
                  .where(TeamGame.team == self,
                         TeamGame.opponent.in_(opps),
                         TeamGame.is_winner == True))
@@ -932,10 +883,10 @@ class TournGame(BaseModel):
     def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
         """Iterator for tourn_games (wrap ORM details).
         """
-        sel = cls.select()
+        query = cls.select()
         if not include_byes:
-            sel = sel.where(cls.table_num.is_null(False))
-        for t in sel.iterator():
+            query = query.where(cls.table_num.is_null(False))
+        for t in query:
             yield t
 
     def add_scores(self, team1_pts: int, team2_pts: int) -> None:
@@ -956,11 +907,11 @@ class TournGame(BaseModel):
         Called by front-end after the game is complete (i.e. winner determined).  There is
         no need to support partial-game stats.
         """
-        teams       = [self.team1, self.team2]
+        teams = [self.team1, self.team2]
         team_scores = [self.team1_pts, self.team2_pts]
 
         upd = 0
-        for tm_idx, team in enumerate([self.team1, self.team2]):
+        for tm_idx, team in enumerate(teams):
             op_idx   = tm_idx ^ 0x01
             team_pts = team_scores[tm_idx]
             opp_pts  = team_scores[op_idx]
@@ -996,11 +947,11 @@ class TournGame(BaseModel):
             tm_game = TeamGame.create(**tg_info)
             return 1
 
-        teams       = [self.team1, self.team2]
+        teams = [self.team1, self.team2]
         team_scores = [self.team1_pts, self.team2_pts]
 
         tm_games = []
-        for tm_idx, team in enumerate([self.team1, self.team2]):
+        for tm_idx, team in enumerate(teams):
             op_idx   = tm_idx ^ 0x01
             team_pts = team_scores[tm_idx]
             opp_pts  = team_scores[op_idx]
@@ -1065,12 +1016,12 @@ class PlayoffGame(BaseModel):
     def iter_games(cls, bracket: Bracket = None, by_matchup: bool = False) -> Iterator[Self]:
         """Iterator for playoff_games (wrap ORM details).
         """
-        sel = cls.select()
+        query = cls.select()
         if bracket:
-            sel = sel.where(cls.bracket == bracket)
+            query = query.where(cls.bracket == bracket)
         if by_matchup:
-            sel = sel.order_by(cls.bracket, cls.matchup_num, cls.round_num)
-        for t in sel.iterator():
+            query = query.order_by(cls.bracket, cls.matchup_num, cls.round_num)
+        for t in query:
             yield t
 
     @property
@@ -1121,7 +1072,7 @@ class PlayoffGame(BaseModel):
         team_scores = [self.team1_pts, self.team2_pts]
 
         upd = 0
-        for tm_idx, team in enumerate([self.team1, self.team2]):
+        for tm_idx, team in enumerate(teams):
             op_idx   = tm_idx ^ 0x01
             team_pts = team_scores[tm_idx]
             opp_pts  = team_scores[op_idx]
@@ -1193,10 +1144,10 @@ class PlayerGame(BaseModel):
     def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
         """Iterator for seed_games (wrap ORM details).
         """
-        sel = cls.select()
+        query = cls.select()
         if not include_byes:
-            sel = sel.where(cls.is_bye == False)
-        for t in sel.iterator():
+            query = query.where(cls.is_bye == False)
+        for t in query:
             yield t
 
     def save(self, *args, **kwargs):
@@ -1237,10 +1188,10 @@ class TeamGame(BaseModel):
     def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
         """Iterator for tourn_games (wrap ORM details).
         """
-        sel = cls.select()
+        query = cls.select()
         if not include_byes:
-            sel = sel.where(cls.is_bye == False)
-        for t in sel.iterator():
+            query = query.where(cls.is_bye == False)
+        for t in query:
             yield t
 
     def save(self, *args, **kwargs):

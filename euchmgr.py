@@ -24,32 +24,37 @@ from schema import (rnd_pct, rnd_avg, Bracket, TournStage, TournInfo, Player, Se
 # utility functions #
 #####################
 
-def get_div_teams(tourn: TournInfo, requery: bool = False) -> list[int]:
-    """Return number of teams by division, where index is `div_num - 1` (not pretty, but a
-    little more expeditious).  Okay to call this from a UI module, since it doesn't return
-    any schema objects.
+def get_div_maps(tourn: TournInfo) -> dict[int, dict[int, Team]]:
+    """For each division (top-level key), return map of Teams indexed by div_seed.  Do a
+    bunch of integrity checking (as good here as anywhere, I guess).
     """
-    div_teams = [0] * tourn.divisions
-    for tm in Team.get_team_map(requery=requery).values():
-        div_teams[tm.div_num - 1] += 1
-    assert sum(div_teams) == tourn.teams
-    assert max(div_teams) - min(div_teams) in (0, 1)
-    return div_teams
+    div_maps = {}
+    for tm in Team.iter_teams(by_rank=True):
+        if tm.div_num not in div_maps:
+            div_maps[tm.div_num] = {}
+        assert tm.div_seed not in div_maps[tm.div_num]
+        div_maps[tm.div_num][tm.div_seed] = tm
+
+    div_counts = [len(teams) for teams in div_maps.values()]
+    assert len(div_maps) == tourn.divisions
+    assert min(div_maps.keys()) == 1
+    assert max(div_maps.keys()) == tourn.divisions
+    assert sum(div_counts) == tourn.teams
+    assert max(div_counts) - min(div_counts) in (0, 1)
+    return div_maps
 
 # REVISIT: these functions should probably be moved into schema.py, and the denormalized
 # values for player and team names should be created upon record save!!!
 
-def fmt_player_list(player_nums: list[int]) -> str:
+def fmt_player_list(pl_map: dict[int, Player], player_nums: list[int]) -> str:
     """Consistently delimited list of player names, e.g. byes for a round
     """
-    pl_map = Player.get_player_map()
     names = [pl_map[p].name for p in player_nums]
     return ', '.join(names)
 
-def fmt_team_name(player_nums: list[int]) -> str:
+def fmt_team_name(pl_map: dict[int, Player], player_nums: list[int]) -> str:
     """Consistent concatenation of member player names
     """
-    pl_map = Player.get_player_map()
     names = [pl_map[p].name for p in player_nums]
     return ' / '.join(names)
 
@@ -143,6 +148,7 @@ def build_seed_bracket() -> list[SeedGame]:
     bracket_file = f'seed-{nplayers}-{nrounds}.csv'  # need to reconcile with Bracket.SEED!!!
 
     games = []
+    pl_map = Player.get_player_map()
     with open(BracketsFile(bracket_file), newline='') as f:
         reader = csv.reader(f)
         for rnd_i, row in enumerate(reader):
@@ -150,7 +156,7 @@ def build_seed_bracket() -> list[SeedGame]:
             tbl_j = 0
             while table := list(islice(seats, 0, 4)):
                 if len(table) < 4:
-                    bye_players = fmt_player_list(table)
+                    bye_players = fmt_player_list(pl_map, table)
                     table += [None] * (4 - len(table))
                     p1, p2, p3, p4 = table
                     table_num = None
@@ -160,8 +166,8 @@ def build_seed_bracket() -> list[SeedGame]:
                     p1, p2, p3, p4 = table
                     table_num = tbl_j + 1
                     label = f'{Bracket.SEED}-{rnd_i+1}-{tbl_j+1}'
-                    team1_name = fmt_team_name([p1, p2])
-                    team2_name = fmt_team_name([p3, p4])
+                    team1_name = fmt_team_name(pl_map, [p1, p2])
+                    team2_name = fmt_team_name(pl_map, [p3, p4])
                     bye_players = None
                 info = {'round_num'  : rnd_i + 1,
                         'table_num'  : table_num,
@@ -220,7 +226,7 @@ def fake_seed_games(clear_existing: bool = False, limit: int = None, rand_seed: 
 def validate_seed_round(finalize: bool = False) -> None:
     """
     """
-    pl_map = Player.get_player_map(requery=True)
+    pl_list = list(Player.iter_players())
 
     stats_tmpl = {
         'seed_wins':        0,
@@ -228,7 +234,7 @@ def validate_seed_round(finalize: bool = False) -> None:
         'seed_pts_for':     0,
         'seed_pts_against': 0
     }
-    pl_stats = {num: stats_tmpl.copy() for num in pl_map}
+    pl_stats = {pl.player_num: stats_tmpl.copy() for pl in pl_list}
 
     for gm in SeedGame.iter_games():
         stats1 = pl_stats[gm.player1_num]
@@ -257,8 +263,8 @@ def validate_seed_round(finalize: bool = False) -> None:
         stats4['seed_pts_against'] += gm.team1_pts
 
     stats_tot = stats_tmpl.copy()
-    for num, pl in pl_map.items():
-        stats = pl_stats[num]
+    for pl in pl_list:
+        stats = pl_stats[pl.player_num]
         for k, v in stats.items():
             stats_tot[k] += v
 
@@ -304,8 +310,8 @@ def compute_player_ranks(finalize: bool = False) -> None:
     # REVISIT: should we be going through `iter_players` here instead (to follow the same
     # pattern as computing team raks)???  We really want to make the design informed and
     # consistent!!!
-    pl_list = Player.get_player_map().values()
-    played = list(filter(lambda x: x.seed_wins + x.seed_losses, pl_list))
+    pl_iter = Player.iter_players()
+    played = list(filter(lambda x: x.seed_wins + x.seed_losses, pl_iter))
 
     seed_win_pcts = [pl.seed_win_pct for pl in played]
     seed_ranks = rankdata(seed_win_pcts, method='min')
@@ -338,8 +344,8 @@ def prepick_champ_partners() -> None:
     """Reigning champs get paired (or tripled) as a team before general partner picking
     starts
     """
-    pl_list = Player.get_player_map().values()
-    champs = filter(lambda x: x.reigning_champ, pl_list)
+    pl_iter = Player.iter_players()
+    champs = filter(lambda x: x.reigning_champ, pl_iter)
     by_rank = sorted(champs, key=lambda x: x.player_rank)
 
     # highest seeded champ picks fellow champ(s)
@@ -386,11 +392,10 @@ def build_tourn_teams() -> list[Team]:
     """Note: we should probably move the construction of the team name into schema.py
     (save())--see comment for utility functions, above
     """
-    pl_map = Player.get_player_map()
-    by_rank = sorted(pl_map.values(), key=lambda x: x.player_rank)
+    pl_map = Player.get_player_map(join_partners=True, by_rank=True)
 
     teams = []
-    for pl in by_rank:
+    for pl in pl_map.values():
         if not pl.partner_num:
             continue
         partner = pl_map[pl.partner_num]
@@ -399,12 +404,12 @@ def build_tourn_teams() -> list[Team]:
         if not pl.partner2_num:
             partner2 = None
             is_thm = False
-            team_name = fmt_team_name([pl.player_num, pl.partner_num])
+            team_name = fmt_team_name(pl_map, [pl.player_num, pl.partner_num])
             avg_seed = rnd_avg(seed_sum / 2.0)
         else:
             partner2 = pl_map[pl.partner2_num]
             is_thm = True
-            team_name = fmt_team_name([pl.player_num, pl.partner_num, pl.partner2_num])
+            team_name = fmt_team_name(pl_map, [pl.player_num, pl.partner_num, pl.partner2_num])
             seed_sum += partner2.player_rank
             min_seed = min(min_seed, partner2.player_rank)
             avg_seed = rnd_avg(seed_sum / 3.0)
@@ -456,17 +461,19 @@ def build_tourn_bracket() -> list[TournGame]:
     ndivs = tourn.divisions
     nrounds = tourn.tourn_rounds
 
-    # don't make assumptions on how divisions are assigned, just get the actual count of
-    # teams in each division--ATTN: this is a little messy, but note that div_teams is
-    # 0-based, whereas div_num is 1-based (see loop below for pseudo-explanation)!
-    div_teams = get_div_teams(tourn)
+    # don't make assumptions on how divisions are assigned, just go off the actual count
+    # of teams in each division--NOTE that div_maps is keyed off of the actual division
+    # number (1-based), whereas the div_i index for the loop below is 0-based (for
+    # consistency with the other indexes), this is a little messy, sorry!
+    div_maps = get_div_maps(tourn)
 
     games = []
     for div_i in range(ndivs):
-        brckt_teams = div_teams[div_i]
+        assert div_i + 1 in div_maps
+        div_map = div_maps[div_i + 1]
+        brckt_teams = len(div_map)
         bye_div_seed = brckt_teams + 1  # TODO: only if odd number of teams!!!
         bracket_file = f'rr-{brckt_teams}-{nrounds}.csv'  # need to reconcile with Bracket.TOURN!!!
-        div_map = Team.get_div_map(div_i + 1)
         with open(BracketsFile(bracket_file), newline='') as f:
             reader = csv.reader(f)
             for rnd_j, row in enumerate(reader):
@@ -552,7 +559,7 @@ def fake_tourn_games(clear_existing: bool = False, limit: int = None, rand_seed:
 def validate_tourn(finalize: bool = False) -> None:
     """
     """
-    tm_map = Team.get_team_map(requery=True)
+    tm_list = list(Team.iter_teams())
 
     stats_tmpl = {
         'tourn_wins':        0,
@@ -560,7 +567,7 @@ def validate_tourn(finalize: bool = False) -> None:
         'tourn_pts_for':     0,
         'tourn_pts_against': 0
     }
-    tm_stats = {id: stats_tmpl.copy() for id in tm_map}
+    tm_stats = {tm.id: stats_tmpl.copy() for tm in tm_list}
 
     for gm in TournGame.iter_games():
         stats1 = tm_stats[gm.team1_id]
@@ -579,8 +586,8 @@ def validate_tourn(finalize: bool = False) -> None:
         stats2['tourn_pts_against'] += gm.team1_pts
 
     stats_tot = stats_tmpl.copy()
-    for id, tm in tm_map.items():
-        stats = tm_stats[id]
+    for tm in tm_list:
+        stats = tm_stats[tm.id]
         for k, v in stats.items():
             stats_tot[k] += v
 

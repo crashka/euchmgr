@@ -563,10 +563,8 @@ def pick_partner(form: dict) -> str:
     player_num = typecast(form['player_num'])
     partner_num = typecast(form['partner_num'])
 
-    # note that we are making sure the cached player map gets this update
-    pl_map = Player.get_player_map(requery=True)
-    player = pl_map[player_num]
-    partner = pl_map[partner_num]
+    player = Player.fetch_by_num(player_num)
+    partner = Player.fetch_by_num(partner_num)
     player.pick_partners(partner)
     player.save()
     # REVISIT: we should try and incorporate this into update_tourn_stage (would have to

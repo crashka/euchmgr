@@ -104,25 +104,29 @@ class Player(UIMixin, BasePlayer):
         table_name = BasePlayer._meta.table_name
 
     @classmethod
+    def fetch_by_num(cls, player_num: int) -> Self:
+        """Return player by player_num, or `None` if not found.
+        """
+        return cls.get_or_none(cls.player_num == player_num)
+
+    @classmethod
     def fetch_by_rank(cls, player_rank: int) -> Self:
-        """Return player by player_rank (always retrieved from database), or `None` if not
-        found
+        """Return player by player_rank, or `None` if not found.
         """
         return cls.get_or_none(cls.player_rank == player_rank)
 
     @classmethod
     def fetch_by_name(cls, name: str) -> Self:
-        """Return player by name (same as nick_name), or `None` if not found.  Always
-        retrieved from database (not from local cache).
+        """Return player by name (same as nick_name), or `None` if not found.
         """
         return cls.get_or_none(cls.nick_name == name)
 
     @classmethod
     def find_by_name_pfx(cls, name_pfx: str) -> Iterator[Self]:
-        """Iterator returning players matching the specified (nick) name prefix
+        """Iterator returning players matching the specified (nick) name prefix.
         """
         query = cls.select().where(cls.nick_name.startswith(name_pfx))
-        for p in query.iterator():
+        for p in query:
             yield p
 
     @property
@@ -381,12 +385,12 @@ class PartnerPick(UIMixin, BasePlayer):
             return None  # as distinguished from `[]` (below)
 
         # NOTE: need to instantiate `Player` instances here (as above)
-        pl_query = Player.select()
-        avail = list(filter(lambda x: x.available, pl_query))
+        pl_iter = Player.iter_players(by_rank=True)
+        avail = list(filter(lambda x: x.available, pl_iter))
         if not avail:
             return []
         assert len(avail) > 1
-        return sorted(avail, key=lambda x: x.player_rank)[1:]
+        return avail[1:]
 
     @classmethod
     def get_picks(cls, all_picks: bool = False) -> list[BaseModel]:
@@ -786,7 +790,7 @@ class Team(UIMixin, BaseTeam):
                  .where(PlayoffGame.bracket == bracket)
                  .order_by(PlayoffGame.round_num))
         wins = [0, 0]
-        for game in query.iterator():
+        for game in query:
             if not game.winner:
                 return game
             win_idx = bool(game.winner == game.team2_name)

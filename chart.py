@@ -8,7 +8,7 @@ from flask import Blueprint, session, render_template, abort
 from schema import GAME_PTS
 from ui import (Numeric, fmt_pct, fmt_tally, TournInfo, Player, SeedGame, Team, TournGame,
                 PlayerGame, TeamGame)
-from euchmgr import get_div_teams
+from euchmgr import get_div_maps
 
 #################
 # utility stuff #
@@ -198,13 +198,14 @@ def rr_brackets(tourn: TournInfo) -> str:
     """Render round robin brackets as a chart
     """
     div_list   = list(range(1, tourn.divisions + 1))
-    div_teams  = get_div_teams(tourn, requery=True)
-    max_teams  = max(div_teams)
+    div_maps   = get_div_maps(tourn)
     div_tables = {}
     div_byes   = {}
-    for i, div in enumerate(div_list):
-        div_tables[div] = div_teams[i] // 2
-        div_byes[div] = div_teams[i] % 2
+    for div in div_list:
+        assert div in div_maps
+        nteams = len(div_maps[div])
+        div_tables[div] = nteams // 2
+        div_byes[div] = nteams % 2
 
     # key sequence for sub-dict: rnd, tbl -> matchup_html
     matchups = {div: {} for div in div_list}

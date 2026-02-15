@@ -392,11 +392,10 @@ def build_tourn_teams() -> list[Team]:
     """Note: we should probably move the construction of the team name into schema.py
     (save())--see comment for utility functions, above
     """
-    pl_map = Player.get_player_map()
-    by_rank = sorted(pl_map.values(), key=lambda x: x.player_rank)
+    pl_map = Player.get_player_map(join_partners=True, by_rank=True)
 
     teams = []
-    for pl in by_rank:
+    for pl in pl_map.values():
         if not pl.partner_num:
             continue
         partner = pl_map[pl.partner_num]

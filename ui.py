@@ -104,22 +104,26 @@ class Player(UIMixin, BasePlayer):
         table_name = BasePlayer._meta.table_name
 
     @classmethod
+    def fetch_by_num(cls, player_num: int) -> Self:
+        """Return player by player_num, or `None` if not found.
+        """
+        return cls.get_or_none(cls.player_num == player_num)
+
+    @classmethod
     def fetch_by_rank(cls, player_rank: int) -> Self:
-        """Return player by player_rank (always retrieved from database), or `None` if not
-        found
+        """Return player by player_rank, or `None` if not found.
         """
         return cls.get_or_none(cls.player_rank == player_rank)
 
     @classmethod
     def fetch_by_name(cls, name: str) -> Self:
-        """Return player by name (same as nick_name), or `None` if not found.  Always
-        retrieved from database (not from local cache).
+        """Return player by name (same as nick_name), or `None` if not found.
         """
         return cls.get_or_none(cls.nick_name == name)
 
     @classmethod
     def find_by_name_pfx(cls, name_pfx: str) -> Iterator[Self]:
-        """Iterator returning players matching the specified (nick) name prefix
+        """Iterator returning players matching the specified (nick) name prefix.
         """
         query = cls.select().where(cls.nick_name.startswith(name_pfx))
         for p in query.iterator():

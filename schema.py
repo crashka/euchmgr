@@ -165,7 +165,7 @@ class TournInfo(BaseModel):
 
     @classmethod
     def clear_cache(cls) -> None:
-        """See `clear_schema_cache` (above)
+        """See `clear_schema_cache` (above).
         """
         if cls != TournInfo:
             raise ImplementationError(f"cannot cache TournInfo subclass instance")
@@ -186,20 +186,20 @@ class TournInfo(BaseModel):
 
     @classmethod
     def mark_stage_start(cls, stage: TournStage) -> None:
-        """Mark the start of the specified stage (and save) for the cached singleton
+        """Mark the start of the specified stage (and save) for the cached singleton.
         """
         tourn = TournInfo.get()
         tourn.start_stage(stage)
 
     @classmethod
     def mark_stage_complete(cls, stage: TournStage) -> None:
-        """Mark the completion of the specified stage (and save) for the cached singleton
+        """Mark the completion of the specified stage (and save) for the cached singleton.
         """
         tourn = TournInfo.get()
         tourn.complete_stage(stage)
 
     def save(self, *args, **kwargs):
-        """Manage stage changes and associated message text
+        """Manage stage changes and associated message text.
         """
         if 'stage_compl' in self._dirty:
             stage_data = StageData[self.stage_compl]
@@ -230,14 +230,14 @@ class TournInfo(BaseModel):
         return super().save(*args, **kwargs)
 
     def start_stage(self, stage: TournStage, auto_save: bool = True) -> None:
-        """Mark the start of the specified stage (and save, by default)
+        """Mark the start of the specified stage (and save, by default).
         """
         self.stage_start = stage
         if auto_save:
             self.save()
 
     def complete_stage(self, stage: TournStage, auto_save: bool = True) -> None:
-        """Mark the completion of the specified stage (and save, by default)
+        """Mark the completion of the specified stage (and save, by default).
         """
         self.stage_compl = stage
         if auto_save:
@@ -245,25 +245,25 @@ class TournInfo(BaseModel):
 
     def seeding_done(self) -> bool:
         """Official way to check if seeding is complete (scores validated and final player
-        rankings computed)
+        rankings computed).
         """
         return self.stage_compl >= TournStage.SEED_RANKS
 
     def partner_picks_done(self) -> bool:
         """Official way to check if partner picking is complete (all picks made and teams
-        determined)
+        determined).
         """
         return self.stage_compl >= TournStage.TOURN_TEAMS
 
     def round_robin_done(self) -> bool:
         """Official way to check if round robin is complete (scores validated and final
-        team rankings computed)
+        team rankings computed).
         """
         return self.stage_compl >= TournStage.TOURN_RANKS
 
     def playoffs_done(self) -> bool:
         """Official way to check if playoffs (and hence the tournament) is complete
-        (scores validated and final team rankings computed)
+        (scores validated and final team rankings computed).
         """
         return self.stage_compl >= TournStage.FINALS_RANKS
 
@@ -317,22 +317,34 @@ class Player(BaseModel, EuchmgrUser):
         )
 
     @classmethod
-    def get_player_map(cls) -> dict[int, Self]:
-        """Return dict of all players, indexed by player_num
+    def get_player_map(cls, join_partners: bool = False, by_rank: bool = False) -> dict[int, Self]:
+        """Return dict of all players, indexed by player_num.
         """
         tourn = TournInfo.get()
         if tourn.stage_compl < TournStage.PLAYER_NUMS:
             raise LogicError("player_nums not yet assigned")
 
         player_map = {}
-        for p in cls.select().iterator():
+        if join_partners:
+            Partner = cls.alias()
+            Partner2 = cls.alias()
+            query = (cls
+                     .select(cls, Partner, Partner2)
+                     .left_outer_join(Partner, on=cls.partner)
+                     .switch()
+                     .left_outer_join(Partner2, on=cls.partner2))
+        else:
+            query = cls.select()
+        if by_rank:
+            query = query.order_by(cls.player_rank.asc(nulls='last'))
+        for p in query:
             player_map[p.player_num] = p
         return player_map
 
     @classmethod
     def clear_player_nums(cls, ids: list[int] = None) -> int:
         """Delete player_num values for all rows (or specified IDs); return number of
-        records updated.  Also refreshes (or clears) the cached player map.
+        records updated.
         """
         if ids is not None:
             raise ImplementationError("list of IDs not yet supported")
@@ -367,7 +379,7 @@ class Player(BaseModel, EuchmgrUser):
     @classmethod
     def clear_partner_picks(cls, ids: list[int] = None) -> int:
         """Delete partner_picks for all rows (or specified IDs); return number of records
-        updated.  Also refreshes (or clears) the cached player map.
+        updated.
         """
         if ids is not None:
             raise ImplementationError("list of IDs not yet supported")
@@ -384,8 +396,7 @@ class Player(BaseModel, EuchmgrUser):
 
     @classmethod
     def iter_players(cls, by_rank: bool = False, no_nums: bool = False) -> Iterator[Self]:
-        """Iterator for players (wrap ORM details).  Note that this also clears out local
-        cache, if populated.
+        """Iterator for players (wrap ORM details).
         """
         query = cls.select()
         if no_nums:
@@ -573,7 +584,7 @@ class SeedGame(BaseModel):
         updated.  Called by front-end after the game is complete (i.e. winner determined).
         There is no need to support partial-game stats.
         """
-        players     = [self.player1, self.player2, self.player3, self.player4]
+        players = [self.player1, self.player2, self.player3, self.player4]
         team_scores = [self.team1_pts, self.team2_pts]
 
         upd = 0
@@ -614,11 +625,11 @@ class SeedGame(BaseModel):
                            'game_label': self.label,
                            'player'    : player,
                            'is_bye'    : True}
-                tm_game = PlayerGame.create(**pg_info)
+                pl_game = PlayerGame.create(**pg_info)
             return len(byes)
 
-        partners    = [self.player2, self.player1, self.player4, self.player3]
-        opps_tups   = [(self.player3, self.player4), (self.player1, self.player2)]
+        partners = [players[1], players[0], players[3], players[2]]
+        opps_tups = [(players[2], players[3]), (players[0], players[1])]
         team_scores = [self.team1_pts, self.team2_pts]
 
         pl_games = []
@@ -719,8 +730,7 @@ class Team(BaseModel):
 
     @classmethod
     def iter_teams(cls, div: int = None, by_rank: bool = False) -> Iterator[Self]:
-        """Iterator for teams (wrap ORM details).  Note that this also clears out local
-        cache, if populated.
+        """Iterator for teams (wrap ORM details).
         """
         query = cls.select()
         if div:
@@ -734,11 +744,8 @@ class Team(BaseModel):
 
     @classmethod
     def iter_playoff_teams(cls, by_rank: bool = False) -> Iterator[Self]:
-        """Iterator for playoff teams (wrap ORM details).  Note that this also clears out
-        local cache, if populated.
+        """Iterator for playoff teams (wrap ORM details).
         """
-        # NOTE: we don't need to clear out cache here since this is not used exactly like
-        # `iter_teams()` (above)
         query = cls.select().where(cls.div_rank.in_([1, 2]))
         if by_rank:
             query = query.order_by(cls.playoff_rank.asc(nulls='last'), cls.tourn_rank.asc())
@@ -747,10 +754,8 @@ class Team(BaseModel):
 
     @classmethod
     def iter_finals_teams(cls, by_rank: bool = False) -> Iterator[Self]:
-        """Iterator for playoff teams (wrap ORM details).  Note that this also clears out
-        local cache, if populated.
+        """Iterator for playoff teams (wrap ORM details).
         """
-        # NOTE: we don't need to clear out cache here (see `iter_playoff_teams()` above)
         query = cls.select().where(cls.playoff_match_wins > 0)
         if by_rank:
             query = query.order_by(cls.playoff_rank.asc())
@@ -807,10 +812,12 @@ class Team(BaseModel):
         return self.playoff_match_wins > 0
 
     def get_wins(self, opps: list[Self]) -> list[BaseModel]:
-        """Get TeamGame records for all wins versus specified opponents
+        """Get TeamGame records for all wins versus specified opponents.
         """
+        Opponent = Team.alias()
         query = (TeamGame
-                 .select()
+                 .select(TeamGame, Opponent)
+                 .left_outer_join(Opponent, on=TeamGame.opponent)
                  .where(TeamGame.team == self,
                         TeamGame.opponent.in_(opps),
                         TeamGame.is_winner == True))
@@ -900,11 +907,11 @@ class TournGame(BaseModel):
         Called by front-end after the game is complete (i.e. winner determined).  There is
         no need to support partial-game stats.
         """
-        teams       = [self.team1, self.team2]
+        teams = [self.team1, self.team2]
         team_scores = [self.team1_pts, self.team2_pts]
 
         upd = 0
-        for tm_idx, team in enumerate([self.team1, self.team2]):
+        for tm_idx, team in enumerate(teams):
             op_idx   = tm_idx ^ 0x01
             team_pts = team_scores[tm_idx]
             opp_pts  = team_scores[op_idx]
@@ -940,11 +947,11 @@ class TournGame(BaseModel):
             tm_game = TeamGame.create(**tg_info)
             return 1
 
-        teams       = [self.team1, self.team2]
+        teams = [self.team1, self.team2]
         team_scores = [self.team1_pts, self.team2_pts]
 
         tm_games = []
-        for tm_idx, team in enumerate([self.team1, self.team2]):
+        for tm_idx, team in enumerate(teams):
             op_idx   = tm_idx ^ 0x01
             team_pts = team_scores[tm_idx]
             opp_pts  = team_scores[op_idx]
@@ -1065,7 +1072,7 @@ class PlayoffGame(BaseModel):
         team_scores = [self.team1_pts, self.team2_pts]
 
         upd = 0
-        for tm_idx, team in enumerate([self.team1, self.team2]):
+        for tm_idx, team in enumerate(teams):
             op_idx   = tm_idx ^ 0x01
             team_pts = team_scores[tm_idx]
             opp_pts  = team_scores[op_idx]

@@ -41,7 +41,7 @@ Here is the high-level outline of the approach:
   - Example: group = \[A, B, C], if A beats B, B beats C, and C beats A
 - **Elevate head-to-head winners** above higher-ranked cohort players/teams they beat in
   the stage
-  - This is only applied if both are not members of a cyclic win group
+  - This is only applied if both are not members of the same cyclic win group
 
 More detail and some discussion on these evaluation steps is provided below.  For what
 it's worth, we note that some of the more arcane scenarios are much more likely to occur
@@ -49,6 +49,10 @@ for tie-breaking in the seeding round rather than tounament play, especially as 
 unequal numbers of games played within a cohort (including none).  I don't think different
 rules and/or algorithms are needed between the two stages, but that would be up to the
 rules committee.
+
+***Update***: The rules committee says that head-to-head play should not be considered for
+ranking players after the seeding round—tie-breaking is done purely by points percentage
+(and then player/ping pong ball number, as a measure of randomness, after that).
 
 ### Rank Players/Teams
 
@@ -100,6 +104,9 @@ expect that the head-to-head winner elevation pass will generally be a no-op.  I
 mention this here to explain why the algorithmic processing order may *appear* to be
 reversed from the initial description of the tie-breaking rules at the top of this
 document.
+
+Stated another way: applying this measure last ensures that the ranking results will
+strictly adhere to this rule.
 
 ## Additional Notes
 

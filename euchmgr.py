@@ -1123,7 +1123,7 @@ def main() -> int:
       - generate_player_nums
       - build_seed_bracket
       - fake_seed_games
-      - tabulate_seed_round
+      - validate_seed_round
       - compute_player_ranks
       - prepick_champ_partners
       - fake_pick_partners
@@ -1131,11 +1131,11 @@ def main() -> int:
       - compute_team_seeds
       - build_tourn_bracket
       - fake_tourn_games
-      - tabulate_tourn
+      - validate_tourn
       - compute_team_ranks
       - build_playoff_bracket
       - validate_playoffs
-      - compute_playoff_ranks
+      - compute_playoff_ranks'
     """
     if len(sys.argv) < 2:
         print(main.__doc__)

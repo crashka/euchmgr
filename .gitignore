@@ -9,6 +9,7 @@
 *.tourn_db-wal
 *.player_data
 *.team_data
+*.data
 log/
 save/
 data/

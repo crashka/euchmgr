@@ -467,7 +467,9 @@ class Player(BaseModel, EuchmgrUser):
 
     def save(self, *args, **kwargs):
         """Ensure that nick_name is not null, since it is used as the display name in
-        brackets (defaults to last_name if not otherwise specified)
+        brackets (defaults to last_name if not otherwise specified).  If `cascade=True` is
+        specified, we propagate the save to partner(s), if dirty (e.g. can be used after
+        pick_partners() is called).
         """
         if 'nick_name' in self._dirty:
             if not self.nick_name:
@@ -476,11 +478,12 @@ class Player(BaseModel, EuchmgrUser):
             tourn = TournInfo.get()
             if self.player_num < 1 or self.player_num > tourn.players:
                 raise ValueError(f"Player Num must be between 1 and {tourn.players}")
-        # cascade commit to partner(s), if dirty
-        if self.partner and self.partner._dirty:
-            self.partner.save()
-            if self.partner2 and self.partner2._dirty:
-                self.partner2.save()
+        # don't cascade by default (generates unnecessary lazy_load queries)
+        if kwargs.pop('cascade', False):
+            if self.partner and self.partner._dirty:
+                self.partner.save()
+                if self.partner2 and self.partner2._dirty:
+                    self.partner2.save()
         return super().save(*args, **kwargs)
 
     def login(self, password: str) -> bool:

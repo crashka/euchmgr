@@ -566,7 +566,7 @@ def pick_partner(form: dict) -> str:
     player = Player.fetch_by_num(player_num)
     partner = Player.fetch_by_num(partner_num)
     player.pick_partners(partner)
-    player.save()
+    player.save(cascade=True)
     # REVISIT: we should try and incorporate this into update_tourn_stage (would have to
     # rethink the interface for that, though)!!!
     if PartnerPick.current_round() == -1:

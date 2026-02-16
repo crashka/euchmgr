@@ -351,7 +351,7 @@ def prepick_champ_partners() -> None:
     # highest seeded champ picks fellow champ(s)
     assert len(by_rank) in (2, 3)
     by_rank[0].pick_partners(*by_rank[1:])
-    by_rank[0].save()
+    by_rank[0].save(cascade=True)
 
 def fake_pick_partners(clear_existing: bool = False, limit: int = None, rand_seed: int = None) -> None:
     """Assumes champ team is pre-picked
@@ -379,7 +379,7 @@ def fake_pick_partners(clear_existing: bool = False, limit: int = None, rand_see
         if len(avail) == 1:  # three-headed monster
             partners.append(avail.pop(0))
         player.pick_partners(*partners)
-        player.save()
+        player.save(cascade=True)
 
         nfake += 1
         if limit and nfake >= limit:

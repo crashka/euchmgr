@@ -260,11 +260,11 @@ def post_partners() -> dict:
         partners = avail[1:]
         assert partner in partners
         player.pick_partners(*partners)
-        player.save()
+        player.save(cascade=True)
         avail = []
     else:
         player.pick_partners(partner)
-        player.save()
+        player.save(cascade=True)
         # TODO: pop or remove both player and partner from `avail`, if we are still going
         # to do something with it!!!
 

@@ -212,8 +212,9 @@ def fake_seed_games(clear_existing: bool = False, limit: int = None, rand_seed: 
             log.debug(f"{game.team1_name}: {game.team1_pts}, {game.team2_name}: {game.team2_pts}")
 
         if game.winner:
-            game.update_player_stats()
-            game.insert_player_games()
+            pl_map = Player.get_player_map()
+            game.update_player_stats(pl_map)
+            game.insert_player_games(pl_map)
 
         nfake += 1
         if limit and nfake >= limit:
@@ -545,8 +546,9 @@ def fake_tourn_games(clear_existing: bool = False, limit: int = None, rand_seed:
             log.debug(f"{game.team1_name}: {game.team1_pts}, {game.team2_name}: {game.team2_pts}")
 
         if game.winner:
-            game.update_team_stats()
-            game.insert_team_games()
+            tm_map = Team.get_team_map()
+            game.update_team_stats(tm_map)
+            game.insert_team_games(tm_map)
 
         nfake += 1
         if limit and nfake >= limit:

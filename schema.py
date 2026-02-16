@@ -579,12 +579,20 @@ class SeedGame(BaseModel):
         self.team1_pts = team1_pts
         self.team2_pts = team2_pts
 
-    def update_player_stats(self) -> int:
+    def update_player_stats(self, player_map: dict[int, Player] = None) -> int:
         """Update stats for all players involved in the game; returns number of records
         updated.  Called by front-end after the game is complete (i.e. winner determined).
         There is no need to support partial-game stats.
         """
-        players = [self.player1, self.player2, self.player3, self.player4]
+        if player_map:
+            players = [
+                player_map[self.player1_num],
+                player_map[self.player2_num],
+                player_map[self.player3_num],
+                player_map[self.player4_num]
+            ]
+        else:
+            players = [self.player1, self.player2, self.player3, self.player4]
         team_scores = [self.team1_pts, self.team2_pts]
 
         upd = 0
@@ -607,13 +615,21 @@ class SeedGame(BaseModel):
 
         return upd
 
-    def insert_player_games(self) -> int:
+    def insert_player_games(self, player_map: dict[int, Player] = None) -> int:
         """Insert a record into the PlayerGame denorm for all players involved in the
         game; returns number of records inserted.  Called by front-end after the game is
         complete (i.e. winner determined)
         """
         bracket = Bracket.SEED
-        players = [self.player1, self.player2, self.player3, self.player4]
+        if player_map:
+            players = [
+                player_map[self.player1_num],
+                player_map[self.player2_num],
+                player_map[self.player3_num],
+                player_map[self.player4_num]
+            ]
+        else:
+            players = [self.player1, self.player2, self.player3, self.player4]
         if self.table_num is None:
             assert self.bye_players is not None
             assert players[0] is not None
@@ -727,6 +743,16 @@ class Team(BaseModel):
         indexes = (
             (('div_num', 'div_seed'), True),
         )
+
+    @classmethod
+    def get_team_map(cls) -> dict[int, Self]:
+        """Return dict of all teams, indexed by id.
+        """
+        team_map = {}
+        query = cls.select()
+        for t in query:
+            team_map[t.id] = t
+        return team_map
 
     @classmethod
     def iter_teams(cls, div: int = None, by_rank: bool = False) -> Iterator[Self]:
@@ -902,12 +928,15 @@ class TournGame(BaseModel):
         self.team1_pts = team1_pts
         self.team2_pts = team2_pts
 
-    def update_team_stats(self) -> int:
+    def update_team_stats(self, team_map: dict[int, Team] = None) -> int:
         """Update stats for teams involved in the game; returns number of records updated.
         Called by front-end after the game is complete (i.e. winner determined).  There is
         no need to support partial-game stats.
         """
-        teams = [self.team1, self.team2]
+        if team_map:
+            teams = [team_map[self.team1_id], team_map[self.team2_id]]
+        else:
+            teams = [self.team1, self.team2]
         team_scores = [self.team1_pts, self.team2_pts]
 
         upd = 0
@@ -929,7 +958,7 @@ class TournGame(BaseModel):
 
         return upd
 
-    def insert_team_games(self) -> int:
+    def insert_team_games(self, team_map: dict[int, Team] = None) -> int:
         """Insert a record into the TeamGame denorm for teams involved in the game;
         returns number of records inserted.  Called by front-end after the game is
         complete (i.e. winner determined)
@@ -947,7 +976,10 @@ class TournGame(BaseModel):
             tm_game = TeamGame.create(**tg_info)
             return 1
 
-        teams = [self.team1, self.team2]
+        if team_map:
+            teams = [team_map[self.team1_id], team_map[self.team2_id]]
+        else:
+            teams = [self.team1, self.team2]
         team_scores = [self.team1_pts, self.team2_pts]
 
         tm_games = []

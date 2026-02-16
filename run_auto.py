@@ -8,7 +8,8 @@ import sys
 
 from ckautils import parse_argv
 
-from database import db_init, db_close
+from core import DEBUG
+from database import db_init, db_close, get_sql_tally
 from schema import Bracket
 import euchmgr
 
@@ -33,6 +34,10 @@ def get_func_args(func: str, tourn_name: str) -> dict:
     """Return dict representing arguments to pass into ``func``
     """
     func_args = {
+        'generate_player_nums' : {'rand_seed': 0},
+        'fake_seed_games'      : {'rand_seed': 10},
+        'fake_pick_partners'   : {'rand_seed': 20},
+        'fake_tourn_games'     : {'rand_seed': 30},
         'tourn_create'         : {'force': True},
         'upload_roster'        : {'csv_path': f"{tourn_name}_roster.csv"},
         'validate_seed_round'  : {'finalize': True},
@@ -51,7 +56,7 @@ def get_func_args(func: str, tourn_name: str) -> dict:
 def main() -> int:
     """Built-in driver to invoke module functions
 
-    Usage: python -m run_auto <tourn_name> <func_list> [<addl_args>]
+    Usage: python -m run_auto <tourn_name> <func_list> [<addl_args>] [trace_sql=<bool>]
 
     where ``func_list`` is a comma-separated list of functions to run, or ``'all'``
 
@@ -100,15 +105,21 @@ def main() -> int:
     args, kwargs = parse_argv(sys.argv[3:])  # pick up additional args
     if args:
         return usage("Unknown args: " + ' '.join(args))
+    trace_sql = kwargs.pop('trace_sql', False) and DEBUG
     if kwargs and len(funcs) > 1:
         return usage("Extra args only supported if a single function is specified")
-    db_init(tourn_name, force=True)
+    db_init(tourn_name, force=True, trace_sql=trace_sql)
     if PROFILE:
         profiler.start()
+    if trace_sql:
+        sql_baseline = get_sql_tally()
     for func in funcs:
         func_call = getattr(euchmgr, func)
         func_args = get_func_args(func, tourn_name)
         func_call(**(func_args | kwargs))  # will throw exceptions on error
+        if trace_sql:
+            sql_baseline, sql_tally = get_sql_tally(sql_baseline)
+            print(f"SQL tally for '{func}': {sql_tally}")
     if PROFILE:
         profiler.stop()
         profiler.print()

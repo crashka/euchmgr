@@ -7,7 +7,7 @@ import os.path
 from peewee import SqliteDatabase, Model, DateTimeField
 from playhouse.sqlite_ext import CSqliteExtDatabase
 
-from core import DataFile, log, LogicError
+from core import DataFile, log, DEBUG, LogicError
 
 #####################
 # utility functions #
@@ -16,9 +16,37 @@ from core import DataFile, log, LogicError
 TIME_FMT = '%Y-%m-%d %H:%M:%S'
 
 def now_str() -> str:
-    """Readable format that works for string comparisons
+    """Readable format that works for string comparisons.
     """
     return datetime.now().strftime(TIME_FMT)
+
+# count of SQL statements, by SQL command
+Tally = dict[str, int]
+TOTAL = 'total'
+SQL_TALLY: Tally = {TOTAL : 0}
+
+def trace_sql_callback(sql_stmt) -> None:
+    """Currently just log at level 'debug'.
+    """
+    log.debug(f"SQL: {sql_stmt}")
+    sql_cmd = sql_stmt.split(' ', 1)[0].lower()
+    if sql_cmd not in SQL_TALLY:
+        SQL_TALLY[sql_cmd] = 0
+    SQL_TALLY[sql_cmd] += 1
+    SQL_TALLY[TOTAL] += 1
+
+def get_sql_tally(baseline: Tally = None) -> Tally | tuple[Tally, Tally]:
+    """Return tally of SQL statements, by SQL command.  If `baseline` is passed in, return
+    a tuple of the aggregate as well as increment counts.
+    """
+    cur_tally = SQL_TALLY.copy()
+    if not baseline:
+        return cur_tally
+
+    incr_tally = {cmd: 0 for cmd in baseline}
+    for cmd in cur_tally:
+        incr_tally[cmd] = cur_tally[cmd] - baseline.get(cmd, 0)
+    return cur_tally, incr_tally
 
 ############
 # database #
@@ -52,16 +80,21 @@ def db_filepath(name: str, db_dir: str = None) -> str:
     else:
         return DataFile(db_file)
 
-def db_init(name: str, force: bool = False) -> SqliteDatabase:
+def db_init(name: str, force: bool = False, trace_sql: bool = False) -> SqliteDatabase:
     """Initialize database for the specified name (if not already bound); return the ORM
     `Database` object (to discourage importing `db` directly).  Use the `force` flag if
     okay to overwrite an existing database file.  Implicitly connects to the database
     (cleaner client call sequence).
 
+    The `trace_sql` flag enables logging of SQL statements (at level `debug`), as well as
+    tallying SQL statements by SQL command (see get_sql_tally, above).  REVISIT: should we
+    put this flag on db_connect() instead???
+
     Note that we are NOT using autoconnect (for more disciplined state management), so we
     need to explcitly open and close connections (whether done on a per-request basis by
     the caller, or internally here to keep them open and reusable for the duration of the
     database session).
+
     """
     if not name:
         raise RuntimeError("Database name not specified")
@@ -78,6 +111,8 @@ def db_init(name: str, force: bool = False) -> SqliteDatabase:
     db.init(db_file)
     setattr(db, 'db_name', name)  # little hack to remember name
     db_connect(name)  # REVISIT: should we require this to be explicit???
+    if DEBUG and trace_sql:
+        db._state.conn.set_trace_callback(trace_sql_callback)
     log.debug(f"db_init({name}, force={force})")
     return db
 

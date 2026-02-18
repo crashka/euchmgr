@@ -11,7 +11,7 @@ import re
 
 from ckautils import typecast
 from peewee import OperationalError
-from flask import (Blueprint, request, session, render_template, abort, redirect, url_for,
+from flask import (Blueprint, g, request, session, render_template, abort, redirect, url_for,
                    flash, get_flashed_messages)
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash
@@ -65,28 +65,30 @@ def get_tourns() -> list[str]:
 
 # symbolic name for view path
 class View(StrEnum):
-    TOURN       = '/tourn'
-    PLAYERS     = '/players'
-    SEEDING     = '/seeding'
-    PARTNERS    = '/partners'
-    TEAMS       = '/teams'
-    ROUND_ROBIN = '/round_robin'
-    FINAL_FOUR  = '/final_four'
-    PLAYOFFS    = '/playoffs'
+    TOURN       = 'tourn'
+    PLAYERS     = 'players'
+    SEEDING     = 'seeding'
+    PARTNERS    = 'partners'
+    TEAMS       = 'teams'
+    ROUND_ROBIN = 'round_robin'
+    FINAL_FOUR  = 'final_four'
+    PLAYOFFS    = 'playoffs'
 
 class ViewInfo(NamedTuple):
     """This is not super-pretty, but we want to make this as data-driven as possible
     """
     name:       str
+    path:       str
     layout:     Layout
     rowid_col:  str
     tbl_order:  int
     fixed_cols: int
 
 # only include views using ADMIN_TEMPLATE
-VIEW_INFO = {
+VIEW_DEFS = {
     View.PLAYERS: ViewInfo(
         "Players",
+        "/players",
         pl_layout,
         "nick_name",
         [0],  # id
@@ -94,6 +96,7 @@ VIEW_INFO = {
     ),
     View.SEEDING: ViewInfo(
         "Seeding",
+        "/seeding",
         sg_layout,
         "label",
         [0],  # id
@@ -101,6 +104,7 @@ VIEW_INFO = {
     ),
     View.PARTNERS: ViewInfo(
         "Partners",
+        "/partners",
         pt_layout,
         "nick_name",
         [1],  # player_rank
@@ -108,6 +112,7 @@ VIEW_INFO = {
     ),
     View.TEAMS: ViewInfo(
         "Teams",
+        "/teams",
         tm_layout,
         "team_name",
         [1],  # team_seed
@@ -115,6 +120,7 @@ VIEW_INFO = {
     ),
     View.ROUND_ROBIN: ViewInfo(
         "Round Robin",
+        "/round_robin",
         tg_layout,
         "label",
         [0],  # id
@@ -122,6 +128,7 @@ VIEW_INFO = {
     ),
     View.FINAL_FOUR: ViewInfo(
         "Final Four",
+        "/final_four",
         ff_layout,
         "team_name",
         [1],  # tourn_rank
@@ -129,6 +136,7 @@ VIEW_INFO = {
     ),
     View.PLAYOFFS: ViewInfo(
         "Playoffs",
+        "/playoffs",
         pg_layout,
         "label",
         [0],  # id
@@ -148,6 +156,12 @@ STAGE_MAPPING = [
     (TournStage.SEED_RESULTS,   View.SEEDING),
     (TournStage.PLAYER_NUMS,    View.PLAYERS),
 ]
+
+def view_path(view: View) -> str:
+    """Return URL path for specified view.
+    """
+    assert view in VIEW_DEFS
+    return VIEW_DEFS[view].path
 
 def active_view(tourn: TournInfo) -> View:
     """Return active view for the current stage of the tournament
@@ -239,12 +253,13 @@ def view() -> str:
     if is_mobile():
         return render_error(403, desc="Mobile access unauthorized")
 
+    view = request.path.split('/')[-1]
     tourn = TournInfo.get()
     err_msg = "<br>".join(get_flashed_messages())
 
     context = {
         'tourn'  : tourn,
-        'view'   : request.path,
+        'view'   : view,
         'err_msg': err_msg
     }
     return render_admin(context)
@@ -304,7 +319,7 @@ def view_actions() -> str:
     if not current_user.is_authenticated:
         abort(401, f"Not authenticated")
     action = request.form['action']
-    view = request.path
+    view = request.path.split('/')[-1]
     if view not in VIEW_ACTIONS:
         abort(400, f"Invalid action target '{view}'")
     if action not in VIEW_ACTIONS[view]:
@@ -657,13 +672,13 @@ def render_view(view: View) -> str:
     Note that we are not passing any context information as query string params, so all
     information must be conveyed through the session object.
     """
-    return redirect(view)
+    return redirect(view_path(view))
 
 def render_admin(context: dict) -> str:
     """Common post-processing of context before rendering the main app page through Jinja
     """
     view = context.get('view')
-    assert view in VIEW_INFO
+    assert view in VIEW_DEFS
     assert view in VIEW_ACTIONS
     buttons = VIEW_ACTIONS[view]
     btn_info = [BUTTON_INFO[btn] for btn in buttons]
@@ -677,13 +692,14 @@ def render_admin(context: dict) -> str:
         btn_lbl.append(label)
         btn_attr.append('' if stage_compl in stages else BTN_DISABLED)
 
-    view_info = VIEW_INFO[view]
+    view_info = VIEW_DEFS[view]
     # TEMP: for now, do this manual hack for testing--really need to put a little
     # structure around conditional view_info (will still be hacky, though)!!!
     if view == View.PLAYERS:
         if stage_compl >= TournStage.SEED_RANKS:
             view_info = ViewInfo(
                 "Players",
+                "/players",
                 pl_layout,
                 "nick_name",
                 [11],  # player_rank
@@ -693,6 +709,7 @@ def render_admin(context: dict) -> str:
         if stage_compl >= TournStage.SEMIS_RANKS:
             view_info = ViewInfo(
                 "Teams",
+                "/teams",
                 tm_layout,
                 "team_name",
                 [14],  # final_rank
@@ -701,6 +718,7 @@ def render_admin(context: dict) -> str:
         elif stage_compl >= TournStage.TOURN_RANKS:
             view_info = ViewInfo(
                 "Teams",
+                "/teams",
                 tm_layout,
                 "team_name",
                 [13, 12],  # div_rank, tourn_rank
@@ -710,6 +728,7 @@ def render_admin(context: dict) -> str:
         if stage_compl >= TournStage.TOURN_RANKS:
             view_info = ViewInfo(
                 "Final Four",
+                "/final_four",
                 ff_layout,
                 "team_name",
                 [12, 1],  # playoff_rank, tourn_rank
@@ -721,8 +740,9 @@ def render_admin(context: dict) -> str:
         'user'     : current_user,
         'tourn'    : None,       # context may contain override
         'err_msg'  : None,       # ditto
-        'view_defs': VIEW_INFO,
-        'view_path': view,
+        'view_defs': VIEW_DEFS,
+        'view_name': view,
+        'view_path': view_path(view),
         'view_info': view_info,
         'buttons'  : buttons,
         'btn_lbl'  : btn_lbl,

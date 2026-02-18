@@ -94,7 +94,6 @@ def db_init(name: str, force: bool = False, trace_sql: bool = False) -> SqliteDa
     need to explcitly open and close connections (whether done on a per-request basis by
     the caller, or internally here to keep them open and reusable for the duration of the
     database session).
-
     """
     if not name:
         raise RuntimeError("Database name not specified")

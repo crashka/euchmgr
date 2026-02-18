@@ -12,7 +12,7 @@ from flask import Blueprint, request
 from security import login_required
 from schema import Bracket, TournStage, TournInfo
 from euchmgr import compute_player_ranks, compute_team_ranks, compute_playoff_ranks
-from ui import Player, SeedGame, Team, TournGame, PlayoffGame
+from ui import Player, PartnerPick, SeedGame, Team, TournGame, PlayoffGame
 
 ###################
 # blueprint stuff #
@@ -213,7 +213,7 @@ def post_partners() -> dict:
     picks_info = upd_info.pop('picks_info')
     assert len(upd_info) == 0
 
-    avail = Player.available_players(requery=True)
+    avail = Player.available_players()
     if len(avail) == 0:
         return ajax_error("No available players to pick")
 

@@ -8,8 +8,9 @@ implements the Flask "application factory" pattern through the ``create_app()`` 
 import re
 
 from ckautils import typecast
-from flask import (Flask, request, session, render_template, redirect, url_for, flash,
-                   get_flashed_messages)
+from flask import (Flask, current_app, g, request, session, render_template, redirect,
+                   url_for, flash, get_flashed_messages)
+from flask.globals import request_ctx
 from flask_session import Session
 from cachelib.file import FileSystemCache
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -25,7 +26,7 @@ from chart import chart
 from dash import dash
 from report import report
 from mobile import mobile, MOBILE_URL_PFX, is_mobile, render_error
-from admin import admin, active_view, SEL_NEW
+from admin import admin, active_view, render_view, SEL_NEW
 
 #################
 # utility stuff #
@@ -81,6 +82,12 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
     global sess_ext, login
     sess_ext.init_app(app)
     login.init_app(app)
+
+    @app.before_request
+    def _api_handler() -> None:
+        """Tag API calls on the way in (used to affect the rendering course).
+        """
+        g.api_call = request.path.startswith('/api/')  # bool
 
     ##################
     # db connections #
@@ -197,7 +204,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         assert is_mobile()
         return redirect(url_for('mobile.index'))
 
-    @app.route('/logout')
+    @app.route("/logout", methods=['GET', 'POST'])
     def logout():
         """Log out the current user.  Note that this call, for admins, does not reset the
         server database identification and/or connection state.
@@ -235,7 +242,24 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
             log.info(f"re-setting tourn = '{tourn.name}' in session state")
 
         view = active_view(tourn)
-        return redirect(view)
+        return render_view(view)
+
+    @app.route("/api/<path:route>", methods=['GET', 'POST'])
+    def api_router(route: str) -> str:
+        """Reroute API calls.  The route handlers should treat these the same as calls
+        from the app, except that only JSON data is returned (for errors, as well).  Note
+        that the following request attributes will be different for API calls (we are not
+        rewriting them here): `url`, `path`, `full_path`, and `endpoint`.
+        """
+        assert g.api_call  # consider this flag a framework thing
+        # ATTN: `request_ctx` will be merged with `app_ctx` in Flask version 3.2, so the
+        # URL adapter will move at that point!
+        url_adapter = request_ctx.url_adapter
+        endpoint, kwargs = url_adapter.match('/' + route, request.method)
+        if endpoint not in current_app.view_functions:
+            return render_error(404)
+        view_func = current_app.view_functions[endpoint]
+        return view_func(**kwargs)
 
     # end of `def create_app()`
     return app

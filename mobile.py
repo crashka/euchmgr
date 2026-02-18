@@ -7,7 +7,7 @@ import re
 from http import HTTPStatus
 
 from peewee import IntegrityError
-from flask import (Blueprint, request, render_template, abort, redirect, url_for, flash,
+from flask import (Blueprint, g, request, render_template, abort, redirect, url_for, flash,
                    get_flashed_messages)
 from ckautils import typecast
 

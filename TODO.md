@@ -10,6 +10,7 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 ## Tasks
 
 - tests for score posting scenarios
+- headless API for all data and actions, including documentation
 
 ## Features/Enhancements
 
@@ -29,8 +30,6 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 
 ## Refactoring
 
-- get all HTML and UI display stuff out of schema.py (should be purely functional)
-- get rid of schema level caching (and fix requery flags)--REVISIT
 - improve HTML and CSS design
   - prettier styling in general
 - fix naming throughout (e.g. seed vs seeding, seed vs rank, etc.)

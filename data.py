@@ -13,6 +13,7 @@ from security import login_required
 from schema import Bracket, TournStage, TournInfo
 from euchmgr import compute_player_ranks, compute_team_ranks, compute_playoff_ranks
 from ui import Player, PartnerPick, SeedGame, Team, TournGame, PlayoffGame
+from ui_common import ajax_data, ajax_succ, ajax_error
 
 ###################
 # blueprint stuff #
@@ -558,43 +559,3 @@ def post_playoffs() -> dict:
         return ajax_error(str(e))
 
     return ajax_data(pg_data)
-
-#############
-# renderers #
-#############
-
-def ajax_data(data: dict | list | str) -> dict:
-    """Wrapper for returning specified data in the structure expected by DataTables for an
-    ajax data source.  `data` must be specified.
-    """
-    return ajax_response(True, data=data)
-
-def ajax_succ(info_msg: str = None, data: dict | list | str = None) -> dict:
-    """Convenience function (slightly shorter).  `info_msg` is optional.
-    """
-    return ajax_response(True, msg=info_msg, data=data)
-
-def ajax_error(err_msg: str, data: dict | list | str = None) -> dict:
-    """Convenience function (slightly shorter).  `err_msg` must be specified.
-    """
-    return ajax_response(False, msg=err_msg, data=data)
-
-# type aliases
-RowSelector = str
-
-def ajax_response(succ: bool, msg: str = None, data: dict | list | str = None) -> dict:
-    """Encapsulate response to an ajax request (GET or POST).  Note that clients can check
-    either the `succ` or `err` field to determine the result.  The return `data` is passed
-    through to the front-end, with the format being context-dependent (e.g. dict or list
-    representing JSON data, or a string directive understood by the client side).
-
-    LATER: we may want to add UI selectors as additional return elements, indicating rows
-    and/or cells to highlight, set focus, etc.!!!
-    """
-    assert succ or msg, "`msg` arg is required for errors"
-    return {
-        'succ'   : succ,
-        'err'    : None if succ else msg,
-        'info'   : msg if succ else None,
-        'data'   : data
-    }

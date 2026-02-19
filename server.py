@@ -8,8 +8,7 @@ implements the Flask "application factory" pattern through the ``create_app()`` 
 import re
 
 from ckautils import typecast
-from flask import (Flask, current_app, g, request, session, render_template, redirect,
-                   url_for, flash, get_flashed_messages)
+from flask import Flask, current_app, g, request, session, url_for, flash, get_flashed_messages
 from flask.globals import request_ctx
 from flask_session import Session
 from cachelib.file import FileSystemCache
@@ -21,11 +20,12 @@ from security import (current_user, EuchmgrUser, ADMIN_USER, ADMIN_ID, AdminUser
 from database import db_is_initialized, db_connect, db_close, db_is_closed
 from schema import TournInfo
 from ui import Player
+from ui_common import is_mobile, render_response, redirect, render_error
 from data import data
 from chart import chart
 from dash import dash
 from report import report
-from mobile import mobile, MOBILE_URL_PFX, is_mobile, render_error
+from mobile import mobile, MOBILE_URL_PFX
 from admin import admin, active_view, render_view, SEL_NEW
 
 #################
@@ -287,7 +287,7 @@ def render_login(context: dict) -> str:
         'admin_user': ADMIN_USER,
         'err_msg'   : None
     }
-    return render_template(LOGIN_TEMPLATE, **(base_ctx | context))
+    return render_response(LOGIN_TEMPLATE, **(base_ctx | context))
 
 #########################
 # content / metacontent #

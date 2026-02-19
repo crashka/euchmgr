@@ -65,8 +65,8 @@ class AnonymousUser(AnonymousUserMixin):
     name: str = ANONYMOUS_USER
     is_admin: bool = False
 
-ADMIN_USER    = 'admin'
-ADMIN_ID      = -1  # must be distinct from all other user ids!
+ADMIN_USER = 'admin'
+ADMIN_ID = -1  # must be distinct from all other user ids!
 ADMIN_PW_FILE = 'admin.pw_hash'
 
 class AdminUser(EuchmgrUser):
@@ -74,7 +74,7 @@ class AdminUser(EuchmgrUser):
     multiple instantiations will be identical).
     """
     id: int = ADMIN_ID
-    name: str  = ADMIN_USER
+    name: str = ADMIN_USER
     is_admin: bool = True
 
     def get_id(self) -> str:

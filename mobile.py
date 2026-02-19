@@ -4,11 +4,9 @@
 """
 from typing import NamedTuple
 import re
-from http import HTTPStatus
 
 from peewee import IntegrityError
-from flask import (Blueprint, g, request, render_template, abort, redirect, url_for, flash,
-                   get_flashed_messages)
+from flask import Blueprint, g, request, abort, url_for, flash, get_flashed_messages
 from ckautils import typecast
 
 from core import ImplementationError, LogicError
@@ -17,6 +15,7 @@ from schema import GAME_PTS, Bracket, TournStage, TournInfo, ScoreAction
 from euchmgr import compute_player_ranks, compute_team_ranks, compute_playoff_ranks
 from ui import (fmt_pct, PTS_PCT_NA, get_bracket, get_game_by_label, Player, PlayerRegister,
                 PartnerPick, SeedGame, Team, TournGame, PlayoffGame, PostScore)
+from ui_common import render_response, redirect
 
 ###################
 # blueprint stuff #
@@ -31,13 +30,6 @@ MOBILE_URL_PFX = '/mobile'
 #################
 # utility stuff #
 #################
-
-MOBILE_REGEX = r'Mobile|Android|iPhone'
-
-def is_mobile() -> bool:
-    """Determine mobile client by the user-agent string
-    """
-    return re.search(MOBILE_REGEX, request.user_agent.string) is not None
 
 def same_score(s1: PostScore | tuple[int, int], s2: PostScore) -> bool:
     """Check if two scores are equal.  `s1` may be specified as a `PostScore` instance or
@@ -899,15 +891,4 @@ def render_mobile(context: dict, view: str) -> str:
         'resources'    : VIEW_RESOURCES.get(view),
         'err_msg'      : None
     }
-    return render_template(MOBILE_TEMPLATE, **(base_ctx | context))
-
-def render_error(code: int, name: str = None, desc: str = None) -> str:
-    """Mobile-adjusted error page (replacement for `flask.abort`)
-    """
-    err = HTTPStatus(code)
-    context = {
-        'title'      : f"{code} {err._name_}",
-        'error'      : name or err.phrase,
-        'description': desc or err.description
-    }
-    return render_template(ERROR_TEMPLATE, **context), code
+    return render_response(MOBILE_TEMPLATE, **(base_ctx | context))

@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 
+"""This module extends `schema` by adding UI-specific methods to model entities, as well
+as formatting and display-related utilities.
+
+"""
+
 from typing import Self, Iterator
 
 from peewee import ForeignKeyField, DeferredForeignKey, fn

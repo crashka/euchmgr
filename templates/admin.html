@@ -105,7 +105,7 @@
        margin-right: 0.5rem;
      }
      .actions .disabled {
-       color: grey;
+       color: slategrey;
        text-decoration: underline;
        cursor: default;
      }
@@ -124,9 +124,9 @@
       {% endwith %}
       <span class="view_sel">
         View:
-        {% for view, info in view_defs.items() %}
-        {% set checked = " checked" if view == view_name else "" %}
-        <label>{{info.name}}<input type="radio" name="view" value="{{view}}"{{checked}}></label>
+        {% for view, label, path in view_menu %}
+        {% set checked = " checked" if view == cur_view else "" %}
+        <label>{{label}}<input type="radio" name="view" value="{{path}}"{{checked}}></label>
         {% endfor %}
       </span>
       <span class="login_info">
@@ -171,7 +171,7 @@
           </thead>
         </table>
       </div>
-      <form class="actions" action="{{view_path}}" method="post">
+      <form class="actions" action="{{view_info.path}}" method="post">
         {% for val in buttons %}
         <button value="{{val}}"{{btn_attr[loop.index0]}}>{{btn_lbl[loop.index0]}}</button>
         {% endfor %}
@@ -258,9 +258,9 @@
            cell.data(e.target.textContent).draw();
 
            const postData = $.extend({tourn: "{{tourn.name}}"}, row.data());
-           $.post('/data{{view_path}}', postData)
+           $.post('/data{{view_info.path}}', postData)
             .done(function(resp) {
-              console.log('POST /data{{view_path}} done: ', resp);
+              console.log('POST /data{{view_info.path}} done: ', resp);
               if (resp.err) {
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
@@ -289,7 +289,7 @@
               }
             })
             .fail(function(resp) {
-              console.log('POST /data{{view_path}} fail: ', resp);
+              console.log('POST /data{{view_info.path}} fail: ', resp);
               cell.data(orig_val).draw();
               $(e.target).addClass("attn");
               showError(resp.statusText);
@@ -314,7 +314,7 @@
          content: ['search']
        },
        ajax: {
-         url: '/data{{view_path}}',
+         url: '/data{{view_info.path}}',
          dataSrc: 'data'
        },
        deferRender: true,

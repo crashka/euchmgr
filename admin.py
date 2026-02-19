@@ -11,8 +11,7 @@ import re
 
 from ckautils import typecast
 from peewee import OperationalError
-from flask import (Blueprint, g, request, session, render_template, abort, redirect, url_for,
-                   flash, get_flashed_messages)
+from flask import Blueprint, g, request, session, abort, url_for, flash, get_flashed_messages
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash
 
@@ -27,9 +26,9 @@ from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_se
                      compute_team_seeds, build_tourn_bracket, fake_tourn_games,
                      validate_tourn, compute_team_ranks, build_playoff_bracket,
                      validate_playoffs, compute_playoff_ranks)
+from ui_common import is_mobile, render_response, redirect, render_error
 from data import (Layout, pl_layout, sg_layout, pt_layout, tm_layout, tg_layout, ff_layout,
                   pg_layout)
-from mobile import is_mobile, render_error
 
 ###################
 # blueprint stuff #
@@ -63,8 +62,10 @@ def get_tourns() -> list[str]:
 # view stuff #
 ##############
 
-# symbolic name for view path
 class View(StrEnum):
+    """Note that view names are now different than their paths (though they just happen
+    to resemble relative path names)--the actual paths are now defined in VIEW_DEFS
+    """
     TOURN       = 'tourn'
     PLAYERS     = 'players'
     SEEDING     = 'seeding'
@@ -77,12 +78,12 @@ class View(StrEnum):
 class ViewInfo(NamedTuple):
     """This is not super-pretty, but we want to make this as data-driven as possible
     """
-    name:       str
+    name:       str  # display name
     path:       str
     layout:     Layout
-    rowid_col:  str
-    tbl_order:  int
-    fixed_cols: int
+    rowid_col:  str  # column name
+    tbl_order:  int  # default sort column(s) (column index)
+    fixed_cols: int  # for horizontal scrolling (currently disabled)
 
 # only include views using ADMIN_TEMPLATE
 VIEW_DEFS = {
@@ -144,6 +145,12 @@ VIEW_DEFS = {
     )
 }
 
+def view_menu() -> list[tuple[str, str, str]]:
+    """Return list of tuples representing navigation menu items of the following form:
+    (view_name, view_label, view_path).
+    """
+    return [(str(view), info.name, info.path) for view, info in VIEW_DEFS.items()]
+
 STAGE_MAPPING = [
     (TournStage.FINALS_RANKS,   View.FINAL_FOUR),
     (TournStage.FINALS_RESULTS, View.PLAYOFFS),
@@ -156,12 +163,6 @@ STAGE_MAPPING = [
     (TournStage.SEED_RESULTS,   View.SEEDING),
     (TournStage.PLAYER_NUMS,    View.PLAYERS),
 ]
-
-def view_path(view: View) -> str:
-    """Return URL path for specified view.
-    """
-    assert view in VIEW_DEFS
-    return VIEW_DEFS[view].path
 
 def active_view(tourn: TournInfo) -> View:
     """Return active view for the current stage of the tournament
@@ -189,7 +190,7 @@ def tourn() -> str:
 
     create_new = False
     err_msgs = []
-    # see comment for same code in `login_page` (above)
+    # see comment for same code in `login_page` (server.py)
     for msg in get_flashed_messages():
         if m := re.fullmatch(r'(\w+)=(.+)', msg):
             key, val = m.group(1, 2)
@@ -665,14 +666,16 @@ def render_tourn(context: dict) -> str:
         'btn_attr' : btn_attr,
         'help_txt' : help_txt
     }
-    return render_template(TOURN_TEMPLATE, **(base_ctx | context))
+    return render_response(TOURN_TEMPLATE, **(base_ctx | context))
 
 def render_view(view: View) -> str:
     """Render the specified view using redirect (to be called from POST action handlers).
     Note that we are not passing any context information as query string params, so all
     information must be conveyed through the session object.
     """
-    return redirect(view_path(view))
+    assert view in VIEW_DEFS
+    view_path = VIEW_DEFS[view].path
+    return redirect(view_path)
 
 def render_admin(context: dict) -> str:
     """Common post-processing of context before rendering the main app page through Jinja
@@ -740,9 +743,8 @@ def render_admin(context: dict) -> str:
         'user'     : current_user,
         'tourn'    : None,       # context may contain override
         'err_msg'  : None,       # ditto
-        'view_defs': VIEW_DEFS,
-        'view_name': view,
-        'view_path': view_path(view),
+        'view_menu': view_menu(),
+        'cur_view' : view,
         'view_info': view_info,
         'buttons'  : buttons,
         'btn_lbl'  : btn_lbl,
@@ -750,7 +752,7 @@ def render_admin(context: dict) -> str:
         'links'    : LINK_INFO.get(view),
         'help_txt' : help_txt
     }
-    return render_template(ADMIN_TEMPLATE, **(base_ctx | context))
+    return render_response(ADMIN_TEMPLATE, **(base_ctx | context))
 
 #########################
 # content / metacontent #

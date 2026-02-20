@@ -341,11 +341,11 @@
     </div>
     {% with tooltip = "Tap here to refresh view" %}
     <section class="info_stats" id="info-stats" title='{{tooltip}}'>
-      <h2>{{view_phase}}</h2>
+      <h2>{{view_name}}</h2>
       <section>
         {% for info_sect in info_data %}
         {% if info_sect %}
-        <h3>{{"Current Stage" if view == index else "Stage Info"}}</h3>
+        <h3>Stage Info</h3>
         {% endif %}
         <article class="info">
           {% for info in info_flds[info_sect] %}
@@ -366,13 +366,6 @@
     {% endwith %}
 
     {% set view_active = false %}
-    {% if view == index %}
-    <section class="index" id="index">
-      <p>
-        <i>Tournament not yet started</i>
-      </p>
-    </section>
-    {% endif %}  {# view == index #}
 
     {% if view == register %}
     {% set view_active = true %}
@@ -504,15 +497,14 @@
     {% if leaderboard %}
     <section class="leaderboard">
       <h3>Leaderboard</h3><span>(tap here for Games)</span>
-      {% set ent_hdr = "Player (num)" if view == seeding else ("Team (seed)") if view == round_robin else "Team (rank)" %}
-      {% set rank_hdr = "Pos" if view in (semifinals, finals) else "Rank" %}
+      {% set lb_hdr, lb_data = leaderboard  %}
       <p class="lb_hdr">
-        <span>{{ent_hdr}}</span>
-        <span>W-L</span>
-        <span>Pts %</span>
-        <span>{{rank_hdr}}</span>
+        <span>{{lb_hdr[1]}}</span>
+        <span>{{lb_hdr[2]}}</span>
+        <span>{{lb_hdr[3]}}</span>
+        <span>{{lb_hdr[4]}}</span>
       </p>
-      {% for pos in leaderboard %}
+      {% for pos in lb_data %}
       {% set pos_cls = "active" if stage_ent.id == pos[0] else "" %}
       <p class="{{pos_cls}}">
         <span>{{pos[1]|safe}}</span>

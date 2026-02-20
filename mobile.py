@@ -92,32 +92,44 @@ def post_info(post: PostScore, team_idx: int = 0) -> str:
     action = "accepted" if post.post_action == ScoreAction.ACCEPT else "posted"
     return f"{poster} {action} a score of '{score}'"
 
-def get_leaderboard(bracket: str, div: int = None) -> list[tuple[int, str, str, str, str]]:
-    """Return tuples of (id, player/team tag, W-L, pts_pct, rank) ordered by rank.  `div`
-    must be specified for Bracket.TOURN.
+LBHeader = tuple[str, str, str, str, str]
+LBData   = list[tuple[int, str, str, str, str]]
+
+def get_leaderboard(bracket: str, div: int = None) -> tuple[LBHeader, LBData]:
+    """Return leaderboard header, and data as tuples of (id, player/team tag, W-L, pts
+    pct, rank) ordered by rank.  `div` must be specified for Bracket.TOURN.
     """
+    hdr = None
+    data = None
     if bracket == Bracket.SEED:
         pl_list = list(Player.iter_players(by_rank=True))
-        return [(pl.id, pl.player_tag, fmt_rec(pl.seed_wins, pl.seed_losses),
+        data = [(pl.id, pl.player_tag, fmt_rec(pl.seed_wins, pl.seed_losses),
                  fmt_pct(pl.seed_pts_pct or PTS_PCT_NA), pl.player_rank or "")
                 for pl in pl_list]
+        hdr = ("id", "Player (num)", "W-L", "Pts %", "Rank")
     elif bracket == Bracket.TOURN:
         assert div
         tm_list = list(Team.iter_teams(div=div, by_rank=True))
-        return [(tm.id, tm.team_tag, fmt_rec(tm.tourn_wins, tm.tourn_losses),
+        data = [(tm.id, tm.team_tag, fmt_rec(tm.tourn_wins, tm.tourn_losses),
                  fmt_pct(tm.tourn_pts_pct or PTS_PCT_NA), tm.div_rank or "")
                 for tm in tm_list]
+        hdr = ("id", "Team (seed)", "W-L", "Pts %", "Rank")
     elif bracket == Bracket.SEMIS:
         tm_list = list(Team.iter_playoff_teams(by_rank=True))
-        return [(tm.id, tm.team_tag_pl, fmt_rec(tm.playoff_wins, tm.playoff_losses),
+        data = [(tm.id, tm.team_tag_pl, fmt_rec(tm.playoff_wins, tm.playoff_losses),
                  fmt_pct(tm.playoff_pts_pct or PTS_PCT_NA), tm.playoff_rank or "")
                 for tm in tm_list]
+        hdr = ("id", "Team (rank)", "W-L", "Pts %", "Pos")
     elif bracket == Bracket.FINALS:
         tm_list = list(Team.iter_finals_teams(by_rank=True))
-        return [(tm.id, tm.team_tag_pl, fmt_rec(tm.playoff_wins, tm.playoff_losses),
+        data = [(tm.id, tm.team_tag_pl, fmt_rec(tm.playoff_wins, tm.playoff_losses),
                  fmt_pct(tm.playoff_pts_pct or PTS_PCT_NA), tm.playoff_rank or "")
                 for tm in tm_list]
-    raise LogicError(f"unknown bracket '{bracket}'")
+        hdr = ("id", "Team (rank)", "W-L", "Pts %", "Pos")
+    else:
+        raise LogicError(f"unknown bracket '{bracket}'")
+    assert hdr and data
+    return hdr, data
 
 def update_rankings(bracket: str) -> bool:
     """Update rankings for the specified bracket.  The return value indicates whether this
@@ -163,7 +175,7 @@ def update_tourn_stage(bracket: Bracket) -> bool:
 ##############
 
 # note that string value here represents the relative path name for the view
-VIEW_INDEX       = '.'  # TODO: remove this, not neeed (validate in template)!!!
+VIEW_INDEX       = '.'  # represents rerouting to current stage (not an actual view itself)
 VIEW_REGISTER    = 'register'
 VIEW_SEEDING     = 'seeding'
 VIEW_PARTNERS    = 'partners'
@@ -607,41 +619,20 @@ def pick_partner(form: dict) -> str:
 # renderers #
 #############
 
-# TODO: get rid of this "phase" thing, not needed (ended up being same as view)--should be
-# replaced by VIEW_INFO (same as admin module), with name, path, etc.!!!
-
-# "phase" is a high-level pseudo-stage used to control the display
-PHASE_COMMON      = None  # dummy value for common tournament info
-PHASE_REGISTER    = "Registration"
-PHASE_SEEDING     = "Seeding"
-PHASE_PARTNERS    = "Partner Picks"
-PHASE_ROUND_ROBIN = "Round Robin"
-PHASE_SEMIFINALS  = "Semifinals"
-PHASE_FINALS      = "Finals"
-
-VIEW_PHASE = {
-    VIEW_INDEX      : None,
-    VIEW_REGISTER   : PHASE_REGISTER,
-    VIEW_SEEDING    : PHASE_SEEDING,
-    VIEW_PARTNERS   : PHASE_PARTNERS,
-    VIEW_ROUND_ROBIN: PHASE_ROUND_ROBIN,
-    VIEW_SEMIFINALS : PHASE_SEMIFINALS,
-    VIEW_FINALS     : PHASE_FINALS
+VIEW_NAME = {
+    #VIEW_INDEX      : "<i>(current stage)</i>",
+    VIEW_REGISTER   : "Registration",
+    VIEW_SEEDING    : "Seeding",
+    VIEW_PARTNERS   : "Partner Picks",
+    VIEW_ROUND_ROBIN: "Round Robin",
+    VIEW_SEMIFINALS : "Semifinals",
+    VIEW_FINALS     : "Finals"
 }
 
-VIEW_MENU = [
-    #(VIEW_INDEX,       "<i>(current stage)</i>"),
-    (VIEW_REGISTER,    PHASE_REGISTER),
-    (VIEW_SEEDING,     PHASE_SEEDING),
-    (VIEW_PARTNERS,    PHASE_PARTNERS),
-    (VIEW_ROUND_ROBIN, PHASE_ROUND_ROBIN),
-    (VIEW_SEMIFINALS,  PHASE_SEMIFINALS),
-    (VIEW_FINALS,      PHASE_FINALS)
-]
+VIEW_MENU = [(view, label) for view, label in VIEW_NAME.items()]
 
 def view_menu(player: Player) -> dict[str, str]:
-    """Return dict of view name (URL) to menu label for the specified player.  Note that
-    menu label is the same as the associated phase name.
+    """Return dict of view name (URL) to menu label for the specified player.
     """
     team = player.team  # may be `None` if teams not yet picked
     if not team:
@@ -669,15 +660,16 @@ class UserInfo(NamedTuple):
     min_stg: TournStage  # refers to stage_compl
 
 INFO_FIELDS = {
-    PHASE_COMMON: [
+    None: [
+        # common information, shown for all views
         UserInfo("full_name",  "wide", "Player", TournStage.PLAYER_ROSTER),
         UserInfo("tourn",      "wide", "Tournament", TournStage.TOURN_CREATE),
     ],
-    PHASE_REGISTER: [
+    VIEW_REGISTER: [
         UserInfo("status",     "",     "Status (stage)", TournStage.TOURN_CREATE),
         UserInfo("reg_status", "",     "Status (you)", TournStage.TOURN_CREATE)
     ],
-    PHASE_SEEDING: [
+    VIEW_SEEDING: [
         UserInfo("status",     "",     "Status", TournStage.TOURN_CREATE),
         UserInfo("plyr_name",  "med",  "Name",   TournStage.PLAYER_NUMS),
         UserInfo("plyr_num",   "",     "Num",    TournStage.PLAYER_NUMS),
@@ -685,13 +677,13 @@ INFO_FIELDS = {
         UserInfo("pts_pct_sd", "",     "Pts %",  TournStage.SEED_BRACKET),
         UserInfo("seed_rank",  "",     "Rank",   TournStage.SEED_BRACKET)
     ],
-    PHASE_PARTNERS: [
+    VIEW_PARTNERS: [
         UserInfo("status",     "",     "Status", TournStage.TOURN_CREATE),
         UserInfo("cur_pick",   "",     "Cur Pick (rank)", TournStage.SEED_TABULATE),
         UserInfo("plyr_name",  "med",  "Name",   TournStage.SEED_TABULATE),
         UserInfo("seed_rank",  "",     "Pick Order", TournStage.SEED_TABULATE)
     ],
-    PHASE_ROUND_ROBIN: [
+    VIEW_ROUND_ROBIN: [
         UserInfo("status",     "",     "Status", TournStage.TOURN_CREATE),
         UserInfo("team_name",  "wide", "Team",   TournStage.TOURN_TEAMS),
         UserInfo("div_num",    "",     "Div",    TournStage.TOURN_TEAMS),
@@ -701,7 +693,7 @@ INFO_FIELDS = {
         UserInfo("div_rank",   "",     "Div Rank", TournStage.TOURN_BRACKET),
         UserInfo("tourn_rank", "",     "Team Rank", TournStage.TOURN_BRACKET)
     ],
-    PHASE_SEMIFINALS: [
+    VIEW_SEMIFINALS: [
         UserInfo("status",     "",     "Status", TournStage.TOURN_CREATE),
         UserInfo("team_name",  "wide", "Team",   TournStage.TOURN_TEAMS),
         UserInfo("tourn_rank", "",     "Rank",   TournStage.TOURN_BRACKET),
@@ -709,7 +701,7 @@ INFO_FIELDS = {
         UserInfo("pts_pct_pl", "",     "Pts %",  TournStage.SEMIS_BRACKET),
         UserInfo("playoff_rank", "",   "Semis Rank", TournStage.SEMIS_BRACKET)
     ],
-    PHASE_FINALS: [
+    VIEW_FINALS: [
         UserInfo("status",     "",     "Status", TournStage.TOURN_CREATE),
         UserInfo("team_name",  "wide", "Team",   TournStage.TOURN_TEAMS),
         UserInfo("tourn_rank", "",     "Rank",   TournStage.TOURN_BRACKET),
@@ -741,7 +733,6 @@ def render_mobile(context: dict, view: str) -> str:
     tourn       = TournInfo.get(requery=True)
     player      = current_user
     team        = current_user.team
-    view_phase  = VIEW_PHASE[view]
     cur_game    = None
     team_idx    = None
     cur_pick    = None
@@ -761,29 +752,29 @@ def render_mobile(context: dict, view: str) -> str:
     partner_picks = None
     picks_avail = None
 
-    if view_phase in (PHASE_SEMIFINALS, PHASE_FINALS):
+    if view in (VIEW_SEMIFINALS, VIEW_FINALS):
         assert team and team.playoff_team
-        if view_phase == PHASE_FINALS:
+        if view == VIEW_FINALS:
             assert team.finals_team
         cur_game   = team.current_playoff_game
         team_idx   = cur_game.team_idx(team) if cur_game else None
         win_rec_pl = fmt_rec(team.playoff_wins, team.playoff_losses)
         pts_pct_pl = fmt_pct(team.playoff_pts_pct)
-    elif view_phase == PHASE_ROUND_ROBIN:
+    elif view == VIEW_ROUND_ROBIN:
         if team:
             cur_game   = team.current_game
             team_idx   = cur_game.team_idx(team) if cur_game else None
             win_rec_rr = fmt_rec(team.tourn_wins, team.tourn_losses)
             pts_pct_rr = fmt_pct(team.tourn_pts_pct)
-    elif view_phase == PHASE_PARTNERS:
+    elif view == VIEW_PARTNERS:
         cur_pick   = PartnerPick.current_pick()
-    elif view_phase == PHASE_SEEDING:
+    elif view == VIEW_SEEDING:
         cur_game   = player.current_game
         team_idx   = cur_game.team_idx(player) if cur_game else None
         win_rec_sd = fmt_rec(player.seed_wins, player.seed_losses)
         pts_pct_sd = fmt_pct(player.seed_pts_pct)
     else:
-        assert view_phase == PHASE_REGISTER
+        assert view == VIEW_REGISTER
 
     if cur_game:
         if context.get('cur_game'):
@@ -808,18 +799,19 @@ def render_mobile(context: dict, view: str) -> str:
                 opp_pts = map_pts(ref_score, opp_idx)
 
     info_data = {
-        PHASE_COMMON: [
+        None: [
+            # common information
             player.full_name,
             tourn.name
         ]
     }
-    if view_phase == PHASE_REGISTER:
-        info_data[PHASE_REGISTER] = [
+    if view == VIEW_REGISTER:
+        info_data[view] = [
             PlayerRegister.phase_status(),
             PlayerRegister.reg_status(player)
         ]
-    elif view_phase == PHASE_SEEDING:
-        info_data[PHASE_SEEDING] = [
+    elif view == VIEW_SEEDING:
+        info_data[view] = [
             SeedGame.phase_status(),
             player.name,
             player.player_num,
@@ -827,19 +819,19 @@ def render_mobile(context: dict, view: str) -> str:
             pts_pct_sd,
             player.player_rank
         ]
-    elif view_phase == PHASE_PARTNERS:
-        info_data[PHASE_PARTNERS] = [
+    elif view == VIEW_PARTNERS:
+        info_data[view] = [
             PartnerPick.phase_status(),
             cur_pick.player_rank if cur_pick else None,
             player.name,
             player.player_rank
         ]
-    elif view_phase == PHASE_ROUND_ROBIN:
-        info_data[PHASE_ROUND_ROBIN] = [
+    elif view == VIEW_ROUND_ROBIN:
+        info_data[view] = [
             TournGame.phase_status()
         ]
         if team:
-            info_data[PHASE_ROUND_ROBIN] += [
+            info_data[view] += [
                 team.team_name,
                 team.div_num,
                 team.div_seed,
@@ -849,9 +841,9 @@ def render_mobile(context: dict, view: str) -> str:
                 team.tourn_rank
             ]
         else:
-            info_data[PHASE_ROUND_ROBIN] += [None] * 7
-    elif view_phase == PHASE_SEMIFINALS:
-        info_data[PHASE_SEMIFINALS] = [
+            info_data[view] += [None] * 7
+    elif view == VIEW_SEMIFINALS:
+        info_data[view] = [
             PlayoffGame.phase_status(Bracket.SEMIS),
             team.team_name,
             team.tourn_rank,
@@ -859,8 +851,8 @@ def render_mobile(context: dict, view: str) -> str:
             pts_pct_pl,
             team.playoff_rank
         ]
-    elif view_phase == PHASE_FINALS:
-        info_data[PHASE_FINALS] = [
+    elif view == VIEW_FINALS:
+        info_data[view] = [
             PlayoffGame.phase_status(Bracket.FINALS),
             team.team_name,
             team.tourn_rank,
@@ -868,29 +860,29 @@ def render_mobile(context: dict, view: str) -> str:
             pts_pct_pl,
             team.playoff_rank
         ]
-    for phase, data in info_data.items():
-        assert len(data) == len(INFO_FIELDS[phase])
+    for sect, data in info_data.items():
+        assert len(data) == len(INFO_FIELDS[sect])
 
-    if view_phase == PHASE_REGISTER:
+    if view == VIEW_REGISTER:
         # REVISIT: note that we are currently also using this as an indicator of whether
         # registration is still active, or if the player info has been locked down!!!
         if tourn.stage_compl < TournStage.PLAYER_NUMS:
             nums_avail = Player.nums_avail(player)
         else:
             nums_avail = None
-    if view_phase == PHASE_SEEDING:
+    if view == VIEW_SEEDING:
         stage_games = player.get_games(all_games=True)
         leaderboard = get_leaderboard(Bracket.SEED)
-    elif view_phase == PHASE_PARTNERS:
+    elif view == VIEW_PARTNERS:
         partner_picks = PartnerPick.get_picks(all_picks=True)
         picks_avail = PartnerPick.avail_picks()
-    elif view_phase == PHASE_ROUND_ROBIN:
+    elif view == VIEW_ROUND_ROBIN:
         stage_games = team.get_games(all_games=True) if team else None
         leaderboard = get_leaderboard(Bracket.TOURN, team.div_num) if team else None
-    elif view_phase == PHASE_SEMIFINALS:
+    elif view == VIEW_SEMIFINALS:
         stage_games = team.get_playoff_games(Bracket.SEMIS, all_games=True)
         leaderboard = get_leaderboard(Bracket.SEMIS)
-    elif view_phase == PHASE_FINALS:
+    elif view == VIEW_FINALS:
         stage_games = team.get_playoff_games(Bracket.FINALS, all_games=True)
         leaderboard = get_leaderboard(Bracket.FINALS)
 
@@ -899,18 +891,17 @@ def render_mobile(context: dict, view: str) -> str:
     # and redundant, so we really need to refactor into something with better structure!!!
     base_ctx = {
         'title'        : MOBILE_TITLE,
+        'user'         : current_user,
+        'tourn'        : tourn,
+        'view'         : view,  # also represents relative path name
+        'view_name'    : VIEW_NAME[view],
         'view_menu'    : view_menu(player),
-        'view_phase'   : view_phase,
-        'view'         : view,            # also represents relative path name
-        'index'        : VIEW_INDEX,
         'register'     : VIEW_REGISTER,
         'seeding'      : VIEW_SEEDING,
         'partners'     : VIEW_PARTNERS,
         'round_robin'  : VIEW_ROUND_ROBIN,
         'semifinals'   : VIEW_SEMIFINALS,
         'finals'       : VIEW_FINALS,
-        'tourn'        : tourn,
-        'user'         : current_user,
         'team'         : team,
         'team_idx'     : team_idx,
         'info_flds'    : INFO_FIELDS,

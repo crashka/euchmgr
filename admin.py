@@ -666,11 +666,11 @@ def render_tourn(context: dict) -> str:
         'dummy_pw' : DUMMY_PW_STR,
         'tourn'    : None,   # context may contain override
         'new_tourn': False,  # ditto
-        'err_msg'  : None,   # ditto
         'buttons'  : buttons,
         'btn_lbl'  : btn_lbl,
         'btn_attr' : btn_attr,
-        'help_txt' : help_txt
+        'help_txt' : help_txt,
+        'err_msg'  : None    # context may contain override
     }
     return render_response(TOURN_TEMPLATE, **(base_ctx | context))
 
@@ -741,16 +741,16 @@ def render_admin(context: dict) -> str:
     base_ctx = {
         'title'    : APP_NAME,
         'user'     : current_user,
-        'tourn'    : None,       # context may contain override
-        'err_msg'  : None,       # ditto
-        'view_menu': view_menu(),
-        'view'     : view,       # also represents relative path name
+        'tourn'    : None,  # context may contain override
+        'view'     : view,  # also represents relative path name
         'view_info': view_info,
+        'view_menu': view_menu(),
         'buttons'  : buttons,
         'btn_lbl'  : btn_lbl,
         'btn_attr' : btn_attr,
         'links'    : LINK_INFO.get(view),
-        'help_txt' : help_txt
+        'help_txt' : help_txt,
+        'err_msg'  : None   # context may contain override
     }
     return render_response(ADMIN_TEMPLATE, **(base_ctx | context))
 

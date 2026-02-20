@@ -54,7 +54,7 @@ pl_layout = [
     ('player_rank',      "Seed Rank",   None)
 ]
 
-@data.get("/players")
+@data.get("/players/data")
 @login_required
 def get_players() -> dict:
     """
@@ -67,7 +67,7 @@ def get_players() -> dict:
 
     return ajax_data(pl_data)
 
-@data.post("/players")
+@data.post("/players/data")
 @login_required
 def post_players() -> dict:
     """
@@ -115,7 +115,7 @@ sg_layout = [
     ('winner',      "Winner",      None)
 ]
 
-@data.get("/seeding")
+@data.get("/seeding/data")
 @login_required
 def get_seeding() -> dict:
     """
@@ -128,7 +128,7 @@ def get_seeding() -> dict:
 
     return ajax_data(sg_data)
 
-@data.post("/seeding")
+@data.post("/seeding/data")
 @login_required
 def post_seeding() -> dict:
     """Post scrores to seeding round game.
@@ -186,7 +186,7 @@ pt_layout = [
     ('picked_by_info', "Picked By",  None)
 ]
 
-@data.get("/partners")
+@data.get("/partners/data")
 @login_required
 def get_partners() -> dict:
     """Ajax call to load datatable for partners view.
@@ -203,7 +203,7 @@ def get_partners() -> dict:
 
     return ajax_data(pt_data)
 
-@data.post("/partners")
+@data.post("/partners/data")
 @login_required
 def post_partners() -> dict:
     """Handle POST of partner pick data--the entire row is submitted, but we only look at
@@ -302,7 +302,7 @@ tm_layout = [
     ('final_rank',        "Tourn Rank",  None)
 ]
 
-@data.get("/teams")
+@data.get("/teams/data")
 @login_required
 def get_teams() -> dict:
     """
@@ -315,7 +315,7 @@ def get_teams() -> dict:
 
     return ajax_data(tm_data)
 
-@data.post("/teams")
+@data.post("/teams/data")
 @login_required
 def post_teams() -> dict:
     """
@@ -362,7 +362,7 @@ tg_layout = [
     ('winner',     "Winner",     None)
 ]
 
-@data.get("/round_robin")
+@data.get("/round_robin/data")
 @login_required
 def get_round_robin() -> dict:
     """
@@ -375,7 +375,7 @@ def get_round_robin() -> dict:
 
     return ajax_data(tg_data)
 
-@data.post("/round_robin")
+@data.post("/round_robin/data")
 @login_required
 def post_round_robin() -> dict:
     """
@@ -436,7 +436,7 @@ ff_layout = [
     ('playoff_rank',         "Playoff Rank", None)
 ]
 
-@data.get("/final_four")
+@data.get("/final_four/data")
 @login_required
 def get_final_four() -> dict:
     """
@@ -449,7 +449,7 @@ def get_final_four() -> dict:
 
     return ajax_data(ff_data)
 
-@data.post("/final_four")
+@data.post("/final_four/data")
 @login_required
 def post_final_four() -> dict:
     """
@@ -497,7 +497,7 @@ pg_layout = [
     ('winner',        "Winner",     None)
 ]
 
-@data.get("/playoffs")
+@data.get("/playoffs/data")
 @login_required
 def get_playoffs() -> dict:
     """
@@ -510,7 +510,7 @@ def get_playoffs() -> dict:
 
     return ajax_data(pg_data)
 
-@data.post("/playoffs")
+@data.post("/playoffs/data")
 @login_required
 def post_playoffs() -> dict:
     """

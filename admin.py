@@ -63,8 +63,9 @@ def get_tourns() -> list[str]:
 ##############
 
 class View(StrEnum):
-    """Note that view names are now different than their paths (though they just happen
-    to resemble relative path names)--the actual paths are now defined in VIEW_DEFS
+    """The string value for view items also represents (if not defines) their relative
+    path name.  Note that _absolute_ path names as needed when redirecting from POST
+    actions (hence `view_path`, below).
     """
     TOURN       = 'tourn'
     PLAYERS     = 'players'
@@ -75,11 +76,16 @@ class View(StrEnum):
     FINAL_FOUR  = 'final_four'
     PLAYOFFS    = 'playoffs'
 
+def view_path(view: str) -> str:
+    """Return absolute path for specified view.  Note that the view name itself is the
+    proper _relative_ path for the view.
+    """
+    return '/' + view
+
 class ViewInfo(NamedTuple):
     """This is not super-pretty, but we want to make this as data-driven as possible
     """
     name:       str  # display name
-    path:       str
     layout:     Layout
     rowid_col:  str  # column name
     tbl_order:  int  # default sort column(s) (column index)
@@ -89,7 +95,6 @@ class ViewInfo(NamedTuple):
 VIEW_DEFS = {
     View.PLAYERS: ViewInfo(
         "Players",
-        "/players",
         pl_layout,
         "nick_name",
         [0],  # id
@@ -97,7 +102,6 @@ VIEW_DEFS = {
     ),
     View.SEEDING: ViewInfo(
         "Seeding",
-        "/seeding",
         sg_layout,
         "label",
         [0],  # id
@@ -105,7 +109,6 @@ VIEW_DEFS = {
     ),
     View.PARTNERS: ViewInfo(
         "Partners",
-        "/partners",
         pt_layout,
         "nick_name",
         [1],  # player_rank
@@ -113,7 +116,6 @@ VIEW_DEFS = {
     ),
     View.TEAMS: ViewInfo(
         "Teams",
-        "/teams",
         tm_layout,
         "team_name",
         [1],  # team_seed
@@ -121,7 +123,6 @@ VIEW_DEFS = {
     ),
     View.ROUND_ROBIN: ViewInfo(
         "Round Robin",
-        "/round_robin",
         tg_layout,
         "label",
         [0],  # id
@@ -129,7 +130,6 @@ VIEW_DEFS = {
     ),
     View.FINAL_FOUR: ViewInfo(
         "Final Four",
-        "/final_four",
         ff_layout,
         "team_name",
         [1],  # tourn_rank
@@ -137,7 +137,6 @@ VIEW_DEFS = {
     ),
     View.PLAYOFFS: ViewInfo(
         "Playoffs",
-        "/playoffs",
         pg_layout,
         "label",
         [0],  # id
@@ -145,11 +144,11 @@ VIEW_DEFS = {
     )
 }
 
-def view_menu() -> list[tuple[str, str, str]]:
+def view_menu() -> list[tuple[str, str]]:
     """Return list of tuples representing navigation menu items of the following form:
-    (view_name, view_label, view_path).
+    (view, label), where "view" string value doubles as its relative path name.
     """
-    return [(str(view), info.name, info.path) for view, info in VIEW_DEFS.items()]
+    return [(str(view), info.name) for view, info in VIEW_DEFS.items()]
 
 STAGE_MAPPING = [
     (TournStage.FINALS_RANKS,   View.FINAL_FOUR),
@@ -165,7 +164,7 @@ STAGE_MAPPING = [
 ]
 
 def active_view(tourn: TournInfo) -> View:
-    """Return active view for the current stage of the tournament
+    """Return active view for the current stage of the tournament.
     """
     if tourn.stage_start is None:
         return None
@@ -305,26 +304,31 @@ VIEW_ACTIONS = {
     ]
 }
 
-@admin.post("/tourn")
-@admin.post("/players")
-@admin.post("/seeding")
-@admin.post("/partners")
-@admin.post("/teams")
-@admin.post("/round_robin")
-@admin.post("/final_four")
-@admin.post("/playoffs")
-def view_actions() -> str:
-    """Process submitted form, switch on ``action``, which is validated against
-    paths and values in ``ACTIONS``
+@admin.post("/tourn/<action>")
+@admin.post("/players/<action>")
+@admin.post("/seeding/<action>")
+@admin.post("/partners/<action>")
+@admin.post("/teams/<action>")
+@admin.post("/round_robin/<action>")
+@admin.post("/final_four/<action>")
+@admin.post("/playoffs/<action>")
+def view_action(action: str) -> str:
+    """Process submitted form, switch on ``action``, which is validated against paths and
+    values in ``VIEW_ACTIONS``
     """
     if not current_user.is_authenticated:
-        abort(401, f"Not authenticated")
-    action = request.form['action']
-    view = request.path.split('/')[-1]
+        abort(401, "Not authenticated")
+
+    view = request.path.split('/')[-2]
     if view not in VIEW_ACTIONS:
-        abort(400, f"Invalid action target '{view}'")
+        abort(404, f"Invalid action target '{view}'")
+    if 'action' not in request.form:
+        abort(400, "Invalid request, no action specified")
+    form_action = request.form['action']
+    if form_action != action:
+        abort(400, f"Invalid request, mismatched action '{form_action}'")
     if action not in VIEW_ACTIONS[view]:
-        abort(400, f"Action '{action}' not registered for {view}")
+        abort(404, f"Invalid action '{action}' for target '{view}'")
     return globals()[action](request.form)
 
 ##################
@@ -368,9 +372,7 @@ def create_tourn(form: dict) -> str:
     dflt_pw     = form.get('dflt_pw') or None
     overwrite   = typecast(form.get('overwrite', ""))
     req_file    = request.files.get('roster_file')
-    if not req_file:
-        err_msg = "Roster file required (manual roster creation not yet supported)"
-    else:
+    if req_file:
         roster_file = secure_filename(req_file.filename)
         roster_path = os.path.join(UPLOAD_DIR, roster_file)
         req_file.save(roster_path)
@@ -398,6 +400,10 @@ def create_tourn(form: dict) -> str:
                            '"Overwrite Existing" box or specify a new name')
             else:
                 err_msg = cap_first(str(e))
+            # FALLTHROUGH
+        # FALLTHROUGH
+    else:
+        err_msg = "Roster file required (manual roster creation not yet supported)"
 
     tourn = TournInfo(name=tourn_name, dates=dates, venue=venue)
     context = {
@@ -673,9 +679,7 @@ def render_view(view: View) -> str:
     Note that we are not passing any context information as query string params, so all
     information must be conveyed through the session object.
     """
-    assert view in VIEW_DEFS
-    view_path = VIEW_DEFS[view].path
-    return redirect(view_path)
+    return redirect(view_path(view))
 
 def render_admin(context: dict) -> str:
     """Common post-processing of context before rendering the main app page through Jinja
@@ -702,7 +706,6 @@ def render_admin(context: dict) -> str:
         if stage_compl >= TournStage.SEED_RANKS:
             view_info = ViewInfo(
                 "Players",
-                "/players",
                 pl_layout,
                 "nick_name",
                 [11],  # player_rank
@@ -712,7 +715,6 @@ def render_admin(context: dict) -> str:
         if stage_compl >= TournStage.SEMIS_RANKS:
             view_info = ViewInfo(
                 "Teams",
-                "/teams",
                 tm_layout,
                 "team_name",
                 [14],  # final_rank
@@ -721,7 +723,6 @@ def render_admin(context: dict) -> str:
         elif stage_compl >= TournStage.TOURN_RANKS:
             view_info = ViewInfo(
                 "Teams",
-                "/teams",
                 tm_layout,
                 "team_name",
                 [13, 12],  # div_rank, tourn_rank
@@ -731,7 +732,6 @@ def render_admin(context: dict) -> str:
         if stage_compl >= TournStage.TOURN_RANKS:
             view_info = ViewInfo(
                 "Final Four",
-                "/final_four",
                 ff_layout,
                 "team_name",
                 [12, 1],  # playoff_rank, tourn_rank
@@ -744,7 +744,7 @@ def render_admin(context: dict) -> str:
         'tourn'    : None,       # context may contain override
         'err_msg'  : None,       # ditto
         'view_menu': view_menu(),
-        'cur_view' : view,
+        'view'     : view,       # also represents relative path name
         'view_info': view_info,
         'buttons'  : buttons,
         'btn_lbl'  : btn_lbl,

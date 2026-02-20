@@ -24,7 +24,6 @@ from ui_common import render_response, redirect
 mobile = Blueprint('mobile', __name__)
 MOBILE_TITLE = "Euchmgr"
 MOBILE_TEMPLATE = "mobile.html"
-ERROR_TEMPLATE = "error.html"
 MOBILE_URL_PFX = '/mobile'
 
 #################
@@ -163,13 +162,20 @@ def update_tourn_stage(bracket: Bracket) -> bool:
 # GET routes #
 ##############
 
-VIEW_INDEX       = './'
+# note that string value here represents the relative path name for the view
+VIEW_INDEX       = '.'  # TODO: remove this, not neeed (validate in template)!!!
 VIEW_REGISTER    = 'register'
 VIEW_SEEDING     = 'seeding'
 VIEW_PARTNERS    = 'partners'
 VIEW_ROUND_ROBIN = 'round_robin'
 VIEW_SEMIFINALS  = 'semifinals'
 VIEW_FINALS      = 'finals'
+
+def view_path(view: str) -> str:
+    """Return absolute path for specified view.  Note that the view name itself is the
+    proper _relative_ path for the view.
+    """
+    return MOBILE_URL_PFX + '/' + view
 
 BRACKET_VIEW = {
     Bracket.SEED  : VIEW_SEEDING,
@@ -201,7 +207,7 @@ def remap_view(view: str, player: Player) -> str:
     return view
 
 def dflt_view(tourn: TournInfo, player: Player) -> str:
-    """Return most relevant view for the current stage of the tournament
+    """Return most relevant view for the current stage of the tournament.
     """
     assert tourn.stage_start
     for stage, view in STAGE_VIEW:
@@ -211,7 +217,8 @@ def dflt_view(tourn: TournInfo, player: Player) -> str:
 
 @mobile.get("/")
 def index() -> str:
-    """Render mobile app if logged in
+    """Render appropriate mobile view, depending on tournament stage (and progress for the
+    current user).
     """
     if not current_user.is_authenticated:
         flash("Please reauthenticate in order to access the app")
@@ -233,7 +240,7 @@ def index() -> str:
 @mobile.get("/semifinals")
 @mobile.get("/finals")
 def view() -> str:
-    """Render mobile app if logged in
+    """Render mobile app, if logged in.
     """
     if not current_user.is_authenticated:
         flash("Please reauthenticate in order to access the app")
@@ -273,25 +280,56 @@ def view() -> str:
 # POST actions #
 ################
 
-ACTIONS = [
-    'register_player',
-    'submit_score',
-    'accept_score',
-    'correct_score',
-    'pick_partner'
-]
+VIEW_ACTIONS = {
+    VIEW_REGISTER: [
+        'register_player'
+    ],
+    VIEW_SEEDING: [
+        'submit_score',
+        'accept_score',
+        'correct_score'
+    ],
+    VIEW_PARTNERS: [
+        'pick_partner'
+    ],
+    VIEW_ROUND_ROBIN: [
+        'submit_score',
+        'accept_score',
+        'correct_score'
+    ],
+    VIEW_SEMIFINALS: [
+        'submit_score',
+        'accept_score',
+        'correct_score'
+    ],
+    VIEW_FINALS: [
+        'submit_score',
+        'accept_score',
+        'correct_score'
+    ]
+}
 
-@mobile.post("/")
-def submit() -> str:
-    """Handle post action
+@mobile.post("/register/<action>")
+@mobile.post("/seeding/<action>")
+@mobile.post("/partners/<action>")
+@mobile.post("/round_robin/<action>")
+@mobile.post("/semifinals/<action>")
+@mobile.post("/finals/<action>")
+def view_action(action: str) -> str:
+    """Handle post action.
     """
     if not current_user.is_authenticated:
-        abort(403, f"Not authenticated")
+        abort(401, "Not authenticated")
+    view = request.path.split('/')[-2]
+    if view not in VIEW_ACTIONS:
+        abort(404, f"Invalid action target '{view}'")
     if 'action' not in request.form:
         abort(400, "Invalid request, no action specified")
-    action = request.form['action']
-    if action not in ACTIONS:
-        abort(400, f"Invalid request, unrecognized action '{action}'")
+    form_action = request.form['action']
+    if form_action != action:
+        abort(400, f"Invalid request, mismatched action '{form_action}'")
+    if action not in VIEW_ACTIONS[view]:
+        abort(404, f"Invalid action '{action}' for target '{view}'")
     return globals()[action](request.form)
 
 def register_player(form: dict) -> str:
@@ -569,6 +607,9 @@ def pick_partner(form: dict) -> str:
 # renderers #
 #############
 
+# TODO: get rid of this "phase" thing, not needed (ended up being same as view)--should be
+# replaced by VIEW_INFO (same as admin module), with name, path, etc.!!!
+
 # "phase" is a high-level pseudo-stage used to control the display
 PHASE_COMMON      = None  # dummy value for common tournament info
 PHASE_REGISTER    = "Registration"
@@ -681,7 +722,7 @@ INFO_FIELDS = {
 def render_view(view: str) -> str:
     """Render the specified view using redirect (called from POST action handlers).
     """
-    return redirect(MOBILE_URL_PFX + '/' + view)
+    return redirect(view_path(view))
 
 def render_game_in_view(label: str) -> str:
     """Return the url for jumping to the specified game in its stage view.  We do a tricky
@@ -860,7 +901,7 @@ def render_mobile(context: dict, view: str) -> str:
         'title'        : MOBILE_TITLE,
         'view_menu'    : view_menu(player),
         'view_phase'   : view_phase,
-        'view'         : view,
+        'view'         : view,            # also represents relative path name
         'index'        : VIEW_INDEX,
         'register'     : VIEW_REGISTER,
         'seeding'      : VIEW_SEEDING,

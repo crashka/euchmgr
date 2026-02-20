@@ -28,6 +28,8 @@ def is_mobile() -> bool:
 # renderers #
 #############
 
+ERROR_TEMPLATE = "error.html"
+
 def ajax_data(data: dict | list | str) -> dict:
     """Wrapper for returning specified data in the structure expected by DataTables for an
     ajax data source.  `data` must be specified.

@@ -72,8 +72,8 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
 
     app.config.from_object(config)
     app.register_blueprint(admin)
+    app.register_blueprint(data)
     app.register_blueprint(mobile, url_prefix=MOBILE_URL_PFX)
-    app.register_blueprint(data, url_prefix='/data')
     app.register_blueprint(chart, url_prefix='/chart')
     app.register_blueprint(dash, url_prefix='/dash')
     app.register_blueprint(report, url_prefix='/report')

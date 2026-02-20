@@ -380,7 +380,7 @@
     {% set disabled = " disabled" if locked else "" %}
     <section class="register" id="register">
       <h3>Player Info</h3>
-      <form action="./" method="post">
+      <form action="{{view}}" method="post">
         <input type="hidden" name="player_id" value="{{user.id}}">
         <p>
           <label>Nick Name</label>:
@@ -420,7 +420,7 @@
       {% if stage_games %}
       {% set view_active = true %}
       <h3>Games</h3><span>(tap here for Leaderboard)</span>
-      <form action="./" method="post">
+      <form action="{{view}}" method="post">
         <input type="hidden" name="game_label" value="{{cur_game.label}}">
         <input type="hidden" name="posted_by_num" value="{{user.player_num}}">
         <input type="hidden" name="team_idx" value="{{team_idx}}">
@@ -534,7 +534,7 @@
         <span class="picker">Player (by rank)</span>
         <span class="partner">Teammate(s)</span>
       </article>
-      <form action="./" method="post">
+      <form action="{{view}}" method="post">
         {% for pk in partner_picks %}
         {% set pk_cls = " active" if pk == cur_pick else ("" if pk.partner else " pending") %}
         <article class="pick{{pk_cls}}" id="pk-{{pk.player_rank}}">
@@ -593,10 +593,15 @@
   <script>
    $(function() {
      // add css and attributes
-     $('.actions button').attr({
-       type: 'submit',
-       name: "action"
-     });
+     $('.actions button')
+       .attr({
+         type: 'submit',
+         name: "action"
+       })
+       .attr('formaction', function() {
+         const baseAction = $(this).closest('form').attr('action')
+         return baseAction + '/' + $(this).attr('value');
+       });
 
      // error dialog
      $('.err_dlg button').on('click', function() {

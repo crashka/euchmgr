@@ -98,7 +98,7 @@
 
   <body>
     <header>
-      <form action="/tourn" method="post">
+      <form action="/tourn/select_tourn" method="post">
         <input type="hidden" name="action" value="select_tourn">
         <label>Select Tournament:</label>
         <select name="tourn" class="sel_tourn" onchange="this.form.submit();">
@@ -191,11 +191,11 @@
         {% endif %}  {# new_tourn #}
         <div class="actions">
           {% if new_tourn %}
-          <button class="submit" value="{{buttons[1]}}"{{btn_attr[1]}}>{{btn_lbl[1]}}</button>
+          <button value="{{buttons[1]}}"{{btn_attr[1]}}>{{btn_lbl[1]}}</button>
           <a class="reset" href="javascript:void(0);">[reset]</a>
           {% else %}
-          <button class="submit" value="{{buttons[2]}}"{{btn_attr[2]}}>{{btn_lbl[2]}}</button>
-          <button class="submit" value="{{buttons[3]}}"{{btn_attr[3]}}>{{btn_lbl[3]}}</button>
+          <button value="{{buttons[2]}}"{{btn_attr[2]}}>{{btn_lbl[2]}}</button>
+          <button value="{{buttons[3]}}"{{btn_attr[3]}}>{{btn_lbl[3]}}</button>
           <a class="cancel" href="./">[cancel]</a>
           {% endif %}
         </div>
@@ -212,10 +212,15 @@
   <script>
    $(function() {
      // add css and attributes
-     $(".submit").attr({
-       type: 'submit',
-       name: "action"
-     });
+     $(".actions button")
+       .attr({
+         type: 'submit',
+         name: "action"
+       })
+       .attr('formaction', function() {
+         const baseAction = $(this).closest('form').attr('action')
+         return baseAction + '/' + $(this).attr('value');
+       });
 
      // shortcuts (navigation) and local actions
      $('.login_info span').on('click', function() {

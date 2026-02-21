@@ -77,7 +77,8 @@ def post_players() -> dict:
     data = request.form
     upd_info = {x[0]: typecast(data.get(x[0])) for x in pl_layout if x[2] == EDITABLE}
     try:
-        player = Player[data['id']]
+        pl_id = typecast(data.get('id'))
+        player = Player[pl_id]
         for col, val in upd_info.items():
             setattr(player, col, val)
         mod = player.save()
@@ -142,7 +143,8 @@ def post_seeding() -> dict:
     assert len(upd_info) == 0
     try:
         # TODO: wrap this entire try block in a transaction!!!
-        game = SeedGame[data['id']]
+        gm_id = typecast(data.get('id'))
+        game = SeedGame[gm_id]
         game.add_scores(team1_pts, team2_pts)
         game.save()
 
@@ -218,7 +220,8 @@ def post_partners() -> dict:
     if len(avail) == 0:
         return ajax_error("No available players to pick")
 
-    player = Player[typecast(data['id'])]
+    pl_id = typecast(data.get('id'))
+    player = Player[pl_id]
     if not player.available:
         return ajax_error(f"Specified pick ({player.name}) already on a team")
     if player != avail[0]:
@@ -325,7 +328,8 @@ def post_teams() -> dict:
     data = request.form
     upd_info = {x[0]: typecast(data.get(x[0])) for x in tm_layout if x[2] == EDITABLE}
     try:
-        team = Team[data['id']]
+        tm_id = typecast(data.get('id'))
+        team = Team[tm_id]
         for col, val in upd_info.items():
             setattr(team, col, val)
         team.save()
@@ -389,7 +393,8 @@ def post_round_robin() -> dict:
     assert len(upd_info) == 0
     try:
         # TODO: wrap this entire try block in a transaction!!!
-        game = TournGame[data['id']]
+        gm_id = typecast(data.get('id'))
+        game = TournGame[gm_id]
         game.add_scores(team1_pts, team2_pts)
         game.save()
 
@@ -459,7 +464,8 @@ def post_final_four() -> dict:
     data = request.form
     upd_info = {x[0]: typecast(data.get(x[0])) for x in ff_layout if x[2] == EDITABLE}
     try:
-        team = Team[data['id']]
+        tm_id = typecast(data.get('id'))
+        team = Team[tm_id]
         for col, val in upd_info.items():
             setattr(team, col, val)
         team.save()
@@ -524,7 +530,8 @@ def post_playoffs() -> dict:
     assert len(upd_info) == 0
     try:
         # TODO: wrap this entire try block in a transaction!!!
-        game = PlayoffGame[data['id']]
+        gm_id = typecast(data.get('id'))
+        game = PlayoffGame[gm_id]
         game.add_scores(team1_pts, team2_pts)
         game.save()
 

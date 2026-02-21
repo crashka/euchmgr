@@ -10,6 +10,7 @@ import re
 from flask import g, request, render_template, redirect as flask_redirect, abort
 
 from core import log, DataError
+from database import BaseModel
 
 #################
 # utility stuff #
@@ -65,10 +66,24 @@ def ajax_response(succ: bool, msg: str = None, data: dict | list | str = None) -
         'data'   : data
     }
 
-# API context mapper processes a context dict before jsonification
-ApiCtxMapper = Callable[[dict], dict]
+# a "context mapper" processes a context dict before jsonification
+CtxMapper = Callable[[dict], dict]
 
-def render_response(render_fmt: str | tuple[str, ApiCtxMapper], **ctx) -> str:
+def dflt_ctx_mapper(ctx_in: dict) -> dict:
+    """TEMP: quick and dirty version for development!!!
+    """
+    ctx_out = {}
+    for key, val in ctx_in.items():
+        if key == 'user':
+            ctx_out[key] = val.asdict()
+        elif isinstance(val, BaseModel):
+            ctx_out[key] = val.__data__
+        else:
+            ctx_out[key] = val
+
+    return ctx_out
+
+def render_response(render_fmt: str | tuple[str, CtxMapper], **ctx) -> str:
     """Either render an app template or formulate an ajax json response, depending on the
     `g.api_call` flag, using the specified context information.  The first argument is
     either a Jinja template name (in which case no context remapping is done for API
@@ -79,14 +94,14 @@ def render_response(render_fmt: str | tuple[str, ApiCtxMapper], **ctx) -> str:
         tmpl_name, ctx_mapper = render_fmt
     else:
         assert isinstance(render_fmt, str)
-        tmpl_name, ctx_mapper = render_fmt, None
+        tmpl_name, ctx_mapper = render_fmt, dflt_ctx_mapper
     if g.api_call:
         err_msg = ctx.pop('err_msg', None)
         if err_msg:
-            return ajax_error(err_msg, ctx)
+            return ajax_error(err_msg, ctx_mapper(ctx) if ctx_mapper else ctx)
         return ajax_data(ctx_mapper(ctx) if ctx_mapper else ctx)
     return render_template(tmpl_name, **ctx)
-    
+
 def redirect(location: str) -> str:
     """Wrapper around `flask.redirect` to properly handle both app and API calls.
     """
@@ -101,7 +116,7 @@ def redirect(location: str) -> str:
 def render_error(code: int, name: str = None, desc: str = None) -> str:
     """Mobile-adjusted error page (replacement for `flask.abort`).
     """
-    if not is_mobile:
+    if not is_mobile():
         abort(code, description=desc)
 
     err = HTTPStatus(code)

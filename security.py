@@ -25,11 +25,18 @@ class AuthenticationError(RuntimeError):
 #####################
 
 DUMMY_PW_STR = '[dummy pw str]'
+USER_ATTRS = ['id', 'name', 'is_active', 'is_authenticated', 'is_anonymous']
 
 class EuchmgrUser(UserMixin):
     """Augment the flask_login mixin with admin awareness.
     """
     is_admin: bool = False
+
+    def asdict(self) -> dict:
+        """Return user information as a dict (we have to do this since __dict__ doesn't
+        work for proxy objects)
+        """
+        return {attr: getattr(self, attr) for attr in USER_ATTRS}
 
     def login(self, password: str) -> bool:
         """Log the user in using the specified password (only for the web application).
@@ -65,6 +72,12 @@ class AnonymousUser(AnonymousUserMixin):
     name: str = ANONYMOUS_USER
     is_admin: bool = False
 
+    def asdict(self) -> dict:
+        """Return user information as a dict (we have to do this since __dict__ doesn't
+        work for proxy objects)
+        """
+        return {attr: getattr(self, attr) for attr in USER_ATTRS}
+
 ADMIN_USER = 'admin'
 ADMIN_ID = -1  # must be distinct from all other user ids!
 ADMIN_PW_FILE = 'admin.pw_hash'
@@ -79,8 +92,8 @@ class AdminUser(EuchmgrUser):
 
     def get_id(self) -> str:
         """Return ID as a string per the flask_login spec, even though the framework
-        sometimes access the `id` field directly.  The caller has to be able to handle
-        either representation.
+        sometimes accesses the `id` field directly.  The app layer has to be able to
+        handle either representation.
         """
         return str(self.id)
 

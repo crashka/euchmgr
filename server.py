@@ -6,6 +6,7 @@ implements the Flask "application factory" pattern through the ``create_app()`` 
 """
 
 import re
+import traceback
 
 from ckautils import typecast
 from flask import Flask, current_app, g, request, session, url_for, flash, get_flashed_messages
@@ -13,6 +14,7 @@ from flask.globals import request_ctx
 from flask_session import Session
 from cachelib.file import FileSystemCache
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.exceptions import HTTPException
 
 from core import log, ImplementationError
 from security import (current_user, EuchmgrUser, ADMIN_USER, ADMIN_ID, AdminUser, EuchmgrLogin,
@@ -130,6 +132,30 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         log.debug(f"@app.teardown_request: {request.method} {request.path}")
         db_close()
 
+    @app.errorhandler(HTTPException)
+    def handle_http_exception(e) -> tuple[dict, int] | HTTPException:
+        """Return appropropiate exception format based on `g.api_call`.
+        """
+        if g.api_call:
+            return {
+                "code": e.code,
+                "name": e.name,
+                "description": e.description
+            }, e.code
+        return e
+
+    @app.errorhandler(Exception)
+    def handle_exception(e) -> tuple[dict, int] | Exception:
+        """Return appropropiate exception format based on `g.api_call`.
+        """
+        if g.api_call:
+            tb = traceback.format_exception(e)
+            return {
+                "error": str(e),
+                "traceback": tb if app.debug else None
+            }, 500
+        return e
+
     ###############
     # login stuff #
     ###############
@@ -244,6 +270,29 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         view = active_view(tourn)
         return render_view(view)
 
+    INVALID_ROUTE = "_INVALID"
+
+    API_MAP = {
+        "players/"    : "players/data",
+        "seeding/"    : "seeding/data",
+        "partners/"   : "partners/data",
+        "teams/"      : "teams/data",
+        "round_robin/": "round_robin/data",
+        "final_four/" : "final_four/data",
+        "playoffs/"   : "playoffs/data",
+        "players"     : INVALID_ROUTE,
+        "seeding"     : INVALID_ROUTE,
+        "partners"    : INVALID_ROUTE,
+        "teams"       : INVALID_ROUTE,
+        "round_robin" : INVALID_ROUTE,
+        "final_four"  : INVALID_ROUTE,
+        "playoffs"    : INVALID_ROUTE
+    }
+
+    NO_DB_REQ = {
+        'tourn/select_tourn'
+    }
+
     @app.route("/api/<path:route>", methods=['GET', 'POST'])
     def api_router(route: str) -> str:
         """Reroute API calls.  The route handlers should treat these the same as calls
@@ -251,13 +300,16 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         that the following request attributes will be different for API calls (we are not
         rewriting them here): `url`, `path`, `full_path`, and `endpoint`.
         """
+        reroute = API_MAP.get(route) or route
         assert g.api_call  # consider this flag a framework thing
         # ATTN: `request_ctx` will be merged with `app_ctx` in Flask version 3.2, so the
         # URL adapter will move at that point!
         url_adapter = request_ctx.url_adapter
-        endpoint, kwargs = url_adapter.match('/' + route, request.method)
+        endpoint, kwargs = url_adapter.match('/' + reroute, request.method)
         if endpoint not in current_app.view_functions:
             return render_error(404)
+        if not db_is_initialized() and reroute not in NO_DB_REQ:
+            return render_error(400, desc="No active tournament")
         view_func = current_app.view_functions[endpoint]
         return view_func(**kwargs)
 

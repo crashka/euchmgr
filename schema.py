@@ -85,6 +85,7 @@ TournStage = IntEnum('TournStage',
 # represents virtual stages before and after TournStage entries
 TOURN_INIT = 0
 TOURN_FINAL = len(TournStage) + 1
+ALL_STAGES = range(TOURN_INIT, TOURN_FINAL)
 ACTIVE_STAGES = range(TournStage.PLAYER_ROSTER, TOURN_FINAL)
 
 class StageInfo(NamedTuple):
@@ -140,6 +141,8 @@ StageData = dict(zip(TournStage, STAGE_DATA))
 #############
 # TournInfo #
 #############
+
+HIDDEN_TOURN_FLDS = {'dflt_pw_hash'}
 
 class TournInfo(BaseModel):
     """High-level tournament information.  There is only one instance per database (since
@@ -197,6 +200,13 @@ class TournInfo(BaseModel):
         """
         tourn = TournInfo.get()
         tourn.complete_stage(stage)
+
+    @property
+    def tourn_data(self) -> dict:
+        """Return tournament data as a dict, removing hidden values.
+        """
+        data = {k: v for k, v in self.__data__.items() if k not in HIDDEN_TOURN_FLDS}
+        return data
 
     def save(self, *args, **kwargs):
         """Manage stage changes and associated message text.

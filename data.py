@@ -28,6 +28,53 @@ EDITABLE = 'editable'
 
 Layout = list[tuple[str, str, str]]
 
+# error string/message tuples
+MISSING_FORM_FIELDS = ("'NoneType' object has no attribute 'lstrip'",
+                       "Missing field(s) in form data")
+
+##########
+# /tourn #
+##########
+
+# note that the 'tourn' view does not have a datatable grid, so these routes are purely in
+# support of the api (and possibly custom view logic, later), and there is no layout here
+tn_upd_flds = {'dates', 'venue'}
+
+@data.get("/tourn/data")
+@login_required
+def get_tourn() -> dict:
+    """Return the data for the current tournament as a single JSON object (unlike the
+    other GET methods in this module, which return lists).
+    """
+    tourn = TournInfo.get()
+    tn_data = tourn.tourn_data
+    return ajax_data(tn_data)
+
+@data.post("/tourn/data")
+@login_required
+def post_tourn() -> dict:
+    """Update TournInfo data.
+    """
+    data = request.form
+    tourn = TournInfo.get()
+    tn_data = None
+
+    try:
+        upd_info = {k: typecast(data.get(k)) for k in tn_upd_flds}
+        if typecast(data.get('id')) != tourn.id:
+            ajax_error("Invalid 'id' specified")
+        for col, val in upd_info.items():
+            setattr(tourn, col, val)
+        mod = tourn.save()
+        if mod:
+            tn_data = tourn.tourn_data
+    except AttributeError as e:
+        if str(e) == MISSING_FORM_FIELDS[0]:
+            return ajax_error(MISSING_FORM_FIELDS[1])
+        raise
+
+    return ajax_data(tn_data)
+
 ############
 # /players #
 ############
@@ -72,26 +119,28 @@ def get_players() -> dict:
 def post_players() -> dict:
     """
     """
+    data = request.form
     pl_data = None
 
-    data = request.form
-    upd_info = {x[0]: typecast(data.get(x[0])) for x in pl_layout if x[2] == EDITABLE}
     try:
-        pl_id = typecast(data.get('id'))
-        player = Player[pl_id]
+        player = Player[typecast(data.get('id'))]
+        upd_info = {x[0]: typecast(data.get(x[0])) for x in pl_layout if x[2] == EDITABLE}
         for col, val in upd_info.items():
             setattr(player, col, val)
         mod = player.save()
         if mod:
             pl_props = {prop: getattr(player, prop) for prop in pl_addl_props}
             pl_data = player.player_data | pl_props
+    except AttributeError as e:
+        if str(e) == MISSING_FORM_FIELDS[0]:
+            return ajax_error(MISSING_FORM_FIELDS[1])
+        raise
     except TypeError as e:
         return ajax_error("Invalid type specified")
     except (IntegrityError, ValueError) as e:
         if str(e) == "UNIQUE constraint failed: player.player_num":
             return ajax_error("Player Num already in use")
-        else:
-            return ajax_error(str(e))
+        raise
 
     return ajax_data(pl_data)
 
@@ -134,17 +183,16 @@ def get_seeding() -> dict:
 def post_seeding() -> dict:
     """Post scrores to seeding round game.
     """
+    data = request.form
     sg_data = None
 
-    data = request.form
-    upd_info = {x[0]: typecast(data.get(x[0])) for x in sg_layout if x[2] == EDITABLE}
-    team1_pts = upd_info.pop('team1_pts')
-    team2_pts = upd_info.pop('team2_pts')
-    assert len(upd_info) == 0
     try:
         # TODO: wrap this entire try block in a transaction!!!
-        gm_id = typecast(data.get('id'))
-        game = SeedGame[gm_id]
+        game = SeedGame[typecast(data.get('id'))]
+        upd_info = {x[0]: typecast(data.get(x[0])) for x in sg_layout if x[2] == EDITABLE}
+        team1_pts = upd_info.pop('team1_pts')
+        team2_pts = upd_info.pop('team2_pts')
+        assert len(upd_info) == 0
         game.add_scores(team1_pts, team2_pts)
         game.save()
 
@@ -156,10 +204,12 @@ def post_seeding() -> dict:
                 TournInfo.mark_stage_complete(TournStage.SEED_RESULTS)
             sg_props = {prop: getattr(game, prop) for prop in sg_addl_props}
             sg_data = game.__data__ | sg_props
+    except AttributeError as e:
+        if str(e) == MISSING_FORM_FIELDS[0]:
+            return ajax_error(MISSING_FORM_FIELDS[1])
+        raise
     except TypeError as e:
         return ajax_error("Invalid type specified")
-    except RuntimeError as e:
-        return ajax_error(str(e))
 
     return ajax_data(sg_data)
 
@@ -201,7 +251,7 @@ def get_partners() -> dict:
     pt_data = []
     for player in pt_iter:
         pt_props = {prop: getattr(player, prop) for prop in pt_addl_props}
-        pt_data.append(player.__data__ | pt_props)
+        pt_data.append(player.player_data | pt_props)
 
     return ajax_data(pt_data)
 
@@ -220,8 +270,7 @@ def post_partners() -> dict:
     if len(avail) == 0:
         return ajax_error("No available players to pick")
 
-    pl_id = typecast(data.get('id'))
-    player = Player[pl_id]
+    player = Player[typecast(data.get('id'))]
     if not player.available:
         return ajax_error(f"Specified pick ({player.name}) already on a team")
     if player != avail[0]:
@@ -323,13 +372,12 @@ def get_teams() -> dict:
 def post_teams() -> dict:
     """
     """
+    data = request.form
     tm_data = None
 
-    data = request.form
-    upd_info = {x[0]: typecast(data.get(x[0])) for x in tm_layout if x[2] == EDITABLE}
     try:
-        tm_id = typecast(data.get('id'))
-        team = Team[tm_id]
+        team = Team[typecast(data.get('id'))]
+        upd_info = {x[0]: typecast(data.get(x[0])) for x in tm_layout if x[2] == EDITABLE}
         for col, val in upd_info.items():
             setattr(team, col, val)
         team.save()
@@ -338,9 +386,11 @@ def post_teams() -> dict:
         # derived fields are updated when saving)
         if False:
             tm_props = {prop: getattr(team, prop) for prop in tm_addl_props}
-            tm_data = team.__data__ | tm_props
-    except IntegrityError as e:
-        return ajax_error(str(e))
+            tm_data = team.team_data | tm_props
+    except AttributeError as e:
+        if str(e) == MISSING_FORM_FIELDS[0]:
+            return ajax_error(MISSING_FORM_FIELDS[1])
+        raise
 
     return ajax_data(tm_data)
 
@@ -384,17 +434,16 @@ def get_round_robin() -> dict:
 def post_round_robin() -> dict:
     """
     """
+    data = request.form
     tg_data = None
 
-    data = request.form
-    upd_info = {x[0]: typecast(data.get(x[0])) for x in tg_layout if x[2] == EDITABLE}
-    team1_pts = upd_info.pop('team1_pts')
-    team2_pts = upd_info.pop('team2_pts')
-    assert len(upd_info) == 0
     try:
         # TODO: wrap this entire try block in a transaction!!!
-        gm_id = typecast(data.get('id'))
-        game = TournGame[gm_id]
+        game = TournGame[typecast(data.get('id'))]
+        upd_info = {x[0]: typecast(data.get(x[0])) for x in tg_layout if x[2] == EDITABLE}
+        team1_pts = upd_info.pop('team1_pts')
+        team2_pts = upd_info.pop('team2_pts')
+        assert len(upd_info) == 0
         game.add_scores(team1_pts, team2_pts)
         game.save()
 
@@ -406,10 +455,12 @@ def post_round_robin() -> dict:
                 TournInfo.mark_stage_complete(TournStage.TOURN_RESULTS)
             tg_props = {prop: getattr(game, prop) for prop in tg_addl_props}
             tg_data = game.__data__ | tg_props
+    except AttributeError as e:
+        if str(e) == MISSING_FORM_FIELDS[0]:
+            return ajax_error(MISSING_FORM_FIELDS[1])
+        raise
     except TypeError as e:
         return ajax_error("Invalid type specified")
-    except RuntimeError as e:
-        return ajax_error(str(e))
 
     return ajax_data(tg_data)
 
@@ -459,13 +510,12 @@ def get_final_four() -> dict:
 def post_final_four() -> dict:
     """
     """
+    data = request.form
     ff_data = None
 
-    data = request.form
-    upd_info = {x[0]: typecast(data.get(x[0])) for x in ff_layout if x[2] == EDITABLE}
     try:
-        tm_id = typecast(data.get('id'))
-        team = Team[tm_id]
+        team = Team[typecast(data.get('id'))]
+        upd_info = {x[0]: typecast(data.get(x[0])) for x in ff_layout if x[2] == EDITABLE}
         for col, val in upd_info.items():
             setattr(team, col, val)
         team.save()
@@ -474,9 +524,11 @@ def post_final_four() -> dict:
         # derived fields are updated when saving)
         if False:
             ff_props = {prop: getattr(team, prop) for prop in ff_addl_props}
-            ff_data = team.__data__ | ff_props
-    except IntegrityError as e:
-        return ajax_error(str(e))
+            ff_data = team.team_data | ff_props
+    except AttributeError as e:
+        if str(e) == MISSING_FORM_FIELDS[0]:
+            return ajax_error(MISSING_FORM_FIELDS[1])
+        raise
 
     return ajax_data(ff_data)
 
@@ -521,17 +573,16 @@ def get_playoffs() -> dict:
 def post_playoffs() -> dict:
     """
     """
+    data = request.form
     pg_data = None
 
-    data = request.form
-    upd_info = {x[0]: typecast(data.get(x[0])) for x in pg_layout if x[2] == EDITABLE}
-    team1_pts = upd_info.pop('team1_pts')
-    team2_pts = upd_info.pop('team2_pts')
-    assert len(upd_info) == 0
     try:
         # TODO: wrap this entire try block in a transaction!!!
-        gm_id = typecast(data.get('id'))
-        game = PlayoffGame[gm_id]
+        game = PlayoffGame[typecast(data.get('id'))]
+        upd_info = {x[0]: typecast(data.get(x[0])) for x in pg_layout if x[2] == EDITABLE}
+        team1_pts = upd_info.pop('team1_pts')
+        team2_pts = upd_info.pop('team2_pts')
+        assert len(upd_info) == 0
         game.add_scores(team1_pts, team2_pts)
         game.save()
 
@@ -560,9 +611,11 @@ def post_playoffs() -> dict:
             if enable_button:
                 pg_props['enableButton'] = enable_button
             pg_data = game.__data__ | pg_props
+    except AttributeError as e:
+        if str(e) == MISSING_FORM_FIELDS[0]:
+            return ajax_error(MISSING_FORM_FIELDS[1])
+        raise
     except TypeError as e:
         return ajax_error("Invalid type specified")
-    except RuntimeError as e:
-        return ajax_error(str(e))
 
     return ajax_data(pg_data)

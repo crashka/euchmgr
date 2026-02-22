@@ -89,7 +89,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
     def _api_handler() -> None:
         """Tag API calls on the way in (used to affect the rendering course).
         """
-        g.api_call = request.path.startswith('/api/')  # bool
+        g.api_call = request.path.startswith(('/api/', '/mobile_api/'))  # bool
 
     ##################
     # db connections #
@@ -154,7 +154,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
                 "error": str(e),
                 "traceback": tb if app.debug else None
             }, 500
-        return e
+        raise
 
     ###############
     # login stuff #
@@ -273,6 +273,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
     INVALID_ROUTE = "_INVALID"
 
     API_MAP = {
+        "tourn/"      : "tourn/data",
         "players/"    : "players/data",
         "seeding/"    : "seeding/data",
         "partners/"   : "partners/data",
@@ -280,6 +281,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         "round_robin/": "round_robin/data",
         "final_four/" : "final_four/data",
         "playoffs/"   : "playoffs/data",
+        "tourn"       : INVALID_ROUTE,
         "players"     : INVALID_ROUTE,
         "seeding"     : INVALID_ROUTE,
         "partners"    : INVALID_ROUTE,
@@ -290,7 +292,8 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
     }
 
     NO_DB_REQ = {
-        'tourn/select_tourn'
+        'tourn/select_tourn',
+        'tourn/create_tourn'
     }
 
     @app.route("/api/<path:route>", methods=['GET', 'POST'])

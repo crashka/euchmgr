@@ -18,8 +18,8 @@ from werkzeug.security import generate_password_hash
 from core import DATA_DIR, UPLOAD_DIR, log, ImplementationError
 from security import current_user, DUMMY_PW_STR
 from database import DB_FILETYPE, db_init, db_name, db_reset, db_is_initialized
-from schema import (clear_schema_cache, Bracket, TournStage, TOURN_INIT, ACTIVE_STAGES,
-                    TournInfo)
+from schema import (clear_schema_cache, Bracket, TournStage, TOURN_INIT, ALL_STAGES,
+                    ACTIVE_STAGES, TournInfo)
 from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_seed_bracket,
                      fake_seed_games, validate_seed_round, compute_player_ranks,
                      prepick_champ_partners, fake_pick_partners, build_tourn_teams,
@@ -304,6 +304,28 @@ VIEW_ACTIONS = {
     ]
 }
 
+# key: action name (doubles as button name in views)
+# value: tuple(action/button display name, list of stages when active)
+ACTION_INFO = {
+    'select_tourn'           : ("[Ceci n'existe pas]",         list(ALL_STAGES)),
+    'create_tourn'           : ("Create Tournament",           [TOURN_INIT]),
+    'update_tourn'           : ("Update Tournament",           list(ACTIVE_STAGES)),
+    'pause_tourn'            : ("Pause Tournament",            list(ACTIVE_STAGES)),
+    'gen_player_nums'        : ("Generate Player Nums",        [TournStage.PLAYER_ROSTER]),
+    'gen_seed_bracket'       : ("Create Seeding Bracket",      [TournStage.PLAYER_NUMS]),
+    'fake_seed_results'      : ("Generate Fake Results",       [TournStage.SEED_BRACKET]),
+    'tabulate_seed_results'  : ("Tabulate Results",            [TournStage.SEED_RESULTS]),
+    'fake_partner_picks'     : ("Generate Fake Picks",         [TournStage.SEED_RANKS]),
+    'comp_team_seeds'        : ("Compute Team Seeds",          [TournStage.PARTNER_PICK]),
+    'gen_tourn_brackets'     : ("Create Round Robin Brackets", [TournStage.TEAM_SEEDS]),
+    'fake_tourn_results'     : ("Generate Fake Results",       [TournStage.TOURN_BRACKET]),
+    'tabulate_tourn_results' : ("Tabulate Results",            [TournStage.TOURN_RESULTS]),
+    'gen_semis_bracket'      : ("Create Semifinals Bracket",   [TournStage.TOURN_RANKS]),
+    'tabulate_semis_results' : ("Tabulate Semifinals Results", [TournStage.SEMIS_RESULTS]),
+    'gen_finals_bracket'     : ("Create Finals Bracket",       [TournStage.SEMIS_RANKS]),
+    'tabulate_finals_results': ("Tabulate Finals Results",     [TournStage.FINALS_RESULTS])
+}
+
 @admin.post("/tourn/<action>")
 @admin.post("/players/<action>")
 @admin.post("/seeding/<action>")
@@ -328,7 +350,17 @@ def view_action(action: str) -> str:
     if form_action != action:
         abort(400, f"Invalid request, mismatched action '{form_action}'")
     if action not in VIEW_ACTIONS[view]:
-        abort(404, f"Invalid action '{action}' for target '{view}'")
+        abort(400, f"Invalid action '{action}' for target '{view}'")
+
+    assert action in ACTION_INFO
+    valid_stages = ACTION_INFO[action][1]
+    if db_is_initialized():
+        tourn = TournInfo.get()
+        stage_compl = tourn.stage_compl
+        if stage_compl not in valid_stages:
+            abort(400, f"Invalid action '{action}' for stage '{tourn.cur_stage}'")
+    elif TOURN_INIT not in valid_stages:
+        abort(400, f"No active tournament for action '{action}'")
     return globals()[action](request.form)
 
 ##################
@@ -596,28 +628,6 @@ def tabulate_finals_results(form: dict) -> str:
 SEL_SEP = "----------------"
 SEL_NEW = "(create new)"
 
-# keys: button name (must be kept in sync with VIEW_ACTIONS above)
-# values: tuple(button label, list of stages for which button is enabled)
-BUTTON_INFO = {
-    'select_tourn'           : ("[Ceci n'existe pas]",         [None]),
-    'create_tourn'           : ("Create Tournament",           [TOURN_INIT]),
-    'update_tourn'           : ("Update Tournament",           list(ACTIVE_STAGES)),
-    'pause_tourn'            : ("Pause Tournament",            list(ACTIVE_STAGES)),
-    'gen_player_nums'        : ("Generate Player Nums",        [TournStage.PLAYER_ROSTER]),
-    'gen_seed_bracket'       : ("Create Seeding Bracket",      [TournStage.PLAYER_NUMS]),
-    'fake_seed_results'      : ("Generate Fake Results",       [TournStage.SEED_BRACKET]),
-    'tabulate_seed_results'  : ("Tabulate Results",            [TournStage.SEED_RESULTS]),
-    'fake_partner_picks'     : ("Generate Fake Picks",         [TournStage.SEED_RANKS]),
-    'comp_team_seeds'        : ("Compute Team Seeds",          [TournStage.PARTNER_PICK]),
-    'gen_tourn_brackets'     : ("Create Round Robin Brackets", [TournStage.TEAM_SEEDS]),
-    'fake_tourn_results'     : ("Generate Fake Results",       [TournStage.TOURN_BRACKET]),
-    'tabulate_tourn_results' : ("Tabulate Results",            [TournStage.TOURN_RESULTS]),
-    'gen_semis_bracket'      : ("Create Semifinals Bracket",   [TournStage.TOURN_RANKS]),
-    'tabulate_semis_results' : ("Tabulate Semifinals Results", [TournStage.SEMIS_RESULTS]),
-    'gen_finals_bracket'     : ("Create Finals Bracket",       [TournStage.SEMIS_RANKS]),
-    'tabulate_finals_results': ("Tabulate Finals Results",     [TournStage.FINALS_RESULTS])
-}
-
 BTN_DISABLED = ' disabled'
 
 # tuples: (url, label, link enabled starting stage)
@@ -646,7 +656,7 @@ def render_tourn(context: dict) -> str:
     creation page through Jinja
     """
     buttons = VIEW_ACTIONS[View.TOURN]
-    btn_info = [BUTTON_INFO[btn] for btn in buttons]
+    btn_info = [ACTION_INFO[btn] for btn in buttons]
 
     stage_compl = TOURN_INIT
     if context.get('tourn'):
@@ -688,7 +698,7 @@ def render_admin(context: dict) -> str:
     assert view in VIEW_DEFS
     assert view in VIEW_ACTIONS
     buttons = VIEW_ACTIONS[view]
-    btn_info = [BUTTON_INFO[btn] for btn in buttons]
+    btn_info = [ACTION_INFO[btn] for btn in buttons]
 
     stage_compl = TOURN_INIT
     if context.get('tourn'):

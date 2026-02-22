@@ -89,6 +89,8 @@ class UIMixin:
 # Player #
 ##########
 
+HIDDEN_PLYR_FLDS = {'pw_hash'}
+
 EMPTY_PLYR_STATS = {
     'seed_wins'       : None,
     'seed_losses'     : None,
@@ -156,12 +158,14 @@ class Player(UIMixin, BasePlayer):
 
     @property
     def player_data(self) -> dict:
-        """Return player data as a dict, removing distracting default values if not relevant
+        """Return player data as a dict, removing hidden and distracting default values
+        (if not relevant).
         """
         tourn = TournInfo.get()
+        data = {k: v for k, v in self.__data__.items() if k not in HIDDEN_PLYR_FLDS}
         if tourn.stage_compl < TournStage.SEED_BRACKET:
-            return self.__data__ | EMPTY_PLYR_STATS
-        return self.__data__
+            return data | EMPTY_PLYR_STATS
+        return data
 
     @property
     def seed_ident(self) -> str:

@@ -9,7 +9,9 @@ from http import HTTPStatus
 from dataclasses import asdict
 import re
 
-from flask import g, request, render_template, redirect as flask_redirect, abort
+from ckautils import typecast
+from flask import (g, request, render_template, redirect as flask_redirect, abort,
+                   get_flashed_messages)
 
 from core import log, DataError
 from security import SecurityMixin
@@ -27,6 +29,35 @@ def is_mobile() -> bool:
     """Determine mobile client by the user-agent string
     """
     return re.search(MOBILE_REGEX, request.user_agent.string) is not None
+
+Scalar = str | int | float | bool | None
+
+def process_flashes() -> tuple[dict[str, Scalar], list[Scalar]]:
+    """Process flashed messages, returning a dict of parameterized flashes (i.e. messages
+    of the form "key=val"), as well as a list of unparameterized flashes (which are now
+    deprecated).
+
+    Note that `err` and `info` are special keys for which we build lists of scalar values.
+    Duplicate entries (with scalar values) for all other keys will result in an exception
+    upon processing.
+    """
+    params = {}
+    msgs = []
+    for msg in get_flashed_messages():
+        if m := re.fullmatch(r'(\w+)=(.+)', msg):
+            key, val = m.group(1, 2)
+            if key in ('err', 'info'):
+                if key not in params:
+                    params[key] = []
+                params[key].append(typecast(val))
+            else:
+                if key in params:
+                    raise LogicError(f"Duplicate param key '{key}'")
+                params[key] = typecast(val)
+        else:
+            msgs.append(msg)
+
+    return params, msgs
 
 #############
 # renderers #
@@ -60,8 +91,6 @@ def ajax_response(succ: bool, msg: str = None, data: dict | list | str = None) -
     and/or cells to highlight, set focus, etc.!!!
     """
     assert succ or msg, "`msg` arg is required for errors"
-    if msg and g.api_call:
-        msg = msg.replace("<br>", "\n")
     return {
         'succ'   : succ,
         'err'    : None if succ else msg,
@@ -126,10 +155,13 @@ def redirect(location: str) -> str:
     """Wrapper around `flask.redirect` to properly handle both app and API calls.
     """
     if g.api_call:
-        # TODO: don't do redirects for API calls, just check for flashed messages and
-        # incorporate them in the response, along with intended (suggested?) location
-        # information--need to complete this!!!
         data = {'redirect': location}
+        params, msgs = process_flashes()
+        # TEMP/TRANSITION: for now, treat `msgs` as error messages, and `params` as
+        # extraneous info, which we will render as data.  Leter, use `err` and `info`
+        # params properly!!!
+        if msgs:
+            return ajax_error('\n'.join(msgs), data | params)
         return ajax_data(data)
     return flask_redirect(location)
 

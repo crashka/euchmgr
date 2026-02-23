@@ -21,7 +21,7 @@ from security import (current_user, EuchmgrUser, ADMIN_USER, ADMIN_ID, AdminUser
                       AuthenticationError)
 from database import db_is_initialized, db_connect, db_close, db_is_closed
 from schema import TournInfo
-from ui import Player
+from ui_schema import Player
 from ui_common import (is_mobile, process_flashes, msg_join, render_response, redirect,
                        render_error)
 from data import data

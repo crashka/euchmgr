@@ -69,8 +69,8 @@ def fmt_tally(pts: int) -> str:
 ###########
 
 class UIMixin:
-    """Mixin to support compatibility with base schema instances.  NOTE: `ui` module
-    classes must inherit from this mixin then the associated `schema` class.
+    """Mixin to support compatibility with base schema instances.  NOTE: current module
+    classes must inherit from this mixin, then the associated `schema` class.
     """
     def __hash__(self):
         """Use the hash of the base schema class (see NOTE in the docheader).

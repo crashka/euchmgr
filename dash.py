@@ -9,8 +9,8 @@ from flask import Blueprint, session, render_template, abort
 
 from database import now_str
 from schema import GAME_PTS
-from ui import (Numeric, fmt_pct, fmt_tally, TournInfo, Player, PartnerPick, Team, PlayerGame,
-                TeamGame, PlayoffGame)
+from ui_schema import (Numeric, fmt_pct, fmt_tally, TournInfo, Player, PartnerPick, Team,
+                       PlayerGame, TeamGame, PlayoffGame)
 
 #################
 # utility stuff #

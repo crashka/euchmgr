@@ -12,7 +12,7 @@ from flask import Blueprint, request
 from security import login_required
 from schema import Bracket, TournStage, TournInfo
 from euchmgr import compute_player_ranks, compute_team_ranks, compute_playoff_ranks
-from ui import Player, PartnerPick, SeedGame, Team, TournGame, PlayoffGame
+from ui_schema import Player, PartnerPick, SeedGame, Team, TournGame, PlayoffGame
 from ui_common import ajax_data, ajax_succ, ajax_error
 
 ###################

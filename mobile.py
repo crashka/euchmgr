@@ -14,8 +14,9 @@ from core import ImplementationError, LogicError
 from security import current_user
 from schema import GAME_PTS, Bracket, TournStage, TournInfo, ScoreAction
 from euchmgr import compute_player_ranks, compute_team_ranks, compute_playoff_ranks
-from ui import (fmt_pct, PTS_PCT_NA, get_bracket, get_game_by_label, Player, PlayerRegister,
-                PartnerPick, SeedGame, Team, TournGame, PlayoffGame, PostScore)
+from ui_schema import (fmt_pct, PTS_PCT_NA, get_bracket, get_game_by_label, Player,
+                       PlayerRegister, PartnerPick, SeedGame, Team, TournGame, PlayoffGame,
+                       PostScore)
 from ui_common import process_flashes, msg_join, render_response, redirect
 
 ###################

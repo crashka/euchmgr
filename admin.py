@@ -11,7 +11,7 @@ import re
 
 from ckautils import typecast
 from peewee import OperationalError
-from flask import Blueprint, g, request, session, abort, url_for, flash, get_flashed_messages
+from flask import Blueprint, g, request, session, abort, url_for, flash
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash
 
@@ -26,7 +26,8 @@ from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_se
                      compute_team_seeds, build_tourn_bracket, fake_tourn_games,
                      validate_tourn, compute_team_ranks, build_playoff_bracket,
                      validate_playoffs, compute_playoff_ranks)
-from ui_common import is_mobile, render_response, redirect, render_error
+from ui_common import (is_mobile, process_flashes, msg_join, render_response, redirect,
+                       render_error)
 from data import (Layout, pl_layout, sg_layout, pt_layout, tm_layout, tg_layout, ff_layout,
                   pg_layout)
 
@@ -187,37 +188,24 @@ def tourn() -> str:
     if is_mobile():
         return render_error(403, desc="Mobile access unauthorized")
 
-    create_new = False
-    err_msgs = []
-    # see comment for same code in `login_page` (server.py)
-    for msg in get_flashed_messages():
-        if m := re.fullmatch(r'(\w+)=(.+)', msg):
-            key, val = m.group(1, 2)
-            if key == 'create_new':
-                create_new = typecast(val)
-            else:
-                raise ImplementationError(f"unexpected secret key '{key}' (value '{val}')")
-        else:
-            err_msgs.append(msg)
-    err_msg = "<br>".join(err_msgs)
+    params, msgs = process_flashes()
+    create_new   = params.pop('create_new', False)
+    err_msgs     = params.pop('err', [])
+    info_msgs    = params.pop('info', []) + msgs
+    if params:
+        raise ImplementationError(f"unexpected flashed params '{params}'")
 
     tourn_name = session.get('tourn')
     if tourn_name:
         assert not create_new
         assert db_is_initialized()
-        """
-        # resume managing previously active tournament
-        tourn = TournInfo.get()
-        assert tourn.name == tourn_name
-        view = active_view(tourn)
-        return redirect(view)
-        """
         tourn = TournInfo.get()
         assert tourn.name == tourn_name
         # render admin view for existing tournament
         context = {
-            'tourn'    : tourn,
-            'err_msg'  : err_msg
+            'tourn'   : tourn,
+            'err_msg' : msg_join(err_msgs) or msg_join(info_msgs),
+            'info_msg': msg_join(info_msgs)
         }
         return render_tourn(context)
 
@@ -233,7 +221,8 @@ def tourn() -> str:
     context = {
         'tourn'    : tourn,
         'new_tourn': create_new,
-        'err_msg'  : err_msg
+        'err_msg'  : msg_join(err_msgs) or msg_join(info_msgs),
+        'info_msg' : msg_join(info_msgs)
     }
     return render_tourn(context)
 
@@ -255,12 +244,18 @@ def view() -> str:
 
     view = request.path.split('/')[-1]
     tourn = TournInfo.get()
-    err_msg = "<br>".join(get_flashed_messages())
+
+    params, msgs = process_flashes()
+    err_msgs     = params.pop('err', [])
+    info_msgs    = params.pop('info', []) + msgs
+    if params:
+        raise ImplementationError(f"unexpected flashed params '{params}'")
 
     context = {
-        'tourn'  : tourn,
-        'view'   : view,
-        'err_msg': err_msg
+        'tourn'   : tourn,
+        'view'    : view,
+        'err_msg' : msg_join(err_msgs) or msg_join(info_msgs),
+        'info_msg': msg_join(info_msgs)
     }
     return render_admin(context)
 
@@ -387,7 +382,7 @@ def select_tourn(form: dict) -> str:
         db_init(tourn_name, force=True)
         session['tourn'] = tourn_name
         log.info(f"setting tourn = '{tourn_name}' in session state")
-        flash(f"Resuming operation of tournament \"{tourn_name}\"")
+        flash(f"info=Resuming operation of tournament \"{tourn_name}\"")
     return redirect(url_for('index'))
 
 def create_tourn(form: dict) -> str:
@@ -428,6 +423,7 @@ def create_tourn(form: dict) -> str:
             return render_view(View.PLAYERS)  # TODO: let `index` do the routing for us!!!
         except OperationalError as e:
             if re.fullmatch(r'table "\w+" already exists', str(e)):
+                db_reset(force=True)
                 err_msg = (f'Tournament "{tourn_name}" already exists; either check the '
                            '"Overwrite Existing" box or specify a new name')
             else:
@@ -487,9 +483,9 @@ def update_tourn(form: dict) -> str:
             assert dflt_pw_hash
             written = "value set"
         log.info(f"update_tourn: dflt_pw_hash {written}")
-        flash("Tournament information updated")
+        flash("info=Tournament information updated")
     else:
-        flash("No updates specified")
+        flash("info=No updates specified")
 
     return redirect(url_for('admin.tourn'))
 
@@ -506,7 +502,7 @@ def pause_tourn(form: dict) -> str:
     clear_schema_cache()
     popped = session.pop('tourn', None)
     assert popped == tourn_name
-    flash(f"Tournament \"{tourn_name}\" has been paused")
+    flash(f"info=Tournament \"{tourn_name}\" has been paused")
     return redirect(url_for('index'))
 
 ####################
@@ -680,7 +676,8 @@ def render_tourn(context: dict) -> str:
         'btn_lbl'  : btn_lbl,
         'btn_attr' : btn_attr,
         'help_txt' : help_txt,
-        'err_msg'  : None    # context may contain override
+        'err_msg'  : None,   # context may contain override
+        'info_msg' : None    # ditto
     }
     return render_response(TOURN_TEMPLATE, **(base_ctx | context))
 
@@ -760,7 +757,8 @@ def render_admin(context: dict) -> str:
         'btn_attr' : btn_attr,
         'links'    : LINK_INFO.get(view),
         'help_txt' : help_txt,
-        'err_msg'  : None   # context may contain override
+        'err_msg'  : None,  # context may contain override
+        'info_msg' : None   # ditto
     }
     return render_response(ADMIN_TEMPLATE, **(base_ctx | context))
 

@@ -16,7 +16,7 @@ from schema import GAME_PTS, Bracket, TournStage, TournInfo, ScoreAction
 from euchmgr import compute_player_ranks, compute_team_ranks, compute_playoff_ranks
 from ui import (fmt_pct, PTS_PCT_NA, get_bracket, get_game_by_label, Player, PlayerRegister,
                 PartnerPick, SeedGame, Team, TournGame, PlayoffGame, PostScore)
-from ui_common import render_response, redirect
+from ui_common import process_flashes, msg_join, render_response, redirect
 
 ###################
 # blueprint stuff #
@@ -241,16 +241,14 @@ def index() -> str:
     current user).
     """
     if not current_user.is_authenticated:
-        flash("Please reauthenticate in order to access the app")
+        flash("err=Please reauthenticate in order to access the app")
         return redirect(url_for('login_page'))
 
     tourn = TournInfo.get()
     view = dflt_view(tourn, current_user)
     assert view
-    # REVISIT: we should figure out if we need to forward these on--they may stayed
-    # queued through the redirect!!!
-    for msg in get_flashed_messages():
-        flash(msg)
+    # note that flashed messages are not processed for now, they will be passed through to
+    # the redirected page
     return render_view(view)
 
 @mobile.get("/register")
@@ -263,30 +261,26 @@ def view() -> str:
     """Render mobile app, if logged in.
     """
     if not current_user.is_authenticated:
-        flash("Please reauthenticate in order to access the app")
+        flash("err=Please reauthenticate in order to access the app")
         return redirect(url_for('login_page'))
     view = request.path.split('/')[-1]
 
-    context = {}
-    game_label = None
-    err_msgs = []
-    # see if any secret parameters have been transmitted to us--NOTE that parameter name
-    # and action are currently hard-coded here (since we are only supporting one!); we may
-    # create a little more structure around this later, if needed
-    for msg in get_flashed_messages():
-        if m := re.fullmatch(r'(\w+)=(.+)', msg):
-            key, val = m.group(1, 2)
-            if key == 'cur_game':
-                assert not request.args.get('cur_game')
-                game_label = val
-            else:
-                raise ImplementationError(f"unexpected secret key '{key}' (value '{val}')")
-        else:
-            err_msgs.append(msg)
-    context['err_msg'] = "<br>".join(err_msgs)
+    params, msgs = process_flashes()
+    game_label   = params.pop('cur_game', None)
+    err_msgs     = params.pop('err', [])
+    info_msgs    = params.pop('info', []) + msgs
+    if params:
+        raise ImplementationError(f"unexpected flashed params '{params}'")
 
     if not game_label:
         game_label = request.args.get('cur_game')
+    else:
+        assert not request.args.get('cur_game')
+
+    context = {
+        'err_msg' : msg_join(err_msgs) or msg_join(info_msgs),
+        'info_msg': msg_join(info_msgs)
+    }
 
     if game_label:
         cur_game = get_game_by_label(game_label)
@@ -364,14 +358,14 @@ def register_player(form: dict) -> str:
     if not player_num:
         assert not player.player_num
         # show message, but store the record anyway
-        flash("Player Num must be specified")
+        flash("err=Player Num must be specified")
     else:
         player.player_num = player_num
     player.nick_name = nick_name  # allow nick_name to be nulled out
     try:
         player.save()
     except IntegrityError as e:
-        flash("Player Num already taken")
+        flash("err=Player Num already taken")
     return render_view(View.REGISTER)
 
 def submit_score(form: dict) -> str:
@@ -408,24 +402,24 @@ def submit_score(form: dict) -> str:
             score_pushed = True
             post_action += ScoreAction.DISCARD
             action_info = "Intervening acceptance"
-            flash(f"Discarding submission due to {lc_first(action_info)} "
+            flash(f"err=Discarding submission due to {lc_first(action_info)} "
                   f"({post_info(latest, team_idx)})")
         elif same_score((team1_pts, team2_pts), latest):
             if latest.team_idx != team_idx:
-                flash("Duplicate submission as opponent treated as mutual acceptance "
+                flash("info=Duplicate submission as opponent treated as mutual acceptance "
                       f"({post_info(latest, team_idx)})")
                 return accept_score(form, latest)
             # otherwise we fall through and create an ignored duplicate entry
             post_action += ScoreAction.IGNORE
             action_info = "Duplicate submission as partner"
-            flash(f"Ignoring {lc_first(action_info)} ({post_info(latest, team_idx)})")
+            flash(f"info=Ignoring {lc_first(action_info)} ({post_info(latest, team_idx)})")
         else:
             # NOTE: we previously overwrote a mismatched prior submission, but I think
             # that is both less intuitive and less desirable, so we'll intercept this
             # submission instead
             post_action += ScoreAction.DISCARD
             action_info = "Conflicting submission"
-            flash(f"Discarding {lc_first(action_info)} ({post_info(latest, team_idx)})")
+            flash(f"err=Discarding {lc_first(action_info)} ({post_info(latest, team_idx)})")
 
     info = {
         'bracket'      : bracket,
@@ -479,7 +473,7 @@ def accept_score(form: dict, ref_score: PostScore = None) -> str:
             score_pushed = True
             post_action += ScoreAction.DISCARD
             action_info = "Intervening acceptance"
-            flash(f"Discarding acceptance due to {lc_first(action_info)} "
+            flash(f"err=Discarding acceptance due to {lc_first(action_info)} "
                   f"({post_info(latest, team_idx)})")
         elif same_score(latest, ref_score):
             if latest.team_idx != team_idx:
@@ -490,13 +484,13 @@ def accept_score(form: dict, ref_score: PostScore = None) -> str:
                 # same score correction from partner
                 post_action += ScoreAction.DISCARD
                 action_info = "Intervening correction from partner"
-                flash(f"Discarding acceptance due to {lc_first(action_info)} "
+                flash(f"err=Discarding acceptance due to {lc_first(action_info)} "
                       f"({post_info(latest, team_idx)})")
         else:
             # changed score correction (from either partner or opponent)
             post_action += ScoreAction.DISCARD
             action_info = "Intervening correction"
-            flash(f"Discarding acceptance due to {lc_first(action_info)} "
+            flash(f"err=Discarding acceptance due to {lc_first(action_info)} "
                   f"({post_info(latest, team_idx)})")
 
     do_push = (post_action == ScoreAction.ACCEPT)
@@ -566,7 +560,7 @@ def correct_score(form: dict, ref_score: PostScore = None) -> str:
             score_pushed = True
             post_action += ScoreAction.DISCARD
             action_info = "Intervening acceptance"
-            flash(f"Discarding update due to {lc_first(action_info)} "
+            flash(f"err=Discarding update due to {lc_first(action_info)} "
                   f"({post_info(latest, team_idx)})")
         # NOTE that we are always discarding this action if there is an intervening
         # correction (regardless of actor and score), since the logic for implicit
@@ -576,19 +570,19 @@ def correct_score(form: dict, ref_score: PostScore = None) -> str:
             # teams!!!
             post_action += ScoreAction.DISCARD
             action_info = "Intervening correction (score unchanged)"
-            flash(f"Discarding update due to {lc_first(action_info)} "
+            flash(f"err=Discarding update due to {lc_first(action_info)} "
                   f"({post_info(latest, team_idx)})")
         else:
             post_action += ScoreAction.DISCARD
             action_info = "Intervening correction"
-            flash(f"Discarding update due to {lc_first(action_info)} "
+            flash(f"err=Discarding update due to {lc_first(action_info)} "
                   f"({post_info(latest, team_idx)})")
     elif same_score((team1_pts, team2_pts), ref_score):
         # NOTE: we used to treat an unchanged score correction to an opponent score as an
         # implicit acceptance, but now we always ignore this action (more intuitive)
         post_action += ScoreAction.IGNORE
         action_info = "Unchanged score correction"
-        flash(f"Ignoring {lc_first(action_info)}")
+        flash(f"info=Ignoring {lc_first(action_info)}")
 
     info = {
         'bracket'      : bracket,
@@ -932,6 +926,7 @@ def render_mobile(context: dict, view: str) -> str:
         'picks_avail'  : picks_avail,
         'fmt_matchup'  : fmt_matchup,
         'resources'    : VIEW_RESOURCES.get(view),
-        'err_msg'      : None
+        'err_msg'      : None,
+        'info_msg'     : None
     }
     return render_response(MOBILE_TEMPLATE, **(base_ctx | context))

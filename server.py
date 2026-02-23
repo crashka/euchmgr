@@ -9,7 +9,7 @@ import re
 import traceback
 
 from ckautils import typecast
-from flask import Flask, current_app, g, request, session, url_for, flash, get_flashed_messages
+from flask import Flask, current_app, g, request, session, url_for, flash
 from flask.globals import request_ctx
 from flask_session import Session
 from cachelib.file import FileSystemCache
@@ -22,7 +22,8 @@ from security import (current_user, EuchmgrUser, ADMIN_USER, ADMIN_ID, AdminUser
 from database import db_is_initialized, db_connect, db_close, db_is_closed
 from schema import TournInfo
 from ui import Player
-from ui_common import is_mobile, render_response, redirect, render_error
+from ui_common import (is_mobile, process_flashes, msg_join, render_response, redirect,
+                       render_error)
 from data import data
 from chart import chart
 from dash import dash
@@ -181,24 +182,17 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         if current_user.is_authenticated:
             return redirect(url_for('index'))
 
-        username = None
-        err_msgs = []
-        # see if any secret parameters have been transmitted to us (see NOTE for `view` in
-        # mobile.py--we might want to encapsulate this into a shared mechanism!)
-        for msg in get_flashed_messages():
-            if m := re.fullmatch(r'(\w+)=(.+)', msg):
-                key, val = m.group(1, 2)
-                if key == 'username':
-                    username = val
-                else:
-                    raise ImplementationError(f"unexpected secret key '{key}' (value '{val}')")
-            else:
-                err_msgs.append(msg)
-        err_msg = "<br>".join(err_msgs)
+        params, msgs = process_flashes()
+        username     = params.pop('username', None)
+        err_msgs     = params.pop('err', [])
+        info_msgs    = params.pop('info', []) + msgs
+        if params:
+            raise ImplementationError(f"unexpected flashed params '{params}'")
 
         context = {
             'username': username,
-            'err_msg' : err_msg
+            'err_msg' : msg_join(err_msgs) or msg_join(info_msgs),
+            'info_msg': msg_join(info_msgs)
         }
         return render_login(context)
 
@@ -213,7 +207,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
             try:
                 admin.login(password)
             except AuthenticationError as e:
-                flash(str(e))
+                flash(err=str(e))
                 return redirect(url_for('login_page'))
             return redirect(url_for('index'))
 
@@ -223,7 +217,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         try:
             player.login(password)
         except AuthenticationError as e:
-            flash(str(e))
+            flash(err=str(e))
             flash(f"username={username}")
             return redirect(url_for('login_page'))
         # TEMP: need to make the routing device and/or context sensitive!!!
@@ -238,7 +232,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         if current_user.is_authenticated:
             user = current_user.name
             current_user.logout()
-            flash(f"User \\\"{user}\\\" logged out")
+            flash(f"info=User \\\"{user}\\\" logged out")
         return redirect(url_for('login_page'))
 
     #################
@@ -366,7 +360,8 @@ def render_login(context: dict) -> str:
         'logins'    : logins,
         'username'  : None,   # context may contain override
         'admin_user': ADMIN_USER,
-        'err_msg'   : None
+        'err_msg'   : None,
+        'info_msg'  : None
     }
     return render_response(LOGIN_TEMPLATE, **(base_ctx | context))
 

@@ -13,7 +13,7 @@ from ckautils import typecast
 from flask import (g, request, render_template, redirect as flask_redirect, abort,
                    get_flashed_messages)
 
-from core import log, DataError
+from core import log, ImplementationError
 from security import SecurityMixin
 from database import BaseModel
 
@@ -35,11 +35,11 @@ Scalar = str | int | float | bool | None
 def process_flashes() -> tuple[dict[str, Scalar], list[Scalar]]:
     """Process flashed messages, returning a dict of parameterized flashes (i.e. messages
     of the form "key=val"), as well as a list of unparameterized flashes (which are now
-    deprecated).
+    deprecated).  `err` and `info` are special keys for which multiple flashes are allowed
+    (returned as lists of scalar values).  Duplicate flashes (with scalar values) for all
+    other keys will result in an exception upon processing.
 
-    Note that `err` and `info` are special keys for which we build lists of scalar values.
-    Duplicate entries (with scalar values) for all other keys will result in an exception
-    upon processing.
+    Note that this call clears out the flashed message buffer for the user session.
     """
     params = {}
     msgs = []
@@ -58,6 +58,12 @@ def process_flashes() -> tuple[dict[str, Scalar], list[Scalar]]:
             msgs.append(msg)
 
     return params, msgs
+
+def msg_join(msgs: list[str]) -> str:
+    """Context-senstive message joiner for `err` and `info` flahsed messages.
+    """
+    msg_sep = "\n" if g.api_call else "<br>"
+    return msg_sep.join(msgs)
 
 #############
 # renderers #
@@ -157,11 +163,14 @@ def redirect(location: str) -> str:
     if g.api_call:
         data = {'redirect': location}
         params, msgs = process_flashes()
-        # TEMP/TRANSITION: for now, treat `msgs` as error messages, and `params` as
-        # extraneous info, which we will render as data.  Leter, use `err` and `info`
-        # params properly!!!
-        if msgs:
-            return ajax_error('\n'.join(msgs), data | params)
+        err_msgs     = params.pop('err', [])
+        info_msgs    = params.pop('info', []) + msgs
+        if params:
+            raise ImplementationError(f"unexpected flashed params '{params}'")
+        if err_msgs:
+            return ajax_error(msg_join(err_msgs), msg_join(info_msgs))
+        if info_msgs:
+            data['info'] = info_msgs
         return ajax_data(data)
     return flask_redirect(location)
 

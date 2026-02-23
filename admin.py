@@ -304,8 +304,8 @@ VIEW_ACTIONS = {
     ]
 }
 
-# key: action name (doubles as button name in views)
-# value: tuple(action/button display name, list of stages when active)
+# key: action function (doubles as button name in views)
+# value: tuple(action/button display name, list of stages when valid/callable)
 ACTION_INFO = {
     'select_tourn'           : ("[Ceci n'existe pas]",         list(ALL_STAGES)),
     'create_tourn'           : ("Create Tournament",           [TOURN_INIT]),

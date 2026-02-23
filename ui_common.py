@@ -4,12 +4,15 @@
 """
 
 from collections.abc import Callable
+from types import FunctionType, MethodType
 from http import HTTPStatus
+from dataclasses import asdict
 import re
 
 from flask import g, request, render_template, redirect as flask_redirect, abort
 
 from core import log, DataError
+from security import SecurityMixin
 from database import BaseModel
 
 #################
@@ -66,7 +69,7 @@ def ajax_response(succ: bool, msg: str = None, data: dict | list | str = None) -
         'data'   : data
     }
 
-# a "context mapper" processes a context dict before jsonification
+# "context mappers" process a context dict before jsonification
 CtxMapper = Callable[[dict], dict]
 
 def dflt_ctx_mapper(ctx_in: dict) -> dict:
@@ -74,11 +77,28 @@ def dflt_ctx_mapper(ctx_in: dict) -> dict:
     """
     ctx_out = {}
     for key, val in ctx_in.items():
-        if key == 'user':
-            ctx_out[key] = val.asdict()
+        if key in ('stage_games', 'partner_picks') and val:
+            # TODO: generalize identification of list[BaseModel]!!!
+            assert isinstance(val, list)
+            assert isinstance(val[0], BaseModel)
+            assert hasattr(val[0], '__data__')
+            ctx_out[key] = [x.__data__ for x in val]
+        elif isinstance(val, (str, int, float, list, tuple, dict)) or val is None:
+            # this assumes that sequence/mapping components are json-serializable
+            ctx_out[key] = val
         elif isinstance(val, BaseModel):
+            assert hasattr(val, '__data__')
             ctx_out[key] = val.__data__
+        elif isinstance(val, SecurityMixin):
+            assert hasattr(val, 'asdict')
+            ctx_out[key] = val.asdict()
+        elif isinstance(val, Callable):
+            # note that this covers functions as well as classes (including enums, etc.),
+            # which are all typically not natively serializable
+            log.debug(f"skipping ctx mapping for '{key}' (callable type '{type(val)}')")
+            continue
         else:
+            log.debug(f"implicit ctx mapping for '{key}' (type '{type(val)}')")
             ctx_out[key] = val
 
     return ctx_out

@@ -8,6 +8,7 @@ as formatting and display-related utilities.
 from typing import Self, Iterator
 
 from peewee import ForeignKeyField, DeferredForeignKey, fn
+from flask import g
 
 from database import BaseModel
 from schema import (rnd_pct, Bracket, BRACKET_NAME, TournStage, TournInfo, Player as BasePlayer,
@@ -154,6 +155,8 @@ class Player(UIMixin, BasePlayer):
         """Combination of player_num and name with embedded HTML annotation (used for
         bracket and scores/results displays)
         """
+        if g.api_call:
+            return f"{self.name} ({self.player_num})"
         return f"<b>{self.player_num}</b>&nbsp;&nbsp;<u>{self.name}</u>"
 
     @property
@@ -667,6 +670,8 @@ class Team(UIMixin, BaseTeam):
         """Combination of div_seed and team_name with embedded HTML annotation (used for
         bracket and scores/results displays)
         """
+        if g.api_call:
+            return f"{self.team_name} ({self.div_seed})"
         return f"<b>{self.div_seed}</b>&nbsp;&nbsp;<u>{self.team_name}</u>"
 
     @property

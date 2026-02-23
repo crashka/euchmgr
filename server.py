@@ -273,14 +273,14 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
     INVALID_ROUTE = "_INVALID"
 
     API_MAP = {
-        "tourn/"      : "tourn/data",
-        "players/"    : "players/data",
-        "seeding/"    : "seeding/data",
-        "partners/"   : "partners/data",
-        "teams/"      : "teams/data",
-        "round_robin/": "round_robin/data",
-        "final_four/" : "final_four/data",
-        "playoffs/"   : "playoffs/data",
+        "tourn/"      : "/tourn/data",
+        "players/"    : "/players/data",
+        "seeding/"    : "/seeding/data",
+        "partners/"   : "/partners/data",
+        "teams/"      : "/teams/data",
+        "round_robin/": "/round_robin/data",
+        "final_four/" : "/final_four/data",
+        "playoffs/"   : "/playoffs/data",
         "tourn"       : INVALID_ROUTE,
         "players"     : INVALID_ROUTE,
         "seeding"     : INVALID_ROUTE,
@@ -303,16 +303,42 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         that the following request attributes will be different for API calls (we are not
         rewriting them here): `url`, `path`, `full_path`, and `endpoint`.
         """
-        reroute = API_MAP.get(route) or route
+        reroute = API_MAP.get(route) or '/' + route
         assert g.api_call  # consider this flag a framework thing
         # ATTN: `request_ctx` will be merged with `app_ctx` in Flask version 3.2, so the
         # URL adapter will move at that point!
         url_adapter = request_ctx.url_adapter
-        endpoint, kwargs = url_adapter.match('/' + reroute, request.method)
+        endpoint, kwargs = url_adapter.match(reroute, request.method)
         if endpoint not in current_app.view_functions:
             return render_error(404)
         if not db_is_initialized() and reroute not in NO_DB_REQ:
             return render_error(400, desc="No active tournament")
+        view_func = current_app.view_functions[endpoint]
+        return view_func(**kwargs)
+
+    MOBILE_API_MAP = {
+        "login" : "/login",
+        "logout": "/logout"
+    }
+
+    @app.route("/mobile_api/<path:route>", methods=['GET', 'POST'])
+    def mobile_api_router(route: str) -> str:
+        """Reroute mobile API calls.  The route handlers should treat these the same as
+        calls from the app, except that only JSON data is returned (for errors, as well).
+        Note that the following request attributes will be different for API calls (we are
+        not rewriting them here): `url`, `path`, `full_path`, and `endpoint`.
+        """
+        if not is_mobile():
+            return render_error(403, desc="Mobile access only")
+        reroute = MOBILE_API_MAP.get(route) or MOBILE_URL_PFX + '/' + route
+        assert g.api_call  # consider this flag a framework thing
+        # see ATTN message in `api_router()` (above)
+        url_adapter = request_ctx.url_adapter
+        endpoint, kwargs = url_adapter.match(reroute, request.method)
+        if endpoint not in current_app.view_functions:
+            return render_error(404)
+        if not db_is_initialized():
+            return render_error(503, desc="Tournament paused")
         view_func = current_app.view_functions[endpoint]
         return view_func(**kwargs)
 

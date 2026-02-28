@@ -21,14 +21,17 @@ from database import BaseModel
 # utility stuff #
 #################
 
-# NOTE: more utility stuff at the bottom of this file
-
 MOBILE_REGEX = r'Mobile|Android|iPhone'
 
-def is_mobile() -> bool:
-    """Determine mobile client by the user-agent string
+def mobile_client() -> bool:
+    """Determine mobile client by the user-agent string.
     """
     return re.search(MOBILE_REGEX, request.user_agent.string) is not None
+
+def is_mobile() -> bool:
+    """TEMP: for compatibility (later remove when callers are converted)!!!
+    """
+    return g.mobile
 
 Scalar = str | int | float | bool | None
 
@@ -65,45 +68,6 @@ def msg_join(msgs: list[str]) -> str:
     msg_sep = "\n" if g.api_call else "<br>"
     return msg_sep.join(msgs)
 
-#############
-# renderers #
-#############
-
-ERROR_TEMPLATE = "error.html"
-
-def ajax_data(data: dict | list | str) -> dict:
-    """Wrapper for returning specified data in the structure expected by DataTables for an
-    ajax data source.  `data` must be specified.
-    """
-    return ajax_response(True, data=data)
-
-def ajax_succ(info_msg: str = None, data: dict | list | str = None) -> dict:
-    """Convenience function (slightly shorter).  `info_msg` is optional.
-    """
-    return ajax_response(True, msg=info_msg, data=data)
-
-def ajax_error(err_msg: str, data: dict | list | str = None) -> dict:
-    """Convenience function (slightly shorter).  `err_msg` must be specified.
-    """
-    return ajax_response(False, msg=err_msg, data=data)
-
-def ajax_response(succ: bool, msg: str = None, data: dict | list | str = None) -> dict:
-    """Encapsulate response to an ajax request (GET or POST).  Note that clients can check
-    either the `succ` or `err` field to determine the result.  The return `data` is passed
-    through to the front-end, with the format being context-dependent (e.g. dict or list
-    representing JSON data, or a string directive understood by the client side).
-
-    LATER: we may want to add UI selectors as additional return elements, indicating rows
-    and/or cells to highlight, set focus, etc.!!!
-    """
-    assert succ or msg, "`msg` arg is required for errors"
-    return {
-        'succ'   : succ,
-        'err'    : None if succ else msg,
-        'info'   : msg if succ else None,
-        'data'   : data
-    }
-
 # "context mappers" process a context dict before jsonification
 CtxMapper = Callable[[dict], dict]
 
@@ -138,6 +102,12 @@ def dflt_ctx_mapper(ctx_in: dict) -> dict:
 
     return ctx_out
 
+#############
+# renderers #
+#############
+
+ERROR_TEMPLATE = "error.html"
+
 def render_response(render_fmt: str | tuple[str, CtxMapper], **ctx) -> str:
     """Either render an app template or formulate an ajax json response, depending on the
     `g.api_call` flag, using the specified context information.  The first argument is
@@ -151,39 +121,82 @@ def render_response(render_fmt: str | tuple[str, CtxMapper], **ctx) -> str:
         assert isinstance(render_fmt, str)
         tmpl_name, ctx_mapper = render_fmt, dflt_ctx_mapper
     if g.api_call:
+        assert g.mobile  # admin views are not rendered through the API
         err_msg = ctx.pop('err_msg', None)
+        info_msg = ctx.pop('info_msg', None)
         if err_msg:
-            return ajax_error(err_msg, ctx_mapper(ctx) if ctx_mapper else ctx)
-        return ajax_data(ctx_mapper(ctx) if ctx_mapper else ctx)
+            log.debug(f"render_response for API call, err_msg \"{err_msg}\"")
+            return api_error(400, err_msg, info_msg)
+
+        mapped_ctx = ctx_mapper(ctx) if ctx_mapper else ctx
+        log.debug(f"render_response for API call")
+        return api_succ(info_msg, mapped_ctx)
     return render_template(tmpl_name, **ctx)
 
 def redirect(location: str) -> str:
-    """Wrapper around `flask.redirect` to properly handle both app and API calls.
+    """Logical redirect to the appropriate post-action view.  For admin and mobile views,
+    this is just a wrapper around `flask.redirect`; for API calls, we return directly, and
+    only off the direct location as a suggestion.
     """
     if g.api_call:
-        data = {'redirect': location}
         params, msgs = process_flashes()
-        err_msgs     = params.pop('err', [])
-        info_msgs    = params.pop('info', []) + msgs
+        err_msgs = params.pop('err', [])
+        info_msgs = params.pop('info', []) + msgs
         if params:
             raise ImplementationError(f"unexpected flashed params '{params}'")
-        if err_msgs:
-            return ajax_error(msg_join(err_msgs), msg_join(info_msgs))
-        if info_msgs:
-            data['info'] = info_msgs
-        return ajax_data(data)
+        err_msg = msg_join(err_msgs) or None
+        info_msg = msg_join(info_msgs) or None
+        if err_msg:
+            log.debug(f"redirect for API call, err_msg \"{err_msg}\"")
+            return api_error(400, err_msg, info_msg)
+
+        # TODO: resolve '/' to active view for both admin and mobile!!!
+        data = {'redirect': location}
+        log.debug(f"redirect (virtual) for API call")
+        return api_succ(info_msg, data)
     return flask_redirect(location)
 
 def render_error(code: int, name: str = None, desc: str = None) -> str:
-    """Mobile-adjusted error page (replacement for `flask.abort`).
+    """Mobile-adjusted error page (replacement for `flask.abort`).  This mechanism is used
+    for errors rendered outside of the application UI framework.
     """
     if not is_mobile():
         abort(code, description=desc)
 
     err = HTTPStatus(code)
+    err_msg = name or err.phrase
+    err_desc = desc or err.description
+
+    if g.api_call:
+        log.debug(f"render_error for API call, err_msg \"{err_msg}\"")
+        return api_error(code, err_msg, err_desc)
+
     context = {
         'title'      : f"{code} {err._name_}",
-        'error'      : name or err.phrase,
-        'description': desc or err.description
+        'error'      : err_msg,
+        'description': err_desc
     }
     return render_template(ERROR_TEMPLATE, **context), code
+
+# TEMP: create "api" return calls using ajax returns as a model--LATER, we need to unify
+# these two layers!!!
+
+def api_succ(info_msg: str = None, data: dict | list | str = None) -> dict:
+    """Convenience function (slightly shorter).  `info_msg` is optional.
+    """
+    return {
+        'succ': True,
+        'err' : None,
+        'info': info_msg,
+        'data': data
+    }
+
+def api_error(code: int, err_msg: str, err_desc: str = None) -> dict:
+    """Convenience function (slightly shorter).  `err_msg` must be specified.
+    """
+    return {
+        'succ': False,
+        'err' : err_msg,
+        'info': err_desc,
+        'data': None
+    }, code

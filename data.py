@@ -7,13 +7,12 @@ view management).
 """
 from ckautils import typecast
 from peewee import IntegrityError
-from flask import Blueprint, request
+from flask import Blueprint, g, request
 
 from security import login_required
 from schema import Bracket, TournStage, TournInfo
 from euchmgr import compute_player_ranks, compute_team_ranks, compute_playoff_ranks
 from ui_schema import Player, PartnerPick, SeedGame, Team, TournGame, PlayoffGame
-from ui_common import ajax_data, ajax_succ, ajax_error
 
 ###################
 # blueprint stuff #
@@ -210,6 +209,8 @@ def post_seeding() -> dict:
         raise
     except TypeError as e:
         return ajax_error("Invalid type specified")
+    except RuntimeError as e:
+        return ajax_error(str(e))
 
     return ajax_data(sg_data)
 
@@ -461,6 +462,8 @@ def post_round_robin() -> dict:
         raise
     except TypeError as e:
         return ajax_error("Invalid type specified")
+    except RuntimeError as e:
+        return ajax_error(str(e))
 
     return ajax_data(tg_data)
 
@@ -617,5 +620,61 @@ def post_playoffs() -> dict:
         raise
     except TypeError as e:
         return ajax_error("Invalid type specified")
+    except RuntimeError as e:
+        return ajax_error(str(e))
 
     return ajax_data(pg_data)
+
+#############
+# renderers #
+#############
+
+# For now, these "renderers" are specific to this module--LATER, we may want to move them
+# to a common layer for all ajax (purely headless) calls, if/when another client structure
+# develops.  Note that there are no explicit HTTP status codes nor any notion of rediction
+# as part of this interface (only one implicit/hard-wired error code).
+
+def ajax_data(data: dict | list | str) -> dict:
+    """Wrapper for returning specified data in the structure expected by DataTables for an
+    ajax data source.  `data` must be specified.
+    """
+    return ajax_response(True, data=data)
+
+def ajax_succ(info_msg: str = None, data: dict | list | str = None) -> dict:
+    """Convenience function (slightly shorter).  `info_msg` is optional.
+    """
+    return ajax_response(True, msg=info_msg, data=data)
+
+def ajax_error(err_msg: str, data: dict | list | str = None) -> dict:
+    """Convenience function (slightly shorter).  `err_msg` must be specified.
+    """
+    # FIX: we currently return this error as HTTP status 200 so that it is handled by
+    # `ajax.done()` on the client side--we should really return status 400, so need to
+    # figure out how to get the error message to the `ajax.fail()` handler!!!
+    return ajax_response(False, msg=err_msg, data=data)
+
+def ajax_response(succ: bool, msg: str = None, data: dict | list | str = None) -> dict:
+    """Encapsulate response to an ajax request (GET or POST).  Note that clients can check
+    either the `succ` or `err` field to determine the result.  The return `data` is passed
+    through to the front-end, with the format being context-dependent (e.g. dict or list
+    representing JSON data, or a string directive understood by the client side).
+
+    LATER: we may want to add UI selectors as additional return elements, indicating rows
+    and/or cells to highlight, set focus, etc.!!!
+    """
+    assert succ or msg, "`msg` arg is required for errors"
+    if not succ and g.api_call:
+        return {
+            'succ': succ,
+            'err' : msg,
+            'info': None,
+            'data': data
+        }, 400
+
+    # see FIX note in ajax_error() above!
+    return {
+        'succ': succ,
+        'err' : None if succ else msg,
+        'info': msg if succ else None,
+        'data': data
+    }

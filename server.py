@@ -22,8 +22,8 @@ from security import (current_user, EuchmgrUser, ADMIN_USER, ADMIN_ID, AdminUser
 from database import db_is_initialized, db_connect, db_close, db_is_closed
 from schema import TournInfo
 from ui_schema import Player
-from ui_common import (is_mobile, process_flashes, msg_join, render_response, redirect,
-                       render_error)
+from ui_common import (mobile_client, is_mobile, process_flashes, msg_join, render_response,
+                       redirect, render_error)
 from data import data
 from chart import chart
 from dash import dash
@@ -87,10 +87,12 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
     login.init_app(app)
 
     @app.before_request
-    def _api_handler() -> None:
-        """Tag API calls on the way in (used to affect the rendering course).
+    def _tag_request() -> None:
+        """Tag API calls and mobile clients on the way in (used for routing, rendering,
+        etc.).
         """
         g.api_call = request.path.startswith(('/api/', '/mobile_api/'))  # bool
+        g.mobile = mobile_client()
 
     ##################
     # db connections #
@@ -137,11 +139,13 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
     def handle_http_exception(e) -> tuple[dict, int] | HTTPException:
         """Return appropropiate exception format based on `g.api_call`.
         """
+        log.debug(f"handle_http_exception {e.code} ({e.name}), \"{e.description}\"")
         if g.api_call:
             return {
-                "code": e.code,
-                "name": e.name,
-                "description": e.description
+                'succ': False,
+                'err' : e.name,
+                'info': e.description,
+                'data': None
             }, e.code
         return e
 
@@ -149,13 +153,16 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
     def handle_exception(e) -> tuple[dict, int] | Exception:
         """Return appropropiate exception format based on `g.api_call`.
         """
+        log.debug(f"handle_exception \"{str(e)}\"")
         if g.api_call:
             tb = traceback.format_exception(e)
             return {
-                "error": str(e),
-                "traceback": tb if app.debug else None
+                'succ': False,
+                'err' : str(e),
+                'info': None,
+                'data': tb if app.debug else None
             }, 500
-        raise
+        raise  # note difference from handle_http_exception above (it's a Flask thing)
 
     ###############
     # login stuff #
@@ -286,8 +293,9 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
     }
 
     NO_DB_REQ = {
-        'tourn/select_tourn',
-        'tourn/create_tourn'
+        '/login',
+        '/tourn/select_tourn',
+        '/tourn/create_tourn'
     }
 
     @app.route("/api/<path:route>", methods=['GET', 'POST'])

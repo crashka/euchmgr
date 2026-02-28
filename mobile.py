@@ -227,8 +227,8 @@ def remap_view(view: str, player: Player) -> str:
         return View.ROUND_ROBIN
     return view
 
-def dflt_view(tourn: TournInfo, player: Player) -> str:
-    """Return most relevant view for the current stage of the tournament.
+def active_view(tourn: TournInfo, player: Player) -> str:
+    """Return active view for the current stage of the tournament.
     """
     assert tourn.stage_start
     for stage, view in STAGE_VIEW:
@@ -246,7 +246,7 @@ def index() -> str:
         return redirect(url_for('login_page'))
 
     tourn = TournInfo.get()
-    view = dflt_view(tourn, current_user)
+    view = active_view(tourn, current_user)
     assert view
     # note that flashed messages are not processed for now, they will be passed through to
     # the redirected page

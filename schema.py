@@ -142,7 +142,7 @@ StageData = dict(zip(TournStage, STAGE_DATA))
 # TournInfo #
 #############
 
-HIDDEN_TOURN_FLDS = {'dflt_pw_hash'}
+HIDDEN_TOURN_FLDS = ['dflt_pw_hash']
 
 class TournInfo(BaseModel):
     """High-level tournament information.  There is only one instance per database (since
@@ -674,7 +674,7 @@ class SeedGame(BaseModel):
         """Determine (and set) winner if game is complete
         """
         if set(self._dirty) & {'team1_pts', 'team2_pts'}:
-            if None not in {self.team1_pts, self.team2_pts}:
+            if None not in (self.team1_pts, self.team2_pts):
                 if self.team1_pts >= GAME_PTS:
                     if self.team2_pts >= GAME_PTS:
                         raise RuntimeError(f"Only one team can score game-winning points ({GAME_PTS})")
@@ -986,7 +986,7 @@ class TournGame(BaseModel):
         """Compute winner if both scores have been entered
         """
         if set(self._dirty) & {'team1_pts', 'team2_pts'}:
-            if None not in {self.team1_pts, self.team2_pts}:
+            if None not in (self.team1_pts, self.team2_pts):
                 if self.team1_pts >= GAME_PTS:
                     if self.team2_pts >= GAME_PTS:
                         raise RuntimeError(f"Only one team can score game-winning points ({GAME_PTS})")
@@ -1113,7 +1113,7 @@ class PlayoffGame(BaseModel):
         """Compute winner if both scores have been entered
         """
         if set(self._dirty) & {'team1_pts', 'team2_pts'}:
-            if None not in {self.team1_pts, self.team2_pts}:
+            if None not in (self.team1_pts, self.team2_pts):
                 if self.team1_pts >= GAME_PTS:
                     if self.team2_pts >= GAME_PTS:
                         raise RuntimeError(f"Only one team can score game-winning points ({GAME_PTS})")

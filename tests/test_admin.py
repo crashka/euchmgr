@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
 
 """Test admin UI.
+
+To do:
+
+- add tests for POST to <view>/data targets.
 """
-import re
+
+from os import environ
 import json
 
 import pytest
@@ -14,9 +19,12 @@ from test_basic import ROSTER_FILE
 from schema import TournStage, TournInfo
 from admin import View, VIEW_DEFS, SEL_NEW
 
-#####################
-# utility functions #
-#####################
+#################
+# utility stuff #
+#################
+
+ADMIN_PW = environ.get('EUCHMGR_ADMIN_PW')
+assert ADMIN_PW, "EUCHMGR_ADMIN_PW must be set in the env"
 
 def validate_stage(soup: BeautifulSoup, stage: TournStage) -> TournInfo:
     """Validate tournament stage in view info section.  Return `tourn` as a convenience.
@@ -82,7 +90,7 @@ def test_login(admin_client):
     client = admin_client
     data = {
         'username': "admin",
-        'password': "119baystate"
+        'password': ADMIN_PW
     }
     resp = client.post("/login", data=data, follow_redirects=True)
     assert resp.status_code == 200

@@ -66,63 +66,69 @@ def test_index(admin_client):
     assert resp.request.path == '/login'
 
     soup = BeautifulSoup(resp.text, 'html.parser')
-    assert soup.find('form', action="/login")
-
-    form = soup.find('form', action="/login")
-    assert form.find('select', attrs={'name': "username"})
-    assert form.find('input', attrs={'name': "password"})
-    select = form.find('select', attrs={'name': "username"})
-    assert select.find('option', value="admin")
-    option = select.find('option', value="admin")
-    assert option.string == 'admin'
+    form = soup.select_one('form[action="/login"]')
+    assert form
+    select = form.select_one('select[name="username"]')
+    assert select
+    options = select.select('option')
+    assert len(options) == 1
+    assert options[0].get('value') == 'admin'
+    assert options[0].get('selected') is not None
+    assert options[0].string == 'admin'
 
 def test_login(admin_client):
     """Logging in as admin should return tournament selection view.
     """
     client = admin_client
-    data = {'username': "admin", 'password': "119baystate"}
+    data = {
+        'username': "admin",
+        'password': "119baystate"
+    }
     resp = client.post("/login", data=data, follow_redirects=True)
     assert resp.status_code == 200
     assert len(resp.history) == 2
     assert resp.request.path == '/tourn'
 
     soup = BeautifulSoup(resp.text, 'html.parser')
-    assert soup.find('form', action="/tourn/select_tourn")
-    assert not soup.find('section', class_="tourn")
+    assert not soup.select('section.tourn')
 
-    form = soup.find('form', action="/tourn/select_tourn")
-    assert form.find('select', attrs={'name': "tourn"})
-    select = form.find('select', attrs={'name': "tourn"})
-    assert select.find('option', value=SEL_NEW)
-    option = select.find('option', value=SEL_NEW)
-    assert option.string == SEL_NEW
+    form = soup.select_one('form[action="/tourn/select_tourn"]')
+    assert form
+    select = form.select_one('select[name="tourn"]')
+    assert select
+    assert select.select('option[disabled][selected][hidden]')
+    assert select.select_one(f'option[value="{SEL_NEW}"]')
+    assert select.select_one(f'option[value="{SEL_NEW}"]').string == SEL_NEW
 
 def test_create_new(admin_client):
     """Selecting "(create new)" should return create tournament view.
     """
     client = admin_client
-    data = {'action': "select_tourn", 'tourn': SEL_NEW}
+    data = {
+        'action': "select_tourn",
+        'tourn' : SEL_NEW
+    }
     resp = client.post("/tourn/select_tourn", data=data, follow_redirects=True)
     assert resp.status_code == 200
     assert len(resp.history) == 1
     assert resp.request.path == '/tourn'
 
     soup = BeautifulSoup(resp.text, 'html.parser')
-    assert soup.find('form', action="/tourn/select_tourn")
-    assert soup.find('form', action="/tourn")
-    assert soup.find('section', class_="tourn")
+    assert soup.select('section.tourn')
 
-    form = soup.find('form', action="/tourn/select_tourn")
-    assert form.find('select', attrs={'name': "tourn"})
-    select = form.find('select', attrs={'name': "tourn"})
-    assert select.find('option', value=SEL_NEW, selected=True)
+    form = soup.select_one('form[action="/tourn/select_tourn"]')
+    assert form
+    select = form.select_one('select[name="tourn"]')
+    assert select
+    assert select.select(f'option[value="{SEL_NEW}"][selected]')
 
-    form = soup.find('form', action="/tourn")
-    assert form.find('input', attrs={'name': "tourn_id"})
-    assert form.find('input', attrs={'name': "tourn_name"})
-    assert form.find('input', attrs={'name': "roster_file"})
-    assert form.find('input', attrs={'name': "overwrite"})
-    assert form.find('button', value="create_tourn", disabled=False)
+    form = soup.select_one('form[action="/tourn"]')
+    assert form
+    assert form.select('input[name="tourn_id"]')
+    assert form.select('input[name="tourn_name"]')
+    assert form.select('input[name="roster_file"]')
+    assert form.select('input[name="overwrite"]')
+    validate_button(form, "create_tourn", True)
 
 def test_create_tourn_overwrite(admin_client):
     """Creating a new tournament should return the Players view.
@@ -167,7 +173,9 @@ def test_gen_player_nums(admin_client):
     """Generating player nums should enable the `gen_seed_bracket` button.
     """
     client = admin_client
-    data = {'action': "gen_player_nums"}
+    data = {
+        'action': "gen_player_nums"
+    }
     resp = client.post("/players/gen_player_nums", data=data, follow_redirects=True)
     assert resp.status_code == 200
     assert len(resp.history) == 1
@@ -185,7 +193,9 @@ def test_gen_seed_bracket(admin_client):
     """Generating seed bracket should return the Seeding view.
     """
     client = admin_client
-    data = {'action': "gen_seed_bracket"}
+    data = {
+        'action': "gen_seed_bracket"
+    }
     resp = client.post("/players/gen_seed_bracket", data=data, follow_redirects=True)
     assert resp.status_code == 200
     assert len(resp.history) == 1
@@ -220,7 +230,9 @@ def test_fake_seed_results(admin_client):
     """Generating fake seed results should enable the `tabulate_seed_results` button.
     """
     client = admin_client
-    data = {'action': "fake_seed_results"}
+    data = {
+        'action': "fake_seed_results"
+    }
     resp = client.post("/seeding/fake_seed_results", data=data, follow_redirects=True)
     assert resp.status_code == 200
     assert len(resp.history) == 1
@@ -238,7 +250,9 @@ def test_tabulate_seed_results(admin_client):
     """Tabulating seed results should return the Partners view.
     """
     client = admin_client
-    data = {'action': "tabulate_seed_results"}
+    data = {
+        'action': "tabulate_seed_results"
+    }
     resp = client.post("/seeding/tabulate_seed_results", data=data, follow_redirects=True)
     assert resp.status_code == 200
     assert len(resp.history) == 1
@@ -256,7 +270,9 @@ def test_fake_partner_picks(admin_client):
     """Generating fake partner picks should enable the `comp_team_seeds` button.
     """
     client = admin_client
-    data = {'action': "fake_partner_picks"}
+    data = {
+        'action': "fake_partner_picks"
+    }
     resp = client.post("/partners/fake_partner_picks", data=data, follow_redirects=True)
     assert resp.status_code == 200
     assert len(resp.history) == 1
@@ -274,7 +290,9 @@ def test_comp_team_seeds(admin_client):
     """Computing team seeds should return the Teams view.
     """
     client = admin_client
-    data = {'action': "comp_team_seeds"}
+    data = {
+        'action': "comp_team_seeds"
+    }
     resp = client.post("/partners/comp_team_seeds", data=data, follow_redirects=True)
     assert resp.status_code == 200
     assert len(resp.history) == 1
@@ -291,7 +309,9 @@ def test_gen_tourn_brackets(admin_client):
     """Generating tourn brackets should return the Round Robin view.
     """
     client = admin_client
-    data = {'action': "gen_tourn_brackets"}
+    data = {
+        'action': "gen_tourn_brackets"
+    }
     resp = client.post("/teams/gen_tourn_brackets", data=data, follow_redirects=True)
     assert resp.status_code == 200
     assert len(resp.history) == 1
@@ -326,7 +346,9 @@ def test_fake_tourn_results(admin_client):
     """Generating fake tourn results should enable the `tabulate_tourn_results` button.
     """
     client = admin_client
-    data = {'action': "fake_tourn_results"}
+    data = {
+        'action': "fake_tourn_results"
+    }
     resp = client.post("/round_robin/fake_tourn_results", data=data, follow_redirects=True)
     assert resp.status_code == 200
     assert len(resp.history) == 1
@@ -344,7 +366,9 @@ def test_tabulate_tourn_results(admin_client):
     """Tabulating tourn results should return the Final Four view.
     """
     client = admin_client
-    data = {'action': "tabulate_tourn_results"}
+    data = {
+        'action': "tabulate_tourn_results"
+    }
     resp = client.post("/round_robin/tabulate_tourn_results", data=data, follow_redirects=True)
     assert resp.status_code == 200
     assert len(resp.history) == 1
@@ -362,7 +386,9 @@ def test_gen_semis_bracket(admin_client):
     """Generating semis bracket should return the Playoffs view.
     """
     client = admin_client
-    data = {'action': "gen_semis_bracket"}
+    data = {
+        'action': "gen_semis_bracket"
+    }
     resp = client.post("/final_four/gen_semis_bracket", data=data, follow_redirects=True)
     assert resp.status_code == 200
     assert len(resp.history) == 1
@@ -389,47 +415,51 @@ def test_manage_tourn(admin_client):
     assert len(resp.history) == 0
     assert resp.request.path == '/tourn'
 
+    tourn = TournInfo.get()
     soup = BeautifulSoup(resp.text, 'html.parser')
-    assert soup.find('form', action="/tourn/select_tourn")
-    assert soup.find('form', action="/tourn")
-    assert soup.find('section', class_="tourn")
+    form = soup.select_one('form[action="/tourn/select_tourn"]')
+    assert form
+    select = form.select_one('select[name="tourn"]')
+    assert select
+    assert select.select(f'option[value="{tourn.name}"][selected]')
 
-    form = soup.find('form', action="/tourn/select_tourn")
-    assert form.find('select', attrs={'name': "tourn"})
-    select = form.find('select', attrs={'name': "tourn"})
-    assert select.find('option', value=TEST_DB, selected=True)
-
-    form = soup.find('form', action="/tourn")
-    assert form.find('input', attrs={'name': "tourn_id"})
-    assert form.find('input', attrs={'name': "tourn_name"})
-    assert form.find('button', value="update_tourn", disabled=False)
-    assert form.find('button', value="pause_tourn", disabled=False)
+    form = soup.select_one('form[action="/tourn"]')
+    assert form
+    assert form.select_one('input[name="tourn_id"]')
+    assert form.select_one('input[name="tourn_id"]')['value'] == str(tourn.id)
+    assert form.select_one('input[name="tourn_name"]')
+    assert form.select_one('input[name="tourn_name"]')['value'] == tourn.name
+    assert not form.select('input[name="roster_file"]')
+    assert not form.select('input[name="overwrite"]')
+    validate_button(form, "update_tourn", True)
+    validate_button(form, "pause_tourn", True)
 
 def test_pause_tourn(admin_client):
     """Generating semis bracket should return the Playoffs view.
     """
     client = admin_client
+    tourn = TournInfo.get()
     data = {
         'action'    : "pause_tourn",
-        'tourn_name': TEST_DB
+        'tourn_name': tourn.name
     }
     resp = client.post("/tourn/pause_tourn", data=data, follow_redirects=True)
     assert resp.status_code == 200
     assert len(resp.history) == 2
     assert resp.request.path == '/tourn'
-    err_msg = "show_error(\'Tournament \"test\" has been paused"
+    err_msg = f"showError(\'Tournament \"{tourn.name}\" has been paused"
     assert resp.text.find(err_msg) > -1
 
     soup = BeautifulSoup(resp.text, 'html.parser')
-    assert soup.find('form', action="/tourn/select_tourn")
-    assert not soup.find('section', class_="tourn")
+    assert not soup.select('section.tourn')
 
-    form = soup.find('form', action="/tourn/select_tourn")
-    assert form.find('select', attrs={'name': "tourn"})
-    select = form.find('select', attrs={'name': "tourn"})
-    assert select.find('option', value=TEST_DB)
-    option = select.find('option', value=TEST_DB)
-    assert option.string == TEST_DB
+    form = soup.select_one('form[action="/tourn/select_tourn"]')
+    assert form
+    select = form.select_one('select[name="tourn"]')
+    assert select
+    assert select.select('option[disabled][selected][hidden]')
+    assert select.select_one(f'option[value="{tourn.name}"]')
+    assert select.select_one(f'option[value="{tourn.name}"]').string == tourn.name
 
 def test_create_tourn_exists(admin_client):
     """Creating a new tournament should return the Players view.
@@ -446,5 +476,28 @@ def test_create_tourn_exists(admin_client):
     assert resp.status_code == 200
     assert len(resp.history) == 0
     assert resp.request.path == '/tourn/create_tourn'
-    err_msg = "show_error(\'Tournament \"test\" already exists"
+    err_msg = f"showError(\'Tournament \"{TEST_DB}\" already exists"
     assert resp.text.find(err_msg) > -1
+
+def test_resume_tourn(admin_client):
+    """Resuming the tournament should bring us back to the Playoffs view.
+    """
+    client = admin_client
+    data = {
+        'action': "select_tourn",
+        'tourn' : TEST_DB
+    }
+    resp = client.post("/tourn/select_tourn", data=data, follow_redirects=True)
+    assert resp.status_code == 200
+    assert len(resp.history) == 2
+    assert resp.request.path == '/playoffs'
+    err_msg = f"showError(\'Resuming operation of tournament \"{TEST_DB}\""
+    assert resp.text.find(err_msg) > -1
+
+    soup = BeautifulSoup(resp.text, 'html.parser')
+    validate_view(soup, View.PLAYOFFS)
+    validate_stage(soup, TournStage.SEMIS_BRACKET)
+
+    form = soup.select_one('form.actions[action="playoffs"]')
+    validate_button(form, "tabulate_semis_results", False)
+    validate_button(form, "tabulate_finals_results", False)

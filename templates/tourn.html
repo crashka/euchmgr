@@ -234,7 +234,7 @@
      });
 
      // error block
-     const show_error = function(err_text) {
+     const showError = function(err_text) {
        $('.err_blk div').html(err_text);
        $('.err_blk').css('display', 'flex');
      };
@@ -243,7 +243,7 @@
      });
 
      {% if err_msg %}
-     show_error('{{err_msg|safe}}');
+     showError('{{err_msg|safe}}');
      {% endif %}
    });
   </script>

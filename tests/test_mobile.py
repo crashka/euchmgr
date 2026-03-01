@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-"""Test team ranking process, including tie-breaking logic.
+"""Test mobile UI.
 """
 import re
 
@@ -8,9 +8,10 @@ import pytest
 
 from conftest import get_user_client
 
-def test_index(client):
-    """Sanity check, hitting '/' should return login page
+def test_index(mobile_client):
+    """Sanity check, hitting '/' should return login page.
     """
+    client = mobile_client
     resp = client.get('/', follow_redirects=True)
     assert resp.status_code == 200
     assert len(resp.history) == 1
@@ -18,7 +19,7 @@ def test_index(client):
     assert "Select player..." in resp.text
 
 def test_logins(seed_bracket_app):
-    """Make sure disparate client sessions are independent of each other
+    """Make sure disparate client sessions are independent of each other.
     """
     app = seed_bracket_app
     crash_client = get_user_client(app, "Crash")
@@ -32,7 +33,7 @@ def test_logins(seed_bracket_app):
     assert re.search(r'User: <span.*>Abs</span>', resp.text)
 
 def test_post_score(seed_bracket_app):
-    """Make sure disparate client sessions are independent of each other
+    """Test basic submitting of game score.
     """
     app = seed_bracket_app
     virgilio_client = get_user_client(app, "Virgilio")

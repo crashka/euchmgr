@@ -62,7 +62,7 @@ class Config:
 
 # instantiate extensions globally
 sess_ext = Session()
-login = EuchmgrLogin()
+login_ext = EuchmgrLogin()
 
 def create_app(config: object | Config = Config, proxied: bool = False) -> Flask:
     """Application factory for the euchmgr server.  Configuration may be specified as a
@@ -82,9 +82,9 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
     app.register_blueprint(report, url_prefix='/report')
     app.jinja_env.add_extension('jinja2.ext.loopcontrols')
 
-    global sess_ext, login
+    global sess_ext, login_ext
     sess_ext.init_app(app)
-    login.init_app(app)
+    login_ext.init_app(app)
 
     @app.before_request
     def _tag_request() -> None:
@@ -168,7 +168,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
     # login stuff #
     ###############
 
-    @login.user_loader
+    @login_ext.user_loader
     def load_user(user_id: str | int) -> EuchmgrUser:
         """Return "user" flask_login object, which in our case is a `Player` instance (or the
         special admin security object).

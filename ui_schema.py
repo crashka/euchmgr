@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
 
+"""This module extends `schema` by adding UI-specific methods to model entities, as well
+as formatting and display-related utilities.
+"""
+
 from typing import Self, Iterator
 
 from peewee import ForeignKeyField, DeferredForeignKey, fn
+from flask import g
 
 from database import BaseModel
 from schema import (rnd_pct, Bracket, BRACKET_NAME, TournStage, TournInfo, Player as BasePlayer,
@@ -63,8 +68,8 @@ def fmt_tally(pts: int) -> str:
 ###########
 
 class UIMixin:
-    """Mixin to support compatibility with base schema instances.  NOTE: `ui` module
-    classes must inherit from this mixin then the associated `schema` class.
+    """Mixin to support compatibility with base schema instances.  NOTE: current module
+    classes must inherit from this mixin, then the associated `schema` class.
     """
     def __hash__(self):
         """Use the hash of the base schema class (see NOTE in the docheader).
@@ -83,6 +88,8 @@ class UIMixin:
 ##########
 # Player #
 ##########
+
+HIDDEN_PLYR_FLDS = {'pw_hash'}
 
 EMPTY_PLYR_STATS = {
     'seed_wins'       : None,
@@ -147,16 +154,20 @@ class Player(UIMixin, BasePlayer):
         """Combination of player_num and name with embedded HTML annotation (used for
         bracket and scores/results displays)
         """
+        if g.api_call:
+            return f"{self.name} ({self.player_num})"
         return f"<b>{self.player_num}</b>&nbsp;&nbsp;<u>{self.name}</u>"
 
     @property
     def player_data(self) -> dict:
-        """Return player data as a dict, removing distracting default values if not relevant
+        """Return player data as a dict, removing hidden and distracting default values
+        (if not relevant).
         """
         tourn = TournInfo.get()
+        data = {k: v for k, v in self.__data__.items() if k not in HIDDEN_PLYR_FLDS}
         if tourn.stage_compl < TournStage.SEED_BRACKET:
-            return self.__data__ | EMPTY_PLYR_STATS
-        return self.__data__
+            return data | EMPTY_PLYR_STATS
+        return data
 
     @property
     def seed_ident(self) -> str:
@@ -658,6 +669,8 @@ class Team(UIMixin, BaseTeam):
         """Combination of div_seed and team_name with embedded HTML annotation (used for
         bracket and scores/results displays)
         """
+        if g.api_call:
+            return f"{self.team_name} ({self.div_seed})"
         return f"<b>{self.div_seed}</b>&nbsp;&nbsp;<u>{self.team_name}</u>"
 
     @property

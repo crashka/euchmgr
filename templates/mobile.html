@@ -341,18 +341,18 @@
     </div>
     {% with tooltip = "Tap here to refresh view" %}
     <section class="info_stats" id="info-stats" title='{{tooltip}}'>
-      <h2>{{view_phase}}</h2>
+      <h2>{{view_name}}</h2>
       <section>
-        {% for info_sect in info_data %}
-        {% if info_sect %}
-        <h3>{{"Current Stage" if view == index else "Stage Info"}}</h3>
+        {% for sect, info_flds in info_data.items() %}
+        {% if not loop.first %}
+        <h3>Stage Info</h3>
         {% endif %}
         <article class="info">
-          {% for info in info_flds[info_sect] %}
+          {% for info in info_flds %}
           {% if tourn.stage_compl >= info.min_stg %}
           <p class="{{info.cls}}">
             {# NOTE that an info_data value of `0` must be passed in as a string #}
-            {% set data_val = info_data[info_sect][loop.index0] or "&nbsp;" %}
+            {% set data_val = info.value or "&nbsp;" %}
             {% set colon = "" if info.label[-1] == "?" else ":" %}
             <label>{{info.label}}</label>{{colon}}
             <span class="{{info.cls}}">{{data_val|safe}}</span>
@@ -366,21 +366,14 @@
     {% endwith %}
 
     {% set view_active = false %}
-    {% if view == index %}
-    <section class="index" id="index">
-      <p>
-        <i>Tournament not yet started</i>
-      </p>
-    </section>
-    {% endif %}  {# view == index #}
 
-    {% if view == register %}
+    {% if view == View.REGISTER %}
     {% set view_active = true %}
     {% set locked = (nums_avail == none) %}
     {% set disabled = " disabled" if locked else "" %}
     <section class="register" id="register">
       <h3>Player Info</h3>
-      <form action="./" method="post">
+      <form action="{{view}}" method="post">
         <input type="hidden" name="player_id" value="{{user.id}}">
         <p>
           <label>Nick Name</label>:
@@ -412,20 +405,20 @@
         <sup>&dagger;</sup> (ping pong ball number)
       </p>
     </section>
-    {% endif %}  {# view == register #}
+    {% endif %}  {# view == View.REGISTER #}
 
-    {% if view in (seeding, round_robin, semifinals, finals) %}
-    {% set stage_ent = user if view == seeding else team %}
+    {% if view in (View.SEEDING, View.ROUND_ROBIN, View.SEMIFINALS, View.FINALS) %}
+    {% set stage_ent = user if view == View.SEEDING else team %}
     <section class="games" id="sd-games">
       {% if stage_games %}
       {% set view_active = true %}
       <h3>Games</h3><span>(tap here for Leaderboard)</span>
-      <form action="./" method="post">
+      <form action="{{view}}" method="post">
         <input type="hidden" name="game_label" value="{{cur_game.label}}">
         <input type="hidden" name="posted_by_num" value="{{user.player_num}}">
         <input type="hidden" name="team_idx" value="{{team_idx}}">
         <input type="hidden" name="ref_score_id" value="{{ref_score_id}}">
-        {% set gm_lbl = "Game" if view in (semifinals, finals) else "Round" %}
+        {% set gm_lbl = "Game" if view in (View.SEMIFINALS, View.FINALS) else "Round" %}
         {% for gm in stage_games %}
         {% set gm_cls = " active" if gm == cur_game else ("" if gm.winner else " pending") %}
         <article class="game{{gm_cls}}" id="{{gm.label}}">
@@ -495,7 +488,7 @@
       </form>
       {% else %}  {# stage_games #}
       <p>
-        {% set plural = "s" if view == round_robin else "" %}
+        {% set plural = "s" if view == View.ROUND_ROBIN else "" %}
         <i>Bracket{{plural}} not yet created</i>
       </p>
       {% endif %}  {# stage_games #}
@@ -504,15 +497,14 @@
     {% if leaderboard %}
     <section class="leaderboard">
       <h3>Leaderboard</h3><span>(tap here for Games)</span>
-      {% set ent_hdr = "Player (num)" if view == seeding else ("Team (seed)") if view == round_robin else "Team (rank)" %}
-      {% set rank_hdr = "Pos" if view in (semifinals, finals) else "Rank" %}
+      {% set lb_hdr, lb_data = leaderboard  %}
       <p class="lb_hdr">
-        <span>{{ent_hdr}}</span>
-        <span>W-L</span>
-        <span>Pts %</span>
-        <span>{{rank_hdr}}</span>
+        <span>{{lb_hdr[1]}}</span>
+        <span>{{lb_hdr[2]}}</span>
+        <span>{{lb_hdr[3]}}</span>
+        <span>{{lb_hdr[4]}}</span>
       </p>
-      {% for pos in leaderboard %}
+      {% for pos in lb_data %}
       {% set pos_cls = "active" if stage_ent.id == pos[0] else "" %}
       <p class="{{pos_cls}}">
         <span>{{pos[1]|safe}}</span>
@@ -523,9 +515,9 @@
       {% endfor %}
     </section>
     {% endif %}  {# leaderboard #}
-    {% endif %}  {# view in (seeding, round_robin, semifinals, finals) #}
+    {% endif %}  {# view in (View.SEEDING, View.ROUND_ROBIN, View.SEMIFINALS, View.FINALS) #}
 
-    {% if view == partners %}
+    {% if view == View.PARTNERS %}
     <section class="picks" id="pt-picks">
       {% if partner_picks %}
       {% set view_active = true %}
@@ -534,7 +526,7 @@
         <span class="picker">Player (by rank)</span>
         <span class="partner">Teammate(s)</span>
       </article>
-      <form action="./" method="post">
+      <form action="{{view}}" method="post">
         {% for pk in partner_picks %}
         {% set pk_cls = " active" if pk == cur_pick else ("" if pk.partner else " pending") %}
         <article class="pick{{pk_cls}}" id="pk-{{pk.player_rank}}">
@@ -574,7 +566,7 @@
       </p>
       {% endif %}  {# partner_picks #}
     </section>
-    {% endif %}  {# view == partners #}
+    {% endif %}  {# view == View.PARTNERS #}
 
     {% if resources and view_active %}
     <section class="resources">
@@ -593,10 +585,15 @@
   <script>
    $(function() {
      // add css and attributes
-     $('.actions button').attr({
-       type: 'submit',
-       name: "action"
-     });
+     $('.actions button')
+       .attr({
+         type: 'submit',
+         name: "action"
+       })
+       .attr('formaction', function() {
+         const baseAction = $(this).closest('form').attr('action')
+         return baseAction + '/' + $(this).attr('value');
+       });
 
      // error dialog
      $('.err_dlg button').on('click', function() {

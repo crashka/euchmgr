@@ -11,25 +11,25 @@ import re
 
 from ckautils import typecast
 from peewee import OperationalError
-from flask import (Blueprint, request, session, render_template, abort, redirect, url_for,
-                   flash, get_flashed_messages)
+from flask import Blueprint, g, request, session, abort, url_for, flash
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash
 
 from core import DATA_DIR, UPLOAD_DIR, log, ImplementationError
 from security import current_user, DUMMY_PW_STR
 from database import DB_FILETYPE, db_init, db_name, db_reset, db_is_initialized
-from schema import (clear_schema_cache, Bracket, TournStage, TOURN_INIT, ACTIVE_STAGES,
-                    TournInfo)
+from schema import (clear_schema_cache, Bracket, TournStage, TOURN_INIT, ALL_STAGES,
+                    ACTIVE_STAGES, TournInfo)
 from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_seed_bracket,
                      fake_seed_games, validate_seed_round, compute_player_ranks,
                      prepick_champ_partners, fake_pick_partners, build_tourn_teams,
                      compute_team_seeds, build_tourn_bracket, fake_tourn_games,
                      validate_tourn, compute_team_ranks, build_playoff_bracket,
                      validate_playoffs, compute_playoff_ranks)
+from ui_common import (is_mobile, process_flashes, msg_join, render_response, redirect,
+                       render_error)
 from data import (Layout, pl_layout, sg_layout, pt_layout, tm_layout, tg_layout, ff_layout,
                   pg_layout)
-from mobile import is_mobile, render_error
 
 ###################
 # blueprint stuff #
@@ -63,28 +63,37 @@ def get_tourns() -> list[str]:
 # view stuff #
 ##############
 
-# symbolic name for view path
 class View(StrEnum):
-    TOURN       = '/tourn'
-    PLAYERS     = '/players'
-    SEEDING     = '/seeding'
-    PARTNERS    = '/partners'
-    TEAMS       = '/teams'
-    ROUND_ROBIN = '/round_robin'
-    FINAL_FOUR  = '/final_four'
-    PLAYOFFS    = '/playoffs'
+    """The string value for view items also represents (if not defines) their relative
+    path name.  Note that _absolute_ path names as needed when redirecting from POST
+    actions (hence `view_path`, below).
+    """
+    TOURN       = 'tourn'
+    PLAYERS     = 'players'
+    SEEDING     = 'seeding'
+    PARTNERS    = 'partners'
+    TEAMS       = 'teams'
+    ROUND_ROBIN = 'round_robin'
+    FINAL_FOUR  = 'final_four'
+    PLAYOFFS    = 'playoffs'
+
+def view_path(view: str) -> str:
+    """Return absolute path for specified view.  Note that the view name itself is the
+    proper _relative_ path for the view.
+    """
+    return '/' + view
 
 class ViewInfo(NamedTuple):
     """This is not super-pretty, but we want to make this as data-driven as possible
     """
-    name:       str
+    name:       str  # display name
     layout:     Layout
-    rowid_col:  str
-    tbl_order:  int
-    fixed_cols: int
+    rowid_col:  str  # column name
+    tbl_order:  int  # default sort column(s) (column index)
+    fixed_cols: int  # for horizontal scrolling (currently disabled)
 
 # only include views using ADMIN_TEMPLATE
-VIEW_INFO = {
+VIEW_DEFS = {
     View.PLAYERS: ViewInfo(
         "Players",
         pl_layout,
@@ -136,6 +145,12 @@ VIEW_INFO = {
     )
 }
 
+def view_menu() -> list[tuple[str, str]]:
+    """Return list of tuples representing navigation menu items of the following form:
+    (view, label), where "view" string value doubles as its relative path name.
+    """
+    return [(str(view), info.name) for view, info in VIEW_DEFS.items()]
+
 STAGE_MAPPING = [
     (TournStage.FINALS_RANKS,   View.FINAL_FOUR),
     (TournStage.FINALS_RESULTS, View.PLAYOFFS),
@@ -150,7 +165,7 @@ STAGE_MAPPING = [
 ]
 
 def active_view(tourn: TournInfo) -> View:
-    """Return active view for the current stage of the tournament
+    """Return active view for the current stage of the tournament.
     """
     if tourn.stage_start is None:
         return None
@@ -173,37 +188,24 @@ def tourn() -> str:
     if is_mobile():
         return render_error(403, desc="Mobile access unauthorized")
 
-    create_new = False
-    err_msgs = []
-    # see comment for same code in `login_page` (above)
-    for msg in get_flashed_messages():
-        if m := re.fullmatch(r'(\w+)=(.+)', msg):
-            key, val = m.group(1, 2)
-            if key == 'create_new':
-                create_new = typecast(val)
-            else:
-                raise ImplementationError(f"unexpected secret key '{key}' (value '{val}')")
-        else:
-            err_msgs.append(msg)
-    err_msg = "<br>".join(err_msgs)
+    params, msgs = process_flashes()
+    create_new   = params.pop('create_new', False)
+    err_msgs     = params.pop('err', [])
+    info_msgs    = params.pop('info', []) + msgs
+    if params:
+        raise ImplementationError(f"unexpected flashed params '{params}'")
 
     tourn_name = session.get('tourn')
     if tourn_name:
         assert not create_new
         assert db_is_initialized()
-        """
-        # resume managing previously active tournament
-        tourn = TournInfo.get()
-        assert tourn.name == tourn_name
-        view = active_view(tourn)
-        return redirect(view)
-        """
         tourn = TournInfo.get()
         assert tourn.name == tourn_name
         # render admin view for existing tournament
         context = {
-            'tourn'    : tourn,
-            'err_msg'  : err_msg
+            'tourn'   : tourn,
+            'err_msg' : msg_join(err_msgs) or msg_join(info_msgs),
+            'info_msg': msg_join(info_msgs)
         }
         return render_tourn(context)
 
@@ -219,7 +221,8 @@ def tourn() -> str:
     context = {
         'tourn'    : tourn,
         'new_tourn': create_new,
-        'err_msg'  : err_msg
+        'err_msg'  : msg_join(err_msgs) or msg_join(info_msgs),
+        'info_msg' : msg_join(info_msgs)
     }
     return render_tourn(context)
 
@@ -239,13 +242,20 @@ def view() -> str:
     if is_mobile():
         return render_error(403, desc="Mobile access unauthorized")
 
+    view = request.path.split('/')[-1]
     tourn = TournInfo.get()
-    err_msg = "<br>".join(get_flashed_messages())
+
+    params, msgs = process_flashes()
+    err_msgs     = params.pop('err', [])
+    info_msgs    = params.pop('info', []) + msgs
+    if params:
+        raise ImplementationError(f"unexpected flashed params '{params}'")
 
     context = {
-        'tourn'  : tourn,
-        'view'   : request.path,
-        'err_msg': err_msg
+        'tourn'   : tourn,
+        'view'    : view,
+        'err_msg' : msg_join(err_msgs) or msg_join(info_msgs),
+        'info_msg': msg_join(info_msgs)
     }
     return render_admin(context)
 
@@ -289,26 +299,63 @@ VIEW_ACTIONS = {
     ]
 }
 
-@admin.post("/tourn")
-@admin.post("/players")
-@admin.post("/seeding")
-@admin.post("/partners")
-@admin.post("/teams")
-@admin.post("/round_robin")
-@admin.post("/final_four")
-@admin.post("/playoffs")
-def view_actions() -> str:
-    """Process submitted form, switch on ``action``, which is validated against
-    paths and values in ``ACTIONS``
+# key: action function (doubles as button name in views)
+# value: tuple(action/button display name, list of stages when valid/callable)
+ACTION_INFO = {
+    'select_tourn'           : ("[Ceci n'existe pas]",         list(ALL_STAGES)),
+    'create_tourn'           : ("Create Tournament",           [TOURN_INIT]),
+    'update_tourn'           : ("Update Tournament",           list(ACTIVE_STAGES)),
+    'pause_tourn'            : ("Pause Tournament",            list(ACTIVE_STAGES)),
+    'gen_player_nums'        : ("Generate Player Nums",        [TournStage.PLAYER_ROSTER]),
+    'gen_seed_bracket'       : ("Create Seeding Bracket",      [TournStage.PLAYER_NUMS]),
+    'fake_seed_results'      : ("Generate Fake Results",       [TournStage.SEED_BRACKET]),
+    'tabulate_seed_results'  : ("Tabulate Results",            [TournStage.SEED_RESULTS]),
+    'fake_partner_picks'     : ("Generate Fake Picks",         [TournStage.SEED_RANKS]),
+    'comp_team_seeds'        : ("Compute Team Seeds",          [TournStage.PARTNER_PICK]),
+    'gen_tourn_brackets'     : ("Create Round Robin Brackets", [TournStage.TEAM_SEEDS]),
+    'fake_tourn_results'     : ("Generate Fake Results",       [TournStage.TOURN_BRACKET]),
+    'tabulate_tourn_results' : ("Tabulate Results",            [TournStage.TOURN_RESULTS]),
+    'gen_semis_bracket'      : ("Create Semifinals Bracket",   [TournStage.TOURN_RANKS]),
+    'tabulate_semis_results' : ("Tabulate Semifinals Results", [TournStage.SEMIS_RESULTS]),
+    'gen_finals_bracket'     : ("Create Finals Bracket",       [TournStage.SEMIS_RANKS]),
+    'tabulate_finals_results': ("Tabulate Finals Results",     [TournStage.FINALS_RESULTS])
+}
+
+@admin.post("/tourn/<action>")
+@admin.post("/players/<action>")
+@admin.post("/seeding/<action>")
+@admin.post("/partners/<action>")
+@admin.post("/teams/<action>")
+@admin.post("/round_robin/<action>")
+@admin.post("/final_four/<action>")
+@admin.post("/playoffs/<action>")
+def view_action(action: str) -> str:
+    """Process submitted form, switch on ``action``, which is validated against paths and
+    values in ``VIEW_ACTIONS``
     """
     if not current_user.is_authenticated:
-        abort(401, f"Not authenticated")
-    action = request.form['action']
-    view = request.path
+        abort(401, "Not authenticated")
+
+    view = request.path.split('/')[-2]
     if view not in VIEW_ACTIONS:
-        abort(400, f"Invalid action target '{view}'")
+        abort(404, f"Invalid action target '{view}'")
+    if 'action' not in request.form:
+        abort(400, "Invalid request, no action specified")
+    form_action = request.form['action']
+    if form_action != action:
+        abort(400, f"Invalid request, mismatched action '{form_action}'")
     if action not in VIEW_ACTIONS[view]:
-        abort(400, f"Action '{action}' not registered for {view}")
+        abort(400, f"Invalid action '{action}' for target '{view}'")
+
+    assert action in ACTION_INFO
+    valid_stages = ACTION_INFO[action][1]
+    if db_is_initialized():
+        tourn = TournInfo.get()
+        stage_compl = tourn.stage_compl
+        if stage_compl not in valid_stages:
+            abort(400, f"Invalid action '{action}' for stage '{tourn.cur_stage}'")
+    elif TOURN_INIT not in valid_stages:
+        abort(400, f"No active tournament for action '{action}'")
     return globals()[action](request.form)
 
 ##################
@@ -335,7 +382,7 @@ def select_tourn(form: dict) -> str:
         db_init(tourn_name, force=True)
         session['tourn'] = tourn_name
         log.info(f"setting tourn = '{tourn_name}' in session state")
-        flash(f"Resuming operation of tournament \"{tourn_name}\"")
+        flash(f"info=Resuming operation of tournament \"{tourn_name}\"")
     return redirect(url_for('index'))
 
 def create_tourn(form: dict) -> str:
@@ -352,9 +399,7 @@ def create_tourn(form: dict) -> str:
     dflt_pw     = form.get('dflt_pw') or None
     overwrite   = typecast(form.get('overwrite', ""))
     req_file    = request.files.get('roster_file')
-    if not req_file:
-        err_msg = "Roster file required (manual roster creation not yet supported)"
-    else:
+    if req_file:
         roster_file = secure_filename(req_file.filename)
         roster_path = os.path.join(UPLOAD_DIR, roster_file)
         req_file.save(roster_path)
@@ -378,10 +423,15 @@ def create_tourn(form: dict) -> str:
             return render_view(View.PLAYERS)  # TODO: let `index` do the routing for us!!!
         except OperationalError as e:
             if re.fullmatch(r'table "\w+" already exists', str(e)):
+                db_reset(force=True)
                 err_msg = (f'Tournament "{tourn_name}" already exists; either check the '
                            '"Overwrite Existing" box or specify a new name')
             else:
                 err_msg = cap_first(str(e))
+            # FALLTHROUGH
+        # FALLTHROUGH
+    else:
+        err_msg = "Roster file required (manual roster creation not yet supported)"
 
     tourn = TournInfo(name=tourn_name, dates=dates, venue=venue)
     context = {
@@ -433,9 +483,9 @@ def update_tourn(form: dict) -> str:
             assert dflt_pw_hash
             written = "value set"
         log.info(f"update_tourn: dflt_pw_hash {written}")
-        flash("Tournament information updated")
+        flash("info=Tournament information updated")
     else:
-        flash("No updates specified")
+        flash("info=No updates specified")
 
     return redirect(url_for('admin.tourn'))
 
@@ -452,7 +502,7 @@ def pause_tourn(form: dict) -> str:
     clear_schema_cache()
     popped = session.pop('tourn', None)
     assert popped == tourn_name
-    flash(f"Tournament \"{tourn_name}\" has been paused")
+    flash(f"info=Tournament \"{tourn_name}\" has been paused")
     return redirect(url_for('index'))
 
 ####################
@@ -574,28 +624,6 @@ def tabulate_finals_results(form: dict) -> str:
 SEL_SEP = "----------------"
 SEL_NEW = "(create new)"
 
-# keys: button name (must be kept in sync with VIEW_ACTIONS above)
-# values: tuple(button label, list of stages for which button is enabled)
-BUTTON_INFO = {
-    'select_tourn'           : ("[Ceci n'existe pas]",         [None]),
-    'create_tourn'           : ("Create Tournament",           [TOURN_INIT]),
-    'update_tourn'           : ("Update Tournament",           list(ACTIVE_STAGES)),
-    'pause_tourn'            : ("Pause Tournament",            list(ACTIVE_STAGES)),
-    'gen_player_nums'        : ("Generate Player Nums",        [TournStage.PLAYER_ROSTER]),
-    'gen_seed_bracket'       : ("Create Seeding Bracket",      [TournStage.PLAYER_NUMS]),
-    'fake_seed_results'      : ("Generate Fake Results",       [TournStage.SEED_BRACKET]),
-    'tabulate_seed_results'  : ("Tabulate Results",            [TournStage.SEED_RESULTS]),
-    'fake_partner_picks'     : ("Generate Fake Picks",         [TournStage.SEED_RANKS]),
-    'comp_team_seeds'        : ("Compute Team Seeds",          [TournStage.PARTNER_PICK]),
-    'gen_tourn_brackets'     : ("Create Round Robin Brackets", [TournStage.TEAM_SEEDS]),
-    'fake_tourn_results'     : ("Generate Fake Results",       [TournStage.TOURN_BRACKET]),
-    'tabulate_tourn_results' : ("Tabulate Results",            [TournStage.TOURN_RESULTS]),
-    'gen_semis_bracket'      : ("Create Semifinals Bracket",   [TournStage.TOURN_RANKS]),
-    'tabulate_semis_results' : ("Tabulate Semifinals Results", [TournStage.SEMIS_RESULTS]),
-    'gen_finals_bracket'     : ("Create Finals Bracket",       [TournStage.SEMIS_RANKS]),
-    'tabulate_finals_results': ("Tabulate Finals Results",     [TournStage.FINALS_RESULTS])
-}
-
 BTN_DISABLED = ' disabled'
 
 # tuples: (url, label, link enabled starting stage)
@@ -624,7 +652,7 @@ def render_tourn(context: dict) -> str:
     creation page through Jinja
     """
     buttons = VIEW_ACTIONS[View.TOURN]
-    btn_info = [BUTTON_INFO[btn] for btn in buttons]
+    btn_info = [ACTION_INFO[btn] for btn in buttons]
 
     stage_compl = TOURN_INIT
     if context.get('tourn'):
@@ -644,29 +672,30 @@ def render_tourn(context: dict) -> str:
         'dummy_pw' : DUMMY_PW_STR,
         'tourn'    : None,   # context may contain override
         'new_tourn': False,  # ditto
-        'err_msg'  : None,   # ditto
         'buttons'  : buttons,
         'btn_lbl'  : btn_lbl,
         'btn_attr' : btn_attr,
-        'help_txt' : help_txt
+        'help_txt' : help_txt,
+        'err_msg'  : None,   # context may contain override
+        'info_msg' : None    # ditto
     }
-    return render_template(TOURN_TEMPLATE, **(base_ctx | context))
+    return render_response(TOURN_TEMPLATE, **(base_ctx | context))
 
 def render_view(view: View) -> str:
     """Render the specified view using redirect (to be called from POST action handlers).
     Note that we are not passing any context information as query string params, so all
     information must be conveyed through the session object.
     """
-    return redirect(view)
+    return redirect(view_path(view))
 
 def render_admin(context: dict) -> str:
     """Common post-processing of context before rendering the main app page through Jinja
     """
     view = context.get('view')
-    assert view in VIEW_INFO
+    assert view in VIEW_DEFS
     assert view in VIEW_ACTIONS
     buttons = VIEW_ACTIONS[view]
-    btn_info = [BUTTON_INFO[btn] for btn in buttons]
+    btn_info = [ACTION_INFO[btn] for btn in buttons]
 
     stage_compl = TOURN_INIT
     if context.get('tourn'):
@@ -677,7 +706,7 @@ def render_admin(context: dict) -> str:
         btn_lbl.append(label)
         btn_attr.append('' if stage_compl in stages else BTN_DISABLED)
 
-    view_info = VIEW_INFO[view]
+    view_info = VIEW_DEFS[view]
     # TEMP: for now, do this manual hack for testing--really need to put a little
     # structure around conditional view_info (will still be hacky, though)!!!
     if view == View.PLAYERS:
@@ -719,18 +748,19 @@ def render_admin(context: dict) -> str:
     base_ctx = {
         'title'    : APP_NAME,
         'user'     : current_user,
-        'tourn'    : None,       # context may contain override
-        'err_msg'  : None,       # ditto
-        'view_defs': VIEW_INFO,
-        'view_path': view,
+        'tourn'    : None,  # context may contain override
+        'view'     : view,  # also represents relative path name
         'view_info': view_info,
+        'view_menu': view_menu(),
         'buttons'  : buttons,
         'btn_lbl'  : btn_lbl,
         'btn_attr' : btn_attr,
         'links'    : LINK_INFO.get(view),
-        'help_txt' : help_txt
+        'help_txt' : help_txt,
+        'err_msg'  : None,  # context may contain override
+        'info_msg' : None   # ditto
     }
-    return render_template(ADMIN_TEMPLATE, **(base_ctx | context))
+    return render_response(ADMIN_TEMPLATE, **(base_ctx | context))
 
 #########################
 # content / metacontent #

@@ -105,7 +105,7 @@
        margin-right: 0.5rem;
      }
      .actions .disabled {
-       color: grey;
+       color: slategrey;
        text-decoration: underline;
        cursor: default;
      }
@@ -124,9 +124,9 @@
       {% endwith %}
       <span class="view_sel">
         View:
-        {% for view, info in view_defs.items() %}
-        {% set checked = " checked" if view == view_path else "" %}
-        <label>{{info.name}}<input type="radio" name="view" value="{{view}}"{{checked}}></label>
+        {% for path, label in view_menu %}
+        {% set checked = " checked" if path == view else "" %}
+        <label>{{label}}<input type="radio" name="view" value="{{path}}"{{checked}}></label>
         {% endfor %}
       </span>
       <span class="login_info">
@@ -171,7 +171,7 @@
           </thead>
         </table>
       </div>
-      <form class="actions" action="{{view_path}}" method="post">
+      <form class="actions" action="{{view}}" method="post">
         {% for val in buttons %}
         <button value="{{val}}"{{btn_attr[loop.index0]}}>{{btn_lbl[loop.index0]}}</button>
         {% endfor %}
@@ -196,10 +196,15 @@
   <script>
    $(function() {
      // add css and attributes
-     $(".actions button").attr({
-       type: 'submit',
-       name: "action"
-     });
+     $(".actions button")
+       .attr({
+         type: 'submit',
+         name: "action"
+       })
+       .attr('formaction', function() {
+         const baseAction = $(this).closest('form').attr('action')
+         return baseAction + '/' + $(this).attr('value');
+       });
 
      // error dialog
      $('.err_dlg button').on('click', function() {
@@ -258,9 +263,9 @@
            cell.data(e.target.textContent).draw();
 
            const postData = $.extend({tourn: "{{tourn.name}}"}, row.data());
-           $.post('/data{{view_path}}', postData)
+           $.post('{{view}}/data', postData)
             .done(function(resp) {
-              console.log('POST /data{{view_path}} done: ', resp);
+              console.log('POST {{view}}/data done: ', resp);
               if (resp.err) {
                 cell.data(orig_val).draw();
                 $(e.target).addClass("attn");
@@ -289,7 +294,7 @@
               }
             })
             .fail(function(resp) {
-              console.log('POST /data{{view_path}} fail: ', resp);
+              console.log('POST {{view}}/data fail: ', resp);
               cell.data(orig_val).draw();
               $(e.target).addClass("attn");
               showError(resp.statusText);
@@ -314,7 +319,7 @@
          content: ['search']
        },
        ajax: {
-         url: '/data{{view_path}}',
+         url: '{{view}}/data',
          dataSrc: 'data'
        },
        deferRender: true,

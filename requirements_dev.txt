@@ -4,4 +4,6 @@ flask-login
 jinja2
 peewee
 git+https://github.com/crashka/ckautils
+pytest
+beautifulsoup4
 gunicorn

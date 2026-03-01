@@ -185,33 +185,37 @@ def tourn_bracket_db() -> Generator[SqliteDatabase]:
     db_close()
     clear_schema_cache()
 
-################
-# mobile stuff #
-################
-
-TEST_USER_AGENT = "Mobile test client"
-
-class FlaskTestClientProxy(object):
-    """From https://stackoverflow.com/q/15278285
-    """
-    def __init__(self, app):
-        self.app = app
-
-    def __call__(self, environ, start_response):
-        environ['HTTP_USER_AGENT'] = TEST_USER_AGENT
-        return self.app(environ, start_response)
+###################
+# common UI stuff #
+###################
 
 class TestConfig(Config):
     """Subclass the default flask app config
     """
     pass
 
+################
+# mobile stuff #
+################
+
+MOBILE_USER_AGENT = "Mobile test client"
+
+class MobileTestClientProxy(object):
+    """From https://stackoverflow.com/q/15278285
+    """
+    def __init__(self, app):
+        self.app = app
+
+    def __call__(self, environ, start_response):
+        environ['HTTP_USER_AGENT'] = MOBILE_USER_AGENT
+        return self.app(environ, start_response)
+
 @pytest.fixture(scope="module")
 def seed_bracket_app(seed_bracket_db) -> Generator[Flask]:
     """Module-level app instantiation (caches database reference)
     """
     app = create_app(TestConfig)
-    app.wsgi_app = FlaskTestClientProxy(app.wsgi_app)
+    app.wsgi_app = MobileTestClientProxy(app.wsgi_app)
     app.testing = True
     yield app
 
@@ -220,12 +224,12 @@ def tourn_bracket_app(tourn_bracket_db) -> Generator[Flask]:
     """Module-level app instantiation (caches database reference)
     """
     app = create_app(TestConfig)
-    app.wsgi_app = FlaskTestClientProxy(app.wsgi_app)
+    app.wsgi_app = MobileTestClientProxy(app.wsgi_app)
     app.testing = True
     yield app
 
 @pytest.fixture()
-def client(seed_bracket_app):
+def mobile_client(seed_bracket_app):
     """Unauthenticated client instance
     """
     app = seed_bracket_app
@@ -238,3 +242,35 @@ def get_user_client(app: Flask, user: str, pw: str = "") -> FlaskClient:
     client = app.test_client()
     client.post("/login", data=data, follow_redirects=True)
     return client
+
+###############
+# admin stuff #
+###############
+
+ADMIN_USER_AGENT = "Admin test client"
+
+class AdminTestClientProxy(object):
+    """From https://stackoverflow.com/q/15278285
+    """
+    def __init__(self, app):
+        self.app = app
+
+    def __call__(self, environ, start_response):
+        environ['HTTP_USER_AGENT'] = ADMIN_USER_AGENT
+        return self.app(environ, start_response)
+
+@pytest.fixture(scope="module")
+def admin_app() -> Generator[Flask]:
+    """Module-level app instantiation (caches database reference)
+    """
+    app = create_app(TestConfig)
+    app.wsgi_app = AdminTestClientProxy(app.wsgi_app)
+    app.testing = True
+    yield app
+
+@pytest.fixture(scope="module")
+def admin_client(admin_app):
+    """Unauthenticated client instance
+    """
+    app = admin_app
+    yield app.test_client()

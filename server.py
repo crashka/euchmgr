@@ -6,26 +6,30 @@ implements the Flask "application factory" pattern through the ``create_app()`` 
 """
 
 import re
+import traceback
 
 from ckautils import typecast
-from flask import (Flask, request, session, render_template, redirect, url_for, flash,
-                   get_flashed_messages)
+from flask import Flask, current_app, g, request, session, url_for, flash
+from flask.globals import request_ctx
 from flask_session import Session
 from cachelib.file import FileSystemCache
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.exceptions import HTTPException
 
 from core import log, ImplementationError
 from security import (current_user, EuchmgrUser, ADMIN_USER, ADMIN_ID, AdminUser, EuchmgrLogin,
                       AuthenticationError)
 from database import db_is_initialized, db_connect, db_close, db_is_closed
 from schema import TournInfo
-from ui import Player
+from ui_schema import Player
+from ui_common import (mobile_client, is_mobile, process_flashes, msg_join, render_response,
+                       redirect, render_error)
 from data import data
 from chart import chart
 from dash import dash
 from report import report
-from mobile import mobile, MOBILE_URL_PFX, is_mobile, render_error
-from admin import admin, active_view, SEL_NEW
+from mobile import mobile, MOBILE_URL_PFX
+from admin import admin, active_view, render_view, SEL_NEW
 
 #################
 # utility stuff #
@@ -58,7 +62,7 @@ class Config:
 
 # instantiate extensions globally
 sess_ext = Session()
-login = EuchmgrLogin()
+login_ext = EuchmgrLogin()
 
 def create_app(config: object | Config = Config, proxied: bool = False) -> Flask:
     """Application factory for the euchmgr server.  Configuration may be specified as a
@@ -71,16 +75,24 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
 
     app.config.from_object(config)
     app.register_blueprint(admin)
+    app.register_blueprint(data)
     app.register_blueprint(mobile, url_prefix=MOBILE_URL_PFX)
-    app.register_blueprint(data, url_prefix='/data')
     app.register_blueprint(chart, url_prefix='/chart')
     app.register_blueprint(dash, url_prefix='/dash')
     app.register_blueprint(report, url_prefix='/report')
     app.jinja_env.add_extension('jinja2.ext.loopcontrols')
 
-    global sess_ext, login
+    global sess_ext, login_ext
     sess_ext.init_app(app)
-    login.init_app(app)
+    login_ext.init_app(app)
+
+    @app.before_request
+    def _tag_request() -> None:
+        """Tag API calls and mobile clients on the way in (used for routing, rendering,
+        etc.).
+        """
+        g.api_call = request.path.startswith(('/api/', '/mobile_api/'))  # bool
+        g.mobile = mobile_client()
 
     ##################
     # db connections #
@@ -123,11 +135,40 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         log.debug(f"@app.teardown_request: {request.method} {request.path}")
         db_close()
 
+    @app.errorhandler(HTTPException)
+    def handle_http_exception(e) -> tuple[dict, int] | HTTPException:
+        """Return appropropiate exception format based on `g.api_call`.
+        """
+        log.debug(f"handle_http_exception {e.code} ({e.name}), \"{e.description}\"")
+        if g.api_call:
+            return {
+                'succ': False,
+                'err' : e.name,
+                'info': e.description,
+                'data': None
+            }, e.code
+        return e
+
+    @app.errorhandler(Exception)
+    def handle_exception(e) -> tuple[dict, int] | Exception:
+        """Return appropropiate exception format based on `g.api_call`.
+        """
+        log.debug(f"handle_exception \"{str(e)}\"")
+        if g.api_call:
+            tb = traceback.format_exception(e)
+            return {
+                'succ': False,
+                'err' : str(e),
+                'info': None,
+                'data': tb if app.debug else None
+            }, 500
+        raise  # note difference from handle_http_exception above (it's a Flask thing)
+
     ###############
     # login stuff #
     ###############
 
-    @login.user_loader
+    @login_ext.user_loader
     def load_user(user_id: str | int) -> EuchmgrUser:
         """Return "user" flask_login object, which in our case is a `Player` instance (or the
         special admin security object).
@@ -148,24 +189,17 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         if current_user.is_authenticated:
             return redirect(url_for('index'))
 
-        username = None
-        err_msgs = []
-        # see if any secret parameters have been transmitted to us (see NOTE for `view` in
-        # mobile.py--we might want to encapsulate this into a shared mechanism!)
-        for msg in get_flashed_messages():
-            if m := re.fullmatch(r'(\w+)=(.+)', msg):
-                key, val = m.group(1, 2)
-                if key == 'username':
-                    username = val
-                else:
-                    raise ImplementationError(f"unexpected secret key '{key}' (value '{val}')")
-            else:
-                err_msgs.append(msg)
-        err_msg = "<br>".join(err_msgs)
+        params, msgs = process_flashes()
+        username     = params.pop('username', None)
+        err_msgs     = params.pop('err', [])
+        info_msgs    = params.pop('info', []) + msgs
+        if params:
+            raise ImplementationError(f"unexpected flashed params '{params}'")
 
         context = {
             'username': username,
-            'err_msg' : err_msg
+            'err_msg' : msg_join(err_msgs) or msg_join(info_msgs),
+            'info_msg': msg_join(info_msgs)
         }
         return render_login(context)
 
@@ -180,7 +214,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
             try:
                 admin.login(password)
             except AuthenticationError as e:
-                flash(str(e))
+                flash(err=str(e))
                 return redirect(url_for('login_page'))
             return redirect(url_for('index'))
 
@@ -190,14 +224,14 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         try:
             player.login(password)
         except AuthenticationError as e:
-            flash(str(e))
+            flash(err=str(e))
             flash(f"username={username}")
             return redirect(url_for('login_page'))
         # TEMP: need to make the routing device and/or context sensitive!!!
         assert is_mobile()
         return redirect(url_for('mobile.index'))
 
-    @app.route('/logout')
+    @app.route("/logout", methods=['GET', 'POST'])
     def logout():
         """Log out the current user.  Note that this call, for admins, does not reset the
         server database identification and/or connection state.
@@ -205,7 +239,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         if current_user.is_authenticated:
             user = current_user.name
             current_user.logout()
-            flash(f"User \\\"{user}\\\" logged out")
+            flash(f"info=User \\\"{user}\\\" logged out")
         return redirect(url_for('login_page'))
 
     #################
@@ -235,7 +269,80 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
             log.info(f"re-setting tourn = '{tourn.name}' in session state")
 
         view = active_view(tourn)
-        return redirect(view)
+        return render_view(view)
+
+    INVALID_ROUTE = "_INVALID"
+
+    API_MAP = {
+        "tourn/"      : "/tourn/data",
+        "players/"    : "/players/data",
+        "seeding/"    : "/seeding/data",
+        "partners/"   : "/partners/data",
+        "teams/"      : "/teams/data",
+        "round_robin/": "/round_robin/data",
+        "final_four/" : "/final_four/data",
+        "playoffs/"   : "/playoffs/data",
+        "tourn"       : INVALID_ROUTE,
+        "players"     : INVALID_ROUTE,
+        "seeding"     : INVALID_ROUTE,
+        "partners"    : INVALID_ROUTE,
+        "teams"       : INVALID_ROUTE,
+        "round_robin" : INVALID_ROUTE,
+        "final_four"  : INVALID_ROUTE,
+        "playoffs"    : INVALID_ROUTE
+    }
+
+    NO_DB_REQ = {
+        '/login',
+        '/tourn/select_tourn',
+        '/tourn/create_tourn'
+    }
+
+    @app.route("/api/<path:route>", methods=['GET', 'POST'])
+    def api_router(route: str) -> str:
+        """Reroute API calls.  The route handlers should treat these the same as calls
+        from the app, except that only JSON data is returned (for errors, as well).  Note
+        that the following request attributes will be different for API calls (we are not
+        rewriting them here): `url`, `path`, `full_path`, and `endpoint`.
+        """
+        reroute = API_MAP.get(route) or '/' + route
+        assert g.api_call  # consider this flag a framework thing
+        # ATTN: `request_ctx` will be merged with `app_ctx` in Flask version 3.2, so the
+        # URL adapter will move at that point!
+        url_adapter = request_ctx.url_adapter
+        endpoint, kwargs = url_adapter.match(reroute, request.method)
+        if endpoint not in current_app.view_functions:
+            return render_error(404)
+        if not db_is_initialized() and reroute not in NO_DB_REQ:
+            return render_error(400, desc="No active tournament")
+        view_func = current_app.view_functions[endpoint]
+        return view_func(**kwargs)
+
+    MOBILE_API_MAP = {
+        "login" : "/login",
+        "logout": "/logout"
+    }
+
+    @app.route("/mobile_api/<path:route>", methods=['GET', 'POST'])
+    def mobile_api_router(route: str) -> str:
+        """Reroute mobile API calls.  The route handlers should treat these the same as
+        calls from the app, except that only JSON data is returned (for errors, as well).
+        Note that the following request attributes will be different for API calls (we are
+        not rewriting them here): `url`, `path`, `full_path`, and `endpoint`.
+        """
+        if not is_mobile():
+            return render_error(403, desc="Mobile access only")
+        reroute = MOBILE_API_MAP.get(route) or MOBILE_URL_PFX + '/' + route
+        assert g.api_call  # consider this flag a framework thing
+        # see ATTN message in `api_router()` (above)
+        url_adapter = request_ctx.url_adapter
+        endpoint, kwargs = url_adapter.match(reroute, request.method)
+        if endpoint not in current_app.view_functions:
+            return render_error(404)
+        if not db_is_initialized():
+            return render_error(503, desc="Tournament paused")
+        view_func = current_app.view_functions[endpoint]
+        return view_func(**kwargs)
 
     # end of `def create_app()`
     return app
@@ -261,9 +368,10 @@ def render_login(context: dict) -> str:
         'logins'    : logins,
         'username'  : None,   # context may contain override
         'admin_user': ADMIN_USER,
-        'err_msg'   : None
+        'err_msg'   : None,
+        'info_msg'  : None
     }
-    return render_template(LOGIN_TEMPLATE, **(base_ctx | context))
+    return render_response(LOGIN_TEMPLATE, **(base_ctx | context))
 
 #########################
 # content / metacontent #

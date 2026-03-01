@@ -7,7 +7,7 @@ from itertools import groupby
 from flask import Blueprint, session, render_template, abort
 
 from schema import GAME_PTS
-from ui import fmt_pct, TournInfo, Player, Team, PostScore, get_game_by_label
+from ui_schema import fmt_pct, TournInfo, Player, Team, PostScore, get_game_by_label
 from euchmgr import Elevs, TeamGrps, rank_team_cohort, elevate_winners
 
 ###################
@@ -60,8 +60,8 @@ def render_popup(context: dict) -> str:
 # tie_breaker #
 ################
 
-# HORRIBLE: this shouldn't have the same name as a different format function in ui.py--we
-# really need to refactor/consolidate all of this!!!
+# BAD: this has the same name as a different format function in ui_schema.py--we really
+# need to refactor/consolidate all of this!!!
 team_tag = lambda x: f"{x.team_name} [{x.div_seed}]"
 
 def tie_breaker(tourn: TournInfo) -> str:

@@ -1,20 +1,19 @@
 # -*- coding: utf-8 -*-
 
-"""Basic end-to-end test sequence.  Also builds database fixtures for stage-level testing.
+"""Base end-to-end test sequence (the "auto_run" sequence).  Also builds database fixtures
+for stage-level testing.  Note that this is a "happy path" scenario that doesn't exercise
+any error/failure modes and/or handlers.
 """
+
 import pytest
 
-from conftest import TEST_DB, save_stage_db
-from core import TEST_DIR, DataFile
+from conftest import TEST_DB, ROSTER_FILE, RAND_SEEDS, save_stage_db
 from schema import Bracket, TournStage, TournInfo
 from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_seed_bracket,
                      fake_seed_games, validate_seed_round, compute_player_ranks,
                      prepick_champ_partners, fake_pick_partners, build_tourn_teams,
                      compute_team_seeds, build_tourn_bracket, fake_tourn_games,
                      validate_tourn, compute_team_ranks, build_playoff_bracket)
-
-ROSTER_FILE = DataFile("test_roster.csv", TEST_DIR)
-RAND_SEEDS = list(x * 10 for x in range(10))
 
 @pytest.mark.usefixtures("test_db")
 def test_end_to_end() -> None:

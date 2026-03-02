@@ -13,8 +13,7 @@ import json
 import pytest
 from bs4 import BeautifulSoup, Tag
 
-from conftest import TEST_DB
-from test_basic import ROSTER_FILE
+from conftest import TEST_DB, ROSTER_FILE
 from schema import TournStage, TournInfo
 from admin import View, VIEW_DEFS, SEL_NEW
 

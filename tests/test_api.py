@@ -11,8 +11,7 @@ import json
 
 import pytest
 
-from conftest import TEST_DB
-from test_basic import ROSTER_FILE
+from conftest import TEST_DB, ROSTER_FILE
 from schema import TournStage, TournInfo
 
 #################

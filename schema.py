@@ -24,9 +24,6 @@ rnd_avg = lambda x: round(x, 2)
 
 def clear_schema_cache() -> None:
     """This needs to be called every time we switch (or reset) databases.
-
-    FIX: this is currently only called from `conftest.py`, but also needs to be
-    incorporated into the database management logic in `server.py`!!!
     """
     TournInfo.clear_cache()
 

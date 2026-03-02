@@ -2,6 +2,7 @@
 
 """Common constants, fixtures, etc.
 """
+
 from collections.abc import Generator
 import shutil
 
@@ -10,16 +11,18 @@ from peewee import SqliteDatabase
 from flask import Flask
 from flask.testing import FlaskClient
 
-from core import TEST_DIR
+from core import TEST_DIR, DataFile
 from database import db_filepath, db_init, db_reset, db_close
 from schema import TournStage, clear_schema_cache
 from server import Config, create_app
 
-##################
-# database stuff #
-##################
+######################
+# database utilities #
+######################
 
 TEST_DB = "test"
+ROSTER_FILE = DataFile("test_roster.csv", TEST_DIR)
+RAND_SEEDS = list(x * 10 for x in range(10))
 
 def stage_db_path(stage_num: int) -> str:
     """Build full pathname for stage-level database snapshot.
@@ -40,19 +43,24 @@ def restore_stage_db(stage: TournStage) -> SqliteDatabase:
     """Opposite of `save_stage_db` (same as above on encapsulating the low-level ORM
     knowledge).
     """
-    db = db_close()  # checkpoint the WAL (idempotent)
+    db_reset(force=True)
+    clear_schema_cache()
     # REVISIT: it might be better (i.e. more robust if open connections on TEST_DB) to use
     # `db.backup` here!!!
     shutil.copy2(stage_db_path(stage), db_filepath(TEST_DB))
     db = db_init(TEST_DB, force=True)
     return db
 
+#####################
+# database fixtures #
+#####################
+
 @pytest.fixture
 def stage_1_db() -> Generator[SqliteDatabase]:
     """TOURN_CREATE"""
     db = restore_stage_db(TournStage(1))
     yield db
-    db_close()
+    db_reset(force=True)
     clear_schema_cache()
 
 @pytest.fixture
@@ -60,7 +68,7 @@ def stage_2_db() -> Generator[SqliteDatabase]:
     """PLAYER_ROSTER"""
     db = restore_stage_db(TournStage(2))
     yield db
-    db_close()
+    db_reset(force=True)
     clear_schema_cache()
 
 @pytest.fixture
@@ -68,7 +76,7 @@ def stage_3_db() -> Generator[SqliteDatabase]:
     """PLAYER_NUMS"""
     db = restore_stage_db(TournStage(3))
     yield db
-    db_close()
+    db_reset(force=True)
     clear_schema_cache()
 
 @pytest.fixture
@@ -76,7 +84,7 @@ def stage_4_db() -> Generator[SqliteDatabase]:
     """SEED_BRACKET"""
     db = restore_stage_db(TournStage(4))
     yield db
-    db_close()
+    db_reset(force=True)
     clear_schema_cache()
 
 @pytest.fixture
@@ -84,7 +92,7 @@ def stage_5_db() -> Generator[SqliteDatabase]:
     """SEED_RESULTS"""
     db = restore_stage_db(TournStage(5))
     yield db
-    db_close()
+    db_reset(force=True)
     clear_schema_cache()
 
 @pytest.fixture
@@ -92,7 +100,7 @@ def stage_6_db() -> Generator[SqliteDatabase]:
     """SEED_TABULATE"""
     db = restore_stage_db(TournStage(6))
     yield db
-    db_close()
+    db_reset(force=True)
     clear_schema_cache()
 
 @pytest.fixture
@@ -100,7 +108,7 @@ def stage_7_db() -> Generator[SqliteDatabase]:
     """SEED_RANKS"""
     db = restore_stage_db(TournStage(7))
     yield db
-    db_close()
+    db_reset(force=True)
     clear_schema_cache()
 
 @pytest.fixture
@@ -108,7 +116,7 @@ def stage_8_db() -> Generator[SqliteDatabase]:
     """PARTNER_PICK"""
     db = restore_stage_db(TournStage(8))
     yield db
-    db_close()
+    db_reset(force=True)
     clear_schema_cache()
 
 @pytest.fixture
@@ -116,7 +124,7 @@ def stage_9_db() -> Generator[SqliteDatabase]:
     """TOURN_TEAMS"""
     db = restore_stage_db(TournStage(9))
     yield db
-    db_close()
+    db_reset(force=True)
     clear_schema_cache()
 
 @pytest.fixture
@@ -124,7 +132,7 @@ def stage_10_db() -> Generator[SqliteDatabase]:
     """TEAM_SEEDS"""
     db = restore_stage_db(TournStage(10))
     yield db
-    db_close()
+    db_reset(force=True)
     clear_schema_cache()
 
 @pytest.fixture
@@ -132,7 +140,7 @@ def stage_11_db() -> Generator[SqliteDatabase]:
     """TOURN_BRACKET"""
     db = restore_stage_db(TournStage(11))
     yield db
-    db_close()
+    db_reset(force=True)
     clear_schema_cache()
 
 @pytest.fixture
@@ -140,7 +148,7 @@ def stage_12_db() -> Generator[SqliteDatabase]:
     """TOURN_RESULTS"""
     db = restore_stage_db(TournStage(12))
     yield db
-    db_close()
+    db_reset(force=True)
     clear_schema_cache()
 
 @pytest.fixture
@@ -148,7 +156,7 @@ def stage_13_db() -> Generator[SqliteDatabase]:
     """TOURN_TABULATE"""
     db = restore_stage_db(TournStage(13))
     yield db
-    db_close()
+    db_reset(force=True)
     clear_schema_cache()
 
 @pytest.fixture
@@ -156,17 +164,17 @@ def stage_14_db() -> Generator[SqliteDatabase]:
     """TEAMS_RANKS"""
     db = restore_stage_db(TournStage(14))
     yield db
-    db_close()
+    db_reset(force=True)
     clear_schema_cache()
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def test_db() -> Generator[SqliteDatabase]:
     """Note that the yield value for this function can easily be ignored (e.g. we can use
     this with the `usefixtures` marker).
     """
     db = db_init(TEST_DB, force=True)
     yield db
-    db_close()
+    db_reset(force=True)
     clear_schema_cache()
 
 @pytest.fixture(scope="module")
@@ -174,7 +182,7 @@ def seed_bracket_db() -> Generator[SqliteDatabase]:
     """SEED_BRACKET"""
     db = restore_stage_db(TournStage(4))
     yield db
-    db_close()
+    db_reset(force=True)
     clear_schema_cache()
 
 @pytest.fixture(scope="module")
@@ -182,7 +190,7 @@ def tourn_bracket_db() -> Generator[SqliteDatabase]:
     """TOURN_BRACKET"""
     db = restore_stage_db(TournStage(11))
     yield db
-    db_close()
+    db_reset(force=True)
     clear_schema_cache()
 
 ###################
@@ -218,7 +226,6 @@ def seed_bracket_app(seed_bracket_db) -> Generator[Flask]:
     app.wsgi_app = MobileTestClientProxy(app.wsgi_app)
     app.testing = True
     yield app
-    db_reset(force=True)
 
 @pytest.fixture(scope="module")
 def tourn_bracket_app(tourn_bracket_db) -> Generator[Flask]:
@@ -228,7 +235,6 @@ def tourn_bracket_app(tourn_bracket_db) -> Generator[Flask]:
     app.wsgi_app = MobileTestClientProxy(app.wsgi_app)
     app.testing = True
     yield app
-    db_reset(force=True)
 
 @pytest.fixture()
 def mobile_client(seed_bracket_app):

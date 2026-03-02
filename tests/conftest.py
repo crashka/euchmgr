@@ -11,7 +11,7 @@ from flask import Flask
 from flask.testing import FlaskClient
 
 from core import TEST_DIR
-from database import db_filepath, db_init, db_close
+from database import db_filepath, db_init, db_reset, db_close
 from schema import TournStage, clear_schema_cache
 from server import Config, create_app
 
@@ -194,14 +194,14 @@ class TestConfig(Config):
     """
     pass
 
-################
-# mobile stuff #
-################
+###################
+# mobile fixtures #
+###################
 
 MOBILE_USER_AGENT = "Mobile test client"
 
-class MobileTestClientProxy(object):
-    """From https://stackoverflow.com/q/15278285
+class MobileTestClientProxy:
+    """From https://stackoverflow.com/q/15278285.
     """
     def __init__(self, app):
         self.app = app
@@ -218,6 +218,7 @@ def seed_bracket_app(seed_bracket_db) -> Generator[Flask]:
     app.wsgi_app = MobileTestClientProxy(app.wsgi_app)
     app.testing = True
     yield app
+    db_reset(force=True)
 
 @pytest.fixture(scope="module")
 def tourn_bracket_app(tourn_bracket_db) -> Generator[Flask]:
@@ -227,6 +228,7 @@ def tourn_bracket_app(tourn_bracket_db) -> Generator[Flask]:
     app.wsgi_app = MobileTestClientProxy(app.wsgi_app)
     app.testing = True
     yield app
+    db_reset(force=True)
 
 @pytest.fixture()
 def mobile_client(seed_bracket_app):
@@ -243,14 +245,14 @@ def get_user_client(app: Flask, user: str, pw: str = "") -> FlaskClient:
     client.post("/login", data=data, follow_redirects=True)
     return client
 
-###############
-# admin stuff #
-###############
+##################
+# admin fixtures #
+##################
 
 ADMIN_USER_AGENT = "Admin test client"
 
-class AdminTestClientProxy(object):
-    """From https://stackoverflow.com/q/15278285
+class AdminTestClientProxy:
+    """From https://stackoverflow.com/q/15278285.
     """
     def __init__(self, app):
         self.app = app
@@ -267,10 +269,44 @@ def admin_app() -> Generator[Flask]:
     app.wsgi_app = AdminTestClientProxy(app.wsgi_app)
     app.testing = True
     yield app
+    db_reset(force=True)
 
 @pytest.fixture(scope="module")
 def admin_client(admin_app):
     """Unauthenticated client instance
     """
     app = admin_app
+    yield app.test_client()
+
+################
+# API fixtures #
+################
+
+API_USER_AGENT = "Admin API test client"
+
+class APITestClientProxy:
+    """From https://stackoverflow.com/q/15278285.
+    """
+    def __init__(self, app):
+        self.app = app
+
+    def __call__(self, environ, start_response):
+        environ['HTTP_USER_AGENT'] = API_USER_AGENT
+        return self.app(environ, start_response)
+
+@pytest.fixture(scope="module")
+def api_app() -> Generator[Flask]:
+    """Module-level app instantiation (caches database reference)
+    """
+    app = create_app(TestConfig)
+    app.wsgi_app = APITestClientProxy(app.wsgi_app)
+    app.testing = True
+    yield app
+    db_reset(force=True)
+
+@pytest.fixture(scope="module")
+def api_client(api_app):
+    """Unauthenticated client instance
+    """
+    app = api_app
     yield app.test_client()

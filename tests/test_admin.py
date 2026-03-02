@@ -11,10 +11,9 @@ from os import environ
 import json
 
 import pytest
-from flask import session
 from bs4 import BeautifulSoup, Tag
 
-from conftest import TEST_DB, get_user_client
+from conftest import TEST_DB
 from test_basic import ROSTER_FILE
 from schema import TournStage, TournInfo
 from admin import View, VIEW_DEFS, SEL_NEW
@@ -63,11 +62,10 @@ def validate_button(parent: Tag, btn_value: str, enabled: bool) -> None:
 #####################
 
 def test_index(admin_client):
-    """Starting with a cleared session, GET on '/' should return admin login page.
+    """GET on '/' should return admin login page (note that `admin_client` starts with a
+    new Flask session).
     """
     client = admin_client
-    with client.session_transaction() as session:
-        session.clear()
     resp = client.get('/', follow_redirects=True)
     assert resp.status_code == 200
     assert len(resp.history) == 1
@@ -138,7 +136,7 @@ def test_create_new(admin_client):
     assert form.select('input[name="overwrite"]')
     validate_button(form, "create_tourn", True)
 
-def test_create_tourn_overwrite(admin_client):
+def test_create_tourn(admin_client):
     """Creating a new tournament should return the Players view.
     """
     client = admin_client

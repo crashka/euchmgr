@@ -192,7 +192,7 @@ def tourn_bracket_db() -> Generator[SqliteDatabase]:
 class TestConfig(Config):
     """Subclass the default flask app config
     """
-    pass
+    DEBUG = True
 
 ###################
 # mobile fixtures #

@@ -121,7 +121,9 @@ def render_response(render_fmt: str | tuple[str, CtxMapper], **ctx) -> str:
         assert isinstance(render_fmt, str)
         tmpl_name, ctx_mapper = render_fmt, dflt_ctx_mapper
     if g.api_call:
-        assert g.mobile  # admin views are not rendered through the API
+        # admin views are not rendered through the API (TEMP: except for View.TOURN, hence
+        # the following grimness--this should be FIXED at some point!!!)
+        assert g.mobile or tmpl_name.startswith("tourn")
         err_msg = ctx.pop('err_msg', None)
         info_msg = ctx.pop('info_msg', None)
         if err_msg:

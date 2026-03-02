@@ -272,6 +272,21 @@ def test_tabulate_seed_results(admin_client):
     validate_button(form, "fake_partner_picks", True)
     validate_button(form, "comp_team_seeds", False)
 
+def test_get_partners_data(admin_client):
+    """Validate that partners data is populated.
+    """
+    client = admin_client
+    resp = client.get("/partners/data", follow_redirects=True)
+    assert resp.status_code == 200
+    assert len(resp.history) == 0
+    assert resp.request.path == '/partners/data'
+
+    tourn = TournInfo.get()
+    ajax_resp = json.loads(resp.text)
+    assert ajax_resp['succ']
+    assert isinstance(ajax_resp['data'], list)
+    assert len(ajax_resp['data']) == tourn.players
+
 def test_fake_partner_picks(admin_client):
     """Generating fake partner picks should enable the `comp_team_seeds` button.
     """
@@ -310,6 +325,21 @@ def test_comp_team_seeds(admin_client):
 
     form = soup.select_one('form.actions[action="teams"]')
     validate_button(form, "gen_tourn_brackets", True)
+
+def test_get_teams_data(admin_client):
+    """Validate that teams data is populated.
+    """
+    client = admin_client
+    resp = client.get("/teams/data", follow_redirects=True)
+    assert resp.status_code == 200
+    assert len(resp.history) == 0
+    assert resp.request.path == '/teams/data'
+
+    tourn = TournInfo.get()
+    ajax_resp = json.loads(resp.text)
+    assert ajax_resp['succ']
+    assert isinstance(ajax_resp['data'], list)
+    assert len(ajax_resp['data']) == tourn.teams
 
 def test_gen_tourn_brackets(admin_client):
     """Generating tourn brackets should return the Round Robin view.
@@ -388,6 +418,21 @@ def test_tabulate_tourn_results(admin_client):
     validate_button(form, "gen_semis_bracket", True)
     validate_button(form, "gen_finals_bracket", False)
 
+def test_get_final_four_data(admin_client):
+    """Validate that final four teams data is populated.
+    """
+    client = admin_client
+    resp = client.get("/final_four/data", follow_redirects=True)
+    assert resp.status_code == 200
+    assert len(resp.history) == 0
+    assert resp.request.path == '/final_four/data'
+
+    tourn = TournInfo.get()
+    ajax_resp = json.loads(resp.text)
+    assert ajax_resp['succ']
+    assert isinstance(ajax_resp['data'], list)
+    assert len(ajax_resp['data']) == 4
+
 def test_gen_semis_bracket(admin_client):
     """Generating semis bracket should return the Playoffs view.
     """
@@ -408,9 +453,9 @@ def test_gen_semis_bracket(admin_client):
     validate_button(form, "tabulate_semis_results", False)
     validate_button(form, "tabulate_finals_results", False)
 
-#############################
-# tourn management sequence #
-#############################
+####################
+# tourn management #
+####################
 
 def test_manage_tourn(admin_client):
     """Go to manage tourn view for active tournament.

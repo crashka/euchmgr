@@ -33,7 +33,7 @@ def test_login(api_client):
         'username': "admin",
         'password': ADMIN_PW
     }
-    resp = client.post("/api/login", data=data)
+    resp = client.post("/login", data=data)
     assert resp.status_code == 200
     api_resp = json.loads(resp.text)
     assert api_resp['succ']
@@ -49,7 +49,7 @@ def test_create_tourn(api_client):
         'roster_file': open(ROSTER_FILE, "rb"),
         'overwrite'  : "yes"
     }
-    resp = client.post("/api/tourn/create_tourn", data=data)
+    resp = client.post("/tourn/create_tourn", data=data)
     assert resp.status_code == 200
 
     tourn = TournInfo.get()
@@ -61,7 +61,7 @@ def test_get_tourn_data(api_client):
     """Validate that tourn_info data is populated.
     """
     client = api_client
-    resp = client.get("/api/tourn/")
+    resp = client.get("/tourn/")
     assert resp.status_code == 200
 
     tourn = TournInfo.get()
@@ -72,11 +72,15 @@ def test_get_tourn_data(api_client):
     assert tourn_info['id'] == tourn.id
     assert tourn_info['name'] == tourn.name
 
-def test_get_players_data(api_client):
-    """Validate that player data is populated.
+def test_players_data(api_client):
+    """Validate that player data is populated, and sanity check for updates.
+
+    NOTE: we are packing a lot into this test function, since there is no clean way to
+    share the players data and manage dependencies between the subtest components (same
+    with other data tests below).
     """
     client = api_client
-    resp = client.get("/api/players/")
+    resp = client.get("/players/")
     assert resp.status_code == 200
 
     tourn = TournInfo.get()
@@ -84,6 +88,56 @@ def test_get_players_data(api_client):
     assert api_resp['succ']
     assert isinstance(api_resp['data'], list)
     assert len(api_resp['data']) == tourn.players
+    players = api_resp['data']
+
+    # validate that setting `player_num` works, and an empty `nick_name` is replaced by
+    # `last_name` (and that `first_name` is then used in `display_name`)
+    player = players[0]
+    data = {
+        'id'        : player['id'],
+        'player_num': 10,
+        'nick_name' : ''
+    }
+    resp = client.post("/players/", data=data)
+    assert resp.status_code == 200
+    api_resp = json.loads(resp.text)
+    assert api_resp['succ']
+    pl_data = api_resp['data']
+    assert pl_data['id'] == data['id']
+    assert pl_data['player_num'] == data['player_num']
+    assert pl_data['nick_name'] == pl_data['last_name']
+    assert pl_data['display_name'].find(f"({player['first_name']})") > -1
+
+    # validate that `player_num` can be changed, and a non-empty `nick_name` is now used
+    # in `display_name`
+    player = players[0]
+    data = {
+        'id'        : player['id'],
+        'player_num': 15,
+        'nick_name' : "Zeke"
+    }
+    resp = client.post("/players/", data=data)
+    assert resp.status_code == 200
+    api_resp = json.loads(resp.text)
+    assert api_resp['succ']
+    pl_data = api_resp['data']
+    assert pl_data['id'] == data['id']
+    assert pl_data['player_num'] == data['player_num']
+    assert pl_data['nick_name'] == data['nick_name']
+    assert pl_data['display_name'].find(f"({data['nick_name']})") > -1
+
+    # validate that same `player_num` cannot be reused
+    player = players[1]
+    data = {
+        'id'        : player['id'],
+        'player_num': 15,
+        'nick_name' : ''
+    }
+    resp = client.post("/players/", data=data)
+    assert resp.status_code == 400
+    api_resp = json.loads(resp.text)
+    assert not api_resp['succ']
+    assert api_resp['err'] == "Player Num already in use"
 
 def test_gen_player_nums(api_client):
     """
@@ -92,7 +146,7 @@ def test_gen_player_nums(api_client):
     data = {
         'action': "gen_player_nums"
     }
-    resp = client.post("/api/players/gen_player_nums", data=data)
+    resp = client.post("/players/gen_player_nums", data=data)
     assert resp.status_code == 200
 
     tourn = TournInfo.get()
@@ -107,7 +161,7 @@ def test_gen_seed_bracket(api_client):
     data = {
         'action': "gen_seed_bracket"
     }
-    resp = client.post("/api/players/gen_seed_bracket", data=data)
+    resp = client.post("/players/gen_seed_bracket", data=data)
     assert resp.status_code == 200
 
     tourn = TournInfo.get()
@@ -115,11 +169,12 @@ def test_gen_seed_bracket(api_client):
     api_resp = json.loads(resp.text)
     assert api_resp['succ']
 
-def test_get_seeding_data(api_client):
-    """Validate that seeding round data is populated.
+def test_seeding_data(api_client):
+    """Validate that seeding round data is populated, and sanity check for updates.  See
+    NOTE in `test_players_data` above.
     """
     client = api_client
-    resp = client.get("/api/seeding/")
+    resp = client.get("/seeding/")
     assert resp.status_code == 200
 
     tourn = TournInfo.get()
@@ -129,6 +184,65 @@ def test_get_seeding_data(api_client):
     assert api_resp['succ']
     assert isinstance(api_resp['data'], list)
     assert len(api_resp['data']) == ngames + bye_recs
+    games = list(filter(lambda x: x['table_num'], api_resp['data']))
+    byes = list(filter(lambda x: not x['table_num'], api_resp['data']))
+    assert len(games) >= 1
+    g1 = games[0]
+
+    data = {
+        'id'       : g1['id'],
+        'team1_pts': 10,
+        'team2_pts': 10
+    }
+    resp = client.post("/seeding/", data=data)
+    assert resp.status_code == 400
+    api_resp = json.loads(resp.text)
+    assert not api_resp['succ']
+    assert api_resp['err'] == "Only one team can score game-winning points (10)"
+
+    data = {
+        'id'       : g1['id'],
+        'team1_pts': 20,
+        'team2_pts': 5
+    }
+    resp = client.post("/seeding/", data=data)
+    assert resp.status_code == 400
+    api_resp = json.loads(resp.text)
+    assert not api_resp['succ']
+    assert api_resp['err'] == "Invalid score specified (must be between 0 and 10 points)"
+
+    data = {
+        'id'       : g1['id'],
+        'team1_pts': "ten",
+        'team2_pts': 5
+    }
+    resp = client.post("/seeding/", data=data)
+    assert resp.status_code == 400
+    api_resp = json.loads(resp.text)
+    assert not api_resp['succ']
+    assert api_resp['err'] == "Invalid type specified"
+
+    data = {
+        'id'       : g1['id'],
+        'team1_pts': 10,
+        'team2_pts': 5
+    }
+    resp = client.post("/seeding/", data=data)
+    assert resp.status_code == 200
+    api_resp = json.loads(resp.text)
+    assert api_resp['succ']
+    assert not api_resp['err']
+
+    data = {
+        'id'       : g1['id'],
+        'team1_pts': 5,
+        'team2_pts': 10
+    }
+    resp = client.post("/seeding/", data=data)
+    assert resp.status_code == 400
+    api_resp = json.loads(resp.text)
+    assert not api_resp['succ']
+    assert api_resp['err'] == "Completed game score cannot be overwritten"
 
 def test_fake_seed_results(api_client):
     """
@@ -137,7 +251,7 @@ def test_fake_seed_results(api_client):
     data = {
         'action': "fake_seed_results"
     }
-    resp = client.post("/api/seeding/fake_seed_results", data=data)
+    resp = client.post("/seeding/fake_seed_results", data=data)
     assert resp.status_code == 200
 
     tourn = TournInfo.get()
@@ -152,7 +266,7 @@ def test_tabulate_seed_results(api_client):
     data = {
         'action': "tabulate_seed_results"
     }
-    resp = client.post("/api/seeding/tabulate_seed_results", data=data)
+    resp = client.post("/seeding/tabulate_seed_results", data=data)
     assert resp.status_code == 200
 
     tourn = TournInfo.get()
@@ -160,11 +274,13 @@ def test_tabulate_seed_results(api_client):
     api_resp = json.loads(resp.text)
     assert api_resp['succ']
 
-def test_get_partners_data(api_client):
-    """Validate that partners data is populated.
+def test_partners_data(api_client):
+    """Validate that partners data is populated, and (non-exhastive) sanity check for
+    picks (additional test cases below, outside of this sequence due to need for data
+    control).  See NOTE in `test_players_data` above.
     """
     client = api_client
-    resp = client.get("/api/partners/")
+    resp = client.get("/partners/")
     assert resp.status_code == 200
 
     tourn = TournInfo.get()
@@ -172,6 +288,130 @@ def test_get_partners_data(api_client):
     assert api_resp['succ']
     assert isinstance(api_resp['data'], list)
     assert len(api_resp['data']) == tourn.players
+    players = api_resp['data']
+
+    avail = list(filter(lambda x: x['available'], players))
+    taken = list(filter(lambda x: not x['available'], players))
+    assert len(avail) >= 4
+    assert len(taken) >= 2
+    p1, p2, p3, p4 = avail[:4]
+    # note that schema-wise these two are different (p5 is the picker, p6 is the pickee),
+    # so we put both of them through the paces
+    p5, p6 = taken[:2]
+
+    # test cases:
+    # - pick out of order (p3 picks p2)
+    # - picker already taken (p5 picks p2)
+    # - picker already taken (p6 picks p2)
+    # - pick already taken (p1 picks p5)
+    # - pick already taken (p1 picks p6)
+    # - pick by rank (p1 picks p2)
+    # - pick by name prefix already taken (p3 picks p1 by name)
+    # - pick by name prefix already taken (p3 picks p2 by name)
+    # - pick by name prefix (p3 picks p4 by name)
+
+    OUT_OF_TURN  = r'Current pick belongs to .+ \([0-9]+\)'
+    PICKER_TAKEN = r'Specified picker \(.*\) already on a team'
+    PICK_TAKEN   = r'Specified pick \(.*\) already on a team'
+
+    # pick out of order (p3 picks p2)
+    data = {
+        'id'        : p3['id'],
+        'picks_info': p2['player_rank']
+    }
+    resp = client.post("/partners/", data=data)
+    assert resp.status_code == 400
+    api_resp = json.loads(resp.text)
+    assert not api_resp['succ']
+    assert re.match(OUT_OF_TURN, api_resp['err'])
+
+    # picker already taken (p5 picks p2)
+    data = {
+        'id'        : p5['id'],
+        'picks_info': p2['player_rank']
+    }
+    resp = client.post("/partners/", data=data)
+    assert resp.status_code == 400
+    api_resp = json.loads(resp.text)
+    assert not api_resp['succ']
+    assert re.match(PICKER_TAKEN, api_resp['err'])
+
+    # picker already taken (p6 picks p2)
+    data = {
+        'id'        : p6['id'],
+        'picks_info': p2['player_rank']
+    }
+    resp = client.post("/partners/", data=data)
+    assert resp.status_code == 400
+    api_resp = json.loads(resp.text)
+    assert not api_resp['succ']
+    assert re.match(PICKER_TAKEN, api_resp['err'])
+
+    # pick already taken (p1 picks p5)
+    data = {
+        'id'        : p1['id'],
+        'picks_info': p5['player_rank']
+    }
+    resp = client.post("/partners/", data=data)
+    assert resp.status_code == 400
+    api_resp = json.loads(resp.text)
+    assert not api_resp['succ']
+    assert re.match(PICK_TAKEN, api_resp['err'])
+
+    # pick already taken (p1 picks p6)
+    data = {
+        'id'        : p1['id'],
+        'picks_info': p6['player_rank']
+    }
+    resp = client.post("/partners/", data=data)
+    assert resp.status_code == 400
+    api_resp = json.loads(resp.text)
+    assert not api_resp['succ']
+    assert re.match(PICK_TAKEN, api_resp['err'])
+
+    # pick by rank (p1 picks p2)
+    data = {
+        'id'        : p1['id'],
+        'picks_info': p2['player_rank']
+    }
+    resp = client.post("/partners/", data=data)
+    assert resp.status_code == 200
+    api_resp = json.loads(resp.text)
+    assert api_resp['succ']
+    assert not api_resp['err']
+
+    # pick by name prefix already taken (p3 picks p1 by name)
+    data = {
+        'id'        : p3['id'],
+        'picks_info': p1['nick_name']
+    }
+    resp = client.post("/partners/", data=data)
+    assert resp.status_code == 400
+    api_resp = json.loads(resp.text)
+    assert not api_resp['succ']
+    assert re.match(PICK_TAKEN, api_resp['err'])
+
+    # pick by name prefix already taken (p3 picks p2 by name)
+    data = {
+        'id'        : p3['id'],
+        'picks_info': p2['nick_name']
+    }
+    resp = client.post("/partners/", data=data)
+    assert resp.status_code == 400
+    api_resp = json.loads(resp.text)
+    assert not api_resp['succ']
+    assert re.match(PICK_TAKEN, api_resp['err'])
+
+    # pick by name prefix (p3 picks p4 by name)
+    data = {
+        'id'        : p3['id'],
+        'picks_info': p4['nick_name']
+    }
+    resp = client.post("/partners/", data=data)
+    assert resp.status_code == 200
+    api_resp = json.loads(resp.text)
+    assert api_resp['succ']
+    assert not api_resp['err']
 
 def test_fake_partner_picks(api_client):
     """
@@ -180,7 +420,7 @@ def test_fake_partner_picks(api_client):
     data = {
         'action': "fake_partner_picks"
     }
-    resp = client.post("/api/partners/fake_partner_picks", data=data)
+    resp = client.post("/partners/fake_partner_picks", data=data)
     assert resp.status_code == 200
 
     tourn = TournInfo.get()
@@ -195,7 +435,7 @@ def test_comp_team_seeds(api_client):
     data = {
         'action': "comp_team_seeds"
     }
-    resp = client.post("/api/partners/comp_team_seeds", data=data)
+    resp = client.post("/partners/comp_team_seeds", data=data)
     assert resp.status_code == 200
 
     tourn = TournInfo.get()
@@ -203,11 +443,11 @@ def test_comp_team_seeds(api_client):
     api_resp = json.loads(resp.text)
     assert api_resp['succ']
 
-def test_get_teams_data(api_client):
+def test_teams_data(api_client):
     """Validate that teams data is populated.
     """
     client = api_client
-    resp = client.get("/api/teams/")
+    resp = client.get("/teams/")
     assert resp.status_code == 200
 
     tourn = TournInfo.get()
@@ -223,7 +463,7 @@ def test_gen_tourn_brackets(api_client):
     data = {
         'action': "gen_tourn_brackets"
     }
-    resp = client.post("/api/teams/gen_tourn_brackets", data=data)
+    resp = client.post("/teams/gen_tourn_brackets", data=data)
     assert resp.status_code == 200
 
     tourn = TournInfo.get()
@@ -231,11 +471,11 @@ def test_gen_tourn_brackets(api_client):
     api_resp = json.loads(resp.text)
     assert api_resp['succ']
 
-def test_get_round_robin_data(api_client):
+def test_round_robin_data(api_client):
     """Validate that round robin game data is populated.
     """
     client = api_client
-    resp = client.get("/api/round_robin/")
+    resp = client.get("/round_robin/")
     assert resp.status_code == 200
 
     tourn = TournInfo.get()
@@ -253,7 +493,7 @@ def test_fake_tourn_results(api_client):
     data = {
         'action': "fake_tourn_results"
     }
-    resp = client.post("/api/round_robin/fake_tourn_results", data=data)
+    resp = client.post("/round_robin/fake_tourn_results", data=data)
     assert resp.status_code == 200
 
     tourn = TournInfo.get()
@@ -268,7 +508,7 @@ def test_tabulate_tourn_results(api_client):
     data = {
         'action': "tabulate_tourn_results"
     }
-    resp = client.post("/api/round_robin/tabulate_tourn_results", data=data)
+    resp = client.post("/round_robin/tabulate_tourn_results", data=data)
     assert resp.status_code == 200
 
     tourn = TournInfo.get()
@@ -276,11 +516,11 @@ def test_tabulate_tourn_results(api_client):
     api_resp = json.loads(resp.text)
     assert api_resp['succ']
 
-def test_get_final_four_data(api_client):
+def test_final_four_data(api_client):
     """Validate that final four teams data is populated.
     """
     client = api_client
-    resp = client.get("/api/final_four/")
+    resp = client.get("/final_four/")
     assert resp.status_code == 200
 
     api_resp = json.loads(resp.text)
@@ -295,7 +535,7 @@ def test_gen_semis_bracket(api_client):
     data = {
         'action': "gen_semis_bracket"
     }
-    resp = client.post("/api/final_four/gen_semis_bracket", data=data)
+    resp = client.post("/final_four/gen_semis_bracket", data=data)
     assert resp.status_code == 200
 
     tourn = TournInfo.get()
@@ -316,7 +556,7 @@ def test_pause_tourn(api_client):
         'action'    : "pause_tourn",
         'tourn_name': tourn.name
     }
-    resp = client.post("/api/tourn/pause_tourn", data=data)
+    resp = client.post("/tourn/pause_tourn", data=data)
     assert resp.status_code == 200
 
     api_resp = json.loads(resp.text)
@@ -334,7 +574,7 @@ def test_create_tourn_exists(api_client):
         'roster_file': open(ROSTER_FILE, "rb"),
         'overwrite'  : ""
     }
-    resp = client.post("/api/tourn/create_tourn", data=data)
+    resp = client.post("/tourn/create_tourn", data=data)
     assert resp.status_code != 200
 
     api_resp = json.loads(resp.text)
@@ -349,7 +589,7 @@ def test_resume_tourn(api_client):
         'action': "select_tourn",
         'tourn' : TEST_DB
     }
-    resp = client.post("/api/tourn/select_tourn", data=data)
+    resp = client.post("/tourn/select_tourn", data=data)
     assert resp.status_code == 200
 
     api_resp = json.loads(resp.text)
@@ -365,7 +605,7 @@ def test_logout(api_client):
     """
     client = api_client
     data = {}
-    resp = client.post("/api/logout", data=data)
+    resp = client.post("/logout", data=data)
     assert resp.status_code == 200
     api_resp = json.loads(resp.text)
     assert api_resp['succ']
@@ -375,9 +615,24 @@ def test_get_tourn_data_noauth(api_client):
     """Try getting tourn management view without authorization.
     """
     client = api_client
-    resp = client.get("/api/tourn/")
+    resp = client.get("/tourn/")
     assert resp.status_code == 401
 
     api_resp = json.loads(resp.text)
     assert not api_resp['succ']
     assert api_resp['err'] == "Unauthorized"
+
+######################
+# partner pick cases #
+######################
+
+"""
+individual test cases:
+- no available players
+- invalid rank specified
+- no match for name prefix
+- multiple nane match, ambiguous
+- multiple name match, none available
+- pick by name prefix (partial)
+- multiple name match, one one available
+"""

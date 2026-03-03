@@ -584,7 +584,7 @@ class SeedGame(BaseModel):
         if self.winner:
             raise RuntimeError("Completed game score cannot be overwritten")
         if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
-            raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points")
+            raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points)")
 
         self.team1_pts = team1_pts
         self.team2_pts = team2_pts
@@ -907,7 +907,7 @@ class TournGame(BaseModel):
         if self.winner:
             raise RuntimeError("Completed game score cannot be overwritten")
         if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
-            raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points")
+            raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points)")
 
         self.team1_pts = team1_pts
         self.team2_pts = team2_pts
@@ -1065,7 +1065,7 @@ class PlayoffGame(BaseModel):
         if self.winner:
             raise RuntimeError("Completed game score cannot be overwritten")
         if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
-            raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points")
+            raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points)")
 
         if self.matchup_winner:
             raise RuntimeError(f"Matchup already complete (winner '{self.matchup_winner.team_name}')")

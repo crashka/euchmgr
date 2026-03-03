@@ -273,7 +273,7 @@ def post_partners() -> dict:
 
     player = Player[typecast(data.get('id'))]
     if not player.available:
-        return ajax_error(f"Specified pick ({player.name}) already on a team")
+        return ajax_error(f"Specified picker ({player.name}) already on a team")
     if player != avail[0]:
         return ajax_error(f"Current pick belongs to {avail[0].seed_ident}")
 

@@ -208,7 +208,7 @@ class TestConfig(Config):
 
 MOBILE_USER_AGENT = "Mobile test client"
 
-class MobileTestClientProxy:
+class MobileAppProxy:
     """From https://stackoverflow.com/q/15278285.
     """
     def __init__(self, app):
@@ -223,7 +223,7 @@ def seed_bracket_app(seed_bracket_db) -> Generator[Flask]:
     """Module-level app instantiation (caches database reference)
     """
     app = create_app(TestConfig)
-    app.wsgi_app = MobileTestClientProxy(app.wsgi_app)
+    app.wsgi_app = MobileAppProxy(app.wsgi_app)
     app.testing = True
     yield app
 
@@ -232,12 +232,12 @@ def tourn_bracket_app(tourn_bracket_db) -> Generator[Flask]:
     """Module-level app instantiation (caches database reference)
     """
     app = create_app(TestConfig)
-    app.wsgi_app = MobileTestClientProxy(app.wsgi_app)
+    app.wsgi_app = MobileAppProxy(app.wsgi_app)
     app.testing = True
     yield app
 
 @pytest.fixture()
-def mobile_client(seed_bracket_app):
+def mobile_client(seed_bracket_app) -> Generator[FlaskClient]:
     """Unauthenticated client instance
     """
     app = seed_bracket_app
@@ -257,7 +257,7 @@ def get_user_client(app: Flask, user: str, pw: str = "") -> FlaskClient:
 
 ADMIN_USER_AGENT = "Admin test client"
 
-class AdminTestClientProxy:
+class AdminAppProxy:
     """From https://stackoverflow.com/q/15278285.
     """
     def __init__(self, app):
@@ -272,13 +272,13 @@ def admin_app() -> Generator[Flask]:
     """Module-level app instantiation (caches database reference)
     """
     app = create_app(TestConfig)
-    app.wsgi_app = AdminTestClientProxy(app.wsgi_app)
+    app.wsgi_app = AdminAppProxy(app.wsgi_app)
     app.testing = True
     yield app
     db_reset(force=True)
 
 @pytest.fixture(scope="module")
-def admin_client(admin_app):
+def admin_client(admin_app) -> Generator[FlaskClient]:
     """Unauthenticated client instance
     """
     app = admin_app
@@ -290,7 +290,7 @@ def admin_client(admin_app):
 
 API_USER_AGENT = "Admin API test client"
 
-class APITestClientProxy:
+class APIAppProxy:
     """From https://stackoverflow.com/q/15278285.
     """
     def __init__(self, app):
@@ -305,14 +305,30 @@ def api_app() -> Generator[Flask]:
     """Module-level app instantiation (caches database reference)
     """
     app = create_app(TestConfig)
-    app.wsgi_app = APITestClientProxy(app.wsgi_app)
+    app.wsgi_app = APIAppProxy(app.wsgi_app)
     app.testing = True
     yield app
     db_reset(force=True)
 
+class APIClient(FlaskClient):
+    """Ensures that API endpoints are being invoked.
+    """
+    def get(self, url: str, *args, **kwargs) -> str:
+        """Add API endpoint to URLs.
+        """
+        assert url[0] == '/'
+        return super().get('/api' + url, *args, **kwargs)
+
+    def post(self, url: str, *args, **kwargs) -> str:
+        """Add API endpoint to URLs.
+        """
+        assert url[0] == '/'
+        return super().post('/api' + url, *args, **kwargs)
+
 @pytest.fixture(scope="module")
-def api_client(api_app):
+def api_client(api_app) -> Generator[FlaskClient]:
     """Unauthenticated client instance
     """
     app = api_app
+    app.test_client_class = APIClient
     yield app.test_client()

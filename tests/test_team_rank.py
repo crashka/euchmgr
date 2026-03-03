@@ -56,7 +56,6 @@ def non_cycle(stage_10_db) -> Generator[CycleFixture]:
     add_games(gm_defs)
     nteams = max(map(lambda x: max(x[0], x[1]), gm_defs))
     yield nteams, []
-    db_close()
 
 @pytest.fixture
 def simple_cycle(stage_10_db) -> Generator[CycleFixture]:
@@ -67,7 +66,6 @@ def simple_cycle(stage_10_db) -> Generator[CycleFixture]:
     add_games(gm_defs)
     nteams = max(map(lambda x: max(x[0], x[1]), gm_defs))
     yield nteams, [{1, 2, 3}]
-    db_close()
 
 @pytest.fixture
 def simple_cycle2(stage_10_db) -> Generator[CycleFixture]:
@@ -80,7 +78,6 @@ def simple_cycle2(stage_10_db) -> Generator[CycleFixture]:
     add_games(gm_defs)
     nteams = max(map(lambda x: max(x[0], x[1]), gm_defs))
     yield nteams, [{2, 3, 4}]
-    db_close()
 
 @pytest.fixture
 def double_cycle(stage_10_db) -> Generator[CycleFixture]:
@@ -94,7 +91,6 @@ def double_cycle(stage_10_db) -> Generator[CycleFixture]:
     add_games(gm_defs)
     nteams = max(map(lambda x: max(x[0], x[1]), gm_defs))
     yield nteams, [{1, 2, 3}, {1, 4, 5}]
-    db_close()
 
 @pytest.fixture
 def double_cycle2(stage_10_db) -> Generator[CycleFixture]:
@@ -107,7 +103,6 @@ def double_cycle2(stage_10_db) -> Generator[CycleFixture]:
     add_games(gm_defs)
     nteams = max(map(lambda x: max(x[0], x[1]), gm_defs))
     yield nteams, [{1, 2, 3, 4}, {1, 2, 4}]
-    db_close()
 
 @pytest.fixture
 def simple_elevate(stage_10_db) -> Generator[CycleFixture]:
@@ -119,7 +114,6 @@ def simple_elevate(stage_10_db) -> Generator[CycleFixture]:
     add_games(gm_defs)
     nteams = max(map(lambda x: max(x[0], x[1]), gm_defs))
     yield nteams, [(4, 1)]
-    db_close()
 
 @pytest.fixture
 def identical_tbs(stage_14_db) -> tuple[tuple[int, int], list[float], int]:
@@ -131,7 +125,6 @@ def identical_tbs(stage_14_db) -> tuple[tuple[int, int], list[float], int]:
                   Team.div_pos == 2))
     res = upd.execute()
     yield (1, 2), [test_crit], [res]
-    db_close()
 
 def validate_cycle_grps(result: CycleFixture) -> None:
     nteams, ref_cycle_grps = result

@@ -28,11 +28,6 @@ def mobile_client() -> bool:
     """
     return re.search(MOBILE_REGEX, request.user_agent.string) is not None
 
-def is_mobile() -> bool:
-    """TEMP: for compatibility (later remove when callers are converted)!!!
-    """
-    return g.mobile
-
 Scalar = str | int | float | bool | None
 
 def process_flashes() -> tuple[dict[str, Scalar], list[Scalar]]:
@@ -162,7 +157,7 @@ def render_error(code: int, name: str = None, desc: str = None) -> str:
     """Mobile-adjusted error page (replacement for `flask.abort`).  This mechanism is used
     for errors rendered outside of the application UI framework.
     """
-    if not is_mobile():
+    if not g.mobile:
         abort(code, description=desc)
 
     err = HTTPStatus(code)

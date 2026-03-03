@@ -22,8 +22,8 @@ from security import (current_user, EuchmgrUser, ADMIN_USER, ADMIN_ID, AdminUser
 from database import db_is_initialized, db_connect, db_close, db_is_closed
 from schema import TournInfo
 from ui_schema import Player
-from ui_common import (mobile_client, is_mobile, process_flashes, msg_join, render_response,
-                       redirect, render_error)
+from ui_common import (mobile_client, process_flashes, msg_join, render_response, redirect,
+                       render_error)
 from data import data
 from chart import chart
 from dash import dash
@@ -119,7 +119,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
             return
         log.debug(f"@app.before_request: {request.method} {request.path}")
         tourn_name = session.get('tourn')
-        assert not (tourn_name and is_mobile())
+        assert not (tourn_name and g.mobile)
         if tourn_name != SEL_NEW:
             if not app.testing or db_is_closed():
                 db_connect(tourn_name)
@@ -228,7 +228,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
             flash(f"username={username}")
             return redirect(url_for('login_page'))
         # TEMP: need to make the routing device and/or context sensitive!!!
-        assert is_mobile()
+        assert g.mobile
         return redirect(url_for('mobile.index'))
 
     @app.route("/logout", methods=['GET', 'POST'])
@@ -253,7 +253,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         if not current_user.is_authenticated:
             return redirect(url_for('login_page'))
 
-        if is_mobile():
+        if g.mobile:
             return redirect(url_for('mobile.index'))
 
         assert current_user.is_admin
@@ -330,7 +330,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         Note that the following request attributes will be different for API calls (we are
         not rewriting them here): `url`, `path`, `full_path`, and `endpoint`.
         """
-        if not is_mobile():
+        if not g.mobile:
             return render_error(403, desc="Mobile access only")
         reroute = MOBILE_API_MAP.get(route) or MOBILE_URL_PFX + '/' + route
         assert g.api_call  # consider this flag a framework thing
@@ -356,7 +356,7 @@ def render_login(context: dict) -> str:
     """
     tourn = None
     logins = None
-    if is_mobile():
+    if g.mobile:
         logins = get_logins()
         if not logins:
             return render_error(503, *err_txt['not_running'])

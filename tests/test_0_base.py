@@ -5,19 +5,40 @@ for stage-level testing.  Note that this is a "happy path" scenario that doesn't
 any error/failure modes and/or handlers.
 """
 
+from collections.abc import Generator
+
 import pytest
+from peewee import SqliteDatabase
 
 from conftest import TEST_DB, ROSTER_FILE, RAND_SEEDS, save_stage_db
-from schema import Bracket, TournStage, TournInfo
+from database import db_init, db_reset
+from schema import Bracket, TournStage, TournInfo, clear_schema_cache
 from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_seed_bracket,
                      fake_seed_games, validate_seed_round, compute_player_ranks,
                      prepick_champ_partners, fake_pick_partners, build_tourn_teams,
                      compute_team_seeds, build_tourn_bracket, fake_tourn_games,
                      validate_tourn, compute_team_ranks, build_playoff_bracket)
 
-@pytest.mark.usefixtures("test_db")
-def test_end_to_end() -> None:
-    """Same as `run_auto.sh` script; also builds stage-level database snapshots.
+############
+# fixtures #
+############
+
+@pytest.fixture(scope="module")
+def test_db() -> Generator[SqliteDatabase]:
+    """Note that the yield value for this function can easily be ignored (e.g. we can use
+    this with the `usefixtures` marker).
+    """
+    db = db_init(TEST_DB, force=True)
+    yield db
+    db_reset(force=True)
+    clear_schema_cache()
+
+#####################
+# run_auto sequence #
+#####################
+
+def test_end_to_end(test_db) -> None:
+    """
     """
     tourn_info = tourn_create(force=True)
     assert tourn_info.name == TEST_DB

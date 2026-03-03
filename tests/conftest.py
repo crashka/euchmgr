@@ -1,20 +1,20 @@
 # -*- coding: utf-8 -*-
 
-"""Common constants, fixtures, etc.
+"""Common constants, fixtures, ..., other stuff
 """
 
 from collections.abc import Generator
 import shutil
+import json
 
 import pytest
 from peewee import SqliteDatabase
-from flask import Flask
 from flask.testing import FlaskClient
 
 from core import TEST_DIR, DataFile
 from database import db_filepath, db_init, db_reset, db_close
 from schema import TournStage, clear_schema_cache
-from server import Config, create_app
+from server import Config
 
 ######################
 # database utilities #
@@ -167,44 +167,18 @@ def stage_14_db() -> Generator[SqliteDatabase]:
     db_reset(force=True)
     clear_schema_cache()
 
-@pytest.fixture(scope="module")
-def test_db() -> Generator[SqliteDatabase]:
-    """Note that the yield value for this function can easily be ignored (e.g. we can use
-    this with the `usefixtures` marker).
-    """
-    db = db_init(TEST_DB, force=True)
-    yield db
-    db_reset(force=True)
-    clear_schema_cache()
-
-@pytest.fixture(scope="module")
-def seed_bracket_db() -> Generator[SqliteDatabase]:
-    """SEED_BRACKET"""
-    db = restore_stage_db(TournStage(4))
-    yield db
-    db_reset(force=True)
-    clear_schema_cache()
-
-@pytest.fixture(scope="module")
-def tourn_bracket_db() -> Generator[SqliteDatabase]:
-    """TOURN_BRACKET"""
-    db = restore_stage_db(TournStage(11))
-    yield db
-    db_reset(force=True)
-    clear_schema_cache()
-
 ###################
 # common UI stuff #
 ###################
 
 class TestConfig(Config):
-    """Subclass the default flask app config
+    """Subclass the default flask app config.
     """
     DEBUG = True
 
-###################
-# mobile fixtures #
-###################
+################
+# mobile stuff #
+################
 
 MOBILE_USER_AGENT = "Mobile test client"
 
@@ -218,42 +192,9 @@ class MobileAppProxy:
         environ['HTTP_USER_AGENT'] = MOBILE_USER_AGENT
         return self.app(environ, start_response)
 
-@pytest.fixture(scope="module")
-def seed_bracket_app(seed_bracket_db) -> Generator[Flask]:
-    """Module-level app instantiation (caches database reference)
-    """
-    app = create_app(TestConfig)
-    app.wsgi_app = MobileAppProxy(app.wsgi_app)
-    app.testing = True
-    yield app
-
-@pytest.fixture(scope="module")
-def tourn_bracket_app(tourn_bracket_db) -> Generator[Flask]:
-    """Module-level app instantiation (caches database reference)
-    """
-    app = create_app(TestConfig)
-    app.wsgi_app = MobileAppProxy(app.wsgi_app)
-    app.testing = True
-    yield app
-
-@pytest.fixture()
-def mobile_client(seed_bracket_app) -> Generator[FlaskClient]:
-    """Unauthenticated client instance
-    """
-    app = seed_bracket_app
-    yield app.test_client()
-
-def get_user_client(app: Flask, user: str, pw: str = "") -> FlaskClient:
-    """Fake fixture, return authenticated client instance
-    """
-    data = {'username': user, 'password': pw}
-    client = app.test_client()
-    client.post("/login", data=data, follow_redirects=True)
-    return client
-
-##################
-# admin fixtures #
-##################
+###############
+# admin stuff #
+###############
 
 ADMIN_USER_AGENT = "Admin test client"
 
@@ -267,26 +208,9 @@ class AdminAppProxy:
         environ['HTTP_USER_AGENT'] = ADMIN_USER_AGENT
         return self.app(environ, start_response)
 
-@pytest.fixture(scope="module")
-def admin_app() -> Generator[Flask]:
-    """Module-level app instantiation (caches database reference)
-    """
-    app = create_app(TestConfig)
-    app.wsgi_app = AdminAppProxy(app.wsgi_app)
-    app.testing = True
-    yield app
-    db_reset(force=True)
-
-@pytest.fixture(scope="module")
-def admin_client(admin_app) -> Generator[FlaskClient]:
-    """Unauthenticated client instance
-    """
-    app = admin_app
-    yield app.test_client()
-
-################
-# API fixtures #
-################
+#############
+# API stuff #
+#############
 
 API_USER_AGENT = "Admin API test client"
 
@@ -299,16 +223,6 @@ class APIAppProxy:
     def __call__(self, environ, start_response):
         environ['HTTP_USER_AGENT'] = API_USER_AGENT
         return self.app(environ, start_response)
-
-@pytest.fixture(scope="module")
-def api_app() -> Generator[Flask]:
-    """Module-level app instantiation (caches database reference)
-    """
-    app = create_app(TestConfig)
-    app.wsgi_app = APIAppProxy(app.wsgi_app)
-    app.testing = True
-    yield app
-    db_reset(force=True)
 
 class APIClient(FlaskClient):
     """Ensures that API endpoints are being invoked.
@@ -325,10 +239,55 @@ class APIClient(FlaskClient):
         assert url[0] == '/'
         return super().post('/api' + url, *args, **kwargs)
 
-@pytest.fixture(scope="module")
-def api_client(api_app) -> Generator[FlaskClient]:
-    """Unauthenticated client instance
+####################
+# mobile API stuff #
+####################
+
+MOBILE_API_USER_AGENT = "Mobile API test client"
+
+class MobileAPIAppProxy:
+    """From https://stackoverflow.com/q/15278285.
     """
-    app = api_app
-    app.test_client_class = APIClient
-    yield app.test_client()
+    def __init__(self, app):
+        self.app = app
+
+    def __call__(self, environ, start_response):
+        environ['HTTP_USER_AGENT'] = MOBILE_API_USER_AGENT
+        return self.app(environ, start_response)
+
+class MobileAPIClient(FlaskClient):
+    """Ensures that API endpoints are being invoked.
+    """
+    user: str = None
+
+    def login(self, user: str, pw: str = '') -> bool:
+        """Return `True` if successfully loggged in.
+        """
+        data = {'username': user, 'password': pw}
+        resp = self.post("/login", data=data)
+        assert resp.status_code == 200
+        self.user = user
+        api_resp = json.loads(resp.text)
+        return api_resp['succ']
+
+    def logout(self) -> dict:
+        """Return `True` if successfully loggged out.
+        """
+        data = {}
+        resp = self.post("/logout", data=data)
+        assert resp.status_code == 200
+        self.user = None
+        api_resp = json.loads(resp.text)
+        return api_resp['succ']
+
+    def get(self, url: str, *args, **kwargs) -> str:
+        """Add API endpoint to URLs.
+        """
+        assert url[0] == '/'
+        return super().get('/mobile_api' + url, *args, **kwargs)
+
+    def post(self, url: str, *args, **kwargs) -> str:
+        """Add API endpoint to URLs.
+        """
+        assert url[0] == '/'
+        return super().post('/mobile_api' + url, *args, **kwargs)

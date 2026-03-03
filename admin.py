@@ -26,8 +26,7 @@ from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_se
                      compute_team_seeds, build_tourn_bracket, fake_tourn_games,
                      validate_tourn, compute_team_ranks, build_playoff_bracket,
                      validate_playoffs, compute_playoff_ranks)
-from ui_common import (is_mobile, process_flashes, msg_join, render_response, redirect,
-                       render_error)
+from ui_common import (process_flashes, msg_join, render_response, redirect, render_error)
 from data import (Layout, pl_layout, sg_layout, pt_layout, tm_layout, tg_layout, ff_layout,
                   pg_layout)
 
@@ -185,7 +184,7 @@ def tourn() -> str:
     if not current_user.is_authenticated:
         return redirect(url_for('login_page'))
 
-    if is_mobile():
+    if g.mobile:
         return render_error(403, desc="Mobile access unauthorized")
 
     params, msgs = process_flashes()
@@ -239,7 +238,7 @@ def view() -> str:
     if not current_user.is_authenticated:
         return redirect(url_for('login_page'))
 
-    if is_mobile():
+    if g.mobile:
         return render_error(403, desc="Mobile access unauthorized")
 
     view = request.path.split('/')[-1]

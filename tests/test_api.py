@@ -5,14 +5,19 @@ expediency), but we don't have to work too hard to keep them in sync.  It is fin
 two diverge, for better coverage of areas more pertinent to the interface and/or clients.
 """
 
+from collections.abc import Generator
 from os import environ
 import re
 import json
 
 import pytest
+from flask import Flask
+from flask.testing import FlaskClient
 
-from conftest import TEST_DB, ROSTER_FILE
-from schema import TournStage, TournInfo
+from conftest import TestConfig, APIAppProxy, APIClient, TEST_DB, ROSTER_FILE
+from database import db_reset
+from schema import TournStage, TournInfo, clear_schema_cache
+from server import create_app
 
 #################
 # utility stuff #
@@ -20,6 +25,30 @@ from schema import TournStage, TournInfo
 
 ADMIN_PW = environ.get('EUCHMGR_ADMIN_PW')
 assert ADMIN_PW, "EUCHMGR_ADMIN_PW must be set in the env"
+
+############
+# fixtures #
+############
+
+@pytest.fixture(scope="module")
+def api_app() -> Generator[Flask]:
+    """Module-level app instantiation (caches database reference).
+    """
+    app = create_app(TestConfig)
+    app.wsgi_app = APIAppProxy(app.wsgi_app)
+    app.testing = True
+    yield app
+    # we do this because the run_auto sequence creates its own db
+    db_reset(force=True)
+    clear_schema_cache()
+
+@pytest.fixture(scope="module")
+def api_client(api_app) -> Generator[FlaskClient]:
+    """Module-level client instance.
+    """
+    app = api_app
+    app.test_client_class = APIClient
+    yield app.test_client()
 
 #####################
 # run_auto sequence #

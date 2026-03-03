@@ -7,15 +7,20 @@ To do:
 - add tests for POST to <view>/data targets.
 """
 
+from collections.abc import Generator
 from os import environ
 import json
 
 import pytest
+from flask import Flask
+from flask.testing import FlaskClient
 from bs4 import BeautifulSoup, Tag
 
-from conftest import TEST_DB, ROSTER_FILE
-from schema import TournStage, TournInfo
+from conftest import TestConfig, AdminAppProxy, TEST_DB, ROSTER_FILE
+from database import db_reset
+from schema import TournStage, TournInfo, clear_schema_cache
 from admin import View, VIEW_DEFS, SEL_NEW
+from server import create_app
 
 #################
 # utility stuff #
@@ -55,6 +60,28 @@ def validate_button(parent: Tag, btn_value: str, enabled: bool) -> None:
     selector = f'button[value="{btn_value}"]'
     assert parent.select_one(selector)
     assert parent.select_one(selector).get('disabled') == (None if enabled else '')
+
+############
+# fixtures #
+############
+
+@pytest.fixture(scope="module")
+def admin_app() -> Generator[Flask]:
+    """Module-level app instantiation (caches database reference)
+    """
+    app = create_app(TestConfig)
+    app.wsgi_app = AdminAppProxy(app.wsgi_app)
+    app.testing = True
+    yield app
+    db_reset(force=True)
+    clear_schema_cache()
+
+@pytest.fixture(scope="module")
+def admin_client(admin_app) -> Generator[FlaskClient]:
+    """Unauthenticated client instance
+    """
+    app = admin_app
+    yield app.test_client()
 
 #####################
 # run_auto sequence #

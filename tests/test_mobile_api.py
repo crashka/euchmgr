@@ -414,7 +414,9 @@ class TestSeeding:
         client3.view_data_ref = api_data
 
     def test_score_submit(self, mobile_api_client, mobile_api_client3, seeding_db):
-        """Basic submit/accept sequence.
+        """Sequence:
+            - t1 submit
+            - t2 accept
         """
         client1 = mobile_api_client
         client3 = mobile_api_client3
@@ -428,7 +430,9 @@ class TestSeeding:
         post_score_seq(self.view_path, actions)
 
     def test_score_submit2(self, mobile_api_client, mobile_api_client3, seeding_db):
-        """Identical submit from both teams.
+        """Sequence:
+            - t1 submit
+            - t2 submit (matched)
         """
         client1 = mobile_api_client
         client3 = mobile_api_client3
@@ -440,3 +444,65 @@ class TestSeeding:
             (client3, False, "submit_score", (7, 10), True)
         ]
         post_score_seq(self.view_path, actions)
+
+    def test_score_submit3(self, mobile_api_client, mobile_api_client3, seeding_db):
+        """Sequence:
+            - t1 submit
+            - t2 correct
+            - t1 accept
+        """
+        client1 = mobile_api_client
+        client3 = mobile_api_client3
+        client1.view_data = None
+        client3.view_data = None
+
+        actions = [
+            (client1, False, "submit_score",  (10, 7), True),
+            (client3, True,  "correct_score", (8, 10), True),
+            (client1, True,  "accept_score",  (10, 8), True)
+        ]
+        post_score_seq(self.view_path, actions)
+
+    def test_score_submit4(self, mobile_api_client, mobile_api_client3, seeding_db):
+        """Sequence:
+            - t1 submit
+            - t2 submit (mismatched)
+            - t2 correct
+            - t1 accept
+        """
+        client1 = mobile_api_client
+        client3 = mobile_api_client3
+        client1.view_data = None
+        client3.view_data = None
+
+        actions = [
+            (client1, False, "submit_score",  (10, 7), True),
+            (client3, False, "submit_score",  (8, 10), False),
+            (client3, True,  "correct_score", (8, 10), True),
+            (client1, True,  "accept_score",  (10, 8), True)
+        ]
+        post_score_seq(self.view_path, actions)
+
+    """
+    Additional scenarios to cover:
+     - submit
+        - duplicate submission from partner
+        - mismatched submission from partner
+        - intervening correction from partner (matched)
+        - intervening correction from partner (mismatched)
+        - intervening correction from opponent (matched)
+        - intervening correction from opponent (mismatched)
+        - intervening acceptance
+     - accept
+        - intervening acceptance
+        - intervenine correction from partner (changed score)
+        - intervenine correction from partner (unchanged score)
+        - intervenine correction from opponent (changed score)
+        - intervenine correction from opponent (unchanged score)
+     - correct
+        - intervening acceptance
+        - intervenine correction from partner (matched)
+        - intervenine correction from partner (mismatched)
+        - intervenine correction from opponent (matched)
+        - intervenine correction from opponent (mismatched)
+    """

@@ -10,7 +10,7 @@ from peewee import IntegrityError
 from flask import Blueprint, g, request, abort, url_for, flash, get_flashed_messages
 from ckautils import typecast
 
-from core import ImplementationError, LogicError
+from core import log, ImplementationError, LogicError
 from security import current_user
 from schema import GAME_PTS, Bracket, TournStage, TournInfo, ScoreAction
 from euchmgr import compute_player_ranks, compute_team_ranks, compute_playoff_ranks
@@ -407,13 +407,13 @@ def submit_score(form: dict) -> str:
                   f"({post_info(latest, team_idx)})")
         elif same_score((team1_pts, team2_pts), latest):
             if latest.team_idx != team_idx:
-                flash("info=Duplicate submission as opponent treated as mutual acceptance "
-                      f"({post_info(latest, team_idx)})")
+                log.info("Duplicate submission as opponent treated as mutual acceptance "
+                         f"({post_info(latest, team_idx)})")
                 return accept_score(form, latest)
             # otherwise we fall through and create an ignored duplicate entry
             post_action += ScoreAction.IGNORE
             action_info = "Duplicate submission as partner"
-            flash(f"info=Ignoring {lc_first(action_info)} ({post_info(latest, team_idx)})")
+            log.info(f"Ignoring {lc_first(action_info)} ({post_info(latest, team_idx)})")
         else:
             # NOTE: we previously overwrote a mismatched prior submission, but I think
             # that is both less intuitive and less desirable, so we'll intercept this
@@ -583,7 +583,7 @@ def correct_score(form: dict, ref_score: PostScore = None) -> str:
         # implicit acceptance, but now we always ignore this action (more intuitive)
         post_action += ScoreAction.IGNORE
         action_info = "Unchanged score correction"
-        flash(f"info=Ignoring {lc_first(action_info)}")
+        log.info(f"Ignoring {lc_first(action_info)}")
 
     info = {
         'bracket'      : bracket,

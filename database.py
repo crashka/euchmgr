@@ -71,6 +71,9 @@ db_params = {'c_extensions'     : True,
 # start in "deferred" mode
 db = CSqliteExtDatabase(None, pragmas=pragmas, **db_params)
 
+# expose useful attributes (discourage importing `db` directly)
+db_connection_context = db.connection_context
+
 def db_filepath(name: str, db_dir: str = None) -> str:
     """Build filename (or pathname) based on specified name.
     """

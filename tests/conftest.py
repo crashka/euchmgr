@@ -259,6 +259,8 @@ class MobileAPIClient(FlaskClient):
     """Ensures that API endpoints are being invoked.
     """
     user: str = None
+    view_data: dict = None
+    view_data_ref: dict = None
 
     def login(self, user: str, pw: str = '') -> bool:
         """Return `True` if successfully loggged in.

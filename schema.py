@@ -589,10 +589,13 @@ class SeedGame(BaseModel):
         self.team1_pts = team1_pts
         self.team2_pts = team2_pts
 
-    def update_player_stats(self) -> int:
+    def update_player_stats(self, revert: bool = False) -> int:
         """Update stats for all players involved in the game; returns number of records
         updated.  Called by front-end after the game is complete (i.e. winner determined).
         There is no need to support partial-game stats.
+
+        The `revert` flag is intended for use just before a posted game score is cleared
+        out (either in testing, or if a score needs to be corrected).
         """
         players = [self.player1, self.player2, self.player3, self.player4]
         team_scores = [self.team1_pts, self.team2_pts]
@@ -604,15 +607,21 @@ class SeedGame(BaseModel):
             team_pts = team_scores[tm_idx]
             opp_pts  = team_scores[op_idx]
 
-            player.seed_wins        += int(team_pts > opp_pts)
-            player.seed_losses      += int(team_pts < opp_pts)
-            player.seed_pts_for     += team_pts
-            player.seed_pts_against += opp_pts
+            if not revert:
+                player.seed_wins        += int(team_pts > opp_pts)
+                player.seed_losses      += int(team_pts < opp_pts)
+                player.seed_pts_for     += team_pts
+                player.seed_pts_against += opp_pts
+            else:
+                player.seed_wins        -= int(team_pts > opp_pts)
+                player.seed_losses      -= int(team_pts < opp_pts)
+                player.seed_pts_for     -= team_pts
+                player.seed_pts_against -= opp_pts
 
             ngames = player.seed_wins + player.seed_losses
             totpts = player.seed_pts_for + player.seed_pts_against
-            player.seed_win_pct = rnd_pct(player.seed_wins / ngames)
-            player.seed_pts_pct = rnd_pct(player.seed_pts_for / totpts)
+            player.seed_win_pct = rnd_pct(player.seed_wins / ngames) if ngames else None
+            player.seed_pts_pct = rnd_pct(player.seed_pts_for / totpts) if totpts else None
             upd += player.save()
 
         return upd

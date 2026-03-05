@@ -140,7 +140,8 @@ def redirect(location: str) -> str:
         err_msgs = params.pop('err', [])
         info_msgs = params.pop('info', []) + msgs
         if params:
-            raise ImplementationError(f"unexpected flashed params '{params}'")
+            #raise ImplementationError(f"unexpected flashed params '{params}'")
+            info_msgs.append(f"unexpected flashed params '{params}'")
         err_msg = msg_join(err_msgs) or None
         info_msg = msg_join(info_msgs) or None
         if err_msg:

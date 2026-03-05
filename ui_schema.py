@@ -1165,15 +1165,17 @@ BRACKET_GAME_CLS = {
     Bracket.FINALS: PlayoffGame
 }
 
+StageGame = SeedGame | TournGame | PlayoffGame
+
 def get_bracket(label: str) -> str:
     """Get bracket for the specified game label.  FIX: quick and dirty for now--need a
     proper representations of bracket definitions overall!!!
     """
     pfx = label.split('-', 1)[0]
-    assert pfx in (Bracket.SEED, Bracket.TOURN, Bracket.SEMIS, Bracket.FINALS)
+    assert pfx in BRACKET_GAME_CLS
     return pfx
 
-def get_game_by_label(label: str) -> SeedGame | TournGame:
+def get_game_by_label(label: str) -> StageGame:
     """Use a little ORM knowledge to fetch from the appropriate table--LATER: can put this
     in the right place (or refactor the whole bracket-game thing)!!!
     """

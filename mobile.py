@@ -605,17 +605,29 @@ def correct_score(form: dict, ref_score: PostScore = None) -> str:
 def pick_partner(form: dict) -> str:
     """Submit the specified partner pick.
     """
-    player_num = typecast(form['player_num'])
+    player_num  = typecast(form['player_num'])
     partner_num = typecast(form['partner_num'])
+    picks_info  = typecast(form['picks_info'])
 
-    player = Player.fetch_by_num(player_num)
-    partner = Player.fetch_by_num(partner_num)
-    player.pick_partners(partner)
-    player.save(cascade=True)
-    # REVISIT: we should try and incorporate this into update_tourn_stage (would have to
-    # rethink the interface for that, though)!!!
-    if PartnerPick.current_round() == -1:
-        TournInfo.mark_stage_complete(TournStage.PARTNER_PICK)
+    try:
+        player = Player.fetch_by_num(player_num)
+        partner = Player.fetch_by_num(partner_num)
+        if partner:
+            # partner is identified, but need to apply validation logic
+            partners, avail = player.pick_partners(partner.player_rank)
+        else:
+            if isinstance(picks_info, bool) or picks_info is None:
+                # revert over-aggressive typecasting (could mask viable matches)
+                picks_info = form['picks_info']
+            partners, avail = player.pick_partners(picks_info)
+        player.set_partners(*partners)
+        player.save(cascade=True)
+        # REVISIT: we should try and incorporate this into update_tourn_stage (would have to
+        # rethink the interface for that, though)!!!
+        if PartnerPick.current_round() == -1:
+            TournInfo.mark_stage_complete(TournStage.PARTNER_PICK)
+    except RuntimeError as e:
+        flash(f"err={str(e)}")
     return render_view(View.PARTNERS)
 
 #############

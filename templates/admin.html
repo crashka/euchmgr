@@ -272,7 +272,7 @@
                 showError(resp.err);
               }
               else if (resp.succ) {
-                if (resp.data == 'all') {
+                if (resp.data.reloadTable) {
                   console.log('Reloading table data');
                   table.ajax.reload();
                 }

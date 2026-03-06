@@ -303,6 +303,11 @@ def test_tabulate_seed_results(api_client):
     api_resp = json.loads(resp.text)
     assert api_resp['succ']
 
+# regex patterns for partner pick errors
+OUT_OF_TURN  = r'Current pick belongs to .+'
+PICKER_TAKEN = r'Specified picker \(.+\) already on a team'
+PICK_TAKEN   = r'Specified pick \(.+\) already on a team'
+
 def test_partners_data(api_client):
     """Validate that partners data is populated, and (non-exhastive) sanity check for
     picks (additional test cases below, outside of this sequence due to need for data
@@ -324,8 +329,8 @@ def test_partners_data(api_client):
     assert len(avail) >= 4
     assert len(taken) >= 2
     p1, p2, p3, p4 = avail[:4]
-    # note that schema-wise these two are different (p5 is the picker, p6 is the pickee),
-    # so we put both of them through the paces
+    # note that schema-wise these two are different (p5 is the picker, p6 was the one
+    # picked), so we put both of them through the paces
     p5, p6 = taken[:2]
 
     # test cases:
@@ -338,10 +343,6 @@ def test_partners_data(api_client):
     # - pick by name prefix already taken (p3 picks p1 by name)
     # - pick by name prefix already taken (p3 picks p2 by name)
     # - pick by name prefix (p3 picks p4 by name)
-
-    OUT_OF_TURN  = r'Current pick belongs to .+ \([0-9]+\)'
-    PICKER_TAKEN = r'Specified picker \(.*\) already on a team'
-    PICK_TAKEN   = r'Specified pick \(.*\) already on a team'
 
     # pick out of order (p3 picks p2)
     data = {

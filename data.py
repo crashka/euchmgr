@@ -263,69 +263,35 @@ def post_partners() -> dict:
     the `id` and `picks_info` fields.
     """
     data = request.form
-    upd_info = {x[0]: typecast(data.get(x[0])) for x in pt_layout if x[2] == EDITABLE}
-    picks_info = upd_info.pop('picks_info')
-    assert len(upd_info) == 0
+    pt_data = None
 
-    avail = Player.available_players()
-    if len(avail) == 0:
-        return ajax_error("No available players to pick")
+    try:
+        player = Player[typecast(data.get('id'))]
+        upd_info = {x[0]: typecast(data.get(x[0])) for x in pt_layout if x[2] == EDITABLE}
+        # TODO: add support for `partner_num` (in addition to `picks_info`)!!!
+        picks_info = upd_info.pop('picks_info')
+        assert len(upd_info) == 0
 
-    player = Player[typecast(data.get('id'))]
-    if not player.available:
-        return ajax_error(f"Specified picker ({player.name}) already on a team")
-    if player != avail[0]:
-        return ajax_error(f"Current pick belongs to {avail[0].seed_ident}")
-
-    if isinstance(picks_info, int):
-        partner = Player.fetch_by_rank(picks_info)
-    elif isinstance(picks_info, str):
-        match = list(Player.find_by_name_pfx(picks_info))
-        match_av = list(filter(lambda x: x.available, match))
-        if len(match_av) > 1:
-            av_by_name = sorted(match_av, key=lambda pl: pl.name)
-            samples = ', '.join([p.name for p in av_by_name][:2]) + ", etc."
-            return ajax_error(f"Multiple matches for name starting with \"{picks_info}\" "
-                              f"available ({samples}); please respecify")
-        elif len(match_av) == 1:
-            partner = match_av.pop()
-        elif len(match) > 1:
-            by_name = sorted(match, key=lambda pl: pl.name)
-            samples = ', '.join([p.name for p in by_name][:2]) + ", etc."
-            return ajax_error(f"All matches for name starting with \"{picks_info}\" "
-                              f"already on a team ({samples})")
-        elif len(match) == 1:
-            partner = match.pop()  # will get caught as unavailable, below
-        else:
-            partner = None
-    else:
-        return ajax_error(f"Cannot find player identified by \"{picks_info}\"")
-
-    if not partner:
-        return ajax_error(f"Player identified by \"{picks_info}\" does not exist")
-    if not partner.available:
-        return ajax_error(f"Specified pick ({partner.name}) already on a team")
-    if partner == player:
-        return ajax_error(f"Cannot pick self ({player.name}) as partner")
-
-    # automatic final pick(s) if 2 or 3 teams remain
-    assert len(avail) not in (0, 1)
-    if len(avail) in (2, 3):
-        partners = avail[1:]
-        assert partner in partners
-        player.pick_partners(*partners)
+        if isinstance(picks_info, bool) or picks_info is None:
+            # revert over-aggressive typecasting (could mask viable matches)
+            picks_info = data.get('picks_info')
+        partners, avail = player.pick_partners(picks_info)
+        player.set_partners(*partners)
         player.save(cascade=True)
-        avail = []
-    else:
-        player.pick_partners(partner)
-        player.save(cascade=True)
-        # TODO: pop or remove both player and partner from `avail`, if we are still going
-        # to do something with it!!!
 
-    if PartnerPick.current_round() == -1:
-        TournInfo.mark_stage_complete(TournStage.PARTNER_PICK)
+        # see "KINDA HOKEY" comment about this button stuff in post_playoffs() below
+        enable_button = None
+        if PartnerPick.current_round() == -1:
+            TournInfo.mark_stage_complete(TournStage.PARTNER_PICK)
+            enable_button = 'comp_team_seeds'
+        pt_data = {'reloadTable': True}
+        if enable_button:
+            pt_data['enableButton'] = enable_button
+    except RuntimeError as e:
+        return ajax_error(str(e))
+
     # REVISIT: return available players? (...and if so, by num or seed?)
-    return ajax_data('all')
+    return ajax_data(pt_data)
 
 ##########
 # /teams #
@@ -591,6 +557,8 @@ def post_playoffs() -> dict:
 
         if game.winner:
             game.update_team_stats()
+            # REVISIT/FIX: commenting this out for now, since we aren't currently managing
+            # the different brackets properly within team_games!!!
             #game.insert_team_games()
 
             # NOTE that we don't automatically finalize the playoff ranks when the bracket

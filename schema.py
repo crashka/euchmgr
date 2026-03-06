@@ -4,6 +4,7 @@ from enum import IntEnum, StrEnum
 from typing import ClassVar, Self, Iterator, NamedTuple
 import re
 
+from ckautils import typecast
 from peewee import (TextField, IntegerField, BooleanField, FloatField, ForeignKeyField,
                     DeferredForeignKey, OperationalError, DoesNotExist, fn)
 from playhouse.sqlite_ext import JSONField
@@ -451,7 +452,7 @@ class Player(BaseModel, EuchmgrUser):
                                 (PlayerGame.opponents.extract_text('1').in_(opps_nums)))
         return dict(zip(stat_keys, query[0].__data__.values()))
 
-    def pick_partners(self, partner: Self, partner2: Self = None) -> None:
+    def set_partners(self, partner: Self, partner2: Self = None) -> None:
         """Assign a partner to the current player (and possibly a second partner in the
         case of THM teams).  This call also sets the back-reference from the partner(s) to
         the playing picking.
@@ -476,7 +477,7 @@ class Player(BaseModel, EuchmgrUser):
         """Ensure that nick_name is not null, since it is used as the display name in
         brackets (defaults to last_name if not otherwise specified).  If `cascade=True` is
         specified, we propagate the save to partner(s), if dirty (e.g. can be used after
-        pick_partners() is called).
+        set_partners() is called).
         """
         if 'nick_name' in self._dirty:
             if not self.nick_name:

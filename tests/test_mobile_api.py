@@ -16,8 +16,10 @@ from flask import Flask
 from flask.testing import FlaskClient
 
 from conftest import TestConfig, MobileAPIAppProxy, MobileAPIClient, TEST_DB, restore_stage_db
+from test_api import OUT_OF_TURN, PICKER_TAKEN, PICK_TAKEN
 from database import db_is_initialized, db_reset, db_connection_context
 from schema import TournStage, TournInfo, SeedGame, PlayerGame, PostScore, clear_schema_cache
+from euchmgr import prepick_champ_partners
 from ui_schema import get_game_by_label
 from server import create_app
 
@@ -82,8 +84,8 @@ def validate_pushed_score(label: str, score: tuple[int, int]) -> None:
 
 def clear_pushed_score(label: str, nposts: int) -> None:
     """Reset data associated with the previous post_score sequence.  `nposts` is used for
-    additional validation.  We do not reset `seed_tb_crit` or `player_rank` since there is
-    no clean interface for it, and they don't affect the current set of tests.
+    additional validation.  NOTE: we do not reset `seed_tb_crit` or `player_rank` since
+    there is no clean interface for it, and they don't affect the current set of tests.
     """
     # delete from player_game
     nrows = (PlayerGame
@@ -97,7 +99,7 @@ def clear_pushed_score(label: str, nposts: int) -> None:
              .delete()
              .where(PostScore.game_label == label)
              .execute())
-    assert nrows > 1
+    assert nrows == nposts
 
     # revert player stats
     game = get_game_by_label(label)
@@ -151,7 +153,8 @@ def mobile_api_client3(mobile_api_app) -> Generator[FlaskClient]:
 
 @pytest.fixture(scope="class")
 def register_db() -> Generator[SqliteDatabase]:
-    """PLAYER_ROSTER"""
+    """TournStage.PLAYER_ROSTER
+    """
     db = restore_stage_db(TournStage(2))
     yield db
     db_reset(force=True)
@@ -159,7 +162,8 @@ def register_db() -> Generator[SqliteDatabase]:
 
 @pytest.fixture(scope="class")
 def seeding_db() -> Generator[SqliteDatabase]:
-    """SEED_BRACKET"""
+    """TournStage.SEED_BRACKET
+    """
     db = restore_stage_db(TournStage(4))
     yield db
     db_reset(force=True)
@@ -167,8 +171,10 @@ def seeding_db() -> Generator[SqliteDatabase]:
 
 @pytest.fixture(scope="class")
 def partners_db() -> Generator[SqliteDatabase]:
-    """SEED_RANKS"""
+    """TournStage.SEED_RANKS + partner prepick(s) for reigning champs
+    """
     db = restore_stage_db(TournStage(7))
+    prepick_champ_partners()
     yield db
     db_reset(force=True)
     clear_schema_cache()
@@ -252,7 +258,7 @@ class TestRegister:
         assert len(api_data['nums_avail']) == tourn.players
         client.view_data = api_data
 
-    def test_register_player(self, mobile_api_client, mobile_api_client2, register_db):
+    def test_register_player(self, mobile_api_client, register_db):
         """Test registration process, including setting of player_num and nick_name, and
         also ability to change (e.g. correct) player_num.
         """
@@ -306,7 +312,7 @@ class TestRegister:
         assert api_data['user']['nick_name'] == data['nick_name']
         client.view_data = api_data
 
-    def test_register_player2(self, mobile_api_client, mobile_api_client2, register_db):
+    def test_register_player2(self, mobile_api_client2, register_db):
         """Test registration process for second user, including clearing of nick_name and
         uniqueness enforcement for player_nums.
         """
@@ -350,7 +356,10 @@ class TestRegister:
         client.view_data = api_data
 
 class TestSeeding:
-    """Various tests on the `seeding` view.
+    """Various tests on the `seeding` view.  We will also use this class to provide the
+    context for comprehensive testing of post_score scenarios.  The other stage game views
+    (round_robin, semifinals, and finals) should only need a few selected spot checks for
+    score posting sequences.
     """
     view_name: ClassVar[str] = "seeding"
     view_path: ClassVar[str] = "/seeding"
@@ -365,8 +374,8 @@ class TestSeeding:
         tourn = TournInfo.get()
         assert tourn.stage_compl == TournStage.SEED_BRACKET
 
-    def test_seeding_view(self, mobile_api_client, mobile_api_client2,
-                          mobile_api_client3, seeding_db):
+    def test_seeding_view(self, mobile_api_client, mobile_api_client2, mobile_api_client3,
+                          seeding_db):
         """Log in all users, and validate/cache view data.
         """
         # first user
@@ -506,3 +515,238 @@ class TestSeeding:
         - intervenine correction from opponent (matched)
         - intervenine correction from opponent (mismatched)
     """
+
+class TestPartners:
+    """Various tests on the `partners` view.
+
+    Test cases:
+     - pick out of order (p3 picks p2)
+     - picker already taken (p5 picks p2)
+     - picker already taken (p6 picks p2)
+     - pick already taken (p1 picks p5)
+     - pick already taken (p1 picks p6)
+     - pick by rank (p1 picks p2)
+     - pick by name prefix already taken (p3 picks p1 by name)
+     - pick by name prefix already taken (p3 picks p2 by name)
+     - pick by name prefix (p3 picks p4 by name)
+
+    Error patterns: OUT_OF_TURN, PICKER_TAKEN, PICK_TAKEN
+    """
+    view_name : ClassVar[str] = "partners"
+    view_path : ClassVar[str] = "/partners"
+    user1     : ClassVar[str] = "Shutts"  # rank 1
+    user2     : ClassVar[str] = "Fields"  # rank 2
+    user3     : ClassVar[str] = "Rooze"   # rank 3
+    user10_num: ClassVar[int] = 3         # rank 10 - "Pound"
+    user11_num: ClassVar[int] = 26        # rank 11 - "Chisholm"
+
+    def test_fixtures(self, partners_db):
+        """Validate fixtures and log in uers.
+        """
+        assert db_is_initialized()
+        tourn = TournInfo.get()
+        assert tourn.stage_compl == TournStage.SEED_RANKS
+
+    def test_partners_view(self, mobile_api_client, mobile_api_client2, mobile_api_client3,
+                           partners_db):
+        """Log in all users, and validate/cache view data.
+        """
+        # first user
+        client = mobile_api_client
+        client.login(self.user1)
+        resp = client.get(self.view_path)
+        assert resp.status_code == 200
+
+        tourn = TournInfo.get()
+        api_resp = json.loads(resp.text)
+        assert api_resp['succ']
+        assert isinstance(api_resp['data'], dict)
+        api_data = api_resp['data']
+        assert api_data['user']['nick_name'] == self.user1
+        assert api_data['tourn']['name'] == tourn.name
+        assert api_data['view'] == self.view_name
+        prepick = api_data['partner_picks'][0]
+        prepick_partners = 2 if prepick['partner2'] else 1
+        assert len(api_data['partner_picks']) == tourn.players - prepick_partners
+        assert len(api_data['picks_avail']) == tourn.players - prepick_partners - 2
+        client.view_data = api_data
+
+        # second user (with abbreviated validation)
+        client2 = mobile_api_client2
+        client2.login(self.user2)
+        resp = client2.get(self.view_path)
+        assert resp.status_code == 200
+
+        api_resp = json.loads(resp.text)
+        assert api_resp['succ']
+        api_data = api_resp['data']
+        assert api_data['user']['nick_name'] == self.user2
+        client2.view_data = api_data
+
+        # third user (with abbreviated validation)
+        client3 = mobile_api_client3
+        client3.login(self.user3)
+        resp = client3.get(self.view_path)
+        assert resp.status_code == 200
+
+        api_resp = json.loads(resp.text)
+        assert api_resp['succ']
+        api_data = api_resp['data']
+        assert api_data['user']['nick_name'] == self.user3
+        client3.view_data = api_data
+
+    def test_pick_partner(self, mobile_api_client, mobile_api_client2, partners_db):
+        """Pick taken out of order.
+        """
+        client1 = mobile_api_client
+        client2 = mobile_api_client2
+        player1 = client1.view_data['user']
+        player2 = client2.view_data['user']
+        data = {
+            'action'     : "pick_partner",
+            'player_num' : player2['player_num'],
+            'partner_num': player1['player_num'],
+            'picks_info' : ""
+        }
+        resp = client2.post(self.view_path + "/pick_partner", data=data)
+        assert resp.status_code == 400
+        api_resp = json.loads(resp.text)
+        assert not api_resp['succ']
+        assert re.match(OUT_OF_TURN, api_resp['err'])
+
+    def test_pick_partner2(self, mobile_api_client, mobile_api_client2, partners_db):
+        """Pick based on partner_num.
+        """
+        client1 = mobile_api_client
+        client2 = mobile_api_client2
+        player1 = client1.view_data['user']
+        player2 = client2.view_data['user']
+        data = {
+            'action'     : "pick_partner",
+            'player_num' : player1['player_num'],
+            'partner_num': player2['player_num'],
+            'picks_info' : ""
+        }
+        resp = client1.post(self.view_path + "/pick_partner", data=data)
+        assert resp.status_code == 200
+        api_resp = json.loads(resp.text)
+        assert api_resp['succ']
+
+        # requery data and validate changes
+        resp = client1.get(self.view_path)
+        assert resp.status_code == 200
+        api_resp = json.loads(resp.text)
+        assert isinstance(api_resp['data'], dict)
+        api_data = api_resp['data']
+        assert api_data['user']['player_num'] == data['player_num']
+        assert api_data['user']['partner'] == data['partner_num']
+        client1.view_data = api_data
+
+        # validate from picked player perspective
+        resp = client2.get(self.view_path)
+        assert resp.status_code == 200
+        api_resp = json.loads(resp.text)
+        assert isinstance(api_resp['data'], dict)
+        api_data = api_resp['data']
+        assert api_data['user']['player_num'] == data['partner_num']
+        assert api_data['user']['picked_by'] == data['player_num']
+        assert not api_data['user']['partner']
+        client2.view_data = api_data
+
+    def test_pick_partner3(self, mobile_api_client, partners_db):
+        """Picker already on a team (previous picker).
+        """
+        client = mobile_api_client
+        player = client.view_data['user']
+        data = {
+            'action'     : "pick_partner",
+            'player_num' : player['player_num'],
+            'partner_num': self.user10_num,
+            'picks_info' : ""
+        }
+        resp = client.post(self.view_path + "/pick_partner", data=data)
+        assert resp.status_code == 400
+        api_resp = json.loads(resp.text)
+        assert not api_resp['succ']
+        assert re.match(PICKER_TAKEN, api_resp['err'])
+
+    def test_pick_partner4(self, mobile_api_client2, partners_db):
+        """Picker already on a team (previously picked).
+        """
+        client = mobile_api_client2
+        player = client.view_data['user']
+        data = {
+            'action'     : "pick_partner",
+            'player_num' : player['player_num'],
+            'partner_num': self.user10_num,
+            'picks_info' : ""
+        }
+        resp = client.post(self.view_path + "/pick_partner", data=data)
+        assert resp.status_code == 400
+        api_resp = json.loads(resp.text)
+        assert not api_resp['succ']
+        assert re.match(PICKER_TAKEN, api_resp['err'])
+
+    def test_pick_partner5(self, mobile_api_client, mobile_api_client3, partners_db):
+        """Pick already on a team (previous picker).
+        """
+        client1 = mobile_api_client
+        client3 = mobile_api_client3
+        player1 = client1.view_data['user']
+        player3 = client3.view_data['user']
+        data = {
+            'action'     : "pick_partner",
+            'player_num' : player3['player_num'],
+            'partner_num': player1['player_num'],
+            'picks_info' : ""
+        }
+        resp = client3.post(self.view_path + "/pick_partner", data=data)
+        assert resp.status_code == 400
+        api_resp = json.loads(resp.text)
+        assert not api_resp['succ']
+        assert re.match(PICK_TAKEN, api_resp['err'])
+
+    def test_pick_partner6(self, mobile_api_client2, mobile_api_client3, partners_db):
+        """Pick already on a team (previously picked).
+        """
+        client2 = mobile_api_client2
+        client3 = mobile_api_client3
+        player2 = client2.view_data['user']
+        player3 = client3.view_data['user']
+        data = {
+            'action'     : "pick_partner",
+            'player_num' : player3['player_num'],
+            'partner_num': player2['player_num'],
+            'picks_info' : ""
+        }
+        resp = client3.post(self.view_path + "/pick_partner", data=data)
+        assert resp.status_code == 400
+        api_resp = json.loads(resp.text)
+        assert not api_resp['succ']
+        assert re.match(PICK_TAKEN, api_resp['err'])
+
+    def test_pick_partner7(self, mobile_api_client3, partners_db):
+        """Pick based on picks_info (rank).
+        """
+        client = mobile_api_client3
+        player = client.view_data['user']
+        data = {
+            'action'     : "pick_partner",
+            'player_num' : player['player_num'],
+            'partner_num': "",
+            'picks_info' : "10"  # rank
+        }
+        resp = client.post(self.view_path + "/pick_partner", data=data)
+        assert resp.status_code == 200
+        api_resp = json.loads(resp.text)
+        assert api_resp['succ']
+
+        # requery data and validate changes
+        resp = client.get(self.view_path)
+        assert resp.status_code == 200
+        api_resp = json.loads(resp.text)
+        assert isinstance(api_resp['data'], dict)
+        api_data = api_resp['data']
+        assert api_data['user']['player_num'] == data['player_num']
+        assert api_data['user']['partner'] == self.user10_num
+        client.view_data = api_data

@@ -535,6 +535,8 @@
           <span class="picker">{{pk.seed_ident}}{{is_you|safe}}{{champ_flg}}</span>
           {% if pk == user and cur_pick == user %}
           <input type="hidden" name="player_num" value="{{user.player_num}}">
+          {# the following is currently unused, but could expose later #}
+          <input type="hidden" name="picks_info" value="">
           <span class="partner">
             <select name="partner_num">
               <option value="" selected disabled hidden></option>

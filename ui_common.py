@@ -71,7 +71,7 @@ def dflt_ctx_mapper(ctx_in: dict) -> dict:
     """
     ctx_out = {}
     for key, val in ctx_in.items():
-        if key in ('stage_games', 'partner_picks') and val:
+        if key in ('stage_games', 'partner_picks', 'picks_avail') and val:
             # TODO: generalize identification of list[BaseModel]!!!
             assert isinstance(val, list)
             assert isinstance(val[0], BaseModel)

@@ -291,6 +291,64 @@ class Player(UIMixin, BasePlayer):
                             (PlayerGame.opponents.extract_text('1').in_(opps_nums)))
         return list(query)
 
+    def pick_partners(self, picks_info: int | str) -> tuple[list[Self], list[Self]]:
+        """Pick partner(s) based on `picks_info`, which may represent either player_rank
+        (if specified as int) or a name prefix to match.  Returns partner(s) as a list
+        (even if just a single partner), as well as remaining available players (as a
+        convenience to the caller).
+
+        Raises `RuntimeError` if specified pick(s) cannot be resolved or made.
+        """
+        avail = Player.available_players()
+        if len(avail) == 0:
+            raise RuntimeError("No available players to pick")
+
+        if not self.available:
+            raise RuntimeError(f"Specified picker ({self.name}) already on a team")
+        if self != avail[0]:
+            raise RuntimeError(f"Current pick belongs to {avail[0].seed_ident}")
+
+        if isinstance(picks_info, int):
+            partner = Player.fetch_by_rank(picks_info)
+        elif isinstance(picks_info, str):
+            match = list(Player.find_by_name_pfx(picks_info))
+            match_av = list(filter(lambda x: x.available, match))
+            if len(match_av) > 1:
+                av_by_name = sorted(match_av, key=lambda pl: pl.name)
+                samples = ', '.join([p.name for p in av_by_name][:2]) + ", etc."
+                raise RuntimeError(f"Multiple matches for name starting with \"{picks_info}\" "
+                                   f"available ({samples}); please respecify")
+            elif len(match_av) == 1:
+                partner = match_av.pop()
+            elif len(match) > 1:
+                by_name = sorted(match, key=lambda pl: pl.name)
+                samples = ', '.join([p.name for p in by_name][:2]) + ", etc."
+                raise RuntimeError(f"All matches for name starting with \"{picks_info}\" "
+                                   f"already on a team ({samples})")
+            elif len(match) == 1:
+                partner = match.pop()  # will get caught as unavailable, below
+            else:
+                partner = None
+        else:
+            raise RuntimeError(f"Cannot find player identified by \"{picks_info}\"")
+
+        if not partner:
+            raise RuntimeError(f"Player identified by \"{picks_info}\" does not exist")
+        if not partner.available:
+            raise RuntimeError(f"Specified pick ({partner.name}) already on a team")
+        if partner == self:
+            raise RuntimeError(f"Cannot pick self ({self.name}) as partner")
+
+        # automatic final pick(s) if 2 or 3 teams remain
+        assert len(avail) not in (0, 1)
+        if len(avail) in (2, 3):
+            partners = avail[1:]
+            assert partner in partners
+            return partners, []
+        else:
+            avail.remove(partner)
+            return [partner], avail[1:]
+
 ##################
 # PlayerRegister #
 ##################
@@ -404,7 +462,7 @@ class PartnerPick(UIMixin, BasePlayer):
         return avail[1:]
 
     @classmethod
-    def get_picks(cls, all_picks: bool = False) -> list[BaseModel]:
+    def get_picks(cls, all_picks: bool = False) -> list[Self]:
         """Get completed "PartnerPick" records (corresponding to players that have made a
         pick), in order of pick position (i.e. seeding rank), with reigning champs always
         listed first.  `all_picks` indicates that players yet to pick (and not already

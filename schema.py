@@ -922,10 +922,13 @@ class TournGame(BaseModel):
         self.team1_pts = team1_pts
         self.team2_pts = team2_pts
 
-    def update_team_stats(self) -> int:
+    def update_team_stats(self, revert: bool = False) -> int:
         """Update stats for teams involved in the game; returns number of records updated.
         Called by front-end after the game is complete (i.e. winner determined).  There is
         no need to support partial-game stats.
+
+        The `revert` flag is intended for use just before a posted game score is cleared
+        out (either in testing, or if a score needs to be corrected).
         """
         teams = [self.team1, self.team2]
         team_scores = [self.team1_pts, self.team2_pts]
@@ -936,15 +939,21 @@ class TournGame(BaseModel):
             team_pts = team_scores[tm_idx]
             opp_pts  = team_scores[op_idx]
 
-            team.tourn_wins        += int(team_pts > opp_pts)
-            team.tourn_losses      += int(team_pts < opp_pts)
-            team.tourn_pts_for     += team_pts
-            team.tourn_pts_against += opp_pts
+            if not revert:
+                team.tourn_wins        += int(team_pts > opp_pts)
+                team.tourn_losses      += int(team_pts < opp_pts)
+                team.tourn_pts_for     += team_pts
+                team.tourn_pts_against += opp_pts
+            else:
+                team.tourn_wins        -= int(team_pts > opp_pts)
+                team.tourn_losses      -= int(team_pts < opp_pts)
+                team.tourn_pts_for     -= team_pts
+                team.tourn_pts_against -= opp_pts
 
             ngames = team.tourn_wins + team.tourn_losses
             totpts = team.tourn_pts_for + team.tourn_pts_against
-            team.tourn_win_pct = rnd_pct(team.tourn_wins / ngames)
-            team.tourn_pts_pct = rnd_pct(team.tourn_pts_for / totpts)
+            team.tourn_win_pct = rnd_pct(team.tourn_wins / ngames) if ngames else None
+            team.tourn_pts_pct = rnd_pct(team.tourn_pts_for / totpts) if totpts else None
             upd += team.save()
 
         return upd

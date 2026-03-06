@@ -18,24 +18,39 @@ from flask.testing import FlaskClient
 from conftest import TestConfig, MobileAPIAppProxy, MobileAPIClient, TEST_DB, restore_stage_db
 from test_api import OUT_OF_TURN, PICKER_TAKEN, PICK_TAKEN
 from database import db_is_initialized, db_reset, db_connection_context
-from schema import TournStage, TournInfo, SeedGame, PlayerGame, PostScore, clear_schema_cache
+from schema import Bracket, TournStage, TournInfo, clear_schema_cache
 from euchmgr import prepick_champ_partners
-from ui_schema import get_game_by_label
+from ui_schema import (SeedGame, TournGame, PlayoffGame, PlayerGame, TeamGame, PostScore,
+                       StageGame, get_bracket, get_game_by_label)
 from server import create_app
 
 #####################
 # utility functions #
 #####################
 
-def post_score_seq(view_path: str, actions: list[tuple]) -> None:
-    """Action tuple: (client, refresh, action, score, succ), where `refresh` indicates
-    whether the view data should be refreshed before the action, `score` is specified from
-    the current client perspective, and `succ` is a bool.  Note that the sequence is
-    assumed to end in a successful push (one way or another).
+# value: (game_cls, stats_meth, nrecs)
+SCORE_DENORM_INFO = {
+    Bracket.SEED  : (PlayerGame, "update_player_stats", 4),
+    Bracket.TOURN : (TeamGame, "update_team_stats", 2),
+    Bracket.SEMIS : None,  # later: (TeamGame, "update_team_stats", 2)
+    Bracket.FINALS: None   # later: (TeamGame, "update_team_stats", 2)
+}
 
-    TODO: need to be able to test post-push actions (which should all fail)!!!
+def post_score_seq(view_path: str, actions: list[tuple]) -> None:
+    """Run through score posting sequence between multiple clients, and validate expected
+    results in the database.  This call also cleans up after itself (mostly).
+
+    Action tuple: (client, refresh, action, score, succ, push), where:
+
+      - `refresh` indicates whether the view data should be refreshed before the action
+      - `action` is the full action name (URL target)
+      - `score` is specified from the current client perspective
+      - `succ` indicates whether the action is expected to succeed
+      - `push` indicates whether the action should result in pushing the score to the game
+        table of record (one action, at most)
     """
-    for client, refresh, action, score, succ in actions:
+    push_data = None
+    for client, refresh, action, score, succ, push in actions:
         if refresh:
             resp = client.get(view_path)
             assert resp.status_code == 200
@@ -65,12 +80,21 @@ def post_score_seq(view_path: str, actions: list[tuple]) -> None:
         assert resp.status_code == 200 if succ else 400
         api_resp = json.loads(resp.text)
         assert api_resp['succ'] == succ
+        if push:
+            assert not push_data, "more than one `push` flag set"
+            push_data = (game_label, team_idx, score)
 
-    # this is a little hokey, but variable values in this section are taken from the last
-    # loop (assumed to be a successful push)
     with db_connection_context():
-        if team_idx == 1:
-            score = tuple(reversed(score))
+        if push_data:
+            game_label, team_idx, score = push_data
+            if team_idx == 1:
+                score = tuple(reversed(score))
+        else:
+            # this is a little hokey, but we just inherit game_label from the last
+            # iteration of the loop and do a small integrity check on it
+            assert get_bracket(label)
+            score = (None, None)
+
         validate_pushed_score(game_label, score)
         clear_pushed_score(game_label, len(actions))
 
@@ -78,21 +102,33 @@ def validate_pushed_score(label: str, score: tuple[int, int]) -> None:
     """Validate based on assertions.
     """
     game = get_game_by_label(label)
-    assert isinstance(game, SeedGame)
-    assert game.team1_pts == score[0]
-    assert game.team2_pts == score[1]
+    assert isinstance(game, StageGame)
+    assert game.team1_pts == score[0]  # works for `None` as well
+    assert game.team2_pts == score[1]  # ditto
 
 def clear_pushed_score(label: str, nposts: int) -> None:
     """Reset data associated with the previous post_score sequence.  `nposts` is used for
     additional validation.  NOTE: we do not reset `seed_tb_crit` or `player_rank` since
     there is no clean interface for it, and they don't affect the current set of tests.
     """
-    # delete from player_game
-    nrows = (PlayerGame
-             .delete()
-             .where(PlayerGame.game_label == label)
-             .execute())
-    assert nrows == 4
+    game = get_game_by_label(label)
+    assert isinstance(game, StageGame)
+
+    bracket = get_bracket(label)
+    if denorm_info := SCORE_DENORM_INFO.get(bracket):
+        game_cls, stats_meth, ndenorms = denorm_info
+
+        # delete player/team denorm game data
+        nrows = (game_cls
+                 .delete()
+                 .where(game_cls.game_label == label)
+                 .execute())
+        assert nrows == ndenorms
+
+        # revert player/team stats
+        upd_stats = getattr(game, stats_meth)
+        nrows = upd_stats(revert=True)
+        assert nrows == ndenorms
 
     # delete from post_score
     nrows = (PostScore
@@ -100,12 +136,6 @@ def clear_pushed_score(label: str, nposts: int) -> None:
              .where(PostScore.game_label == label)
              .execute())
     assert nrows == nposts
-
-    # revert player stats
-    game = get_game_by_label(label)
-    assert isinstance(game, SeedGame)
-    nrows = game.update_player_stats(revert=True)
-    assert nrows == 4
 
     # revert game score
     game.team1_pts = None
@@ -175,6 +205,15 @@ def partners_db() -> Generator[SqliteDatabase]:
     """
     db = restore_stage_db(TournStage(7))
     prepick_champ_partners()
+    yield db
+    db_reset(force=True)
+    clear_schema_cache()
+
+@pytest.fixture(scope="class")
+def round_robin_db() -> Generator[SqliteDatabase]:
+    """TournStage.TOURN_BRACKET
+    """
+    db = restore_stage_db(TournStage(11))
     yield db
     db_reset(force=True)
     clear_schema_cache()
@@ -433,8 +472,8 @@ class TestSeeding:
         client3.view_data = None
 
         actions = [
-            (client1, False, "submit_score", (10, 7), True),
-            (client3, True,  "accept_score", (7, 10), True)
+            (client1, False, "submit_score", (10, 7), True, False),
+            (client3, True,  "accept_score", (7, 10), True, True)
         ]
         post_score_seq(self.view_path, actions)
 
@@ -449,8 +488,8 @@ class TestSeeding:
         client3.view_data = None
 
         actions = [
-            (client1, False, "submit_score", (10, 7), True),
-            (client3, False, "submit_score", (7, 10), True)
+            (client1, False, "submit_score", (10, 7), True, False),
+            (client3, False, "submit_score", (7, 10), True, True)
         ]
         post_score_seq(self.view_path, actions)
 
@@ -466,9 +505,9 @@ class TestSeeding:
         client3.view_data = None
 
         actions = [
-            (client1, False, "submit_score",  (10, 7), True),
-            (client3, True,  "correct_score", (8, 10), True),
-            (client1, True,  "accept_score",  (10, 8), True)
+            (client1, False, "submit_score",  (10, 7), True, False),
+            (client3, True,  "correct_score", (8, 10), True, False),
+            (client1, True,  "accept_score",  (10, 8), True, True)
         ]
         post_score_seq(self.view_path, actions)
 
@@ -485,10 +524,10 @@ class TestSeeding:
         client3.view_data = None
 
         actions = [
-            (client1, False, "submit_score",  (10, 7), True),
-            (client3, False, "submit_score",  (8, 10), False),
-            (client3, True,  "correct_score", (8, 10), True),
-            (client1, True,  "accept_score",  (10, 8), True)
+            (client1, False, "submit_score",  (10, 7), True,  False),
+            (client3, False, "submit_score",  (8, 10), False, False),
+            (client3, True,  "correct_score", (8, 10), True,  False),
+            (client1, True,  "accept_score",  (10, 8), True,  True)
         ]
         post_score_seq(self.view_path, actions)
 
@@ -750,3 +789,137 @@ class TestPartners:
         assert api_data['user']['player_num'] == data['player_num']
         assert api_data['user']['partner'] == self.user10_num
         client.view_data = api_data
+
+class TestRoundRobin:
+    """Various tests on the `round_robin` view.
+    """
+    view_name: ClassVar[str] = "round_robin"
+    view_path: ClassVar[str] = "/round_robin"
+    user1    : ClassVar[str] = "Ponzio"  # team 1
+    user2    : ClassVar[str] = "Leibly"  # team 1
+    user3    : ClassVar[str] = "Laves"   # team 2
+
+    def test_fixtures(self, round_robin_db):
+        """Validate fixtures and log in uers.
+        """
+        assert db_is_initialized()
+        tourn = TournInfo.get()
+        assert tourn.stage_compl == TournStage.TOURN_BRACKET
+
+    def test_round_robin_view(self, mobile_api_client, mobile_api_client2, mobile_api_client3,
+                              round_robin_db):
+        """Log in all users, and validate/cache view data.
+        """
+        # first user
+        client = mobile_api_client
+        client.login(self.user1)
+        resp = client.get(self.view_path)
+        assert resp.status_code == 200
+
+        tourn = TournInfo.get()
+        api_resp = json.loads(resp.text)
+        assert api_resp['succ']
+        assert isinstance(api_resp['data'], dict)
+        api_data = api_resp['data']
+        assert api_data['user']['nick_name'] == self.user1
+        assert api_data['tourn']['name'] == tourn.name
+        assert api_data['view'] == self.view_name
+        assert api_data['cur_game']['team1_name'].startswith(self.user1)
+        assert len(api_data['stage_games']) == tourn.tourn_rounds
+        client.view_data_ref = api_data
+
+        # second user (with abbreviated validation)
+        client2 = mobile_api_client2
+        client2.login(self.user2)
+        resp = client2.get(self.view_path)
+        assert resp.status_code == 200
+
+        api_resp = json.loads(resp.text)
+        assert api_resp['succ']
+        api_data = api_resp['data']
+        assert api_data['user']['nick_name'] == self.user2
+        assert api_data['cur_game']['team1_name'].endswith(self.user2)
+        client2.view_data_ref = api_data
+
+        # third user (with abbreviated validation)
+        client3 = mobile_api_client3
+        client3.login(self.user3)
+        resp = client3.get(self.view_path)
+        assert resp.status_code == 200
+
+        api_resp = json.loads(resp.text)
+        assert api_resp['succ']
+        api_data = api_resp['data']
+        assert api_data['user']['nick_name'] == self.user3
+        assert api_data['cur_game']['team2_name'].startswith(self.user3)
+        client3.view_data_ref = api_data
+
+    def test_score_submit(self, mobile_api_client, mobile_api_client3, round_robin_db):
+        """Sequence:
+            - t1 submit
+            - t2 accept
+        """
+        client1 = mobile_api_client
+        client3 = mobile_api_client3
+        client1.view_data = None
+        client3.view_data = None
+
+        actions = [
+            (client1, False, "submit_score", (10, 7), True, False),
+            (client3, True,  "accept_score", (7, 10), True, True)
+        ]
+        post_score_seq(self.view_path, actions)
+
+    def test_score_submit2(self, mobile_api_client, mobile_api_client3, round_robin_db):
+        """Sequence:
+            - t1 submit
+            - t2 submit (matched)
+        """
+        client1 = mobile_api_client
+        client3 = mobile_api_client3
+        client1.view_data = None
+        client3.view_data = None
+
+        actions = [
+            (client1, False, "submit_score", (10, 7), True, False),
+            (client3, False, "submit_score", (7, 10), True, True)
+        ]
+        post_score_seq(self.view_path, actions)
+
+    def test_score_submit3(self, mobile_api_client, mobile_api_client3, round_robin_db):
+        """Sequence:
+            - t1 submit
+            - t2 correct
+            - t1 accept
+        """
+        client1 = mobile_api_client
+        client3 = mobile_api_client3
+        client1.view_data = None
+        client3.view_data = None
+
+        actions = [
+            (client1, False, "submit_score",  (10, 7), True, False),
+            (client3, True,  "correct_score", (8, 10), True, False),
+            (client1, True,  "accept_score",  (10, 8), True, True)
+        ]
+        post_score_seq(self.view_path, actions)
+
+    def test_score_submit4(self, mobile_api_client, mobile_api_client3, round_robin_db):
+        """Sequence:
+            - t1 submit
+            - t2 submit (mismatched)
+            - t2 correct
+            - t1 accept
+        """
+        client1 = mobile_api_client
+        client3 = mobile_api_client3
+        client1.view_data = None
+        client3.view_data = None
+
+        actions = [
+            (client1, False, "submit_score",  (10, 7), True,  False),
+            (client3, False, "submit_score",  (8, 10), False, False),
+            (client3, True,  "correct_score", (8, 10), True,  False),
+            (client1, True,  "accept_score",  (10, 8), True,  True)
+        ]
+        post_score_seq(self.view_path, actions)

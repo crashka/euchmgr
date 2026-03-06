@@ -137,7 +137,7 @@ def post_players() -> dict:
     except TypeError as e:
         return ajax_error("Invalid type specified")
     except (IntegrityError, ValueError) as e:
-        if str(e) == "UNIQUE constraint failed: player.player_num":
+        if str(e).find("UNIQUE constraint failed: player.player_num") > -1:
             return ajax_error("Player Num already in use")
         raise
 

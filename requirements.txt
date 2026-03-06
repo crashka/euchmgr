@@ -2,6 +2,7 @@ flask
 Flask-Session[cachelib]
 flask-login
 jinja2
+cysqlite
 peewee
 git+https://github.com/crashka/ckautils
 gunicorn

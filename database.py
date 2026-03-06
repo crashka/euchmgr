@@ -4,8 +4,8 @@ import re
 from datetime import datetime, date
 import os.path
 
-from peewee import SqliteDatabase, Model, DateTimeField
-from playhouse.sqlite_ext import CSqliteExtDatabase
+from peewee import Model, DateTimeField
+from playhouse.cysqlite_ext import CySqliteDatabase
 
 from core import DataFile, log, DEBUG, LogicError
 
@@ -63,13 +63,11 @@ pragmas = {'journal_mode'            : 'wal',
            'ignore_check_constraints': 0,
            'synchronous'             : 0}
 
-db_params = {'c_extensions'     : True,
-             'autoconnect'      : False,
-             'thread_safe'      : not shared_conn,
-             'check_same_thread': not shared_conn}
+db_params = {'autoconnect': False,
+             'thread_safe': not shared_conn}
 
 # start in "deferred" mode
-db = CSqliteExtDatabase(None, pragmas=pragmas, **db_params)
+db = CySqliteDatabase(None, pragmas=pragmas, **db_params)
 
 # expose useful attributes (discourage importing `db` directly)
 db_connection_context = db.connection_context
@@ -83,7 +81,7 @@ def db_filepath(name: str, db_dir: str = None) -> str:
     else:
         return DataFile(db_file)
 
-def db_init(name: str, force: bool = False, trace_sql: bool = False) -> SqliteDatabase:
+def db_init(name: str, force: bool = False, trace_sql: bool = False) -> CySqliteDatabase:
     """Initialize database for the specified name (if not already bound); return the ORM
     `Database` object (to discourage importing `db` directly).  Use the `force` flag if
     okay to overwrite an existing database file.  Implicitly connects to the database
@@ -170,7 +168,7 @@ def db_connect(name: str | None = None) -> bool:
     log.debug(f"db_connect({name}), db connected")
     return True
 
-def db_close() -> SqliteDatabase:
+def db_close() -> CySqliteDatabase:
     """Ensure that the current database is closed (e.g. for checkpointing the WAL); return
     the ORM `Database` object for convenience (see note in `db_init`).  Note that this
     call is idempotent.

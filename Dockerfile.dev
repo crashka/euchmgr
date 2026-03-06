@@ -17,7 +17,7 @@ ENV PATH="/app/venv/bin:${PATH}"
 
 COPY requirements.txt ./
 RUN python -m pip install --upgrade pip
-RUN pip install --no-binary peewee -r requirements.txt
+RUN pip install -r requirements.txt
 
 #######
 # run #

@@ -1,0 +1,440 @@
+openapi: 3.1.1
+info:
+  title: Euchre Manager
+  description: >
+    This is the API for the Euchmgr Manager admin functions.  The current working version
+    (0.5) is based on the prototype admin UI, and not designed top-down.  We will work to
+    make it cleaner and more RESTful, if supported by interest in creating alternative
+    front-ends.  Note that there is a separate API for supporting mobile, player-centric
+    applications.
+  license:
+    name: MIT License
+    url: https://opensource.org/license/mit
+  version: '0.5'
+
+tags:
+  - name: Security
+    description: >-
+      Admin authentication and session management.
+  - name: Tournament
+    description: >-
+      Create and management tournaments and tournament parameters.
+  - name: Players
+    description: >-
+      Manage tournament rosters and player information.  Also used to track player seeding
+      round records and stats.
+  - name: Seeding
+    description: >-
+      Manage seeding round brackets and game results.
+  - name: Partners
+    description: >-
+      Manage the partner picking process.
+  - name: Teams
+    description: >-
+      Manage team division assignments and seeding.  Also used to track team round robin
+      records and stats.
+  - name: Round Robin
+    description: >-
+      Manage round robin brackets and game results.
+  - name: Final Four
+    description: >-
+      Track playoff team records and stats.
+  - name: Playoffs
+    description: >-
+      Manage playoff brackets and game results.
+
+paths:
+  /login:
+    post:
+      tags:
+        - Security
+      summary: Authenticate admin user and create an app session.
+      description:
+      operationId: postLogin
+      requestBody:
+        required: true
+        description: A JSON object containing the username and password.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      security: []  # no authentication
+      responses:
+        "200":
+          description: >-
+            Successfully authenticated.  The session ID is returned in a cookie named
+            `session`.  This cookie must be passed in (in the HTTP header) for all
+            subsequent requests.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: session=TGnTeNJk; Expires=26 Mar 2026 18:47:29 GMT; HttpOnly; Path=/
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/players"}
+  /logout:
+    post:
+      tags:
+        - Security
+      summary: Terminate an admin session.
+      Description:
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: >-
+            Successfully logged out.  The session cookie is no longer valid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: User "Abs" logged out
+                data: {"redirect": "/login"}
+  /tourn/:
+    get:
+      tags:
+        - Tournament
+      summary: Get tournament data.
+      description:
+      operationId: getTourn
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: >-
+            The `data` element contains a single record with tournament information,
+            including current stage.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TournData'
+    post:
+      tags:
+        - Tournament
+      summary: Update tournament data.
+      description:
+      operationId: postTourn
+      requestBody:
+        required: true
+        description: A JSON object containing tournament data fields.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TournRecord'
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: >-
+            The `data` element contains a single record with the updated tournament
+            information.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TournData'
+  /players/:
+    get:
+      tags:
+        - Players
+      summary: Get players data.
+      description:
+      operationId: getPlayers
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: >-
+            The `data` element contains an array of player information records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayersDataArray'
+    post:
+      tags:
+        - Players
+      summary: Update player data.
+      description:
+      operationId: postPlayers
+      requestBody:
+        required: true
+        description: >-
+          A JSON object containing player data fields for the single record to be updated.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlayersRecord'
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: >-
+            The `data` element contains a single record with player information for the
+            updated record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayersData'
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: session
+  schemas:
+    LoginRequest:
+      type: object
+      description: Login information.
+      properties:
+        username:
+          type: string
+          description: Admin username.
+          example: admin
+        password:
+          type: string
+          description: Admin password.
+          example: <super-secret string>
+    ApiResp:
+      type: object
+      description: Generic response structure (generally indicates successful requests).
+      properties:
+        succ:
+          type: boolean
+          description: Value of `true` if request was successful.
+          example: true
+        err:
+          type: string
+          description: >-
+            Description of error, if `succ == false` (value of `null` if request was successful).
+          nullable: true
+        info:
+          type: string
+          description: Informational message for successful requests.
+        data:
+          type: object
+          description: >-
+            Content is dependent on the type of request (see path-specific definition).
+          additionalProperties: {}
+    ActionResp:
+      type: object
+      description: Response structure for action requests (generally indicates success).
+      properties:
+        succ:
+          type: boolean
+          description: Value of `true` if request was successful.
+          example: true
+        err:
+          type: string
+          description: >-
+            Description of error, if `succ == false` (value of `null` if request was successful).
+          nullable: true
+        info:
+          type: string
+          description: Informational message for successful requests.
+          example: Resuming operation of tournament "nola_2025"
+        data:
+          type: object
+          description: >-
+            Content is dependent on the type of request (see path-specific definition).
+          properties:
+            redirect:
+              type: string
+              description: >-
+                Name of the app area most relevant to the outcome of the action (can be
+                thought of as the target of a logical redirect).  This actually
+                corresponds to the URL (relative to endpoint root) of the suggested
+                application "view".
+          example: {"redirect": "/players"}
+    ApiError:
+      type: object
+      description: Error response structure.
+      properties:
+        succ:
+          type: boolean
+          description: Value of `false` if request was not successful.
+          example: false
+        err:
+          type: string
+          description: >-
+            Description of error.
+          nullable: false
+        info:
+          type: string
+          description: Informational message (optional).
+        data:
+          type: object
+          description: >-
+            Typically null for unsuccessful request, though may also contain addition
+            information for errors (content dependent on the type of request).
+          additionalProperties: {}
+    TournData:
+      type: object
+      description: Response with tournament record data.
+      properties:
+        succ:
+          type: boolean
+          description: Value of `true` if request was successful.
+          example: true
+        err:
+          type: string
+          description: >-
+            Description of error, if `succ == false` (value of `null` if request was successful).
+          nullable: true
+          example: null
+        info:
+          type: string
+          description: Informational message for successful requests.
+          example: null
+        data:
+          $ref: "#/components/schemas/TournRecord"
+    PlayersData:
+      type: object
+      description: Response with players record data.
+      properties:
+        succ:
+          type: boolean
+          description: Value of `true` if request was successful.
+          example: true
+        err:
+          type: string
+          description: >-
+            Description of error, if `succ == false` (value of `null` if request was successful).
+          nullable: true
+          example: null
+        info:
+          type: string
+          description: Informational message for successful requests.
+          example: null
+        data:
+          $ref: "#/components/schemas/PlayersRecord"
+    PlayersDataArray:
+      type: object
+      description: Response with players record data.
+      properties:
+        succ:
+          type: boolean
+          description: Value of `true` if request was successful.
+          example: true
+        err:
+          type: string
+          description: >-
+            Description of error, if `succ == false` (value of `null` if request was successful).
+          nullable: true
+          example: null
+        info:
+          type: string
+          description: Informational message for successful requests.
+          example: null
+        data:
+          items:
+            $ref: "#/components/schemas/PlayersRecord"
+    TournRecord:
+      type: object
+      description: Tournament information (updatable fields indicated).
+      properties:
+        name:
+          type: string
+          description: >-
+            Name must be unique across all tournaments; name can include spaces and
+            punctuation (other than the slash character ‘/’).
+          example: NOLA 2025
+        dates:
+          type: string
+          description: Timeframe information (updatable).
+          example: Oct 24-25, 2025
+        venue:
+          type: string
+          description: Location information, for reference (updatable).
+          example: Hotel St. Marie, New Orleans
+        cur_stage:
+          type: string
+          description: Current stage of the tournament.
+          example: Round robin results completed
+        next_action:
+          type: string
+          description: Action indicating the end of the current stage.
+          example: Tabulate round robin results
+        players:
+          type: integer
+          description: Number of players.
+          example: 42
+        teams:
+          type: integer
+          description: Number of teams.
+          example: 20
+        thm_teams:
+          type: integer
+          description: Number of "three-headed monster" teams.
+          example: 2
+        seed_rounds:
+          type: integer
+          description: Number of rounds in the seeding stage.
+          example: 8
+        tourn_rounds:
+          type: integer
+          description: Number of rounds in the round robin stage.
+          example: 8
+        divisions:
+          type: integer
+          description: Number of divisions for the round robin stage.
+          example: 2
+    PlayersRecord:
+      type: object
+      description: Player information and seeding stats (updatable fields indicated).
+      properties:
+        id:
+          type: integer
+          description: Internal database id (should not be visible in app interfaces).
+        display_name:
+          type: string
+          description: >-
+            Full name of player, composed of last name qualified by either first name or
+            nick name (if specified).
+          example: Abernathy (Abs)
+        player_num:
+          type: integer
+          description: >-
+            "Player number" identifier based on ping pong ball selection, or randomly
+            generated values (updatable).  This identifier is used in assigning the player
+            to seeding bracket matchups.
+          example: 10
+        nick_name:
+          type: string
+          description: >-
+            Name by which the player will be listed in brackets, scoring sheets,
+            leaderboards, etc. (updatable).  If `nick_name` is not specified (or emptied
+            out), the player will be listed by last name.
+          example: Abs
+        champ:
+          type: boolean
+          description: >-
+            Signifies player as member of prior year winning team (used for partner
+            assignment).
+          example: false
+        seed_wins:
+          type: integer
+          description: Wins during seeding round play.
+        seed_losses:
+          type: integer
+          description: Losses during seeding round play.
+        seed_pts_for:
+          type: integer
+          description: Total points scored during seeding round play.
+        seed_pts_against:
+          type: integer
+          description: Total points by opponents during seeding round play.
+        player_rank:
+          type: integer
+          description: >-
+            Rank computed after seeding round play (used to determine order of partner
+            picks).  Value is `null` if seeding round is not complete.
+          example: null

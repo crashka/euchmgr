@@ -158,7 +158,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PlayersDataArray'
+                $ref: '#/components/schemas/PlayersArrayData'
     post:
       tags:
         - Players
@@ -184,6 +184,268 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PlayersData'
+  /seeding/:
+    get:
+      tags:
+        - Seeding
+      summary: Get seeding round data.
+      description:
+      operationId: getSeeding
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: >-
+            The `data` element contains an array of seeding round game information records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeedingArrayData'
+    post:
+      tags:
+        - Seeding
+      summary: Update seeding round game data.
+      description:
+      operationId: postSeeding
+      requestBody:
+        required: true
+        description: >-
+          A JSON object containing seeding round game fields for the single record to be
+          updated.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SeedingRecord'
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: >-
+            The `data` element contains a single record with seeding round game
+            information for the updated record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeedingData'
+  /partners/:
+    get:
+      tags:
+        - Partners
+      summary: Get partners pikcing data.
+      description:
+      operationId: getPartners
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: >-
+            The `data` element contains an array of player records, in order of partner
+            picks (that is, seeding round player rankings).  Note that all players are
+            listed, with an `available` flag indicating those players not yet on a team.
+            The first available player is the one with the current pick.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartnersArrayData'
+    post:
+      tags:
+        - Partners
+      summary: Update partners data.
+      description:
+      operationId: postPartners
+      requestBody:
+        required: true
+        description: >-
+          A JSON object containing partner selection information for the player with the
+          current pick.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartnersRecord'
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: >-
+            The `data` element contains a directive for the client to reload the partner
+            picks data (in order to pick up changes across multiple records).  Later, we
+            may return the full data set, or perhaps just the changed records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartnersResp'
+  /teams/:
+    get:
+      tags:
+        - Teams
+      summary: Get teams data.
+      description:
+      operationId: getTeams
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: >-
+            The `data` element contains an array of team information records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamsArrayData'
+    post:
+      tags:
+        - Teams
+      summary: Update team data.
+      description:
+      operationId: postTeams
+      requestBody:
+        required: true
+        description: >-
+          A JSON object containing team data fields for the single record to be updated.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamsRecord'
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: >-
+            The `data` element contains a single record with team information for the
+            updated record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamsData'
+  /round_robin/:
+    get:
+      tags:
+        - Round Robin
+      summary: Get round robin game data.
+      description:
+      operationId: getRoundRobin
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: >-
+            The `data` element contains an array of round robin game information records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoundRobinArrayData'
+    post:
+      tags:
+        - Round Robin
+      summary: Update round robin game data.
+      description:
+      operationId: postRoundRobin
+      requestBody:
+        required: true
+        description: >-
+          A JSON object containing round robin game fields for the single record to be
+          updated.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoundRobinRecord'
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: >-
+            The `data` element contains a single record with round robin game information
+            for the updated record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoundRobinData'
+  /final_four/:
+    get:
+      tags:
+        - Final Four
+      summary: Get final four team data.
+      description:
+      operationId: getFinalFour
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: >-
+            The `data` element contains an array of final four team information records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinalFourArrayData'
+    post:
+      tags:
+        - Final Four
+      summary: Update final four team data.
+      description:
+      operationId: postFinalFour
+      requestBody:
+        required: true
+        description: >-
+          A JSON object containing final four team data fields for the single record to be
+          updated.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinalFourRecord'
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: >-
+            The `data` element contains a single record with final four team information
+            for the updated record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinalFourData'
+  /playoffs/:
+    get:
+      tags:
+        - Playoffs
+      summary: Get playoffs game data.
+      description:
+      operationId: getPlayoffs
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: >-
+            The `data` element contains an array of playoffs game information records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayoffsArrayData'
+    post:
+      tags:
+        - Playoffs
+      summary: Update playoffs game data.
+      description:
+      operationId: postPlayoffs
+      requestBody:
+        required: true
+        description: >-
+          A JSON object containing playoffs game fields for the single record to be
+          updated.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlayoffsRecord'
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: >-
+            The `data` element contains a single record with playoffs game information
+            for the updated record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayoffsData'
+
 components:
   securitySchemes:
     cookieAuth:
@@ -214,7 +476,8 @@ components:
         err:
           type: string
           description: >-
-            Description of error, if `succ == false` (value of `null` if request was successful).
+            Description of error, if `succ == false` (value of `null` if request was
+            successful).
           nullable: true
         info:
           type: string
@@ -223,7 +486,7 @@ components:
           type: object
           description: >-
             Content is dependent on the type of request (see path-specific definition).
-          additionalProperties: {}
+          additionalProperties: true
     ActionResp:
       type: object
       description: Response structure for action requests (generally indicates success).
@@ -235,7 +498,8 @@ components:
         err:
           type: string
           description: >-
-            Description of error, if `succ == false` (value of `null` if request was successful).
+            Description of error, if `succ == false` (value of `null` if request was
+            successful).
           nullable: true
         info:
           type: string
@@ -275,7 +539,7 @@ components:
           description: >-
             Typically null for unsuccessful request, though may also contain addition
             information for errors (content dependent on the type of request).
-          additionalProperties: {}
+          additionalProperties: true
     TournData:
       type: object
       description: Response with tournament record data.
@@ -287,7 +551,8 @@ components:
         err:
           type: string
           description: >-
-            Description of error, if `succ == false` (value of `null` if request was successful).
+            Description of error, if `succ == false` (value of `null` if request was
+            successful).
           nullable: true
           example: null
         info:
@@ -307,7 +572,8 @@ components:
         err:
           type: string
           description: >-
-            Description of error, if `succ == false` (value of `null` if request was successful).
+            Description of error, if `succ == false` (value of `null` if request was
+            successful).
           nullable: true
           example: null
         info:
@@ -316,7 +582,7 @@ components:
           example: null
         data:
           $ref: "#/components/schemas/PlayersRecord"
-    PlayersDataArray:
+    PlayersArrayData:
       type: object
       description: Response with players record data.
       properties:
@@ -327,7 +593,8 @@ components:
         err:
           type: string
           description: >-
-            Description of error, if `succ == false` (value of `null` if request was successful).
+            Description of error, if `succ == false` (value of `null` if request was
+            successful).
           nullable: true
           example: null
         info:
@@ -337,10 +604,302 @@ components:
         data:
           items:
             $ref: "#/components/schemas/PlayersRecord"
+    SeedingData:
+      type: object
+      description: Response with seeding round game data.
+      properties:
+        succ:
+          type: boolean
+          description: Value of `true` if request was successful.
+          example: true
+        err:
+          type: string
+          description: >-
+            Description of error, if `succ == false` (value of `null` if request was
+            successful).
+          nullable: true
+          example: null
+        info:
+          type: string
+          description: Informational message for successful requests.
+          example: null
+        data:
+          $ref: "#/components/schemas/SeedingRecord"
+    SeedingArrayData:
+      type: object
+      description: Response with seeding round game data.
+      properties:
+        succ:
+          type: boolean
+          description: Value of `true` if request was successful.
+          example: true
+        err:
+          type: string
+          description: >-
+            Description of error, if `succ == false` (value of `null` if request was
+            successful).
+          nullable: true
+          example: null
+        info:
+          type: string
+          description: Informational message for successful requests.
+          example: null
+        data:
+          items:
+            $ref: "#/components/schemas/SeedingRecord"
+    PartnersData:
+      type: object
+      description: Response with partner picking data.
+      properties:
+        succ:
+          type: boolean
+          description: Value of `true` if request was successful.
+          example: true
+        err:
+          type: string
+          description: >-
+            Description of error, if `succ == false` (value of `null` if request was
+            successful).
+          nullable: true
+          example: null
+        info:
+          type: string
+          description: Informational message for successful requests.
+          example: null
+        data:
+          $ref: "#/components/schemas/PartnersRecord"
+    PartnersResp:
+      type: object
+      description: Response with partner picking data.
+      properties:
+        succ:
+          type: boolean
+          description: Value of `true` if request was successful.
+          example: true
+        err:
+          type: string
+          description: >-
+            Description of error, if `succ == false` (value of `null` if request was
+            successful).
+          nullable: true
+          example: null
+        info:
+          type: string
+          description: Informational message for successful requests.
+          example: null
+        data:
+          type: object
+          description: >-
+            Content is dependent on the type of request (see path-specific definition).
+          properties:
+            reloadTable:
+              type: boolean
+              description: >-
+                Indicates that the client-side data (typically a table or grid) should be
+                reloaded (using the appropriate Ajax call).
+          example: {"reloadTable": true}
+    PartnersArrayData:
+      type: object
+      description: Response with partner picking data.
+      properties:
+        succ:
+          type: boolean
+          description: Value of `true` if request was successful.
+          example: true
+        err:
+          type: string
+          description: >-
+            Description of error, if `succ == false` (value of `null` if request was
+            successful).
+          nullable: true
+          example: null
+        info:
+          type: string
+          description: Informational message for successful requests.
+          example: null
+        data:
+          items:
+            $ref: "#/components/schemas/PartnersRecord"
+    TeamsData:
+      type: object
+      description: Response with teams record data.
+      properties:
+        succ:
+          type: boolean
+          description: Value of `true` if request was successful.
+          example: true
+        err:
+          type: string
+          description: >-
+            Description of error, if `succ == false` (value of `null` if request was
+            successful).
+          nullable: true
+          example: null
+        info:
+          type: string
+          description: Informational message for successful requests.
+          example: null
+        data:
+          $ref: "#/components/schemas/TeamsRecord"
+    TeamsArrayData:
+      type: object
+      description: Response with teams record data.
+      properties:
+        succ:
+          type: boolean
+          description: Value of `true` if request was successful.
+          example: true
+        err:
+          type: string
+          description: >-
+            Description of error, if `succ == false` (value of `null` if request was
+            successful).
+          nullable: true
+          example: null
+        info:
+          type: string
+          description: Informational message for successful requests.
+          example: null
+        data:
+          items:
+            $ref: "#/components/schemas/TeamsRecord"
+    RoundRobinData:
+      type: object
+      description: Response with round robin game data.
+      properties:
+        succ:
+          type: boolean
+          description: Value of `true` if request was successful.
+          example: true
+        err:
+          type: string
+          description: >-
+            Description of error, if `succ == false` (value of `null` if request was
+            successful).
+          nullable: true
+          example: null
+        info:
+          type: string
+          description: Informational message for successful requests.
+          example: null
+        data:
+          $ref: "#/components/schemas/RoundRobinRecord"
+    RoundRobinArrayData:
+      type: object
+      description: Response with round robin game data.
+      properties:
+        succ:
+          type: boolean
+          description: Value of `true` if request was successful.
+          example: true
+        err:
+          type: string
+          description: >-
+            Description of error, if `succ == false` (value of `null` if request was
+            successful).
+          nullable: true
+          example: null
+        info:
+          type: string
+          description: Informational message for successful requests.
+          example: null
+        data:
+          items:
+            $ref: "#/components/schemas/RoundRobinRecord"
+    FinalFourData:
+      type: object
+      description: Response with final four team record data.
+      properties:
+        succ:
+          type: boolean
+          description: Value of `true` if request was successful.
+          example: true
+        err:
+          type: string
+          description: >-
+            Description of error, if `succ == false` (value of `null` if request was
+            successful).
+          nullable: true
+          example: null
+        info:
+          type: string
+          description: Informational message for successful requests.
+          example: null
+        data:
+          $ref: "#/components/schemas/FinalFourRecord"
+    FinalFourArrayData:
+      type: object
+      description: Response with final four team record data.
+      properties:
+        succ:
+          type: boolean
+          description: Value of `true` if request was successful.
+          example: true
+        err:
+          type: string
+          description: >-
+            Description of error, if `succ == false` (value of `null` if request was
+            successful).
+          nullable: true
+          example: null
+        info:
+          type: string
+          description: Informational message for successful requests.
+          example: null
+        data:
+          items:
+            $ref: "#/components/schemas/FinalFourRecord"
+    PlayoffsData:
+      type: object
+      description: Response with playoffs game data.
+      properties:
+        succ:
+          type: boolean
+          description: Value of `true` if request was successful.
+          example: true
+        err:
+          type: string
+          description: >-
+            Description of error, if `succ == false` (value of `null` if request was
+            successful).
+          nullable: true
+          example: null
+        info:
+          type: string
+          description: Informational message for successful requests.
+          example: null
+        data:
+          $ref: "#/components/schemas/PlayoffsRecord"
+    PlayoffsArrayData:
+      type: object
+      description: Response with playoffs game data.
+      properties:
+        succ:
+          type: boolean
+          description: Value of `true` if request was successful.
+          example: true
+        err:
+          type: string
+          description: >-
+            Description of error, if `succ == false` (value of `null` if request was
+            successful).
+          nullable: true
+          example: null
+        info:
+          type: string
+          description: Informational message for successful requests.
+          example: null
+        data:
+          items:
+            $ref: "#/components/schemas/PlayoffsRecord"
+
     TournRecord:
       type: object
       description: Tournament information (updatable fields indicated).
       properties:
+        id:
+          type: integer
+          description: Internal database id (should not be visible in app interfaces).
         name:
           type: string
           description: >-
@@ -387,6 +946,7 @@ components:
           type: integer
           description: Number of divisions for the round robin stage.
           example: 2
+      additionalProperties: true
     PlayersRecord:
       type: object
       description: Player information and seeding stats (updatable fields indicated).
@@ -437,4 +997,363 @@ components:
           description: >-
             Rank computed after seeding round play (used to determine order of partner
             picks).  Value is `null` if seeding round is not complete.
+          example: null
+      additionalProperties: true
+    SeedingRecord:
+      type: object
+      description: >-
+        Seeding round game information (updatable fields indicated).  Each record
+        represents either an indidvidual matchup within the seeding bracket, or a
+        placeholder indicating the player or players with byes for a given round.
+      properties:
+        id:
+          type: integer
+          description: Internal database id (should not be visible in app interfaces).
+        label:
+          type: string
+          description: >-
+            Unique game identifier, prefixed by bracket indicator ("sd", "rr, "sf", "fn")
+            followed by division (round robin only), round number, and table number.
+            Record specifying teams having a bye for the round, will have "bye" indicated
+            as the table number.
+          example: rr-1-4-3
+        round_num:
+          type: integer
+          description: >-
+            Round number for the tournament stage (up to 8, for seeding and round robin
+            bracket play; up to 3 for playoff brackets).
+          example: 4
+        player_nums:
+          type: string
+          description: >-
+            Representation of the matchup, using "player number" identifiers.  The
+            matchups are taken directly from precomputed bracket specifications (based on
+            number of players and rounds).
+          example: 1 / 3 vs. 5 / 11
+        team1_name:
+          type: string
+          description:
+          example: Watkins / Romeo
+        team2_name:
+          type: string
+          description:
+          example: Rooze / Springo
+        bye_players:
+          type: string
+          description: Name of player(s) with bye(s) for the round.
+          example: null
+        team1_pts:
+          type: integer
+          description: >-
+            Number of points for Team 1 (`null` if game has not yet been played and/or
+            completed).
+          example: null
+        team2_pts:
+          type: integer
+          description: >-
+            Number of points for Team 2 (`null` if game has not yet been played and/or
+            completed).
+          example: null
+        winner:
+          type: string
+          description: >-
+            Name of the winning team (`null` if game has not yet been played and/or
+            completed).
+          example: null
+    PartnersRecord:
+      type: object
+      description: Partner picking information (updatable fields indicated).
+      properties:
+        id:
+          type: integer
+          description: Internal database id (should not be visible in app interfaces).
+        player_rank:
+          type: integer
+          description: >-
+            Player rank computed after seeding round play, which represents the order of
+            partner picks.
+          example: 5
+        full_name:
+          type: string
+          description: >-
+            Full name of player, composed of last name qualified by either first name or
+            nick name (if specified).
+          example: Abernathy (Abs)
+        player_num:
+          type: integer
+          description: >-
+            "Player number" identifier based on ping pong ball selection, or randomly
+            generated values (updatable).  This identifier is used in assigning the player
+            to seeding bracket matchups.
+          example: 10
+        champ:
+          type: boolean
+          description: >-
+            Indicates that player was a member of prior year's winning team, which is
+            always kept intact for a title defense.
+          example: false
+        available:
+          type: boolean
+          description: Indicates that the player is not yet assigned to a team.
+          example: true
+        picks_info:
+          type: [string, integer]
+          description: >-
+            When representing the current partner pick, specify either the player's rank
+            or name (or unique name prefix).  This is the only updatable field for the
+            request.  When indicating completed picks, shows both the partner name and
+            rank.
+        picked_by_info:
+          type: string
+          description: >-
+            Name and rank of the player who picked the player for the current record as a
+            partner.
+      additionalProperties: true
+    TeamsRecord:
+      type: object
+      description: >-
+        Team information and round robin game stats (currently no updatable fields).
+      properties:
+        id:
+          type: integer
+          description: Internal database id (should not be visible in app interfaces).
+        team_seed:
+          type: integer
+          description: >-
+            Overall team seed based on average rank of players.  This value is used for
+            assignment to divisions, and seed within the division, which are mapped to
+            precomputed round robin bracket matchups.
+          example: 7
+        player_nums:
+          type: string
+          description: >-
+            "Player number" identifiers for team members.
+          example: 15 / 40
+        team_name:
+          type: string
+          description: >-
+            Name of team, which is a concatenation of team member names (nick name or last
+            name).
+          example: Cooper / Heitner
+        div_num:
+          type: integer
+          description: Division to which team is assigned.
+          example: 2
+        div_seed:
+          type: integer
+          description: >-
+            Team's seed within the division (maps to games specified in precomputed
+            bracket matchups).
+          example: 4
+        tourn_wins:
+          type: integer
+          description: Wins during round robin play.
+        tourn_losses:
+          type: integer
+          description: Losses during round robin play.
+        tourn_pts_for:
+          type: integer
+          description: Total points scored during round robin play.
+        tourn_pts_against:
+          type: integer
+          description: Total points by opponents during round robin play.
+        tourn_rank:
+          type: integer
+          description: >-
+            Overall team rank (based on win percentage and points percentage), computed
+            after round robin play.  This value does not determine playoff teams, but is
+            used as a factor in computing final tournament ranking.  Value is `null` if
+            round robin play is not complete.
+          example: null
+        div_rank:
+          type: integer
+          description: >-
+            Rank within the division, computed after round robin play.  Top two teams in
+            each division will advance to the playoff round.  Value is `null` if round
+            robin play is not complete.
+          example: null
+        final_rank:
+          type: integer
+          description: >-
+            Final tournament rank, computed after playoff are complete.  Value is `null`
+            if playoffs are not complete.
+          example: null
+      additionalProperties: true
+    RoundRobinRecord:
+      type: object
+      description: >-
+        Round robin game information (updatable fields indicated).  Each record represents
+        either an indidvidual matchup within the round robin bracket, or a placeholder
+        indicating a team that has a bye for a given round.
+      properties:
+        id:
+          type: integer
+          description: Internal database id (should not be visible in app interfaces).
+        label:
+          type: string
+          description: >-
+            Unique game identifier, prefixed by bracket indicator ("sd", "rr, "sf", "fn")
+            followed by division (round robin only), round number, and table number.
+            Record specifying the team having a bye for the round, will have "bye"
+            indicated as the table number.
+          example: rr-1-4-3
+        div_num:
+          type: integer
+          description: Division number for the game.
+          example: 2
+        round_num:
+          type: integer
+          description: >-
+            Round number for the tournament stage (up to 8, for round robin and round robin
+            bracket play; up to 3 for playoff brackets).
+          example: 4
+        team_seeds:
+          type: string
+          description: >-
+            Representation of the matchup, using division seed for the teams.  The
+            matchups are taken directly from precomputed bracket specifications (based on
+            number of teams and rounds).
+          example: 4 vs. 10
+        team1_name:
+          type: string
+          description:
+          example: Frankel / Ponzio
+        team2_name:
+          type: string
+          description:
+          example: House / Della Grotte / Latt
+        bye_team:
+          type: string
+          description: Name of team with a bye for the round.
+          example: null
+        team1_pts:
+          type: integer
+          description: >-
+            Number of points for Team 1 (`null` if game has not yet been played and/or
+            completed).
+          example: null
+        team2_pts:
+          type: integer
+          description: >-
+            Number of points for Team 2 (`null` if game has not yet been played and/or
+            completed).
+          example: null
+        winner:
+          type: string
+          description: >-
+            Name of the winning team (`null` if game has not yet been played and/or
+            completed).
+          example: null
+    FinalFourRecord:
+      type: object
+      description: >-
+        Final four team information and playoff game stats (currently no updatable fields).
+      properties:
+        id:
+          type: integer
+          description: Internal database id (should not be visible in app interfaces).
+        tourn_rank:
+          type: integer
+          description: >-
+            Overall team rank based round robin play.  This value is used purely for
+            identification purposes.
+          example: 3
+        team_name:
+          type: string
+          description: >-
+            Name of team, which is a concatenation of team member names (nick name or last
+            name).
+          example: Cooper / Heitner
+        div_num:
+          type: integer
+          description: Division to which team is assigned.
+          example: 2
+        div_rank:
+          type: integer
+          description: >-
+            Team's rank within the division after round robin play.  Each division's top
+            ranked team plays the second ranked team from the other division in the
+            semifinals.  The winners of each semis matchup play in the finals round.
+          example: 1
+        playoff_wins:
+          type: integer
+          description: Wins during playoff rounds.
+        playoff_losses:
+          type: integer
+          description: Losses during playoff rounds.
+        playoff_pts_for:
+          type: integer
+          description: Total points scored during playoff rounds.
+        playoff_pts_against:
+          type: integer
+          description: Total points by opponents during playoff rounds.
+        playoff_rank:
+          type: integer
+          description: >-
+            Final four team rank based on advancement and finals play (and win and points
+            stats for third and fourth place).  Note that provisional values are computed
+            during playoff play (based on win and points stats).
+          example: null
+      additionalProperties: true
+    PlayoffsRecord:
+      type: object
+      description: >-
+        Playofffs game information (updatable fields indicated).  Each record represents
+        an indidvidual matchup within the playoffs bracket.
+      properties:
+        id:
+          type: integer
+          description: Internal database id (should not be visible in app interfaces).
+        label:
+          type: string
+          description: >-
+            Unique game identifier, prefixed by bracket indicator ("sd", "rr, "sf", "fn")
+            followed by division (round robin only), round number, and table number.
+            Record specifying the team having a bye for the round, will have "bye"
+            indicated as the table number.
+          example: sf-1-1
+        bracket_ident:
+          type: string
+          description: Identifier for the playoff round (either semifinals or finals).
+          example: Semifinals
+        matchup_num:
+          type: integer
+          description: >-
+            Matchup identifier within the playoff round (1 or 2 for semifinals, 1 for finals).
+          example: 1
+        round_num:
+          type: integer
+          description:  Game number within the match (best 2-out-of-3).
+          example: 2
+        team_ranks:
+          type: string
+          description: >-
+            Representation of the matchup, using overall tournament rank (after round
+            robin play) as identifiers for the teams.
+          example: 1 vs. 4
+        team1_name:
+          type: string
+          description:
+          example: Frankel / Ponzio
+        team2_name:
+          type: string
+          description:
+          example: House / Della Grotte / Latt
+        team1_pts:
+          type: integer
+          description: >-
+            Number of points for Team 1 (`null` if game has not yet been played and/or
+            completed).
+          example: null
+        team2_pts:
+          type: integer
+          description: >-
+            Number of points for Team 2 (`null` if game has not yet been played and/or
+            completed).
+          example: null
+        winner:
+          type: string
+          description: >-
+            Name of the winning team (`null` if game has not yet been played and/or
+            completed).
           example: null

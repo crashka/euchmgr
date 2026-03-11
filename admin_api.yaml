@@ -57,7 +57,17 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LoginRequest'
+              type: object
+              description: Login information.
+              properties:
+                username:
+                  type: string
+                  description: Admin username.
+                  example: admin
+                password:
+                  type: string
+                  description: Admin password.
+                  example: <super-secret string>
       security: []  # no authentication
       responses:
         "200":
@@ -100,6 +110,72 @@ paths:
                 err: null
                 info: User "Abs" logged out
                 data: {"redirect": "/login"}
+  /tourn/create_tourn:
+    post:
+      tags:
+        - Tournament
+      summary: Create a new tournament.
+      description: Later, this action should be converted to a RESTful request.
+      operationId: postCreateTourn
+      requestBody:
+        required: true
+        description: Multipart form containing tournament field information.
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              description: >-
+                Note that these field names are slightly different than the tournament
+                output fields.
+              properties:
+                tourn_name:
+                  type: string
+                  description: >-
+                    Name of the new tournament to create.  The name can include spaces and
+                    punctuation (other than the slash character ‘/’), and must be unique
+                    across all tournaments.
+                dates:
+                  type: string
+                  description: Timeframe information (for reference).
+                venue:
+                  type: string
+                  description: Location information (for reference).
+                dflt_pw:
+                  type: string
+                  description: >-
+                    Default password for player (mobile app) logins.  If not specified,
+                    then player passwords are not required for this tournament.
+                overwrite:
+                  type: boolean
+                  description: Overwrite (replace) existing tournament with the same name.
+                roster_file:
+                  type: string
+                  format: binary
+                  description: Tournament roster as a CSV file upload.
+              required:
+                - tourn_name
+                - roster_file
+            example:
+              tourn_name: NOLA 2025
+              dates: Oct 24-25, 2025
+              venue: Hotel St. Marie, New Orleans
+              dflt_pw: <default password>
+              overwrite: true
+              roster_file: nola_2025_roster.csv
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: A standard action response with the result of the request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/players"}
   /tourn/:
     get:
       tags:
@@ -117,7 +193,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TournData'
+                type: object
+                description: Response with tournament record data.
+                properties:
+                  succ:
+                    $ref: "#/components/schemas/SuccElem"
+                  err:
+                    $ref: "#/components/schemas/ErrElem"
+                  info:
+                    $ref: "#/components/schemas/InfoElem"
+                  data:
+                    $ref: "#/components/schemas/TournData"
     post:
       tags:
         - Tournament
@@ -130,7 +216,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TournRecord'
+              $ref: '#/components/schemas/TournData'
       security:
         - cookieAuth: []
       responses:
@@ -141,7 +227,92 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TournData'
+                type: object
+                description: Response with tournament record data.
+                properties:
+                  succ:
+                    $ref: "#/components/schemas/SuccElem"
+                  err:
+                    $ref: "#/components/schemas/ErrElem"
+                  info:
+                    $ref: "#/components/schemas/InfoElem"
+                  data:
+                    $ref: "#/components/schemas/TournData"
+  /tourn/pause_tourn:
+    post:
+      tags:
+        - Tournament
+      summary: Pause the operation of a currently active tournament.
+      description: >-
+        The tournament will be suspended and not accessible through the application until
+        resumed.
+      operationId: postPauseTourn
+      requestBody:
+        required: true
+        description: A JSON object containing the name of the tournament.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tourn:
+                  type: string
+                  description: Name of the tournament to pause (suspend).
+                  example: Nola 2025
+              required:
+                - tourn
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: A standard action response with the result of the request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: Tournament "Nola 2025" has been paused
+                data: null
+  /tourn/select_tourn:
+    post:
+      tags:
+        - Tournament
+      summary: Select and reactive the operation of an existing tournament.
+      description: >-
+        If a different tournament is currently in operation, it will be paused before the
+        selected tournament is reactivated.  If the selected tournament is alredy active,
+        this request is a no-op.
+      operationId: postSelectTourn
+      requestBody:
+        required: true
+        description: A JSON object containing the name of the tournament.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tourn:
+                  type: string
+                  description: Name of the tournament to activate (resume).
+                  example: Nola 2025
+              required:
+                - tourn
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: A standard action response with the result of the request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: Resuming operation of tournament "Nola 2025"
+                data: null
   /players/:
     get:
       tags:
@@ -158,7 +329,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PlayersArrayData'
+                type: object
+                description: Response with players record data.
+                properties:
+                  succ:
+                    $ref: "#/components/schemas/SuccElem"
+                  err:
+                    $ref: "#/components/schemas/ErrElem"
+                  info:
+                    $ref: "#/components/schemas/InfoElem"
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlayerData"
     post:
       tags:
         - Players
@@ -172,7 +355,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PlayersRecord'
+              $ref: '#/components/schemas/PlayerData'
       security:
         - cookieAuth: []
       responses:
@@ -183,7 +366,65 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PlayersData'
+                type: object
+                description: Response with players record data.
+                properties:
+                  succ:
+                    $ref: "#/components/schemas/SuccElem"
+                  err:
+                    $ref: "#/components/schemas/ErrElem"
+                  info:
+                    $ref: "#/components/schemas/InfoElem"
+                  data:
+                    $ref: "#/components/schemas/PlayerData"
+  /players/gen_player_nums:
+    post:
+      tags:
+        - Players
+      summary: Generate "player number" identifiers.
+      description: >-
+        Player number identifiers are generated for all remaining players (those without
+        numbers otherwise entered or assigned).
+      operationId: postGenPlayerNums
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: A standard action response with the result of the request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/players"}
+  /players/gen_seed_bracket:
+    post:
+      tags:
+        - Players
+      summary: Generate seeding round bracket.
+      description: >-
+        Matchups are created from precomputed brackets (given number of players and
+        rounds), with players assigned to games/seats based on their player number
+        identifier.  Note that this request may only be made once player registration is
+        complete, and all player numbers have been assigned or generated.
+      operationId: postGenSeedBraacket
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: A standard action response with the result of the request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/seeding"}
   /seeding/:
     get:
       tags:
@@ -200,7 +441,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SeedingArrayData'
+                type: object
+                description: Response with seeding round game data.
+                properties:
+                  succ:
+                    $ref: "#/components/schemas/SuccElem"
+                  err:
+                    $ref: "#/components/schemas/ErrElem"
+                  info:
+                    $ref: "#/components/schemas/InfoElem"
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SeedGameData"
     post:
       tags:
         - Seeding
@@ -215,7 +468,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SeedingRecord'
+              $ref: '#/components/schemas/SeedGameData'
       security:
         - cookieAuth: []
       responses:
@@ -226,7 +479,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SeedingData'
+                type: object
+                description: Response with seeding round game data.
+                properties:
+                  succ:
+                    $ref: "#/components/schemas/SuccElem"
+                  err:
+                    $ref: "#/components/schemas/ErrElem"
+                  info:
+                    $ref: "#/components/schemas/InfoElem"
+                  data:
+                    $ref: "#/components/schemas/SeedGameData"
   /partners/:
     get:
       tags:
@@ -246,7 +509,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PartnersArrayData'
+                type: object
+                description: Response with partner picking data.
+                properties:
+                  succ:
+                    $ref: "#/components/schemas/SuccElem"
+                  err:
+                    $ref: "#/components/schemas/ErrElem"
+                  info:
+                    $ref: "#/components/schemas/InfoElem"
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PartnerData"
     post:
       tags:
         - Partners
@@ -261,7 +536,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PartnersRecord'
+              $ref: '#/components/schemas/PartnerData'
       security:
         - cookieAuth: []
       responses:
@@ -273,7 +548,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PartnersResp'
+                type: object
+                description: Response with partner picking data.
+                properties:
+                  succ:
+                    $ref: "#/components/schemas/SuccElem"
+                  err:
+                    $ref: "#/components/schemas/ErrElem"
+                  info:
+                    $ref: "#/components/schemas/InfoElem"
+                  data:
+                    $ref: "#/components/schemas/ReloadObj"
   /teams/:
     get:
       tags:
@@ -290,7 +575,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TeamsArrayData'
+                type: object
+                description: Response with teams record data.
+                properties:
+                  succ:
+                    $ref: "#/components/schemas/SuccElem"
+                  err:
+                    $ref: "#/components/schemas/ErrElem"
+                  info:
+                    $ref: "#/components/schemas/InfoElem"
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TeamData"
     post:
       tags:
         - Teams
@@ -304,7 +601,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TeamsRecord'
+              $ref: '#/components/schemas/TeamData'
       security:
         - cookieAuth: []
       responses:
@@ -315,7 +612,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TeamsData'
+                type: object
+                description: Response with teams record data.
+                properties:
+                  succ:
+                    $ref: "#/components/schemas/SuccElem"
+                  err:
+                    $ref: "#/components/schemas/ErrElem"
+                  info:
+                    $ref: "#/components/schemas/InfoElem"
+                  data:
+                    $ref: "#/components/schemas/TeamData"
   /round_robin/:
     get:
       tags:
@@ -332,7 +639,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoundRobinArrayData'
+                type: object
+                description: Response with round robin game data.
+                properties:
+                  succ:
+                    $ref: "#/components/schemas/SuccElem"
+                  err:
+                    $ref: "#/components/schemas/ErrElem"
+                  info:
+                    $ref: "#/components/schemas/InfoElem"
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TournGameData"
     post:
       tags:
         - Round Robin
@@ -347,7 +666,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RoundRobinRecord'
+              $ref: '#/components/schemas/TournGameData'
       security:
         - cookieAuth: []
       responses:
@@ -358,7 +677,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoundRobinData'
+                type: object
+                description: Response with round robin game data.
+                properties:
+                  succ:
+                    $ref: "#/components/schemas/SuccElem"
+                  err:
+                    $ref: "#/components/schemas/ErrElem"
+                  info:
+                    $ref: "#/components/schemas/InfoElem"
+                  data:
+                    $ref: "#/components/schemas/TournGameData"
   /final_four/:
     get:
       tags:
@@ -375,7 +704,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/FinalFourArrayData'
+                type: object
+                description: Response with final four team record data.
+                properties:
+                  succ:
+                    $ref: "#/components/schemas/SuccElem"
+                  err:
+                    $ref: "#/components/schemas/ErrElem"
+                  info:
+                    $ref: "#/components/schemas/InfoElem"
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlayoffTeamData"
     post:
       tags:
         - Final Four
@@ -390,7 +731,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/FinalFourRecord'
+              $ref: '#/components/schemas/PlayoffTeamData'
       security:
         - cookieAuth: []
       responses:
@@ -401,7 +742,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/FinalFourData'
+                type: object
+                description: Response with final four team record data.
+                properties:
+                  succ:
+                    $ref: "#/components/schemas/SuccElem"
+                  err:
+                    $ref: "#/components/schemas/ErrElem"
+                  info:
+                    $ref: "#/components/schemas/InfoElem"
+                  data:
+                    $ref: "#/components/schemas/PlayoffTeamData"
   /playoffs/:
     get:
       tags:
@@ -418,7 +769,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PlayoffsArrayData'
+                type: object
+                description: Response with playoffs game data.
+                properties:
+                  succ:
+                    $ref: "#/components/schemas/SuccElem"
+                  err:
+                    $ref: "#/components/schemas/ErrElem"
+                  info:
+                    $ref: "#/components/schemas/InfoElem"
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlayoffGameData"
     post:
       tags:
         - Playoffs
@@ -433,7 +796,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PlayoffsRecord'
+              $ref: '#/components/schemas/PlayoffGameData'
       security:
         - cookieAuth: []
       responses:
@@ -444,7 +807,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PlayoffsData'
+                type: object
+                description: Response with playoffs game data.
+                properties:
+                  succ:
+                    $ref: "#/components/schemas/SuccElem"
+                  err:
+                    $ref: "#/components/schemas/ErrElem"
+                  info:
+                    $ref: "#/components/schemas/InfoElem"
+                  data:
+                    $ref: "#/components/schemas/PlayoffGameData"
 
 components:
   securitySchemes:
@@ -453,447 +826,56 @@ components:
       in: cookie
       name: session
   schemas:
-    LoginRequest:
+    SuccElem:
+      type: boolean
+      description: Value of `true` if request was successful.
+    ErrElem:
+      type: string
+      description: >-
+        Description of error, if `succ == false` (value of `null` if request was
+        successful).
+    InfoElem:
+      type: string
+      description: Informational message for successful requests.
+    RedirectObj:
       type: object
-      description: Login information.
+      description: Non-binding directive to client for application area to redirect to.
       properties:
-        username:
+        redirect:
           type: string
-          description: Admin username.
-          example: admin
-        password:
-          type: string
-          description: Admin password.
-          example: <super-secret string>
-    ApiResp:
+          description: >-
+            Name of the application area where the outcome of the action will be reflected
+            (can be thought of as the target of a logical redirect).  The value actually
+            corresponds to the URL (relative to endpoint root) of the suggested
+            application "view".
+          example: {"redirect": "/players"}
+    ReloadObj:
       type: object
-      description: Generic response structure (generally indicates successful requests).
+      description: >-
+        Non-binding directive to client to reload the data for this application area.
       properties:
-        succ:
+        reloadTable:
           type: boolean
-          description: Value of `true` if request was successful.
-          example: true
-        err:
-          type: string
           description: >-
-            Description of error, if `succ == false` (value of `null` if request was
-            successful).
-          nullable: true
-        info:
-          type: string
-          description: Informational message for successful requests.
-        data:
-          type: object
-          description: >-
-            Content is dependent on the type of request (see path-specific definition).
-          additionalProperties: true
+            Indicates that the client-side data (typically a table or grid) should be
+            reloaded (using the appropriate Ajax call).
+          example: {"reloadTable": true}
     ActionResp:
       type: object
-      description: Response structure for action requests (generally indicates success).
+      description: >-
+        Response structure for action requests, including indicator of success and a
+        logical application redirect.
       properties:
         succ:
-          type: boolean
-          description: Value of `true` if request was successful.
-          example: true
+          $ref: "#/components/schemas/SuccElem"
         err:
-          type: string
-          description: >-
-            Description of error, if `succ == false` (value of `null` if request was
-            successful).
-          nullable: true
+          $ref: "#/components/schemas/ErrElem"
         info:
-          type: string
-          description: Informational message for successful requests.
-          example: Resuming operation of tournament "nola_2025"
+          $ref: "#/components/schemas/InfoElem"
         data:
-          type: object
-          description: >-
-            Content is dependent on the type of request (see path-specific definition).
-          properties:
-            redirect:
-              type: string
-              description: >-
-                Name of the app area most relevant to the outcome of the action (can be
-                thought of as the target of a logical redirect).  This actually
-                corresponds to the URL (relative to endpoint root) of the suggested
-                application "view".
-          example: {"redirect": "/players"}
-    ApiError:
-      type: object
-      description: Error response structure.
-      properties:
-        succ:
-          type: boolean
-          description: Value of `false` if request was not successful.
-          example: false
-        err:
-          type: string
-          description: >-
-            Description of error.
-          nullable: false
-        info:
-          type: string
-          description: Informational message (optional).
-        data:
-          type: object
-          description: >-
-            Typically null for unsuccessful request, though may also contain addition
-            information for errors (content dependent on the type of request).
-          additionalProperties: true
-    TournData:
-      type: object
-      description: Response with tournament record data.
-      properties:
-        succ:
-          type: boolean
-          description: Value of `true` if request was successful.
-          example: true
-        err:
-          type: string
-          description: >-
-            Description of error, if `succ == false` (value of `null` if request was
-            successful).
-          nullable: true
-          example: null
-        info:
-          type: string
-          description: Informational message for successful requests.
-          example: null
-        data:
-          $ref: "#/components/schemas/TournRecord"
-    PlayersData:
-      type: object
-      description: Response with players record data.
-      properties:
-        succ:
-          type: boolean
-          description: Value of `true` if request was successful.
-          example: true
-        err:
-          type: string
-          description: >-
-            Description of error, if `succ == false` (value of `null` if request was
-            successful).
-          nullable: true
-          example: null
-        info:
-          type: string
-          description: Informational message for successful requests.
-          example: null
-        data:
-          $ref: "#/components/schemas/PlayersRecord"
-    PlayersArrayData:
-      type: object
-      description: Response with players record data.
-      properties:
-        succ:
-          type: boolean
-          description: Value of `true` if request was successful.
-          example: true
-        err:
-          type: string
-          description: >-
-            Description of error, if `succ == false` (value of `null` if request was
-            successful).
-          nullable: true
-          example: null
-        info:
-          type: string
-          description: Informational message for successful requests.
-          example: null
-        data:
-          items:
-            $ref: "#/components/schemas/PlayersRecord"
-    SeedingData:
-      type: object
-      description: Response with seeding round game data.
-      properties:
-        succ:
-          type: boolean
-          description: Value of `true` if request was successful.
-          example: true
-        err:
-          type: string
-          description: >-
-            Description of error, if `succ == false` (value of `null` if request was
-            successful).
-          nullable: true
-          example: null
-        info:
-          type: string
-          description: Informational message for successful requests.
-          example: null
-        data:
-          $ref: "#/components/schemas/SeedingRecord"
-    SeedingArrayData:
-      type: object
-      description: Response with seeding round game data.
-      properties:
-        succ:
-          type: boolean
-          description: Value of `true` if request was successful.
-          example: true
-        err:
-          type: string
-          description: >-
-            Description of error, if `succ == false` (value of `null` if request was
-            successful).
-          nullable: true
-          example: null
-        info:
-          type: string
-          description: Informational message for successful requests.
-          example: null
-        data:
-          items:
-            $ref: "#/components/schemas/SeedingRecord"
-    PartnersData:
-      type: object
-      description: Response with partner picking data.
-      properties:
-        succ:
-          type: boolean
-          description: Value of `true` if request was successful.
-          example: true
-        err:
-          type: string
-          description: >-
-            Description of error, if `succ == false` (value of `null` if request was
-            successful).
-          nullable: true
-          example: null
-        info:
-          type: string
-          description: Informational message for successful requests.
-          example: null
-        data:
-          $ref: "#/components/schemas/PartnersRecord"
-    PartnersResp:
-      type: object
-      description: Response with partner picking data.
-      properties:
-        succ:
-          type: boolean
-          description: Value of `true` if request was successful.
-          example: true
-        err:
-          type: string
-          description: >-
-            Description of error, if `succ == false` (value of `null` if request was
-            successful).
-          nullable: true
-          example: null
-        info:
-          type: string
-          description: Informational message for successful requests.
-          example: null
-        data:
-          type: object
-          description: >-
-            Content is dependent on the type of request (see path-specific definition).
-          properties:
-            reloadTable:
-              type: boolean
-              description: >-
-                Indicates that the client-side data (typically a table or grid) should be
-                reloaded (using the appropriate Ajax call).
-          example: {"reloadTable": true}
-    PartnersArrayData:
-      type: object
-      description: Response with partner picking data.
-      properties:
-        succ:
-          type: boolean
-          description: Value of `true` if request was successful.
-          example: true
-        err:
-          type: string
-          description: >-
-            Description of error, if `succ == false` (value of `null` if request was
-            successful).
-          nullable: true
-          example: null
-        info:
-          type: string
-          description: Informational message for successful requests.
-          example: null
-        data:
-          items:
-            $ref: "#/components/schemas/PartnersRecord"
-    TeamsData:
-      type: object
-      description: Response with teams record data.
-      properties:
-        succ:
-          type: boolean
-          description: Value of `true` if request was successful.
-          example: true
-        err:
-          type: string
-          description: >-
-            Description of error, if `succ == false` (value of `null` if request was
-            successful).
-          nullable: true
-          example: null
-        info:
-          type: string
-          description: Informational message for successful requests.
-          example: null
-        data:
-          $ref: "#/components/schemas/TeamsRecord"
-    TeamsArrayData:
-      type: object
-      description: Response with teams record data.
-      properties:
-        succ:
-          type: boolean
-          description: Value of `true` if request was successful.
-          example: true
-        err:
-          type: string
-          description: >-
-            Description of error, if `succ == false` (value of `null` if request was
-            successful).
-          nullable: true
-          example: null
-        info:
-          type: string
-          description: Informational message for successful requests.
-          example: null
-        data:
-          items:
-            $ref: "#/components/schemas/TeamsRecord"
-    RoundRobinData:
-      type: object
-      description: Response with round robin game data.
-      properties:
-        succ:
-          type: boolean
-          description: Value of `true` if request was successful.
-          example: true
-        err:
-          type: string
-          description: >-
-            Description of error, if `succ == false` (value of `null` if request was
-            successful).
-          nullable: true
-          example: null
-        info:
-          type: string
-          description: Informational message for successful requests.
-          example: null
-        data:
-          $ref: "#/components/schemas/RoundRobinRecord"
-    RoundRobinArrayData:
-      type: object
-      description: Response with round robin game data.
-      properties:
-        succ:
-          type: boolean
-          description: Value of `true` if request was successful.
-          example: true
-        err:
-          type: string
-          description: >-
-            Description of error, if `succ == false` (value of `null` if request was
-            successful).
-          nullable: true
-          example: null
-        info:
-          type: string
-          description: Informational message for successful requests.
-          example: null
-        data:
-          items:
-            $ref: "#/components/schemas/RoundRobinRecord"
-    FinalFourData:
-      type: object
-      description: Response with final four team record data.
-      properties:
-        succ:
-          type: boolean
-          description: Value of `true` if request was successful.
-          example: true
-        err:
-          type: string
-          description: >-
-            Description of error, if `succ == false` (value of `null` if request was
-            successful).
-          nullable: true
-          example: null
-        info:
-          type: string
-          description: Informational message for successful requests.
-          example: null
-        data:
-          $ref: "#/components/schemas/FinalFourRecord"
-    FinalFourArrayData:
-      type: object
-      description: Response with final four team record data.
-      properties:
-        succ:
-          type: boolean
-          description: Value of `true` if request was successful.
-          example: true
-        err:
-          type: string
-          description: >-
-            Description of error, if `succ == false` (value of `null` if request was
-            successful).
-          nullable: true
-          example: null
-        info:
-          type: string
-          description: Informational message for successful requests.
-          example: null
-        data:
-          items:
-            $ref: "#/components/schemas/FinalFourRecord"
-    PlayoffsData:
-      type: object
-      description: Response with playoffs game data.
-      properties:
-        succ:
-          type: boolean
-          description: Value of `true` if request was successful.
-          example: true
-        err:
-          type: string
-          description: >-
-            Description of error, if `succ == false` (value of `null` if request was
-            successful).
-          nullable: true
-          example: null
-        info:
-          type: string
-          description: Informational message for successful requests.
-          example: null
-        data:
-          $ref: "#/components/schemas/PlayoffsRecord"
-    PlayoffsArrayData:
-      type: object
-      description: Response with playoffs game data.
-      properties:
-        succ:
-          type: boolean
-          description: Value of `true` if request was successful.
-          example: true
-        err:
-          type: string
-          description: >-
-            Description of error, if `succ == false` (value of `null` if request was
-            successful).
-          nullable: true
-          example: null
-        info:
-          type: string
-          description: Informational message for successful requests.
-          example: null
-        data:
-          items:
-            $ref: "#/components/schemas/PlayoffsRecord"
+          $ref: "#/components/schemas/RedirectObj"
 
-    TournRecord:
+    TournData:
       type: object
       description: Tournament information (updatable fields indicated).
       properties:
@@ -947,7 +929,7 @@ components:
           description: Number of divisions for the round robin stage.
           example: 2
       additionalProperties: true
-    PlayersRecord:
+    PlayerData:
       type: object
       description: Player information and seeding stats (updatable fields indicated).
       properties:
@@ -999,7 +981,7 @@ components:
             picks).  Value is `null` if seeding round is not complete.
           example: null
       additionalProperties: true
-    SeedingRecord:
+    SeedGameData:
       type: object
       description: >-
         Seeding round game information (updatable fields indicated).  Each record
@@ -1060,7 +1042,7 @@ components:
             Name of the winning team (`null` if game has not yet been played and/or
             completed).
           example: null
-    PartnersRecord:
+    PartnerData:
       type: object
       description: Partner picking information (updatable fields indicated).
       properties:
@@ -1109,7 +1091,7 @@ components:
             Name and rank of the player who picked the player for the current record as a
             partner.
       additionalProperties: true
-    TeamsRecord:
+    TeamData:
       type: object
       description: >-
         Team information and round robin game stats (currently no updatable fields).
@@ -1179,7 +1161,7 @@ components:
             if playoffs are not complete.
           example: null
       additionalProperties: true
-    RoundRobinRecord:
+    TournGameData:
       type: object
       description: >-
         Round robin game information (updatable fields indicated).  Each record represents
@@ -1244,7 +1226,7 @@ components:
             Name of the winning team (`null` if game has not yet been played and/or
             completed).
           example: null
-    FinalFourRecord:
+    PlayoffTeamData:
       type: object
       description: >-
         Final four team information and playoff game stats (currently no updatable fields).
@@ -1295,7 +1277,7 @@ components:
             during playoff play (based on win and points stats).
           example: null
       additionalProperties: true
-    PlayoffsRecord:
+    PlayoffGameData:
       type: object
       description: >-
         Playofffs game information (updatable fields indicated).  Each record represents

@@ -592,22 +592,22 @@ def gen_semis_bracket(form: dict) -> str:
     build_playoff_bracket(Bracket.SEMIS)
     return render_view(View.PLAYOFFS)
 
+def gen_finals_bracket(form: dict) -> str:
+    """
+    """
+    build_playoff_bracket(Bracket.FINALS)
+    return render_view(View.PLAYOFFS)
+
+#####################
+# /playoffs actions #
+#####################
+
 def tabulate_semis_results(form: dict) -> str:
     """
     """
     validate_playoffs(Bracket.SEMIS, finalize=True)
     compute_playoff_ranks(Bracket.SEMIS, finalize=True)
     return render_view(View.FINAL_FOUR)
-
-#####################
-# /playoffs actions #
-#####################
-
-def gen_finals_bracket(form: dict) -> str:
-    """
-    """
-    build_playoff_bracket(Bracket.FINALS)
-    return render_view(View.PLAYOFFS)
 
 def tabulate_finals_results(form: dict) -> str:
     """

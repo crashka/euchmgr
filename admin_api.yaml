@@ -1,7 +1,7 @@
 openapi: 3.1.1
 info:
   title: Euchre Manager
-  description: >
+  description: |
     This is the API for the Euchmgr Manager admin functions.  The current working version
     (0.5) is based on the prototype admin UI, and not designed top-down.  We will work to
     make it cleaner and more RESTful, if supported by interest in creating alternative
@@ -14,33 +14,33 @@ info:
 
 tags:
   - name: Security
-    description: >-
+    description: |
       Admin authentication and session management.
   - name: Tournament
-    description: >-
+    description: |
       Create and management tournaments and tournament parameters.
   - name: Players
-    description: >-
+    description: |
       Manage tournament rosters and player information.  Also used to track player seeding
       round records and stats.
   - name: Seeding
-    description: >-
+    description: |
       Manage seeding round brackets and game results.
   - name: Partners
-    description: >-
+    description: |
       Manage the partner picking process.
   - name: Teams
-    description: >-
+    description: |
       Manage team division assignments and seeding.  Also used to track team round robin
       records and stats.
   - name: Round Robin
-    description: >-
+    description: |
       Manage round robin brackets and game results.
   - name: Final Four
-    description: >-
+    description: |
       Track playoff team records and stats.
   - name: Playoffs
-    description: >-
+    description: |
       Manage playoff brackets and game results.
 
 paths:
@@ -50,7 +50,7 @@ paths:
         - Security
       summary: Authenticate admin user and create an app session.
       description:
-      operationId: postLogin
+      operationId: login
       requestBody:
         required: true
         description: A JSON object containing the username and password.
@@ -67,19 +67,23 @@ paths:
                 password:
                   type: string
                   description: Admin password.
-                  example: <super-secret string>
+                  example: <admin password>
+              required:
+                - username
+                - password
       security: []  # no authentication
       responses:
         "200":
-          description: >-
+          description: |
             Successfully authenticated.  The session ID is returned in a cookie named
-            `session`.  This cookie must be passed in (in the HTTP header) for all
-            subsequent requests.
+            `session`.  This cookie must be passed in for all subsequent requests (in the
+            HTTP header).
           headers:
             Set-Cookie:
               schema:
                 type: string
-                example: session=TGnTeNJk; Expires=26 Mar 2026 18:47:29 GMT; HttpOnly; Path=/
+                example: |
+                  session=TGnTeNJk; Expires=26 Mar 2026 18:47:29 GMT; HttpOnly; Path=/
           content:
             application/json:
               schema:
@@ -94,12 +98,13 @@ paths:
       tags:
         - Security
       summary: Terminate an admin session.
-      Description:
+      description:
+      operationId: logout
       security:
         - cookieAuth: []
       responses:
         "200":
-          description: >-
+          description: |
             Successfully logged out.  The session cookie is no longer valid.
           content:
             application/json:
@@ -115,58 +120,64 @@ paths:
       tags:
         - Tournament
       summary: Create a new tournament.
-      description: Later, this action should be converted to a RESTful request.
-      operationId: postCreateTourn
+      description: |
+        Only a subset of the tournament parameters may be specified on creation.  Some of
+        the others are currently hardwired (e.g. divisions, rounds, etc.), and others are
+        implied by the uploaded roster file (players, teams, THMs, etc.).
+
+        Later, this action should be made RESTful (converted to a POST on the `/tourn/`
+        taget).
+      operationId: createTourn
       requestBody:
         required: true
-        description: Multipart form containing tournament field information.
+        description: |
+          Multipart form containing tournament field information.  Note that these field
+                names are slightly different than the tournament output fields.
         content:
           multipart/form-data:
             schema:
               type: object
-              description: >-
-                Note that these field names are slightly different than the tournament
-                output fields.
+              description: Tournament creation information.
               properties:
                 tourn_name:
                   type: string
-                  description: >-
+                  description: |
                     Name of the new tournament to create.  The name can include spaces and
                     punctuation (other than the slash character ‘/’), and must be unique
                     across all tournaments.
+                  example: NOLA 2025
                 dates:
                   type: string
-                  description: Timeframe information (for reference).
+                  description: Timeframe description (purely informational).
+                  example: Oct 24-25, 2025
                 venue:
                   type: string
-                  description: Location information (for reference).
+                  description: Location description (purely informational).
+                  example: Hotel St. Marie, New Orleans
                 dflt_pw:
                   type: string
-                  description: >-
+                  description: |
                     Default password for player (mobile app) logins.  If not specified,
                     then player passwords are not required for this tournament.
+                  example: <default password>
                 overwrite:
                   type: boolean
                   description: Overwrite (replace) existing tournament with the same name.
+                  example: true
                 roster_file:
                   type: string
                   format: binary
                   description: Tournament roster as a CSV file upload.
+                  example: nola_2025_roster.csv
               required:
                 - tourn_name
                 - roster_file
-            example:
-              tourn_name: NOLA 2025
-              dates: Oct 24-25, 2025
-              venue: Hotel St. Marie, New Orleans
-              dflt_pw: <default password>
-              overwrite: true
-              roster_file: nola_2025_roster.csv
       security:
         - cookieAuth: []
       responses:
-        '200':
-          description: A standard action response with the result of the request.
+        "200":
+          description: |
+            Tournament was successfully created.  Logical application redirect is indicated.
           content:
             application/json:
               schema:
@@ -186,10 +197,10 @@ paths:
       security:
         - cookieAuth: []
       responses:
-        '200':
-          description: >-
-            The `data` element contains a single record with tournament information,
-            including current stage.
+        "200":
+          description: |
+            Tournament data was successfully retrieved.  The `data` element contains a
+            single record with current tournament information (including stage, etc.).
           content:
             application/json:
               schema:
@@ -212,18 +223,45 @@ paths:
       operationId: postTourn
       requestBody:
         required: true
-        description: A JSON object containing tournament data fields.
+        description: |
+          A JSON object containing tournament data fields.  `id` must be specified to
+          identify the record to be updated.
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TournData'
+              type: object
+              description: Tournament field information.
+              properties:
+                id:
+                  type: integer
+                  description: |
+                    Internal database id from the GET request (used to identify the
+                    tournament record).
+                  example: 1
+                dates:
+                  type: string
+                  description: Timeframe description (purely informational).
+                  example: Oct 24-25, 2025
+                venue:
+                  type: string
+                  description: Location description (purely informational).
+                  example: Hotel St. Marie, New Orleans
+                dflt_pw:
+                  type: string
+                  description: |
+                    Default password for player (mobile app) logins.  If not specified,
+                    then player passwords are not required for this tournament.
+                  example: null
+              required:
+                - id
       security:
         - cookieAuth: []
       responses:
-        '200':
-          description: >-
-            The `data` element contains a single record with the updated tournament
-            information.
+        "200":
+          description: |
+            Tournament information was successfully updated.  The `data` element contains
+            a single record with current tournament information (including updated field
+            values).
           content:
             application/json:
               schema:
@@ -243,13 +281,15 @@ paths:
       tags:
         - Tournament
       summary: Pause the operation of a currently active tournament.
-      description: >-
+      description: |
         The tournament will be suspended and not accessible through the application until
         resumed.
-      operationId: postPauseTourn
+      operationId: pauseTourn
       requestBody:
         required: true
-        description: A JSON object containing the name of the tournament.
+        description: |
+          A JSON object containing the name of the tournament (used to identify the
+          tournament).
         content:
           application/json:
             schema:
@@ -264,8 +304,9 @@ paths:
       security:
         - cookieAuth: []
       responses:
-        '200':
-          description: A standard action response with the result of the request.
+        "200":
+          description: |
+            Tournament was successfully paused.
           content:
             application/json:
               schema:
@@ -280,14 +321,16 @@ paths:
       tags:
         - Tournament
       summary: Select and reactive the operation of an existing tournament.
-      description: >-
+      description: |
         If a different tournament is currently in operation, it will be paused before the
         selected tournament is reactivated.  If the selected tournament is alredy active,
         this request is a no-op.
-      operationId: postSelectTourn
+      operationId: selectTourn
       requestBody:
         required: true
-        description: A JSON object containing the name of the tournament.
+        description: |
+          A JSON object containing the name of the tournament (used to identify the
+          tournament).
         content:
           application/json:
             schema:
@@ -302,8 +345,9 @@ paths:
       security:
         - cookieAuth: []
       responses:
-        '200':
-          description: A standard action response with the result of the request.
+        "200":
+          description: |
+            Tournament was successfully selected and resumed.
           content:
             application/json:
               schema:
@@ -323,14 +367,15 @@ paths:
       security:
         - cookieAuth: []
       responses:
-        '200':
-          description: >-
-            The `data` element contains an array of player information records.
+        "200":
+          description: |
+            Player data was successfully retrieved.  The `data` element contains an array
+            of player information records.
           content:
             application/json:
               schema:
                 type: object
-                description: Response with players record data.
+                description: Response with array of player record data.
                 properties:
                   succ:
                     $ref: "#/components/schemas/SuccElem"
@@ -350,24 +395,52 @@ paths:
       operationId: postPlayers
       requestBody:
         required: true
-        description: >-
-          A JSON object containing player data fields for the single record to be updated.
+        description: |
+          A JSON object containing player data fields.  `id` must be specified to identify
+          the record to be updated.
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PlayerData'
+              type: object
+              description: Player information for the registration process..
+              properties:
+                id:
+                  type: integer
+                  description: Internal database id (should not be visible in app interfaces).
+                display_name:
+                  type: string
+                  description: |
+                    Full name of player, composed of last name qualified by either first name or
+                    nick name (if specified).
+                  example: Abernathy (Abs)
+                player_num:
+                  type: integer
+                  description: |
+                    "Player number" identifier based on ping pong ball selection, or
+                    randomly generated values.  This identifier is used in assigning the
+                    player to seeding bracket matchups.
+                  example: 10
+                nick_name:
+                  type: string
+                  description: |
+                    Name by which the player will be listed in brackets, scoring sheets,
+                    leaderboards, etc.  If `nick_name` is not specified (or emptied out),
+                    the player will be listed by last name.
+                  example: Abs
+              required:
+                - id
       security:
         - cookieAuth: []
       responses:
-        '200':
-          description: >-
-            The `data` element contains a single record with player information for the
-            updated record.
+        "200":
+          description: |
+            Player information was successfully updated.  The `data` element contains the
+            full player data for the updated record.
           content:
             application/json:
               schema:
                 type: object
-                description: Response with players record data.
+                description: Response with player record data.
                 properties:
                   succ:
                     $ref: "#/components/schemas/SuccElem"
@@ -382,15 +455,16 @@ paths:
       tags:
         - Players
       summary: Generate "player number" identifiers.
-      description: >-
+      description: |
         Player number identifiers are generated for all remaining players (those without
         numbers otherwise entered or assigned).
-      operationId: postGenPlayerNums
+      operationId: genPlayerNums
       security:
         - cookieAuth: []
       responses:
-        '200':
-          description: A standard action response with the result of the request.
+        "200":
+          description: |
+            Player numbers were successfully generated.
           content:
             application/json:
               schema:
@@ -405,17 +479,18 @@ paths:
       tags:
         - Players
       summary: Generate seeding round bracket.
-      description: >-
+      description: |
         Matchups are created from precomputed brackets (given number of players and
         rounds), with players assigned to games/seats based on their player number
         identifier.  Note that this request may only be made once player registration is
         complete, and all player numbers have been assigned or generated.
-      operationId: postGenSeedBraacket
+      operationId: genSeedBracket
       security:
         - cookieAuth: []
       responses:
-        '200':
-          description: A standard action response with the result of the request.
+        "200":
+          description: |
+            Seeding round bracket was successfully generated.
           content:
             application/json:
               schema:
@@ -435,14 +510,15 @@ paths:
       security:
         - cookieAuth: []
       responses:
-        '200':
-          description: >-
-            The `data` element contains an array of seeding round game information records.
+        "200":
+          description: |
+            Seeding round game data was successfully retrieved.  The `data` element
+            contains an array of current seeding round game information records.
           content:
             application/json:
               schema:
                 type: object
-                description: Response with seeding round game data.
+                description: Response with array of seeding round game data.
                 properties:
                   succ:
                     $ref: "#/components/schemas/SuccElem"
@@ -462,20 +538,40 @@ paths:
       operationId: postSeeding
       requestBody:
         required: true
-        description: >-
-          A JSON object containing seeding round game fields for the single record to be
-          updated.
+        description: |
+          A JSON object containing seeding round game information.  `id` must be specified
+          to identify the record to be updated.
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SeedGameData'
+              type: object
+              description: |
+                Team scores (points) for seeding round game.
+              properties:
+                id:
+                  type: integer
+                  description: Internal database id (should not be visible in app interfaces).
+                team1_pts:
+                  type: integer
+                  description: |
+                    Number of points for Team 1 (`null` if game has not yet been played and/or
+                    completed).
+                  example: null
+                team2_pts:
+                  type: integer
+                  description: |
+                    Number of points for Team 2 (`null` if game has not yet been played and/or
+                    completed).
+                  example: null
+              required:
+                - id
       security:
         - cookieAuth: []
       responses:
-        '200':
-          description: >-
-            The `data` element contains a single record with seeding round game
-            information for the updated record.
+        "200":
+          description: |
+            Seeding round game scores were successfully recorded.  The `data` element
+            contains a single record with current field data for the updated record.
           content:
             application/json:
               schema:
@@ -490,27 +586,57 @@ paths:
                     $ref: "#/components/schemas/InfoElem"
                   data:
                     $ref: "#/components/schemas/SeedGameData"
+  /seeding/tabulate_seed_results:
+    post:
+      tags:
+        - Seeding
+      summary: Compute player ranks based on seeding round results.
+      description: |
+        Player rankings are based on win percentage, followed by points percentage.  In
+        case of ties, lower player numbers are favored (as a vehicle of traceable
+        randomness).  The prior championship team is always kept intact.  Note that this
+        request may only be made once seeding round play is complete and all game scores
+        recorded.
+      operationId: tabulateSeedResults
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Seeding round results were successfully tabulated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/partners"}
   /partners/:
     get:
       tags:
         - Partners
-      summary: Get partners pikcing data.
+      summary: Get partners picking data.
       description:
       operationId: getPartners
       security:
         - cookieAuth: []
       responses:
-        '200':
-          description: >-
-            The `data` element contains an array of player records, in order of partner
-            picks (that is, seeding round player rankings).  Note that all players are
-            listed, with an `available` flag indicating those players not yet on a team.
-            The first available player is the one with the current pick.
+        "200":
+          description: |
+            Partner picking data was successfully retrieved.  The `data` element contains
+            an array of player records, in order of partner picks (that is, seeding round
+            player rankings).
+
+            Note that all players are listed, with an `available` flag indicating those
+            players not yet on a team.  The first available player is the one with the
+            current pick.
           content:
             application/json:
               schema:
                 type: object
-                description: Response with partner picking data.
+                description: Response with array of partner picking data.
                 properties:
                   succ:
                     $ref: "#/components/schemas/SuccElem"
@@ -530,21 +656,37 @@ paths:
       operationId: postPartners
       requestBody:
         required: true
-        description: >-
+        description: |
           A JSON object containing partner selection information for the player with the
-          current pick.
+          current pick.  `id` must be specified to identify the record to be updated.
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PartnerData'
+              type: object
+              description: Partner pick information.
+              properties:
+                id:
+                  type: integer
+                  description: Internal database id (should not be visible in app interfaces).
+                picks_info:
+                  type: [string, integer]
+                  description: |
+                    The current pick for partner, specified by either the player's rank or
+                    name (or unique name prefix).
+              required:
+                - id
+                - picks_info
       security:
         - cookieAuth: []
       responses:
-        '200':
-          description: >-
-            The `data` element contains a directive for the client to reload the partner
-            picks data (in order to pick up changes across multiple records).  Later, we
-            may return the full data set, or perhaps just the changed records.
+        "200":
+          description: |
+            Partner pick selection was successfully recorded.  The `data` element contains
+            a directive for the client to reload the partner picks data (in order to pick
+            up changes across multiple records).
+
+            Note: later, we may return the full data set (or perhaps just the changed
+            records).
           content:
             application/json:
               schema:
@@ -559,6 +701,32 @@ paths:
                     $ref: "#/components/schemas/InfoElem"
                   data:
                     $ref: "#/components/schemas/ReloadObj"
+  /partners/comp_team_seeds:
+    post:
+      tags:
+        - Partners
+      summary: Compute team seeds based on partner picks.
+      description: |
+        Team seeds are based on average player ranking of team members (except in the case
+        of a non-champion three-headed monster, which is always ranked last).  Note that
+        this request may only be made once the partner picking process is complete.
+      operationId: compTeamSeeds
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Teams seeds (for assignment within round robin brackets) were successfully
+            computed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/teams"}
   /teams/:
     get:
       tags:
@@ -569,14 +737,15 @@ paths:
       security:
         - cookieAuth: []
       responses:
-        '200':
-          description: >-
-            The `data` element contains an array of team information records.
+        "200":
+          description: |
+            Teams data was successfully retrieved.  The `data` element contains an array
+            of current team information records.
           content:
             application/json:
               schema:
                 type: object
-                description: Response with teams record data.
+                description: Response with array of team record data.
                 properties:
                   succ:
                     $ref: "#/components/schemas/SuccElem"
@@ -596,24 +765,34 @@ paths:
       operationId: postTeams
       requestBody:
         required: true
-        description: >-
-          A JSON object containing team data fields for the single record to be updated.
+        description: |
+          A JSON object containing team data fields.  `id` must be specified to identify
+          the record to be updated.
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TeamData'
+              type: object
+              description: |
+                Team information and round robin game stats (note: currently no updatable
+                fields).
+              properties:
+                id:
+                  type: integer
+                  description: Internal database id (should not be visible in app interfaces).
+              required:
+                - id
       security:
         - cookieAuth: []
       responses:
-        '200':
-          description: >-
-            The `data` element contains a single record with team information for the
-            updated record.
+        "200":
+          description: |
+            Team record was successfully updated.  The `data` element contains the full
+            team data for the updated record.
           content:
             application/json:
               schema:
                 type: object
-                description: Response with teams record data.
+                description: Response with team record data.
                 properties:
                   succ:
                     $ref: "#/components/schemas/SuccElem"
@@ -623,6 +802,32 @@ paths:
                     $ref: "#/components/schemas/InfoElem"
                   data:
                     $ref: "#/components/schemas/TeamData"
+  /teams/gen_tourn_brackets:
+    post:
+      tags:
+        - Teams
+      summary: Generate round robin tournament brackets.
+      description: |
+        Matchups are created from precomputed brackets (given number of teams, divisions,
+        and rounds), with teams assigned to games based on their division and seed number
+        within the division.  Note that this request may only be made once division and
+        seed assignments are complete.
+      operationId: genTournBrackets
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Round robin tournament brackets for each division were successfully generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/round_robin"}
   /round_robin/:
     get:
       tags:
@@ -633,14 +838,15 @@ paths:
       security:
         - cookieAuth: []
       responses:
-        '200':
-          description: >-
-            The `data` element contains an array of round robin game information records.
+        "200":
+          description: |
+            Round robin game data was successfully retrieved.  The `data` element contains
+            an array of current round robin game information records.
           content:
             application/json:
               schema:
                 type: object
-                description: Response with round robin game data.
+                description: Response with array of round robin game data.
                 properties:
                   succ:
                     $ref: "#/components/schemas/SuccElem"
@@ -660,20 +866,40 @@ paths:
       operationId: postRoundRobin
       requestBody:
         required: true
-        description: >-
-          A JSON object containing round robin game fields for the single record to be
-          updated.
+        description: |
+          A JSON object containing round robin game information.  `id` must be specified
+          to identify the record to be updated.
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TournGameData'
+              type: object
+              description: |
+                Team scores (points) for round robin tournament game.
+              properties:
+                id:
+                  type: integer
+                  description: Internal database id (should not be visible in app interfaces).
+                team1_pts:
+                  type: integer
+                  description: |
+                    Number of points for Team 1 (`null` if game has not yet been played and/or
+                    completed).
+                  example: null
+                team2_pts:
+                  type: integer
+                  description: |
+                    Number of points for Team 2 (`null` if game has not yet been played and/or
+                    completed).
+                  example: null
+              required:
+                - id
       security:
         - cookieAuth: []
       responses:
-        '200':
-          description: >-
-            The `data` element contains a single record with round robin game information
-            for the updated record.
+        "200":
+          description: |
+            Round robin game scores were successfully recorded.  The `data` element
+            contains a single record with current field data for the updated record.
           content:
             application/json:
               schema:
@@ -688,6 +914,31 @@ paths:
                     $ref: "#/components/schemas/InfoElem"
                   data:
                     $ref: "#/components/schemas/TournGameData"
+  /round_robin/tabulate_tourn_results:
+    post:
+      tags:
+        - Round Robin
+      summary: Compute team ranks based on results of round robin play.
+      description: |
+        Team rankings are based on overall win percentage, followed by wins and points in
+        head-to-head play between tied teams.  The top two teams in each division will
+        advance to the playoffs.  Note that this request may only be made once round robin
+        play is complete and all game scores recorded.
+      operationId: tabulateTournResults
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Round robin stage results were successfully tabulated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/final_four"}
   /final_four/:
     get:
       tags:
@@ -698,9 +949,10 @@ paths:
       security:
         - cookieAuth: []
       responses:
-        '200':
-          description: >-
-            The `data` element contains an array of final four team information records.
+        "200":
+          description: |
+            Final four teams data was successfully retrieved.  The `data` element contains
+            an array of current team information records.
           content:
             application/json:
               schema:
@@ -725,20 +977,29 @@ paths:
       operationId: postFinalFour
       requestBody:
         required: true
-        description: >-
-          A JSON object containing final four team data fields for the single record to be
-          updated.
+        description: |
+          A JSON object containing final four team data fields.  `id` must be specified to
+          identify the record to be updated.
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PlayoffTeamData'
+              type: object
+              description: |
+                Final four team information and playoff game stats (note: currently no
+                updatable fields).
+              properties:
+                id:
+                  type: integer
+                  description: Internal database id (should not be visible in app interfaces).
+              required:
+                - id
       security:
         - cookieAuth: []
       responses:
-        '200':
-          description: >-
-            The `data` element contains a single record with final four team information
-            for the updated record.
+        "200":
+          description: |
+            Final four team information was successfully updated.  The `data` element
+            contains the full team data for the updated record.
           content:
             application/json:
               schema:
@@ -753,6 +1014,54 @@ paths:
                     $ref: "#/components/schemas/InfoElem"
                   data:
                     $ref: "#/components/schemas/PlayoffTeamData"
+  /final_four/gen_semis_bracket:
+    post:
+      tags:
+        - Final Four
+      summary: Generate playoff semifinals bracket.
+      description: |
+        The top team in each division is matched up against the second ranked team in the
+        other division.  Note that this request may only be made once round robin play is
+        complete and team rankings are computed.
+      operationId: genSemisBracket
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Semifinals playoff bracket was successfully generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/playoffs"}
+  /final_four/gen_finals_bracket:
+    post:
+      tags:
+        - Final Four
+      summary: Generate playoff finals bracket.
+      description: |
+        The two winners of the semifinals round are matched up against each other.  Note
+        that this request may only be made once seminfinals play is complete and the game
+        scores are recorded.
+      operationId: genFinalsBracket
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Finals playoff bracket was successfully generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/playoffs"}
   /playoffs/:
     get:
       tags:
@@ -763,9 +1072,10 @@ paths:
       security:
         - cookieAuth: []
       responses:
-        '200':
-          description: >-
-            The `data` element contains an array of playoffs game information records.
+        "200":
+          description: |
+            Playoffs game data was successfully retrieved.  The `data` element contains an
+            array of current playoff game information records.
           content:
             application/json:
               schema:
@@ -785,30 +1095,48 @@ paths:
     post:
       tags:
         - Playoffs
-      summary: Update playoffs game data.
+      summary: Update playoff game data.
       description:
       operationId: postPlayoffs
       requestBody:
         required: true
-        description: >-
-          A JSON object containing playoffs game fields for the single record to be
-          updated.
+        description: |
+          A JSON object containing playoff game information.  `id` must be specified to
+          identify the record to be updated.
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PlayoffGameData'
+              type: object
+              description: |
+                Team scores (points) for playoff (semifinals or finals) game.
+              properties:
+                id:
+                  type: integer
+                  description: Internal database id (should not be visible in app interfaces).
+                team1_pts:
+                  type: integer
+                  description: |
+                    Number of points for Team 1 (`null` if game has not yet been played and/or
+                    completed).
+                  example: null
+                team2_pts:
+                  type: integer
+                  description: |
+                    Number of points for Team 2 (`null` if game has not yet been played and/or
+                    completed).
+                  example: null
       security:
         - cookieAuth: []
       responses:
-        '200':
-          description: >-
-            The `data` element contains a single record with playoffs game information
-            for the updated record.
+        "200":
+          description: |
+            Playoff game scores were successfully recorded.  The `data` element contains a
+            single record with current field data for the updated record.
           content:
             application/json:
               schema:
                 type: object
-                description: Response with playoffs game data.
+                description: Response with playoff game data.
                 properties:
                   succ:
                     $ref: "#/components/schemas/SuccElem"
@@ -818,6 +1146,54 @@ paths:
                     $ref: "#/components/schemas/InfoElem"
                   data:
                     $ref: "#/components/schemas/PlayoffGameData"
+  /playoffs/tabulate_semis_results:
+    post:
+      tags:
+        - Playoffs
+      summary: Determine the winners of the semifinals round.
+      description: |
+        The two winners of the semifinals matchups will advance to the finals.  Note that
+        this request may only be made once semifinals play is complete and the game scores
+        and match winners recorded.
+      operationId: tabulateSemisResults
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Semifinals stage results were succcessfully tabulated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/final_four"}
+  /playoffs/tabulate_finals_results:
+    post:
+      tags:
+        - Playoffs
+      summary: Determine the winner of the finals round.
+      description: |
+        The winners of the finals matchups is declared the tournament champion.  The final
+        tournament rankings are also computed.  Note that this request may only be made
+        once finals play is complete and the game scores and match winner recorded.
+      operationId: tabulateFinalsResults
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Finals stage results were succcessfully tabulated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/teams"}
 
 components:
   securitySchemes:
@@ -829,40 +1205,43 @@ components:
     SuccElem:
       type: boolean
       description: Value of `true` if request was successful.
+      example: true
     ErrElem:
       type: string
-      description: >-
+      description: |
         Description of error, if `succ == false` (value of `null` if request was
         successful).
+      example: null
     InfoElem:
       type: string
       description: Informational message for successful requests.
+      example: null
     RedirectObj:
       type: object
       description: Non-binding directive to client for application area to redirect to.
       properties:
         redirect:
           type: string
-          description: >-
+          description: |
             Name of the application area where the outcome of the action will be reflected
             (can be thought of as the target of a logical redirect).  The value actually
             corresponds to the URL (relative to endpoint root) of the suggested
             application "view".
-          example: {"redirect": "/players"}
+          example: {"redirect": "/<view path>"}
     ReloadObj:
       type: object
-      description: >-
+      description: |
         Non-binding directive to client to reload the data for this application area.
       properties:
         reloadTable:
           type: boolean
-          description: >-
+          description: |
             Indicates that the client-side data (typically a table or grid) should be
             reloaded (using the appropriate Ajax call).
           example: {"reloadTable": true}
     ActionResp:
       type: object
-      description: >-
+      description: |
         Response structure for action requests, including indicator of success and a
         logical application redirect.
       properties:
@@ -877,24 +1256,24 @@ components:
 
     TournData:
       type: object
-      description: Tournament information (updatable fields indicated).
+      description: Tournament information.
       properties:
         id:
           type: integer
           description: Internal database id (should not be visible in app interfaces).
         name:
           type: string
-          description: >-
+          description: |
             Name must be unique across all tournaments; name can include spaces and
             punctuation (other than the slash character ‘/’).
           example: NOLA 2025
         dates:
           type: string
-          description: Timeframe information (updatable).
+          description: Timeframe information.
           example: Oct 24-25, 2025
         venue:
           type: string
-          description: Location information, for reference (updatable).
+          description: Location information, for reference.
           example: Hotel St. Marie, New Orleans
         cur_stage:
           type: string
@@ -931,34 +1310,34 @@ components:
       additionalProperties: true
     PlayerData:
       type: object
-      description: Player information and seeding stats (updatable fields indicated).
+      description: Player information and seeding round stats.
       properties:
         id:
           type: integer
           description: Internal database id (should not be visible in app interfaces).
         display_name:
           type: string
-          description: >-
+          description: |
             Full name of player, composed of last name qualified by either first name or
             nick name (if specified).
           example: Abernathy (Abs)
         player_num:
           type: integer
-          description: >-
+          description: |
             "Player number" identifier based on ping pong ball selection, or randomly
-            generated values (updatable).  This identifier is used in assigning the player
-            to seeding bracket matchups.
+            generated values.  This identifier is used in assigning the player to seeding
+            bracket matchups.
           example: 10
         nick_name:
           type: string
-          description: >-
+          description: |
             Name by which the player will be listed in brackets, scoring sheets,
-            leaderboards, etc. (updatable).  If `nick_name` is not specified (or emptied
-            out), the player will be listed by last name.
+            leaderboards, etc.  If `nick_name` is not specified (or emptied out), the
+            player will be listed by last name.
           example: Abs
         champ:
           type: boolean
-          description: >-
+          description: |
             Signifies player as member of prior year winning team (used for partner
             assignment).
           example: false
@@ -976,24 +1355,24 @@ components:
           description: Total points by opponents during seeding round play.
         player_rank:
           type: integer
-          description: >-
+          description: |
             Rank computed after seeding round play (used to determine order of partner
             picks).  Value is `null` if seeding round is not complete.
           example: null
       additionalProperties: true
     SeedGameData:
       type: object
-      description: >-
-        Seeding round game information (updatable fields indicated).  Each record
-        represents either an indidvidual matchup within the seeding bracket, or a
-        placeholder indicating the player or players with byes for a given round.
+      description: |
+        Seeding round game information.  Each record represents either an indidvidual
+        matchup within the seeding bracket, or a placeholder indicating the player or
+        players with byes for a given round.
       properties:
         id:
           type: integer
           description: Internal database id (should not be visible in app interfaces).
         label:
           type: string
-          description: >-
+          description: |
             Unique game identifier, prefixed by bracket indicator ("sd", "rr, "sf", "fn")
             followed by division (round robin only), round number, and table number.
             Record specifying teams having a bye for the round, will have "bye" indicated
@@ -1001,13 +1380,13 @@ components:
           example: rr-1-4-3
         round_num:
           type: integer
-          description: >-
+          description: |
             Round number for the tournament stage (up to 8, for seeding and round robin
             bracket play; up to 3 for playoff brackets).
           example: 4
         player_nums:
           type: string
-          description: >-
+          description: |
             Representation of the matchup, using "player number" identifiers.  The
             matchups are taken directly from precomputed bracket specifications (based on
             number of players and rounds).
@@ -1026,51 +1405,51 @@ components:
           example: null
         team1_pts:
           type: integer
-          description: >-
+          description: |
             Number of points for Team 1 (`null` if game has not yet been played and/or
             completed).
           example: null
         team2_pts:
           type: integer
-          description: >-
+          description: |
             Number of points for Team 2 (`null` if game has not yet been played and/or
             completed).
           example: null
         winner:
           type: string
-          description: >-
+          description: |
             Name of the winning team (`null` if game has not yet been played and/or
             completed).
           example: null
     PartnerData:
       type: object
-      description: Partner picking information (updatable fields indicated).
+      description: Partner picking information.
       properties:
         id:
           type: integer
           description: Internal database id (should not be visible in app interfaces).
         player_rank:
           type: integer
-          description: >-
+          description: |
             Player rank computed after seeding round play, which represents the order of
             partner picks.
           example: 5
         full_name:
           type: string
-          description: >-
+          description: |
             Full name of player, composed of last name qualified by either first name or
             nick name (if specified).
           example: Abernathy (Abs)
         player_num:
           type: integer
-          description: >-
+          description: |
             "Player number" identifier based on ping pong ball selection, or randomly
-            generated values (updatable).  This identifier is used in assigning the player
-            to seeding bracket matchups.
+            generated values.  This identifier is used in assigning the player to seeding
+            bracket matchups.
           example: 10
         champ:
           type: boolean
-          description: >-
+          description: |
             Indicates that player was a member of prior year's winning team, which is
             always kept intact for a title defense.
           example: false
@@ -1080,40 +1459,39 @@ components:
           example: true
         picks_info:
           type: [string, integer]
-          description: >-
+          description: |
             When representing the current partner pick, specify either the player's rank
-            or name (or unique name prefix).  This is the only updatable field for the
-            request.  When indicating completed picks, shows both the partner name and
-            rank.
+            or name (or unique name prefix).  When indicating completed picks, shows both
+            the partner name and rank.
         picked_by_info:
           type: string
-          description: >-
+          description: |
             Name and rank of the player who picked the player for the current record as a
             partner.
       additionalProperties: true
     TeamData:
       type: object
-      description: >-
-        Team information and round robin game stats (currently no updatable fields).
+      description: |
+        Team information and round robin game stats.
       properties:
         id:
           type: integer
           description: Internal database id (should not be visible in app interfaces).
         team_seed:
           type: integer
-          description: >-
+          description: |
             Overall team seed based on average rank of players.  This value is used for
             assignment to divisions, and seed within the division, which are mapped to
             precomputed round robin bracket matchups.
           example: 7
         player_nums:
           type: string
-          description: >-
+          description: |
             "Player number" identifiers for team members.
           example: 15 / 40
         team_name:
           type: string
-          description: >-
+          description: |
             Name of team, which is a concatenation of team member names (nick name or last
             name).
           example: Cooper / Heitner
@@ -1123,7 +1501,7 @@ components:
           example: 2
         div_seed:
           type: integer
-          description: >-
+          description: |
             Team's seed within the division (maps to games specified in precomputed
             bracket matchups).
           example: 4
@@ -1141,7 +1519,7 @@ components:
           description: Total points by opponents during round robin play.
         tourn_rank:
           type: integer
-          description: >-
+          description: |
             Overall team rank (based on win percentage and points percentage), computed
             after round robin play.  This value does not determine playoff teams, but is
             used as a factor in computing final tournament ranking.  Value is `null` if
@@ -1149,31 +1527,31 @@ components:
           example: null
         div_rank:
           type: integer
-          description: >-
+          description: |
             Rank within the division, computed after round robin play.  Top two teams in
             each division will advance to the playoff round.  Value is `null` if round
             robin play is not complete.
           example: null
         final_rank:
           type: integer
-          description: >-
+          description: |
             Final tournament rank, computed after playoff are complete.  Value is `null`
             if playoffs are not complete.
           example: null
       additionalProperties: true
     TournGameData:
       type: object
-      description: >-
-        Round robin game information (updatable fields indicated).  Each record represents
-        either an indidvidual matchup within the round robin bracket, or a placeholder
-        indicating a team that has a bye for a given round.
+      description: |
+        Round robin game information.  Each record represents either an indidvidual
+        matchup within the round robin bracket, or a placeholder indicating a team that
+        has a bye for a given round.
       properties:
         id:
           type: integer
           description: Internal database id (should not be visible in app interfaces).
         label:
           type: string
-          description: >-
+          description: |
             Unique game identifier, prefixed by bracket indicator ("sd", "rr, "sf", "fn")
             followed by division (round robin only), round number, and table number.
             Record specifying the team having a bye for the round, will have "bye"
@@ -1185,13 +1563,13 @@ components:
           example: 2
         round_num:
           type: integer
-          description: >-
+          description: |
             Round number for the tournament stage (up to 8, for round robin and round robin
             bracket play; up to 3 for playoff brackets).
           example: 4
         team_seeds:
           type: string
-          description: >-
+          description: |
             Representation of the matchup, using division seed for the teams.  The
             matchups are taken directly from precomputed bracket specifications (based on
             number of teams and rounds).
@@ -1210,39 +1588,39 @@ components:
           example: null
         team1_pts:
           type: integer
-          description: >-
+          description: |
             Number of points for Team 1 (`null` if game has not yet been played and/or
             completed).
           example: null
         team2_pts:
           type: integer
-          description: >-
+          description: |
             Number of points for Team 2 (`null` if game has not yet been played and/or
             completed).
           example: null
         winner:
           type: string
-          description: >-
+          description: |
             Name of the winning team (`null` if game has not yet been played and/or
             completed).
           example: null
     PlayoffTeamData:
       type: object
-      description: >-
-        Final four team information and playoff game stats (currently no updatable fields).
+      description: |
+        Final four team information and playoff game stats.
       properties:
         id:
           type: integer
           description: Internal database id (should not be visible in app interfaces).
         tourn_rank:
           type: integer
-          description: >-
+          description: |
             Overall team rank based round robin play.  This value is used purely for
             identification purposes.
           example: 3
         team_name:
           type: string
-          description: >-
+          description: |
             Name of team, which is a concatenation of team member names (nick name or last
             name).
           example: Cooper / Heitner
@@ -1252,7 +1630,7 @@ components:
           example: 2
         div_rank:
           type: integer
-          description: >-
+          description: |
             Team's rank within the division after round robin play.  Each division's top
             ranked team plays the second ranked team from the other division in the
             semifinals.  The winners of each semis matchup play in the finals round.
@@ -1271,7 +1649,7 @@ components:
           description: Total points by opponents during playoff rounds.
         playoff_rank:
           type: integer
-          description: >-
+          description: |
             Final four team rank based on advancement and finals play (and win and points
             stats for third and fourth place).  Note that provisional values are computed
             during playoff play (based on win and points stats).
@@ -1279,16 +1657,16 @@ components:
       additionalProperties: true
     PlayoffGameData:
       type: object
-      description: >-
-        Playofffs game information (updatable fields indicated).  Each record represents
-        an indidvidual matchup within the playoffs bracket.
+      description: |
+        Playofffs game information.  Each record represents an indidvidual matchup within
+        the playoffs bracket.
       properties:
         id:
           type: integer
           description: Internal database id (should not be visible in app interfaces).
         label:
           type: string
-          description: >-
+          description: |
             Unique game identifier, prefixed by bracket indicator ("sd", "rr, "sf", "fn")
             followed by division (round robin only), round number, and table number.
             Record specifying the team having a bye for the round, will have "bye"
@@ -1300,7 +1678,7 @@ components:
           example: Semifinals
         matchup_num:
           type: integer
-          description: >-
+          description: |
             Matchup identifier within the playoff round (1 or 2 for semifinals, 1 for finals).
           example: 1
         round_num:
@@ -1309,7 +1687,7 @@ components:
           example: 2
         team_ranks:
           type: string
-          description: >-
+          description: |
             Representation of the matchup, using overall tournament rank (after round
             robin play) as identifiers for the teams.
           example: 1 vs. 4
@@ -1323,19 +1701,19 @@ components:
           example: House / Della Grotte / Latt
         team1_pts:
           type: integer
-          description: >-
+          description: |
             Number of points for Team 1 (`null` if game has not yet been played and/or
             completed).
           example: null
         team2_pts:
           type: integer
-          description: >-
+          description: |
             Number of points for Team 2 (`null` if game has not yet been played and/or
             completed).
           example: null
         winner:
           type: string
-          description: >-
+          description: |
             Name of the winning team (`null` if game has not yet been played and/or
             completed).
           example: null

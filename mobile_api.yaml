@@ -1,0 +1,2006 @@
+openapi: 3.1.1
+info:
+  title: Euchre Manager Mobile
+  description: |
+    This is the API for the Euchmgr Manager mobile functions.  The current working version
+    (0.5) is based on the prototype mobile UI, and not designed top-down.  We will work to
+    make it cleaner and more RESTful, if sufficiently supported by interest in creating
+    alternative front-ends.  Note that there is a separate API for supporting admin
+    (i.e. tournament operator-centric) applications.
+  license:
+    name: MIT License
+    url: https://opensource.org/license/mit
+  version: '0.5'
+
+tags:
+  - name: Security
+    description: |
+      User authentication and session management.
+  - name: Registration
+    description: |
+      Player registration process and information.
+  - name: Seeding
+    description: |
+      Seeding round game schedule and scores.
+  - name: Partners
+    description: |
+      Partner picking process and tracking.
+  - name: Round Robin
+    description: |
+      Round robin game schedule and scores.
+  - name: Semifinals
+    description: |
+      Semifinals game schedule and scores.
+  - name: Finals
+    description: |
+      Finals game schedule and scores.
+
+paths:
+  /login:
+    post:
+      tags:
+        - Security
+      summary: Authenticate mobile user (player) and create an app session.
+      description:
+      operationId: login
+      requestBody:
+        required: true
+        description: A JSON object containing the username and password.
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Login information.
+              properties:
+                username:
+                  type: string
+                  description: Player username.
+                password:
+                  type: string
+                  description: Player password.
+              required:
+                - username
+                - password
+            example:
+              username: Abs
+              password: <player password>
+      security: []  # no authentication
+      responses:
+        "200":
+          description: |
+            Successfully authenticated.  The session ID is returned in a cookie named
+            `session`.  This cookie must be passed in for all subsequent requests (in the
+            HTTP header).
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: |
+                  session=TGnTeNJk; Expires=26 Mar 2026 18:47:29 GMT; HttpOnly; Path=/
+              description: Cookie attributes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                data: {"redirect": "/"}
+  /logout:
+    post:
+      tags:
+        - Security
+      summary: Terminate a mobile user (player) app session.
+      description:
+      operationId: logout
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Successfully logged out.  The session cookie is no longer valid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                info: User \"Abs\" logged out
+                data: {"redirect": "/login"}
+  /register:
+    get:
+      tags:
+        - Registration
+      summary: Get player registration information.
+      description:
+      operationId: getRegister
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Player registration information was successfully retrieved.
+          content:
+            application/json:
+              schema:
+                type: object
+                description:
+                properties:
+                  succ:
+                    $ref: "#/components/schemas/SuccElem"
+                  err:
+                    $ref: "#/components/schemas/ErrElem"
+                  info:
+                    $ref: "#/components/schemas/InfoElem"
+                  data:
+                    type: object
+                    properties:
+                      view:
+                        type: string
+                        example: register
+                      view_name:
+                        type: string
+                        example: Register
+                      tourn:
+                        $ref: "#/components/schemas/TournData"
+                      user:
+                        $ref: "#/components/schemas/PlayerData"
+                      nums_avail:
+                        type: array
+                        items:
+                          type: integer
+                        example: [3, 5, 6, 8, 9, 11, 12, 13, 18, 25]
+                additionalProperties: true
+  /register/register_player:
+    post:
+      tags:
+        - Registration
+      summary: Provide player information for tournament registration.
+      description:
+      operationId: registerPlayer
+      requestBody:
+        required: true
+        description: |
+          A JSON object containing player data fields.  `id` must be specified (copied
+          from `user` in the GET request) to identify the record to be updated.
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Player information for the registration process..
+              properties:
+                player_id:
+                  type: integer
+                  description: Internal database id (should not be visible in app interfaces).
+                nick_name:
+                  type: string
+                  description: |
+                    Name by which the player will be listed in brackets, scoring sheets,
+                    leaderboards, etc.  If `nick_name` is not specified (or emptied out),
+                    the player will be listed by last name.
+                player_num:
+                  type: integer
+                  description: |
+                    "Player number" identifier (based on ping pong ball selection or
+                    randomly generated value).  This identifier is used in assigning the
+                    player to seeding bracket matchups.
+              required:
+                - player_id
+                - player_num
+            example:
+              player_id: 1
+              player_num: 25
+              nick_name: Abs
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Player information was successfully updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                data: {"redirect": "/register"}
+  /seeding:
+    get:
+      tags:
+        - Seeding
+      summary: Get seeding round data (games and leaderboard).
+      description:
+      operationId: getSeeding
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Seeding round data was successfully retrieved.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: |
+                  Response with seeding round game schedule/scores and current
+                  leaderboard.
+                properties:
+                  succ:
+                    $ref: "#/components/schemas/SuccElem"
+                  err:
+                    $ref: "#/components/schemas/ErrElem"
+                  info:
+                    $ref: "#/components/schemas/InfoElem"
+                  data:
+                    type: object
+                    properties:
+                      view:
+                        type: string
+                        example: seeding
+                      view_name:
+                        type: string
+                        example: Seeding
+                      tourn:
+                        $ref: "#/components/schemas/TournData"
+                      user:
+                        $ref: "#/components/schemas/PlayerData"
+                      team_idx:
+                        type: integer
+                        description: |
+                          Indicator of team for the player in the current game (`0` for
+                          Team 1; `1` for Team 2).
+                      cur_game:
+                        $ref: "#/components/schemas/SeedGameData"
+                        example:
+                          id: 21
+                          label: "sd-2-10"
+                          round_num: 2
+                          table_num: 10
+                          player1: 25
+                          player2: 31
+                          player3: 37
+                          player4: 41
+                          team1_name: "Abs / Cureton"
+                          team2_name: "West / Leibly"
+                          team1_pts: null
+                          team2_pts: null
+                          winner: null
+                      stage_games:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/SeedGameData"
+                        example:
+                          - id: 9
+                            label: "sd-1-9"
+                            round_num: 1
+                            table_num: 9
+                            player1: 14
+                            player2: 18
+                            player3: 25
+                            player4: 29
+                            team1_name: "DeWitt / Laves"
+                            team2_name: "Abs / McGovern"
+                            team1_pts: 10
+                            team2_pts: 3
+                            winner: "DeWitt / Laves"
+                          - id: 21
+                            label: "sd-2-10"
+                            round_num: 2
+                            table_num: 10
+                            player1: 25
+                            player2: 31
+                            player3: 37
+                            player4: 41
+                            team1_name: "Abs / Cureton"
+                            team2_name: "West / Leibly"
+                            team1_pts: null
+                            team2_pts: null
+                            winner: null
+                          - id: 30
+                            label: "sd-3-8"
+                            round_num: 3
+                            table_num: 8
+                            player1: 22
+                            player2: 25
+                            player3: 34
+                            player4: 38
+                            team1_name: "Shutts / Abs"
+                            team2_name: "Watkins / Crash"
+                            team1_pts: null
+                            team2_pts: null
+                            winner: null
+                      leaderboard:
+                        $ref: "#/components/schemas/Leaderboard"
+                        example:
+                          - ["id", "Player (num)", "W-L", "Pts %", "Rank"]
+                          -
+                            - [7, "Chisholm (26)", "1-0", "1.000", 1]
+                            - [6, "Chesty (32)", "1-0", "1.000", 2]
+                            - [15, "Harris (30)", "1-0", ".833", 3]
+                            - [5, "Chess (33)", "1-0", ".833", 4]
+  /seeding/submit_score:
+    post:
+      tags:
+        - Seeding
+      summary: Submit score for seeding round game.
+      description:
+      operationId: submitSeedScore
+      requestBody:
+        required: true
+        description: |
+          Seeding round score for the game identified by `game_label` (must be the current
+          game for the player posting the score).
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitScoreReq'
+            example:
+              action: submit_score
+              game_label: sd-2-10
+              posted_by_num: 25
+              team_idx: 0
+              team_pts: 10
+              opp_pts: 7 
+              ref_score_id: null
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Seeding round game score was successfully submitted.  The score will be
+            officially recorded when opponent has accepted the result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/seeding"}
+  /seeding/accept_score:
+    post:
+      tags:
+        - Seeding
+      summary: Accept currently posted score for seeding round game.
+      description:
+      operationId: acceptSeedScore
+      requestBody:
+        required: true
+        description: |
+          Seeding round score for the game identified by `game_label` (must be the current
+          game for the player posting the score).
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptScoreReq'
+            example:
+              action: accept_score
+              game_label: sd-2-10
+              posted_by_num: 37
+              team_idx: 1
+              team_pts: 7
+              opp_pts: 10
+              ref_score_id: 12
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Seeding round game score was successfully accepted.  The result has been
+            pushed to the official game record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/seeding"}
+  /seeding/correct_score:
+    post:
+      tags:
+        - Seeding
+      summary: Correct currently posted score for seeding round game.
+      description:
+      operationId: correctSeedScore
+      requestBody:
+        required: true
+        description: |
+          Seeding round score for the game identified by `game_label` (must be the current
+          game for the player posting the score).
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CorrectScoreReq'
+            example:
+              action: correct_score
+              game_label: sd-2-10
+              posted_by_num: 37
+              team_idx: 1
+              team_pts: 8
+              opp_pts: 10
+              ref_score_id: 12
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Seeding round game score was successfully corrected.  The score will be
+            officially recorded when opponent has accepted the result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/seeding"}
+  /partners/:
+    get:
+      tags:
+        - Partners
+      summary: Get partners picking data.
+      description:
+      operationId: getPartners
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Partner picking data was successfully retrieved.  The `partner_picks` element
+            (under `data`) contains a list of all players by ranking (from the seeding
+            round):
+            - Players with non-empty values for either `partner` or `picked_by` are
+              already on a team.
+            - The highest ranked player with both `partner` and `picked_by` still empty
+              has the current pick, and may select any available player below them in the
+              ranking order.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: |
+                  Response with partner pick data (picks already made, current pick, and
+                  players available as a partner).
+                properties:
+                  succ:
+                    $ref: "#/components/schemas/SuccElem"
+                  err:
+                    $ref: "#/components/schemas/ErrElem"
+                  info:
+                    $ref: "#/components/schemas/InfoElem"
+                  data:
+                    type: object
+                    properties:
+                      view:
+                        type: string
+                        example: partners
+                      view_name:
+                        type: string
+                        example: Partner Picks
+                      tourn:
+                        $ref: "#/components/schemas/TournData"
+                      user:
+                        $ref: "#/components/schemas/PlayerData"
+                      cur_pick:
+                        $ref: "#/components/schemas/PlayerData"
+                        example:
+                          id: 23
+                          player_num: 29
+                          player_rank: 2
+                          nick_name: McGovern
+                          partner: null
+                          partner2: null
+                          picked_by: null
+                          seed_wins: 6
+                          seed_losses: 1
+                          seed_pts_for: 64
+                          seed_pts_against: 41
+                          seed_win_pct: 0.85714
+                          seed_pts_pct: 0.60952
+                      partner_picks:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/PlayerData"
+                        example:
+                          - id: 10
+                            player_num: 23
+                            player_rank: 28
+                            nick_name: Della Grotte
+                            partner: 17
+                            partner2: 9
+                            picked_by: null
+                            reigning_champ: true
+                            seed_wins: 3
+                            seed_losses: 4
+                            seed_pts_for: 42
+                            seed_pts_against: 57
+                            seed_win_pct: 0.42857
+                            seed_pts_pct: 0.42424
+                          - id: 17
+                            player_num: 4
+                            player_rank: 1
+                            nick_name: Heitner
+                            partner: 32
+                            partner2: null
+                            picked_by: null
+                            seed_wins: 7
+                            seed_losses: 1
+                            seed_pts_for: 70
+                            seed_pts_against: 41
+                            seed_win_pct: 0.875
+                            seed_pts_pct: 0.63063
+                          - id: 23
+                            player_num: 29
+                            player_rank: 2
+                            nick_name: McGovern
+                            partner: null
+                            partner2: null
+                            picked_by: null
+                            seed_wins: 6
+                            seed_losses: 1
+                            seed_pts_for: 64
+                            seed_pts_against: 41
+                            seed_win_pct: 0.85714
+                            seed_pts_pct: 0.60952
+                          - id: 6
+                            player_num: 32
+                            player_rank: 3
+                            nick_name: Chesty
+                            partner: null
+                            partner2: null
+                            picked_by: 4
+                            seed_wins: 6
+                            seed_losses: 2
+                            seed_pts_for: 66
+                            seed_pts_against: 47
+                            seed_win_pct: 0.75
+                            seed_pts_pct: 0.58407
+  /partners/pick_partner:
+    post:
+      tags:
+        - Partners
+      summary: Update partners data.
+      description:
+      operationId: postPartners
+      requestBody:
+        required: true
+        description: |
+          A JSON object containing partner selection information for the player with the
+          current pick.  `id` must be specified to identify the record to be updated, and
+          ***either*** `partner_num` ***or*** ` picks_info` should be specified to
+          indicate the partner pick.
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Partner pick information.
+              properties:
+                player_num:
+                  type: integer
+                  description: Player number of player making the pick.
+                partner_num:
+                  type: integer
+                  description: Player number of player selected as partner.
+                picks_info:
+                  type: [string, integer]
+                  description: |
+                    The current pick for partner, specified by either the player's rank or
+                    name (or unique case-insensitive name prefix).
+              oneOf:
+                - required:
+                    - player_num
+                    - partner_num
+                - required:
+                    - player_num
+                    - picks_info
+            example:
+              player_num: 29
+              partner_num: null
+              picks_info: dipesa
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Partner pick selection was successfully recorded.  The `data` element contains
+            a directive for the client to reload the partner picks data (in order to pick
+            up changes across multiple records).
+
+            Note: later, we may return the full data set (or perhaps just the changed
+            records).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/partners"}
+  /round_robin:
+    get:
+      tags:
+        - Round Robin
+      summary: Get round robin round data.
+      description:
+      operationId: getRoundRobin
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Round Robin round game data was successfully retrieved.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: |
+                  Response with round robin game schedule/scores and current leaderboard.
+                properties:
+                  succ:
+                    $ref: "#/components/schemas/SuccElem"
+                  err:
+                    $ref: "#/components/schemas/ErrElem"
+                  info:
+                    $ref: "#/components/schemas/InfoElem"
+                  data:
+                    type: object
+                    properties:
+                      view:
+                        type: string
+                      view_name:
+                        type: string
+                      tourn:
+                        $ref: "#/components/schemas/TournData"
+                      team:
+                        $ref: "#/components/schemas/TeamData"
+                      team_idx:
+                        type: integer
+                        description: |
+                          Indicator of team for the current player (`0` for Team 1; `1`
+                          for Team 2).
+                      cur_game:
+                        $ref: "#/components/schemas/TournGameData"
+                        example:
+                          id: 6
+                          label: rr-1-2-1
+                          div_num: 1
+                          round_num: 2
+                          table_num: 1
+                          team1: 13
+                          team2: 19
+                          team1_div_seed: 6
+                          team2_div_seed: 10
+                          team1_name: Abs / Rooze
+                          team2_name: Cooper / Frankel / Fields
+                          team1_pts: null
+                          team2_pts: null
+                          winner: null
+                      stage_games:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/TournGameData"
+                        example:
+                          - id: 2
+                            label: rr-1-1-2
+                            div_num: 1
+                            round_num: 1
+                            table_num: 2
+                            team1: 6
+                            team2: 13
+                            team1_div_seed: 2
+                            team2_div_seed: 6
+                            team1_name: Ramstad / Scruggs
+                            team2_name: Abs / Rooze
+                            team1_pts: 9
+                            team2_pts: 10
+                            winner: Abs / Rooze
+                          - id: 6
+                            label: rr-1-2-1
+                            div_num: 1
+                            round_num: 2
+                            table_num: 1
+                            team1: 13
+                            team2: 19
+                            team1_div_seed: 6
+                            team2_div_seed: 10
+                            team1_name: Abs / Rooze
+                            team2_name: Cooper / Frankel / Fields
+                            team1_pts: null
+                            team2_pts: null
+                            winner: null
+                          - id: 11
+                            label: rr-1-3-1
+                            div_num: 1
+                            round_num: 3
+                            table_num: 1
+                            team1: 4
+                            team2: 13
+                            team1_div_seed: 4
+                            team2_div_seed: 6
+                            team1_name: Chess / Obst
+                            team2_name: Abs / Rooze
+                            team1_pts: null
+                            team2_pts: null
+                            winner: null
+                      leaderboard:
+                        $ref: "#/components/schemas/Leaderboard"
+                        example:
+                          - ["id", "Team (seed)", "W-L", "Pts %", "Rank"]
+                          -
+                            - [12, "Springo / Leibly (7)", "5-0", ".667", 1]
+                            - [13, "Abs / Rooze (6)", "5-0", ".625", 2]
+                            - [1, "Heitner / Chisholm (1)", "4-1", ".550", 3]
+                            - [19, "Cooper / Frankel / Fields (10)", "3-2", ".582", 4]
+                            - [8, "Silberberg / Ponzio (5)", "3-2", ".528", 5]
+  /round_robin/submit_score:
+    post:
+      tags:
+        - Round Robin
+      summary: Submit score for round robin round game.
+      description:
+      operationId: submitRoundRobinScore
+      requestBody:
+        required: true
+        description: |
+          Round Robin round score for the game identified by `game_label` (must be the current
+          game for the player posting the score).
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitScoreReq'
+            example:
+              action: submit_score
+              game_label: rr-1-6-3
+              posted_by_num: 25
+              team_idx: 0
+              team_pts: 10
+              opp_pts: 7 
+              ref_score_id: null
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Round Robin round game score was successfully submitted.  The score will be
+            officially recorded when opponent has accepted the result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/round robin"}
+  /round_robin/accept_score:
+    post:
+      tags:
+        - Round Robin
+      summary: Accept currently posted score for round robin round game.
+      description:
+      operationId: acceptRoundRobinScore
+      requestBody:
+        required: true
+        description: |
+          Round Robin round score for the game identified by `game_label` (must be the current
+          game for the player posting the score).
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptScoreReq'
+            example:
+              action: accept_score
+              game_label: rr-1-6-3
+              posted_by_num: 15
+              team_idx: 1
+              team_pts: 7
+              opp_pts: 10
+              ref_score_id: 12
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Round Robin round game score was successfully accepted.  The result has been
+            pushed to the official game record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/round robin"}
+  /round_robin/correct_score:
+    post:
+      tags:
+        - Round Robin
+      summary: Correct currently posted score for round robin round game.
+      description:
+      operationId: correctRoundRobinScore
+      requestBody:
+        required: true
+        description: |
+          Round Robin round score for the game identified by `game_label` (must be the current
+          game for the player posting the score).
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CorrectScoreReq'
+            example:
+              action: correct_score
+              game_label: rr-1-6-3
+              posted_by_num: 15
+              team_idx: 1
+              team_pts: 8
+              opp_pts: 10
+              ref_score_id: 12
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Round Robin round game score was successfully corrected.  The score will be
+            officially recorded when opponent has accepted the result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/round robin"}
+  /semifinals:
+    get:
+      tags:
+        - Semifinals
+      summary: Get semifinals round data.
+      description:
+      operationId: getSemifinals
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Semifinals round game data was successfully retrieved.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: |
+                  Response with semifinals game schedule/scores and current leaderboard.
+                properties:
+                  succ:
+                    $ref: "#/components/schemas/SuccElem"
+                  err:
+                    $ref: "#/components/schemas/ErrElem"
+                  info:
+                    $ref: "#/components/schemas/InfoElem"
+                  data:
+                    type: object
+                    properties:
+                      view:
+                        type: string
+                      view_name:
+                        type: string
+                      tourn:
+                        $ref: "#/components/schemas/TournData"
+                      team:
+                        $ref: "#/components/schemas/PlayoffTeamData"
+                        example:
+                          id: 19
+                          tourn_rank: 2
+                          player1: 6
+                          player2: 35
+                          team_name: Romeo / Kramer
+                          div_num: 2
+                          div_rank: 1
+                          playoff_match_wins: 0
+                          playoff_match_losses: 0
+                          playoff_wins: 1
+                          playoff_losses: 1
+                          playoff_pts_for: 17
+                          playoff_pts_against: 18
+                          playoff_win_pct: 0.5
+                          playoff_pts_pct: 0.48571
+                          playoff_rank: 3
+                          final_rank: 3
+                      team_idx:
+                        type: integer
+                        description: |
+                          Indicator of team for the current player (`0` for Team 1; `1`
+                          for Team 2).
+                      cur_game:
+                        $ref: "#/components/schemas/PlayoffGameData"
+                        example:
+                          id: 3
+                          bracket: sf
+                          label: sf-1-3
+                          matchup_num: 1
+                          round_num: 3
+                          team1: 19
+                          team2: 4
+                          team1_div_rank: 1
+                          team2_div_rank: 2
+                          team1_name: Romeo / Kramer
+                          team2_name: Chess / Ramstad
+                          team1_pts: null
+                          team2_pts: null
+                          winner: null
+                      stage_games:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/PlayoffGameData"
+                        example:
+                          - id: 1
+                            bracket: sf
+                            label: sf-1-1
+                            matchup_num: 1
+                            round_num: 1
+                            team1: 19
+                            team2: 4
+                            team1_div_rank: 1
+                            team2_div_rank: 2
+                            team1_name: Romeo / Kramer
+                            team2_name: Chess / Ramstad
+                            team1_pts: 10
+                            team2_pts: 8
+                            winner: Romeo / Kramer
+                          - id: 2
+                            bracket: sf
+                            label: sf-1-2
+                            matchup_num: 1
+                            round_num: 2
+                            team1: 19
+                            team2: 4
+                            team1_div_rank: 1
+                            team2_div_rank: 2
+                            team1_name: Romeo / Kramer
+                            team2_name: Chess / Ramstad
+                            team1_pts: 7
+                            team2_pts: 10
+                            winner: Chess / Ramstad
+                          - id: 3
+                            bracket: sf
+                            label: sf-1-3
+                            matchup_num: 1
+                            round_num: 3
+                            team1: 19
+                            team2: 4
+                            team1_div_rank: 1
+                            team2_div_rank: 2
+                            team1_name: Romeo / Kramer
+                            team2_name: Chess / Ramstad
+                            team1_pts: null
+                            team2_pts: null
+                            winner: null
+                      leaderboard:
+                        $ref: "#/components/schemas/Leaderboard"
+                        example:
+                          - ["id", "Team (rank)", "W-L", "Pts %", "Pos"]
+                          -
+                            - [2, "Fields / Heitner (3)", "2-0", ".690", 1]
+                            - [4, "Chess / Ramstad (7)", "1-1", ".514", 2]
+                            - [19, "Romeo / Kramer (2)", "1-1", ".486", 3]
+                            - [17, "Hauer / O'Leary (1)", "0-2", ".310", 4]
+  /semifinals/submit_score:
+    post:
+      tags:
+        - Semifinals
+      summary: Submit score for semifinals round game.
+      description:
+      operationId: submitSemifinalsScore
+      requestBody:
+        required: true
+        description: |
+          Semifinals round score for the game identified by `game_label` (must be the current
+          game for the player posting the score).
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitScoreReq'
+            example:
+              action: submit_score
+              game_label: sf-1-2
+              posted_by_num: 25
+              team_idx: 0
+              team_pts: 10
+              opp_pts: 7 
+              ref_score_id: null
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Semifinals round game score was successfully submitted.  The score will be
+            officially recorded when opponent has accepted the result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/semifinals"}
+  /semifinals/accept_score:
+    post:
+      tags:
+        - Semifinals
+      summary: Accept currently posted score for semifinals round game.
+      description:
+      operationId: acceptSemifinalsScore
+      requestBody:
+        required: true
+        description: |
+          Semifinals round score for the game identified by `game_label` (must be the current
+          game for the player posting the score).
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptScoreReq'
+            example:
+              action: accept_score
+              game_label: sf-1-2
+              posted_by_num: 15
+              team_idx: 1
+              team_pts: 7
+              opp_pts: 10
+              ref_score_id: 12
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Semifinals round game score was successfully accepted.  The result has been
+            pushed to the official game record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/semifinals"}
+  /semifinals/correct_score:
+    post:
+      tags:
+        - Semifinals
+      summary: Correct currently posted score for semifinals round game.
+      description:
+      operationId: correctSemifinalsScore
+      requestBody:
+        required: true
+        description: |
+          Semifinals round score for the game identified by `game_label` (must be the current
+          game for the player posting the score).
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CorrectScoreReq'
+            example:
+              action: correct_score
+              game_label: sf-1-2
+              posted_by_num: 15
+              team_idx: 1
+              team_pts: 8
+              opp_pts: 10
+              ref_score_id: 12
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Semifinals round game score was successfully corrected.  The score will be
+            officially recorded when opponent has accepted the result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/semifinals"}
+  /finals:
+    get:
+      tags:
+        - Finals
+      summary: Get finals round data.
+      description:
+      operationId: getFinals
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Finals round game data was successfully retrieved.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: |
+                  Response with finals game schedule/scores and current leaderboard.
+                properties:
+                  succ:
+                    $ref: "#/components/schemas/SuccElem"
+                  err:
+                    $ref: "#/components/schemas/ErrElem"
+                  info:
+                    $ref: "#/components/schemas/InfoElem"
+                  data:
+                    type: object
+                    properties:
+                      view:
+                        type: string
+                      view_name:
+                        type: string
+                      tourn:
+                        $ref: "#/components/schemas/TournData"
+                      team:
+                        $ref: "#/components/schemas/PlayoffTeamData"
+                        example:
+                          id: 19
+                          tourn_rank: 2
+                          player1: 6
+                          player2: 35
+                          team_name: Romeo / Kramer
+                          div_num: 2
+                          div_rank: 1
+                          playoff_match_wins: 1
+                          playoff_match_losses: 0
+                          playoff_wins: 3
+                          playoff_losses: 2
+                          playoff_pts_for: 40
+                          playoff_pts_against: 37
+                          playoff_win_pct: 0.6
+                          playoff_pts_pct: 0.51948
+                          playoff_rank: 2
+                          final_rank: 2
+                      team_idx:
+                        type: integer
+                        description: |
+                          Indicator of team for the current player (`0` for Team 1; `1`
+                          for Team 2).
+                      cur_game:
+                        $ref: "#/components/schemas/PlayoffGameData"
+                        example:
+                          id: 8
+                          bracket: fn
+                          label: fn-1-3
+                          matchup_num: 1
+                          round_num: 3
+                          team1: 19
+                          team2: 2
+                          team1_div_rank: 1
+                          team2_div_rank: 1
+                          team1_name: Romeo / Kramer
+                          team2_name: Fields / Heitner
+                          team1_pts: null
+                          team2_pts: null
+                          winner: null
+                      stage_games:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/PlayoffGameData"
+                        example:
+                          - id: 6
+                            bracket: fn
+                            label: fn-1-1
+                            matchup_num: 1
+                            round_num: 1
+                            team1: 19
+                            team2: 2
+                            team1_div_rank: 1
+                            team2_div_rank: 1
+                            team1_name: Romeo / Kramer
+                            team2_name: Fields / Heitner
+                            team1_pts: 10
+                            team2_pts: 4
+                            winner: Romeo / Kramer
+                          - id: 7
+                            bracket: fn
+                            label: fn-1-2
+                            matchup_num: 1
+                            round_num: 2
+                            team1: 19
+                            team2: 2
+                            team1_div_rank: 1
+                            team2_div_rank: 1
+                            team1_name: Romeo / Kramer
+                            team2_name: Fields / Heitner
+                            team1_pts: 3
+                            team2_pts: 10
+                            winner: Fields / Heitner
+                          - id: 8
+                            bracket: fn
+                            label: fn-1-3
+                            matchup_num: 1
+                            round_num: 3
+                            team1: 19
+                            team2: 2
+                            team1_div_rank: 1
+                            team2_div_rank: 1
+                            team1_name: Romeo / Kramer
+                            team2_name: Fields / Heitner
+                            team1_pts: null
+                            team2_pts: null
+                            winner: null
+                      leaderboard:
+                        $ref: "#/components/schemas/Leaderboard"
+                        example:
+                          - ["id", "Team (rank)", "W-L", "Pts %", "Pos"]
+                          -
+                            - [2, "Fields / Heitner (3)", "3-1", ".607", 1]
+                            - [19, "Romeo / Kramer (2)", "3-2", ".519", 2]
+  /finals/submit_score:
+    post:
+      tags:
+        - Finals
+      summary: Submit score for finals round game.
+      description:
+      operationId: submitFinalsScore
+      requestBody:
+        required: true
+        description: |
+          Finals round score for the game identified by `game_label` (must be the current
+          game for the player posting the score).
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitScoreReq'
+            example:
+              action: submit_score
+              game_label: sf-1-2
+              posted_by_num: 25
+              team_idx: 0
+              team_pts: 10
+              opp_pts: 7 
+              ref_score_id: null
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Finals round game score was successfully submitted.  The score will be
+            officially recorded when opponent has accepted the result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/finals"}
+  /finals/accept_score:
+    post:
+      tags:
+        - Finals
+      summary: Accept currently posted score for finals round game.
+      description:
+      operationId: acceptFinalsScore
+      requestBody:
+        required: true
+        description: |
+          Finals round score for the game identified by `game_label` (must be the current
+          game for the player posting the score).
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptScoreReq'
+            example:
+              action: accept_score
+              game_label: sf-1-2
+              posted_by_num: 15
+              team_idx: 1
+              team_pts: 7
+              opp_pts: 10
+              ref_score_id: 12
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Finals round game score was successfully accepted.  The result has been
+            pushed to the official game record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/finals"}
+  /finals/correct_score:
+    post:
+      tags:
+        - Finals
+      summary: Correct currently posted score for finals round game.
+      description:
+      operationId: correctFinalsScore
+      requestBody:
+        required: true
+        description: |
+          Finals round score for the game identified by `game_label` (must be the current
+          game for the player posting the score).
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CorrectScoreReq'
+            example:
+              action: correct_score
+              game_label: sf-1-2
+              posted_by_num: 15
+              team_idx: 1
+              team_pts: 8
+              opp_pts: 10
+              ref_score_id: 12
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: |
+            Finals round game score was successfully corrected.  The score will be
+            officially recorded when opponent has accepted the result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResp'
+              example:
+                succ: true
+                err: null
+                info: null
+                data: {"redirect": "/finals"}
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: session
+  schemas:
+    SuccElem:
+      type: boolean
+      description: Value of `true` if request was successful.
+      example: true
+    ErrElem:
+      type: string
+      description: |
+        Description of error, if `succ == false` (value of `null` if request was
+        successful).
+      example: null
+    InfoElem:
+      type: string
+      description: Informational message for successful requests.
+      example: null
+    RedirectObj:
+      type: object
+      description: |
+        Non-binding directive to client for application area to redirect to.
+      properties:
+        redirect:
+          type: string
+          description: |
+            Name of the application area where the outcome of the action will be reflected
+            (can be thought of as the target of a logical redirect).  The value actually
+            corresponds to the URL of the suggested application "view" (relative to
+            endpoint root).  The root path itself ('/') signifies the "active" application
+            area (mapped to the current tournament stage).
+          example: {"redirect": "/<view path>"}
+    ReloadObj:
+      type: object
+      description: |
+        Non-binding directive to client to reload the data for this application area.
+      properties:
+        reloadTable:
+          type: boolean
+          description: |
+            Indicates that the client-side data (typically a table or grid) should be
+            reloaded (using the appropriate Ajax call).
+          example: {"reloadTable": true}
+    ActionResp:
+      type: object
+      description: |
+        Response structure for action requests, including indicator of success and a
+        logical application redirect.
+      properties:
+        succ:
+          $ref: "#/components/schemas/SuccElem"
+        err:
+          $ref: "#/components/schemas/ErrElem"
+        info:
+          $ref: "#/components/schemas/InfoElem"
+        data:
+          $ref: "#/components/schemas/RedirectObj"
+    TournData:
+      type: object
+      description: Tournament information.
+      properties:
+        id:
+          type: integer
+          description: Internal database id (should not be visible in app interfaces).
+          example: 1
+        name:
+          type: string
+          description: |
+            Name must be unique across all tournaments; name can include spaces and
+            punctuation (other than the slash character ‘/’).
+          example: NOLA 2025
+        dates:
+          type: string
+          description: Timeframe information.
+          example: Oct 24-25, 2025
+        venue:
+          type: string
+          description: Location information, for reference.
+          example: Hotel St. Marie, New Orleans
+        cur_stage:
+          type: string
+          description: Current stage of the tournament.
+          example: Round robin results completed
+        next_action:
+          type: string
+          description: Action indicating the end of the current stage.
+          example: Tabulate round robin results
+        players:
+          type: integer
+          description: Number of players.
+          example: 42
+        teams:
+          type: integer
+          description: Number of teams.
+          example: 20
+        thm_teams:
+          type: integer
+          description: Number of "three-headed monster" teams.
+          example: 2
+        seed_rounds:
+          type: integer
+          description: Number of rounds in the seeding stage.
+          example: 8
+        tourn_rounds:
+          type: integer
+          description: Number of rounds in the round robin stage.
+          example: 8
+        divisions:
+          type: integer
+          description: Number of divisions for the round robin stage.
+          example: 2
+      additionalProperties: true
+    PlayerData:
+      type: object
+      description: Player information and seeding round stats.
+      properties:
+        id:
+          type: integer
+          description: Internal database id (should not be visible in app interfaces).
+          example: 1
+        first_name:
+          type: string
+          description: First name of player.
+          example: Eric
+        last_name:
+          type: string
+          description: Last name of player.
+          example: Abernathy
+        nick_name:
+          type: string
+          description: |
+            Nick name by which the player will be listed in brackets, scoring sheets,
+            leaderboards, etc.  If this field is specified as empty on record creation
+            or update, it will be set to `last_name`.
+          example: Abs
+        reigning_champ:
+          type: boolean
+          description: |
+            Signifies player as member of prior year winning team (used for partner
+            assignment).
+          example: false
+        player_num:
+          type: integer
+          description: |
+            "Player number" identifier based on ping pong ball selection, or randomly
+            generated values.  This identifier is used in assigning the player to seeding
+            bracket matchups.
+          example: 25
+        seed_wins:
+          type: integer
+          description: Wins during seeding round play.
+        seed_losses:
+          type: integer
+          description: Losses during seeding round play.
+        seed_pts_for:
+          type: integer
+          description: Total points scored during seeding round play.
+        seed_pts_against:
+          type: integer
+          description: Total points by opponents during seeding round play.
+        player_rank:
+          type: integer
+          description: |
+            Rank computed after seeding round play (used to determine order of partner
+            picks).  Value is `null` if seeding round is not complete.
+          example: null
+      additionalProperties: true
+    SeedGameData:
+      type: object
+      description: |
+        Seeding round game information.  Each record represents either an indidvidual
+        matchup within the seeding bracket, or a placeholder indicating the player or
+        players with byes for a given round.
+      properties:
+        id:
+          type: integer
+          description: Internal database id (should not be visible in app interfaces).
+        label:
+          type: string
+          description: |
+            Unique game identifier, prefixed by bracket indicator ("sd", "rr, "sf", "fn")
+            followed by division (round robin only), round number, and table number.
+            Record specifying teams having a bye for the round, will have "bye" indicated
+            as the table number.
+        round_num:
+          type: integer
+          description: |
+            Round number for the tournament stage (up to 8, for seeding and round robin
+            bracket play; up to 3 for playoff brackets).
+        player_nums:
+          type: string
+          description: |
+            Representation of the matchup, using "player number" identifiers.  The
+            matchups are taken directly from precomputed bracket specifications (based on
+            number of players and rounds).
+        team1_name:
+          type: string
+          description:
+        team2_name:
+          type: string
+          description:
+        bye_players:
+          type: string
+          description: Name of player(s) with bye(s) for the round.
+        team1_pts:
+          type: integer
+          description: |
+            Number of points for Team 1 (`null` if game has not yet been played and/or
+            completed).
+        team2_pts:
+          type: integer
+          description: |
+            Number of points for Team 2 (`null` if game has not yet been played and/or
+            completed).
+        winner:
+          type: string
+          description: |
+            Name of the winning team (`null` if game has not yet been played and/or
+            completed).
+    SubmitScoreReq:
+      type: object
+      description: |
+        Team scores (points) for seeding round game.
+      properties:
+        action:
+          type: string
+          description: Same as the target of the POST request ("submit_score").
+        game_label:
+          type: string
+          description: Unique game identifier (from `cur_game` in the GET request).
+        posted_by_num:
+          type: integer
+          description: |
+            Player number identifier for the current user (from `user` in the GET
+            request).
+        team_idx:
+          type: integer
+          description: |
+            Team index for current player (from `team_idx` in the GET request).
+        team_pts:
+          type: integer
+          description: Number of points for player's team.
+        opp_pts:
+          type: integer
+          description: Number of points for opposing team.
+        ref_score_id:
+          type: integer
+          description: |
+            Identifier for reference posted score record (from `ref_score_id` in
+            the GET request).  Note that this will always be empty for `action ==
+            submit_score`.
+      required:
+        - action
+        - game_label
+        - posted_by_num
+        - team_idx
+        - team_pts
+        - opp_pts
+        - ref_score_id
+    AcceptScoreReq:
+      type: object
+      description: |
+        Team scores (points) for seeding round game.
+      properties:
+        action:
+          type: string
+          description: Same as the target of the POST request ("accept_score").
+        game_label:
+          type: string
+          description: Unique game identifier (from `cur_game` in the GET request).
+        posted_by_num:
+          type: integer
+          description: |
+            Player number identifier for the current user (from `user` in the GET
+            request).
+        team_idx:
+          type: integer
+          description: |
+            Team index for current player (from `team_idx` in the GET request).
+        team_pts:
+          type: integer
+          description: |
+            Number of points for player's team (must be unchanged from `ref_score` in GET
+            request).
+        opp_pts:
+          type: integer
+          description: |
+            Number of points for opposing team (must be unchanged from `ref_score` in GET
+            request).
+        ref_score_id:
+          type: integer
+          description: |
+            Identifier for reference posted score record (from `ref_score_id` in the GET
+            request).  Note that this must have a value for `action == accept_score`.
+      required:
+        - action
+        - game_label
+        - posted_by_num
+        - team_idx
+        - team_pts
+        - opp_pts
+        - ref_score_id
+    CorrectScoreReq:
+      type: object
+      description: |
+        Team scores (points) for seeding round game.
+      properties:
+        action:
+          type: string
+          description: Same as the target of the POST request ("correct_score").
+        game_label:
+          type: string
+          description: Unique game identifier (from `cur_game` in the GET request).
+        posted_by_num:
+          type: integer
+          description: |
+            Player number identifier for the current user (from `user` in the GET
+            request).
+        team_idx:
+          type: integer
+          description: |
+            Team index for current player (from `team_idx` in the GET request).
+        team_pts:
+          type: integer
+          description: |
+            Number of points for player's team (corrected).
+        opp_pts:
+          type: integer
+          description: |
+            Number of points for opposing team (corrected).
+        ref_score_id:
+          type: integer
+          description: |
+            Identifier for reference posted score record (from `ref_score_id` in the GET
+            request).  Note that this must have a value for `action == correct_score`.
+      required:
+        - action
+        - game_label
+        - posted_by_num
+        - team_idx
+        - team_pts
+        - opp_pts
+        - ref_score_id
+    RefScoreData:
+      type: object
+      description: |
+        Entity used for participating teams to submit and accept game scores (allowing for
+        corrections, if needed) before officially recording the result.
+      properties:
+        id:
+          type: integer
+        bracket:
+          type: string
+          description: Bracket for the game score.
+          enum: [sd, rr, sf, fn]
+        game_label:
+          type: string
+        post_action:
+          type: string
+          description: Action represented by this record.
+          enum: [submit, accept, correct]
+        team1_pts:
+          type: integer
+        team2_pts:
+          type: integer
+        posted_by:
+          type: integer
+          description: Player number identifier for player posting the score entry.
+        team_idx:
+          type: integer
+          description: |
+            Indicator of team for the player posting (`0` for Team 1; `1` for Team 2).
+        do_push:
+          type: boolean
+          description: |
+            Whether this record represents the score pushed to the official game result.
+    Leaderboard:
+      type: array
+      description: |
+        List of players or teams listed by current ranking.  The first item represents the
+        header of the leaderboard, with each sub-element designating a column name.  The
+        following items in the list represent player or team records (id, name, stats, and
+        ranking).
+      items:
+        type: array
+        description: |
+          Team/player `id` is represented as an integer, all other field values are strings
+          (i.e. numeric values are pre-formatted).
+        oneOf:
+          - type: integer
+          - type: string
+    TeamData:
+      type: object
+      description: |
+        Team information and round robin game stats.
+      properties:
+        id:
+          type: integer
+          description: Internal database id (should not be visible in app interfaces).
+          example: 13
+        team_seed:
+          type: integer
+          description: |
+            Overall team seed based on average rank of players.  This value is used for
+            assignment to divisions, and seed within the division, which are mapped to
+            precomputed round robin bracket matchups.
+          example: 12
+        player1:
+          type: integer
+          description: Player number identifier for player 1
+          example: 25
+        player2:
+          type: integer
+          description: Player number identifier for player 2
+          example: 7
+        team_name:
+          type: string
+          description: |
+            Name of team, which is a concatenation of team member names (nick name or last
+            name).
+          example: Abs / Rooze
+        div_num:
+          type: integer
+          description: Division to which team is assigned.
+          example: 1
+        div_seed:
+          type: integer
+          description: |
+            Team's seed within the division (maps to games specified in precomputed
+            bracket matchups).
+          example: 6
+        tourn_wins:
+          type: integer
+          description: Wins during round robin play.
+          example: 5
+        tourn_losses:
+          type: integer
+          description: Losses during round robin play.
+          example: 0
+        tourn_pts_for:
+          type: integer
+          description: Total points scored during round robin play.
+          example: 50
+        tourn_pts_against:
+          type: integer
+          description: Total points by opponents during round robin play.
+          example: 30
+        tourn_rank:
+          type: integer
+          description: |
+            Overall team rank (based on win percentage and points percentage), computed
+            after round robin play.  This value does not determine playoff teams, but is
+            used as a factor in computing final tournament ranking.  Value is `null` if
+            round robin play is not complete.
+          example: 2
+        div_rank:
+          type: integer
+          description: |
+            Rank within the division, computed after round robin play.  Top two teams in
+            each division will advance to the playoff round.  Value is `null` if round
+            robin play is not complete.
+          example: 2
+        final_rank:
+          type: integer
+          description: |
+            Final tournament rank, computed after playoff are complete.  Value is `null`
+            if playoffs are not complete.
+          example: null
+      additionalProperties: true
+    TournGameData:
+      type: object
+      description: |
+        Round robin game information.  Each record represents either an indidvidual
+        matchup within the round robin bracket, or a placeholder indicating a team that
+        has a bye for a given round.
+      properties:
+        id:
+          type: integer
+          description: Internal database id (should not be visible in app interfaces).
+        label:
+          type: string
+          description: |
+            Unique game identifier, prefixed by bracket indicator ("sd", "rr, "sf", "fn")
+            followed by division (round robin only), round number, and table number.
+            Record specifying the team having a bye for the round, will have "bye"
+            indicated as the table number.
+        div_num:
+          type: integer
+          description: Division number for the game.
+        round_num:
+          type: integer
+          description: |
+            Round number for the tournament stage (up to 8, for round robin and round robin
+            bracket play; up to 3 for playoff brackets).
+        team_seeds:
+          type: string
+          description: |
+            Representation of the matchup, using division seed for the teams.  The
+            matchups are taken directly from precomputed bracket specifications (based on
+            number of teams and rounds).
+        team1_name:
+          type: string
+          description:
+        team2_name:
+          type: string
+          description:
+        bye_team:
+          type: string
+          description: Name of team with a bye for the round.
+        team1_pts:
+          type: integer
+          description: |
+            Number of points for Team 1 (`null` if game has not yet been played and/or
+            completed).
+        team2_pts:
+          type: integer
+          description: |
+            Number of points for Team 2 (`null` if game has not yet been played and/or
+            completed).
+        winner:
+          type: string
+          description: |
+            Name of the winning team (`null` if game has not yet been played and/or
+            completed).
+    PlayoffTeamData:
+      type: object
+      description: |
+        Final four team information and playoff game stats.
+      properties:
+        id:
+          type: integer
+          description: Internal database id (should not be visible in app interfaces).
+        tourn_rank:
+          type: integer
+          description: |
+            Overall team rank based round robin play.  This value is used purely for
+            identification purposes.
+        player1:
+          type: integer
+          description: Player number identifier for player 1
+        player2:
+          type: integer
+          description: Player number identifier for player 2
+        team_name:
+          type: string
+          description: |
+            Name of team, which is a concatenation of team member names (nick name or last
+            name).
+        div_num:
+          type: integer
+          description: Division to which team is assigned.
+        div_rank:
+          type: integer
+          description: |
+            Team's rank within the division after round robin play.  Each division's top
+            ranked team plays the second ranked team from the other division in the
+            semifinals.  The winners of each semis matchup play in the finals round.
+        playoff_match_wins:
+          type: integer
+          description: Match wins during playoff rounds.
+        playoff_match_losses:
+          type: integer
+          description: Match losses during playoff rounds.
+        playoff_wins:
+          type: integer
+          description: Wins during playoff rounds.
+        playoff_losses:
+          type: integer
+          description: Losses during playoff rounds.
+        playoff_pts_for:
+          type: integer
+          description: Total points scored during playoff rounds.
+        playoff_pts_against:
+          type: integer
+          description: Total points by opponents during playoff rounds.
+        playoff_rank:
+          type: integer
+          description: |
+            Final four team rank based on advancement and finals play (and win and points
+            stats for third and fourth place).  Note that provisional values are computed
+            during playoff play (based on win and points stats).
+        final_rank:
+          type: integer
+          description: |
+            Final four team rank based on advancement and finals play (and win and points
+            stats for third and fourth place).  Note that provisional values are computed
+            during playoff play (based on win and points stats).
+      additionalProperties: true
+    PlayoffGameData:
+      type: object
+      description: |
+        Playofffs game information.  Each record represents an indidvidual matchup within
+        the playoffs bracket.
+      properties:
+        id:
+          type: integer
+          description: Internal database id (should not be visible in app interfaces).
+        label:
+          type: string
+          description: |
+            Unique game identifier, prefixed by bracket indicator ("sd", "rr, "sf", "fn")
+            followed by division (round robin only), round number, and table number.
+            Record specifying the team having a bye for the round, will have "bye"
+            indicated as the table number.
+        bracket_ident:
+          type: string
+          description: Identifier for the playoff round (either semifinals or finals).
+        matchup_num:
+          type: integer
+          description: |
+            Matchup identifier within the playoff round (1 or 2 for semifinals, 1 for finals).
+        round_num:
+          type: integer
+          description:  Game number within the match (best 2-out-of-3).
+        team_ranks:
+          type: string
+          description: |
+            Representation of the matchup, using overall tournament rank (after round
+            robin play) as identifiers for the teams.
+        team1_name:
+          type: string
+          description:
+        team2_name:
+          type: string
+          description:
+        team1_pts:
+          type: integer
+          description: |
+            Number of points for Team 1 (`null` if game has not yet been played and/or
+            completed).
+        team2_pts:
+          type: integer
+          description: |
+            Number of points for Team 2 (`null` if game has not yet been played and/or
+            completed).
+        winner:
+          type: string
+          description: |
+            Name of the winning team (`null` if game has not yet been played and/or
+            completed).

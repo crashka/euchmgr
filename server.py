@@ -12,6 +12,7 @@ from ckautils import typecast
 from flask import Flask, current_app, g, request, session, url_for, flash
 from flask.globals import request_ctx
 from flask_session import Session
+from flask_cors import CORS
 from cachelib.file import FileSystemCache
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.exceptions import HTTPException
@@ -85,6 +86,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
     global sess_ext, login_ext
     sess_ext.init_app(app)
     login_ext.init_app(app)
+    CORS(app)
 
     @app.before_request
     def _tag_request() -> None:

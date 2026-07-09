@@ -12,6 +12,10 @@ info:
     url: https://opensource.org/license/mit
   version: '0.5'
 
+servers:
+  - url: http://127.0.0.1:5050/mobile_api
+    description: Development server
+
 tags:
   - name: Security
     description: |
@@ -45,9 +49,9 @@ paths:
       operationId: login
       requestBody:
         required: true
-        description: A JSON object containing the username and password.
+        description: Form data containing the username and password.
         content:
-          application/json:
+          application/x-www-form-urlencoded:
             schema:
               type: object
               description: Login information.
@@ -60,7 +64,6 @@ paths:
                   description: Player password.
               required:
                 - username
-                - password
             example:
               username: Abs
               password: <player password>
@@ -160,10 +163,10 @@ paths:
       requestBody:
         required: true
         description: |
-          A JSON object containing player data fields.  `id` must be specified (copied
+          Form data containing player information fields.  `id` must be specified (copied
           from `user` in the GET request) to identify the record to be updated.
         content:
-          application/json:
+          application/x-www-form-urlencoded:
             schema:
               type: object
               description: Player information for the registration process..
@@ -171,18 +174,18 @@ paths:
                 player_id:
                   type: integer
                   description: Internal database id (should not be visible in app interfaces).
-                nick_name:
-                  type: string
-                  description: |
-                    Name by which the player will be listed in brackets, scoring sheets,
-                    leaderboards, etc.  If `nick_name` is not specified (or emptied out),
-                    the player will be listed by last name.
                 player_num:
                   type: integer
                   description: |
                     "Player number" identifier (based on ping pong ball selection or
                     randomly generated value).  This identifier is used in assigning the
                     player to seeding bracket matchups.
+                nick_name:
+                  type: string
+                  description: |
+                    Name by which the player will be listed in brackets, scoring sheets,
+                    leaderboards, etc.  If `nick_name` is not specified (or emptied out),
+                    the player will be listed by last name.
               required:
                 - player_id
                 - player_num
@@ -330,7 +333,7 @@ paths:
           Seeding round score for the game identified by `game_label` (must be the current
           game for the player posting the score).
         content:
-          application/json:
+          application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/SubmitScoreReq'
             example:
@@ -370,7 +373,7 @@ paths:
           Seeding round score for the game identified by `game_label` (must be the current
           game for the player posting the score).
         content:
-          application/json:
+          application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/AcceptScoreReq'
             example:
@@ -410,7 +413,7 @@ paths:
           Seeding round score for the game identified by `game_label` (must be the current
           game for the player posting the score).
         content:
-          application/json:
+          application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/CorrectScoreReq'
             example:
@@ -568,12 +571,11 @@ paths:
       requestBody:
         required: true
         description: |
-          A JSON object containing partner selection information for the player with the
-          current pick.  `id` must be specified to identify the record to be updated, and
-          ***either*** `partner_num` ***or*** ` picks_info` should be specified to
-          indicate the partner pick.
+          Form data containing partner selection information for the player with the
+          current pick (identified by `player_num`).  Either `partner_num` or `picks_info`
+          should be specified to indicate the partner pick.
         content:
-          application/json:
+          application/x-www-form-urlencoded:
             schema:
               type: object
               description: Partner pick information.
@@ -588,7 +590,7 @@ paths:
                   type: [string, integer]
                   description: |
                     The current pick for partner, specified by either the player's rank or
-                    name (or unique case-insensitive name prefix).
+                    name (which can also be a unique case-insensitive name prefix).
               oneOf:
                 - required:
                     - player_num
@@ -614,12 +616,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ActionResp'
+                $ref: '#/components/schemas/ReloadObj'
               example:
                 succ: true
                 err: null
                 info: null
-                data: {"redirect": "/partners"}
+                data: {"reloadTable": true}
   /round_robin:
     get:
       tags:
@@ -749,7 +751,7 @@ paths:
           Round Robin round score for the game identified by `game_label` (must be the current
           game for the player posting the score).
         content:
-          application/json:
+          application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/SubmitScoreReq'
             example:
@@ -789,7 +791,7 @@ paths:
           Round Robin round score for the game identified by `game_label` (must be the current
           game for the player posting the score).
         content:
-          application/json:
+          application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/AcceptScoreReq'
             example:
@@ -829,7 +831,7 @@ paths:
           Round Robin round score for the game identified by `game_label` (must be the current
           game for the player posting the score).
         content:
-          application/json:
+          application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/CorrectScoreReq'
             example:
@@ -1002,7 +1004,7 @@ paths:
           Semifinals round score for the game identified by `game_label` (must be the current
           game for the player posting the score).
         content:
-          application/json:
+          application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/SubmitScoreReq'
             example:
@@ -1042,7 +1044,7 @@ paths:
           Semifinals round score for the game identified by `game_label` (must be the current
           game for the player posting the score).
         content:
-          application/json:
+          application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/AcceptScoreReq'
             example:
@@ -1082,7 +1084,7 @@ paths:
           Semifinals round score for the game identified by `game_label` (must be the current
           game for the player posting the score).
         content:
-          application/json:
+          application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/CorrectScoreReq'
             example:
@@ -1253,7 +1255,7 @@ paths:
           Finals round score for the game identified by `game_label` (must be the current
           game for the player posting the score).
         content:
-          application/json:
+          application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/SubmitScoreReq'
             example:
@@ -1293,7 +1295,7 @@ paths:
           Finals round score for the game identified by `game_label` (must be the current
           game for the player posting the score).
         content:
-          application/json:
+          application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/AcceptScoreReq'
             example:
@@ -1333,7 +1335,7 @@ paths:
           Finals round score for the game identified by `game_label` (must be the current
           game for the player posting the score).
         content:
-          application/json:
+          application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/CorrectScoreReq'
             example:

@@ -152,7 +152,7 @@ def redirect(location: str) -> str:
         data = {'redirect': location}
         log.debug(f"redirect (virtual) for API call")
         return api_succ(info_msg, data)
-    return flask_redirect(location)
+    return flask_redirect(location + '?_redir=1', 303)
 
 def render_error(code: int, name: str = None, desc: str = None) -> str:
     """Mobile-adjusted error page (replacement for `flask.abort`).  This mechanism is used

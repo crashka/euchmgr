@@ -35,9 +35,6 @@ from admin import admin, active_view, render_view, SEL_NEW
 # utility stuff #
 #################
 
-# do not downcase the rest of the string like str.capitalize()
-cap_first = lambda x: x[0].upper() + x[1:]
-
 def get_logins() -> list[tuple[str, str]]:
     """Login identifiers are tuples of nick_name (referenced in `Player.fetch_by_name`)
     and familiar display name
@@ -214,7 +211,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
             try:
                 admin.login(password)
             except AuthenticationError as e:
-                flash(err=str(e))
+                flash(f"err={str(e)}")
                 return redirect(url_for('login_page'))
             return redirect(url_for('index'))
 
@@ -224,7 +221,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         try:
             player.login(password)
         except AuthenticationError as e:
-            flash(err=str(e))
+            flash(f"err={str(e)}")
             flash(f"username={username}")
             return redirect(url_for('login_page'))
         # TEMP: need to make the routing device and/or context sensitive!!!

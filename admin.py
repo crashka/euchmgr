@@ -26,7 +26,8 @@ from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_se
                      compute_team_seeds, build_tourn_bracket, fake_tourn_games,
                      validate_tourn, compute_team_ranks, build_playoff_bracket,
                      validate_playoffs, compute_playoff_ranks)
-from ui_common import (process_flashes, msg_join, render_response, redirect, render_error)
+from ui_common import (process_flashes, msg_join, cap_first, render_response, redirect,
+                       render_error)
 from data import (Layout, pl_layout, sg_layout, pt_layout, tm_layout, tg_layout, ff_layout,
                   pg_layout)
 
@@ -592,22 +593,22 @@ def gen_semis_bracket(form: dict) -> str:
     build_playoff_bracket(Bracket.SEMIS)
     return render_view(View.PLAYOFFS)
 
+def gen_finals_bracket(form: dict) -> str:
+    """
+    """
+    build_playoff_bracket(Bracket.FINALS)
+    return render_view(View.PLAYOFFS)
+
+#####################
+# /playoffs actions #
+#####################
+
 def tabulate_semis_results(form: dict) -> str:
     """
     """
     validate_playoffs(Bracket.SEMIS, finalize=True)
     compute_playoff_ranks(Bracket.SEMIS, finalize=True)
     return render_view(View.FINAL_FOUR)
-
-#####################
-# /playoffs actions #
-#####################
-
-def gen_finals_bracket(form: dict) -> str:
-    """
-    """
-    build_playoff_bracket(Bracket.FINALS)
-    return render_view(View.PLAYOFFS)
 
 def tabulate_finals_results(form: dict) -> str:
     """

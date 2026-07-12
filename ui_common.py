@@ -63,6 +63,9 @@ def msg_join(msgs: list[str]) -> str:
     msg_sep = "\n" if g.api_call else "<br>"
     return msg_sep.join(msgs)
 
+# do not downcase the rest of the string like str.capitalize()
+cap_first = lambda x: x[0].upper() + x[1:]
+
 # "context mappers" process a context dict before jsonification
 CtxMapper = Callable[[dict], dict]
 

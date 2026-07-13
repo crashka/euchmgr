@@ -27,10 +27,6 @@ EDITABLE = 'editable'
 
 Layout = list[tuple[str, str, str]]
 
-# error string/message tuples
-MISSING_FORM_FIELDS = ("'NoneType' object has no attribute 'lstrip'",
-                       "Missing field(s) in form data")
-
 ##########
 # /tourn #
 ##########
@@ -67,10 +63,10 @@ def post_tourn() -> dict:
         mod = tourn.save()
         if mod:
             tn_data = tourn.tourn_data
-    except AttributeError as e:
-        if str(e) == MISSING_FORM_FIELDS[0]:
-            return ajax_error(MISSING_FORM_FIELDS[1])
-        raise
+    except TypeError as e:
+        return ajax_error("Invalid type specified")
+    except RuntimeError as e:
+        return ajax_error(str(e))
 
     return ajax_data(tn_data)
 
@@ -130,16 +126,14 @@ def post_players() -> dict:
         if mod:
             pl_props = {prop: getattr(player, prop) for prop in pl_addl_props}
             pl_data = player.player_data | pl_props
-    except AttributeError as e:
-        if str(e) == MISSING_FORM_FIELDS[0]:
-            return ajax_error(MISSING_FORM_FIELDS[1])
-        raise
     except TypeError as e:
         return ajax_error("Invalid type specified")
     except (IntegrityError, ValueError) as e:
-        if str(e) == "UNIQUE constraint failed: player.player_num":
+        if "UNIQUE constraint failed: player.player_num" in str(e):
             return ajax_error("Player Num already in use")
         raise
+    except RuntimeError as e:
+        return ajax_error(str(e))
 
     return ajax_data(pl_data)
 
@@ -203,10 +197,6 @@ def post_seeding() -> dict:
                 TournInfo.mark_stage_complete(TournStage.SEED_RESULTS)
             sg_props = {prop: getattr(game, prop) for prop in sg_addl_props}
             sg_data = game.__data__ | sg_props
-    except AttributeError as e:
-        if str(e) == MISSING_FORM_FIELDS[0]:
-            return ajax_error(MISSING_FORM_FIELDS[1])
-        raise
     except TypeError as e:
         return ajax_error("Invalid type specified")
     except RuntimeError as e:
@@ -354,10 +344,10 @@ def post_teams() -> dict:
         if False:
             tm_props = {prop: getattr(team, prop) for prop in tm_addl_props}
             tm_data = team.team_data | tm_props
-    except AttributeError as e:
-        if str(e) == MISSING_FORM_FIELDS[0]:
-            return ajax_error(MISSING_FORM_FIELDS[1])
-        raise
+    except TypeError as e:
+        return ajax_error("Invalid type specified")
+    except RuntimeError as e:
+        return ajax_error(str(e))
 
     return ajax_data(tm_data)
 
@@ -422,10 +412,6 @@ def post_round_robin() -> dict:
                 TournInfo.mark_stage_complete(TournStage.TOURN_RESULTS)
             tg_props = {prop: getattr(game, prop) for prop in tg_addl_props}
             tg_data = game.__data__ | tg_props
-    except AttributeError as e:
-        if str(e) == MISSING_FORM_FIELDS[0]:
-            return ajax_error(MISSING_FORM_FIELDS[1])
-        raise
     except TypeError as e:
         return ajax_error("Invalid type specified")
     except RuntimeError as e:
@@ -494,10 +480,10 @@ def post_final_four() -> dict:
         if False:
             ff_props = {prop: getattr(team, prop) for prop in ff_addl_props}
             ff_data = team.team_data | ff_props
-    except AttributeError as e:
-        if str(e) == MISSING_FORM_FIELDS[0]:
-            return ajax_error(MISSING_FORM_FIELDS[1])
-        raise
+    except TypeError as e:
+        return ajax_error("Invalid type specified")
+    except RuntimeError as e:
+        return ajax_error(str(e))
 
     return ajax_data(ff_data)
 
@@ -582,10 +568,6 @@ def post_playoffs() -> dict:
             if enable_button:
                 pg_props['enableButton'] = enable_button
             pg_data = game.__data__ | pg_props
-    except AttributeError as e:
-        if str(e) == MISSING_FORM_FIELDS[0]:
-            return ajax_error(MISSING_FORM_FIELDS[1])
-        raise
     except TypeError as e:
         return ajax_error("Invalid type specified")
     except RuntimeError as e:

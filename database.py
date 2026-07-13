@@ -5,7 +5,7 @@ from datetime import datetime, date
 import os.path
 
 from peewee import SqliteDatabase, Model, DateTimeField
-from playhouse.sqlite_ext import CSqliteExtDatabase
+from playhouse.cysqlite_ext import CySqliteDatabase
 
 from core import DataFile, log, DEBUG, LogicError
 
@@ -63,13 +63,11 @@ pragmas = {'journal_mode'            : 'wal',
            'ignore_check_constraints': 0,
            'synchronous'             : 0}
 
-db_params = {'c_extensions'     : True,
-             'autoconnect'      : False,
-             'thread_safe'      : not shared_conn,
-             'check_same_thread': not shared_conn}
+db_params = {'autoconnect'      : False,
+             'thread_safe'      : not shared_conn}
 
 # start in "deferred" mode
-db = CSqliteExtDatabase(None, pragmas=pragmas, **db_params)
+db = CySqliteDatabase(None, pragmas=pragmas, **db_params)
 
 # expose useful attributes (discourage importing `db` directly)
 db_connection_context = db.connection_context

@@ -1,9 +1,10 @@
+git+https://github.com/crashka/ckautils
 flask
 Flask-Session[cachelib]
 flask-login
 jinja2
-peewee==3.19
-git+https://github.com/crashka/ckautils
+gunicorn
+cysqlite
+peewee
 pytest
 beautifulsoup4
-gunicorn

@@ -1232,16 +1232,47 @@ class TeamGame(BaseModel):
             self.opp_name = self.opponent.team_name
         return super().save(*args, **kwargs)
 
+#################
+# StandinPlayer #
+#################
+
+class StandinPlayer(BaseModel):
+    """Keep this separate from `Player` to keep things simple (especially, since we won't
+    be using this much, hopefully)--we don't need this to do much, other than represent a
+    normalized entity.
+    """
+    nick_name      = TextField(unique=True)  # same convention as for `Player.nick_name`
+
+class StandinGame(BaseModel):
+    """Just need to record this information as an overlay to `PlayerGame` and `TeamGame`,
+    for use in computing player career stats (to be maintained somewhere else).  This will
+    not be used to adjust tournament stats (though can be used as annotation in
+    reporting).
+    """
+    standin_player = ForeignKeyField(StandinPlayer)
+    for_player     = ForeignKeyField(Player, field='player_num', column_name='for_player_num')
+    bracket        = TextField()             # "rr", "sf", or "fn"
+    round_num      = IntegerField()
+    game_label     = TextField()             # rr-{div}-{rnd}-{tbl}, etc.
+
+    class Meta:
+        indexes = (
+            (('standin_player', 'bracket', 'round_num'), True),
+            (('for_player', 'bracket', 'round_num'), True)
+        )
+
 #############
 # PostScore #
 #############
 
 class ScoreAction(StrEnum):
-    SUBMIT  = "submit"
-    ACCEPT  = "accept"
-    CORRECT = "correct"
-    IGNORE  = " (ignored)"
-    DISCARD = " (discarded)"
+    SUBMIT     = "submit"
+    ACCEPT     = "accept"
+    CORRECT    = "correct"
+    IGNORE     = " (ignored)"
+    DISCARD    = " (discarded)"
+    POST_ADMIN = "post (admin)"
+    POST_FAKE  = "post (fake)"
 
 class PostScore(BaseModel):
     """
@@ -1331,7 +1362,7 @@ class PostScore(BaseModel):
 #################
 
 ALL_MODELS = [TournInfo, Player, SeedGame, Team, TournGame, PlayoffGame, PlayerGame,
-              TeamGame, PostScore]
+              TeamGame, StandinPlayer, StandinGame, PostScore]
 
 def schema_create(models: list[BaseModel | str] | str = None, force = False) -> None:
     """Create tables for specified models (list of objects or comma-separated list of

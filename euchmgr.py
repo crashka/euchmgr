@@ -89,8 +89,9 @@ def upload_roster(csv_path: str) -> None:
         header = next(reader)  # TODO: check for required fields!!!
         for row in reader:
             player_info = dict(zip(header, row))
-            # note that type coercion is expected to just work here (all CSV values come
-            # in as text strings)
+            # ATTN: note that type coercion doesn't "just work" here, so we will need to
+            # do type casting (at some level) if uploading any non-string columns (e.g.
+            # player_num)!!!
             player = Player.create(**player_info)
             if player.reigning_champ:
                 nchamps += 1
@@ -294,12 +295,12 @@ def rank_player_cohort(players: list[Player]) -> list[tuple[Player, tuple, dict]
     """Given a list of players (generally with the same record, though we are not checking
     here, since we don't really care), return list ranked by the following stats tuple:
 
-      (seed_pts_pct, -player_num)
+      (seed_pts_pct, seed_pts_for, -player_num)
 
     The `data` dict (last return element) is no longer used for the seeding round.
     """
     # player_num serves as an ersatz pre-seed position, where lower is better
-    sort_key = lambda x: (x.seed_pts_pct, -x.player_num)
+    sort_key = lambda x: (x.seed_pts_pct, x.seed_pts_for, -x.player_num)
     ranked = sorted(players, key=sort_key, reverse=True)
     return [(pl, sort_key(pl), None) for pl in ranked]
 
@@ -347,6 +348,8 @@ def prepick_champ_partners() -> None:
     pl_iter = Player.iter_players()
     champs = filter(lambda x: x.reigning_champ, pl_iter)
     by_rank = sorted(champs, key=lambda x: x.player_rank)
+    if len(by_rank) == 0:
+        return
 
     # highest seeded champ picks fellow champ(s)
     assert len(by_rank) in (2, 3)
@@ -354,7 +357,8 @@ def prepick_champ_partners() -> None:
     by_rank[0].save(cascade=True)
 
 def fake_pick_partners(clear_existing: bool = False, limit: int = None, rand_seed: int = None) -> None:
-    """Assumes champ team is pre-picked
+    """Assumes champ team is pre-picked (in that we don't do the picking and/or checking
+    for keeping the champ team together)
     """
     my_rand = random.Random()
     if isinstance(rand_seed, int):

@@ -152,6 +152,7 @@ class TournInfo(BaseModel):
     stage_start    = IntegerField()
     stage_compl    = IntegerField()
     cur_stage      = TextField()
+    cur_round      = IntegerField(null=True)
     next_action    = TextField(null=True)
     players        = IntegerField(null=True)
     teams          = IntegerField(null=True)
@@ -223,15 +224,18 @@ class TournInfo(BaseModel):
                 stage_next = self.stage_compl + 1
                 self.stage_start = stage_next
                 self.cur_stage = StageData[stage_next].start_msg
+                self.cur_round = None
                 self.next_action = StageData[stage_next].compl_msg
             else:
                 self.cur_stage = stage_data.compl_msg
+                self.cur_round = None
                 stage_next = self.stage_compl + 1
                 if stage_next < len(StageData):
                     self.next_action = StageData[stage_next].start_msg
                 else:
                     self.next_action = None
-            # TODO: should also log this information!!!
+            stage = TournStage(self.stage_compl)
+            log.notice(f"Completing stage {stage.name} ({stage.value})")
 
         if self.id is None:
             self.__class__.clear_cache()
@@ -291,7 +295,7 @@ class Player(BaseModel, EuchmgrUser):
     the app.
     """
     # identifying info
-    first_name     = TextField()
+    first_name     = TextField(null=True)
     last_name      = TextField()
     nick_name      = TextField(unique=True)  # serves as player_name (defaults to last_name)
     reigning_champ = BooleanField(default=False)
@@ -479,12 +483,12 @@ class Player(BaseModel, EuchmgrUser):
         specified, we propagate the save to partner(s), if dirty (e.g. can be used after
         set_partners() is called).
         """
-        if 'nick_name' in self._dirty:
+        if 'nick_name' in self._dirty or self.id is None:
             if not self.nick_name:
                 self.nick_name = self.last_name
         if 'player_num' in self._dirty and self.player_num is not None:
             tourn = TournInfo.get()
-            if self.player_num < 1 or self.player_num > tourn.players:
+            if self.player_num < 1 or (tourn.players and self.player_num > tourn.players):
                 raise ValueError(f"Player Num must be between 1 and {tourn.players}")
         # don't cascade by default (generates unnecessary lazy_load queries)
         if kwargs.pop('cascade', False):

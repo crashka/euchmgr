@@ -18,7 +18,7 @@ def csv_properties():
     p2 = PropertyValue()
     p2.Name = 'FilterOptions'
     # `0` for token 12 means export current sheet only
-    p2.Value = '44,34,76,1,,0,false,true,true,false,,0'
+    p2.Value = '44,34,76,1,,0,false,true,false,false,,0'
 
     return p1, p2
 

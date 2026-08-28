@@ -6,7 +6,8 @@
 from os import makedirs, environ, rename
 import os.path
 from datetime import datetime
-import logging
+
+from ckautils import logging
 import logging.handlers
 
 #####################

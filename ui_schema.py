@@ -140,6 +140,8 @@ class Player(UIMixin, BasePlayer):
     def full_name(self) -> str:
         """For UI support (one field instead of two)
         """
+        if not self.first_name:
+            return self.last_name
         return self.first_name + ' ' + self.last_name
 
     @property
@@ -147,6 +149,8 @@ class Player(UIMixin, BasePlayer):
         """For UI support (especially if/when sorting by last name)
         """
         friendly = self.name if self.name != self.last_name else self.first_name
+        if not friendly:
+            return self.last_name
         return f"{self.last_name} ({friendly})"
 
     @property

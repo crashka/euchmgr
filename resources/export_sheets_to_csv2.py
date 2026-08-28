@@ -18,12 +18,13 @@ def csv_properties():
     p2 = PropertyValue()
     p2.Name = 'FilterOptions'
     # `-1` for token 12 means export all sheets
-    p2.Value = '44,34,76,1,,0,false,true,true,false,,-1'
+    p2.Value = '44,34,76,1,,0,false,true,false,false,,-1'
 
     return p1, p2
 
 def export_sheets_to_csv():
-    """Export each sheet as a CSV file (with sheet name appended)"""
+    """Export each sheet as a CSV file (with sheet name appended)
+    """
     doc = XSCRIPTCONTEXT.getDocument()
     docroot = os.path.splitext(doc.URL)[0]
     filename = f"{docroot}.csv"

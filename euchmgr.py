@@ -432,31 +432,37 @@ def build_tourn_teams() -> list[Team]:
     TournInfo.mark_stage_complete(TournStage.TOURN_TEAMS)
     return teams
 
-def compute_team_seeds() -> None:
+def compute_team_seeds(finalize: bool = False, no_save: bool = False) -> list[Team]:
     """
     """
     tm_list = list(Team.iter_teams())
     tourn = TournInfo.get()
     ndivs = tourn.divisions
-    assert len(tm_list) == tourn.teams
+    nteams = tourn.teams
+    assert len(tm_list) == nteams
 
     # we assign teams to divisions based on a snake pattern (1, 2, ..., ndivs, ndivs,
     # ndivs - 1, ...) by creating a mapping, where the mapped value encapsulates the
     # division and seed within the division (integer mod and quotient, respectively)
-    map_size = ((tourn.teams - 1) // ndivs + 1) * ndivs
+    map_size = ((nteams - 1) // ndivs + 1) * ndivs
     seed_map = list(range(map_size))
     for s in seed_map[ndivs::ndivs*2]:
         seed_map[s:s+ndivs] = reversed(seed_map[s:s+ndivs])
 
+    teams = []
     # note that non-champ THM is always sorted to last postion
     sort_key = lambda x: (x.is_thm and not x.is_champ, x.avg_player_rank, x.top_player_rank)
     for i, tm in enumerate(sorted(tm_list, key=sort_key)):
         tm.team_seed = i + 1
         tm.div_num = seed_map[i] % ndivs + 1
         tm.div_seed = seed_map[i] // ndivs + 1
-        tm.save()
+        if not no_save:
+            tm.save()
+        teams.append(tm)
 
-    tourn.complete_stage(TournStage.TEAM_SEEDS)
+    if finalize:
+        tourn.complete_stage(TournStage.TEAM_SEEDS)
+    return teams
 
 def build_tourn_bracket() -> list[TournGame]:
     """
@@ -790,7 +796,6 @@ def compute_tourn_ranks(teams: list[Team]) -> None:
     Note: playoff teams are determined by division rankings, and may not be the same as
     the top 4 teams here.
     """
-    tourn = TournInfo.get()
     tm_list = list(teams)  # make a shallow copy, since we will sort in-place
 
     rank_key = lambda x: x.tourn_win_pct
@@ -1054,7 +1059,6 @@ def compute_playoff_ranks(bracket: Bracket, finalize: bool = False) -> None:
     We also use the playoff rankings to compute the final overall tournament rankings,
     leveraging both div_rank and tourn_rank computations.
     """
-    tourn = TournInfo.get()
     tm_list = list(Team.iter_teams())
     final_four = list(filter(lambda x: x.playoff_team, tm_list))
 

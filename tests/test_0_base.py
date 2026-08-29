@@ -120,7 +120,7 @@ def test_build_tourn_teams(test_db) -> None:
 def test_compute_team_seeds(test_db) -> None:
     """
     """
-    compute_team_seeds()
+    compute_team_seeds(finalize=True)
     tourn_info = TournInfo.get()
     assert tourn_info.stage_compl == TournStage.TEAM_SEEDS
     save_stage_db(TournStage.TEAM_SEEDS)

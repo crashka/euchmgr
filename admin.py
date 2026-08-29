@@ -553,7 +553,7 @@ def comp_team_seeds(form: dict) -> str:
     """
     """
     build_tourn_teams()
-    compute_team_seeds()
+    compute_team_seeds(finalize=True)
     return render_view(View.TEAMS)
 
 ##################

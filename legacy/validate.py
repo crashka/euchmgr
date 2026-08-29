@@ -24,9 +24,10 @@ from ckautils import parse_argv, typecast
 
 from core import log
 from database import db_init, db_close
-from schema import rnd_pct, rnd_avg, Bracket, TournStage, TournInfo, Player, SeedGame
+from schema import rnd_pct, Bracket, TournStage, TournInfo, Player, SeedGame, Team, TournGame
 import euchmgr
-from euchmgr import fmt_team_name, fmt_player_list, compute_player_ranks
+from euchmgr import (get_div_maps, fmt_team_name, fmt_player_list, compute_player_ranks,
+                     compute_team_seeds)
 
 FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 FLOAT_THRESH = 0.001
@@ -205,14 +206,15 @@ def validate_seed_results(csv_file: str) -> None:
     """Check computed results against spreadsheet results.  Flag any field discrepancies
     by player.
     """
-    player_map = {}  # by name
+    pl_map = {}  # by name
     for pl in Player.iter_players():
-        player_map[pl.name] = pl
+        pl_map[pl.name] = pl
 
     COL_MAP = {'Rank'   : 'player_rank',
                'Player' : 'name',
                'Win Pct': 'seed_win_pct',
                'Pts Pct': 'seed_pts_pct'}
+    FIX_COL = ['player_rank']
     with open(os.path.join(FILE_DIR, csv_file), newline='') as f:
         reader = csv.reader(f)
         header = next(reader)
@@ -220,7 +222,7 @@ def validate_seed_results(csv_file: str) -> None:
         for row in reader:
             coerced = (typecast(x) for x in row)
             pl_res = dict(zip(COL_MAP.values(), coerced))
-            pl = player_map[pl_res['name']]
+            pl = pl_map[pl_res['name']]
             for col in pl_res:
                 if isinstance(pl_res[col], float):
                     if abs(pl_res[col] - getattr(pl, col)) < FLOAT_THRESH:
@@ -228,8 +230,176 @@ def validate_seed_results(csv_file: str) -> None:
                 elif pl_res[col] == getattr(pl, col):
                     continue
 
-                log.notice(f"Mismatched result for {pl.name}: "
-                           f"{col} = {pl_res[col]} ({getattr(pl, col)})")
+                if col in FIX_COL:
+                    log.notice(f"Overwriting mismatch for {pl.name}: "
+                               f"{col} = {pl_res[col]} ({getattr(pl, col)})")
+                    # FIX: for now, we are always just doing the adjustment in-place; for
+                    # rankings, we will want to do this in the associated "_adj" column
+                    # instead!!!
+                    setattr(pl, col, pl_res[col])
+                    pl.save()
+                else:
+                    log.notice(f"Mismatch for {pl.name}: "
+                               f"{col} = {pl_res[col]} ({getattr(pl, col)})")
+
+def load_partner_picks(csv_file: str) -> None:
+    """Assumes champ team is pre-picked (in that we don't do the picking and/or checking
+    for keeping the champ team together)
+    """
+    tourn = TournInfo.get()
+    nplayers = tourn.players
+    nteams = tourn.teams
+
+    pl_map = {}  # by name
+    for pl in Player.iter_players():
+        pl_map[pl.name] = pl
+    assert len(pl_map) == nplayers
+
+    COL_REF = ['Team Num', 'Player 1', 'Rank 1', 'Player 2', 'Rank 2', 'Comb Rank',
+               'Team Seed', 'Div Seed', 'Div', 'Team ID', 'Team Name']
+    picks = []
+    with open(os.path.join(FILE_DIR, csv_file), newline='') as f:
+        reader = csv.reader(f)
+        header = next(reader)
+        assert header == COL_REF
+        for row in reader:
+            coerced = (typecast(x) for x in row)
+            pick = dict(zip(COL_REF, coerced))
+            player_name = pick['Player 1']
+            partner_names = pick['Player 2'].split(' / ', 1)
+            assert len(partner_names) in (1, 2)
+
+            player = pl_map[player_name]
+            partners = [pl_map[x] for x in partner_names]
+            player.set_partners(*partners)
+            player.save(cascade=True)
+            picks.append(player)
+
+        assert len(picks) == nteams
+
+    TournInfo.mark_stage_complete(TournStage.PARTNER_PICK)
+
+def load_team_seeds(csv_file: str) -> None:
+    """
+    """
+    tourn = TournInfo.get()
+    nteams = tourn.teams
+    ndivs = tourn.divisions
+    assert ndivs == 2  # logic for this is hard-wired below
+
+    tm_map = {}  # by name
+    for tm in compute_team_seeds(no_save=True):
+        tm_map[tm.team_name] = tm
+    assert len(tm_map) == nteams
+
+    COL_MAP = {'Team Num'  : 'team_ord',
+               'Player 1'  : 'picker',
+               'Rank 1'    : 'picker_rank',
+               'Player 2'  : 'partner',
+               'Rank 2'    : 'partner_rank',
+               'Comb Rank' : 'comb_rank',
+               'Team Seed' : 'team_seed',
+               'Div Seed'  : 'div_seed',
+               'Div'       : 'div_name',
+               'Team ID'   : 'brckt_seed',
+               'Team Name' : 'team_name'}
+    DIV_MAP = {'A': 1, 'B': 2}
+    FIX_COL = ['team_seed', 'div_num', 'div_seed']
+    teams = []
+    with open(os.path.join(FILE_DIR, csv_file), newline='') as f:
+        reader = csv.reader(f)
+        header = next(reader)
+        assert header == list(COL_MAP.keys())
+        for row in reader:
+            coerced = (typecast(x) for x in row)
+            tm_res = dict(zip(COL_MAP.values(), coerced))
+            tm_res['div_num'] = DIV_MAP[tm_res['div_name']]
+            tm = tm_map[tm_res['team_name']]
+
+            for col in FIX_COL:
+                if tm_res[col] == getattr(tm, col):
+                    continue
+
+                log.notice(f"Overwriting mismatch for {tm.team_name}: "
+                           f"{col} = {tm_res[col]} ({getattr(tm, col)})")
+                # FIX: for now, we are always just doing the adjustment in-place; for
+                # rankings, we will want to do this in the associated "_adj" column
+                # instead!!!
+                setattr(tm, col, tm_res[col])
+
+            tm.save()
+            teams.append(tm)
+
+        assert len(teams) == nteams
+
+    tourn.complete_stage(TournStage.TEAM_SEEDS)
+
+def load_tourn_bracket(csv_file: str) -> list[TournGame]:
+    """
+    """
+    tourn = TournInfo.get()
+    ndivs = tourn.divisions
+    nrounds = tourn.tourn_rounds
+
+    # don't make assumptions on how divisions are assigned, just go off the actual count
+    # of teams in each division--NOTE that div_maps is keyed off of the actual division
+    # number (1-based), whereas the div_i index for the loop below is 0-based (for
+    # consistency with the other indexes), this is a little messy, sorry!
+    div_maps = get_div_maps(tourn)
+
+    games = []
+    for div_i in range(ndivs):
+        assert div_i + 1 in div_maps
+        div_map = div_maps[div_i + 1]
+        brckt_teams = len(div_map)
+        bye_div_seed = brckt_teams + 1  # TODO: only if odd number of teams!!!
+        bracket_file = f'rr-{brckt_teams}-{nrounds}.csv'  # need to reconcile with Bracket.TOURN!!!
+        with open(BracketsFile(bracket_file), newline='') as f:
+            reader = csv.reader(f)
+            for rnd_j, row in enumerate(reader):
+                seats = (int(x) for x in row)
+                tbl_k = 0
+                while table := list(islice(seats, 0, 2)):
+                    if bye_div_seed in table:
+                        t1, t2 = sorted(table)
+                        assert t2 == bye_div_seed
+                        label = f'{Bracket.TOURN}-{div_i+1}-{rnd_j+1}-bye'
+                        team1 = div_map[t1]
+                        info = {'div_num'       : div_i + 1,
+                                'round_num'     : rnd_j + 1,
+                                'table_num'     : None,
+                                'label'         : label,
+                                'team1'         : team1,
+                                'team2'         : None,
+                                'team1_name'    : None,
+                                'team2_name'    : None,
+                                'bye_team'      : team1.team_name,
+                                'team1_div_seed': team1.div_seed,
+                                'team2_div_seed': None}
+                    else:
+                        t1, t2 = table
+                        label = f'{Bracket.TOURN}-{div_i+1}-{rnd_j+1}-{tbl_k+1}'
+                        team1 = div_map[t1]
+                        team2 = div_map[t2]
+                        info = {'div_num'       : div_i + 1,
+                                'round_num'     : rnd_j + 1,
+                                'table_num'     : tbl_k + 1,
+                                'label'         : label,
+                                'team1'         : team1,
+                                'team2'         : team2,
+                                'team1_name'    : team1.team_name,
+                                'team2_name'    : team2.team_name,
+                                'bye_team'      : None,
+                                'team1_div_seed': team1.div_seed,
+                                'team2_div_seed': team2.div_seed}
+                        tbl_k += 1
+                    game = TournGame.create(**info)
+                    games.append(game)
+                    if game.bye_team:
+                        game.insert_team_games()
+
+    tourn.complete_stage(TournStage.TOURN_BRACKET)
+    return games
 
 ########
 # main #
@@ -250,8 +420,8 @@ ALL_FUNCS = [
     'prepick_champ_partners',
     'load_partner_picks',
     'build_tourn_teams',
-    'compute_team_seeds',
-    'build_tourn_bracket',
+    'load_team_seeds',
+    'load_tourn_bracket',
     'load_tourn_games',
     'validate_tourn',
     'compute_team_ranks',
@@ -269,6 +439,10 @@ def get_func_args(func: str, tourn_name: str) -> dict:
         'validate_seed_round'  : {'finalize': True},
         'compute_player_ranks' : {'finalize': True},
         'validate_seed_results': {'csv_file': f"{tourn_name}_results-4.csv"},
+        'load_partner_picks'   : {'csv_file': f"{tourn_name}_results-5.csv"},
+        'load_team_seeds'      : {'csv_file': f"{tourn_name}_results-5.csv"},
+        'load_tourn_bracket'   : {'csv_file': f"{tourn_name}_results-6.csv"},
+        'load_tourn_games'     : {'csv_file': f"{tourn_name}_results-7.csv"},
         'validate_tourn'       : {'finalize': True},
         'compute_team_ranks'   : {'finalize': True},
         'build_playoff_bracket': {'bracket': Bracket.SEMIS}
@@ -296,8 +470,8 @@ def main() -> int:
       - prepick_champ_partners
       - load_partner_picks
       - build_tourn_teams
-      - compute_team_seeds
-      - build_tourn_bracket
+      - load_team_seeds
+      - load_tourn_bracket
       - load_tourn_games
       - tabulate_tourn
       - compute_team_ranks

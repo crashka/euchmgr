@@ -42,6 +42,7 @@ def get_func_args(func: str, tourn_name: str) -> dict:
         'upload_roster'        : {'csv_path': f"{tourn_name}_roster.csv"},
         'validate_seed_round'  : {'finalize': True},
         'compute_player_ranks' : {'finalize': True},
+        'compute_team_seeds'   : {'finalize': True},
         'validate_tourn'       : {'finalize': True},
         'compute_team_ranks'   : {'finalize': True},
         'build_playoff_bracket': {'bracket': Bracket.SEMIS},

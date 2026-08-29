@@ -288,6 +288,8 @@ def load_team_seeds(csv_file: str) -> None:
     assert ndivs == 2  # logic for this is hard-wired below
 
     tm_map = {}  # by name
+    # work with in-memory objects to avoid unique constraint on (div_num, div_seed)--that
+    # is, if fix-ups are needed below
     for tm in compute_team_seeds(no_save=True):
         tm_map[tm.team_name] = tm
     assert len(tm_map) == nteams
@@ -317,16 +319,12 @@ def load_team_seeds(csv_file: str) -> None:
             tm = tm_map[tm_res['team_name']]
 
             for col in FIX_COL:
-                if tm_res[col] == getattr(tm, col):
-                    continue
+                if tm_res[col] != getattr(tm, col):
+                    log.notice(f"Overwriting mismatch for {tm.team_name}: "
+                               f"{col} = {tm_res[col]} ({getattr(tm, col)})")
+                    setattr(tm, col, tm_res[col])
 
-                log.notice(f"Overwriting mismatch for {tm.team_name}: "
-                           f"{col} = {tm_res[col]} ({getattr(tm, col)})")
-                # FIX: for now, we are always just doing the adjustment in-place; for
-                # rankings, we will want to do this in the associated "_adj" column
-                # instead!!!
-                setattr(tm, col, tm_res[col])
-
+            # ATTN: have to save, even if no fix-ups!
             tm.save()
             teams.append(tm)
 

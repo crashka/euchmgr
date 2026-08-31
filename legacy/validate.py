@@ -28,7 +28,7 @@ from schema import rnd_pct, Bracket, TournStage, TournInfo, Player, SeedGame, Te
 import euchmgr
 from euchmgr import (get_div_maps, fmt_team_name, fmt_player_list, compute_player_ranks,
                      compute_team_seeds, compute_team_ranks, build_playoff_bracket,
-                     validate_playoffs, compute_playoff_ranks)
+                     validate_playoffs, compute_playoff_ranks, compute_final_ranks)
 
 FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 FLOAT_THRESH = 0.001
@@ -581,6 +581,7 @@ def load_playoff_games(csv_file: str) -> None:
     TournInfo.mark_stage_complete(TournStage.FINALS_RESULTS)
     validate_playoffs(Bracket.FINALS, finalize=True)
     compute_playoff_ranks(Bracket.FINALS, finalize=True)
+    compute_final_ranks(finalize=True)
 
 def validate_final_ranks(csv_file: str) -> None:
     """Check computed results against spreadsheet results.  Flag any field discrepancies

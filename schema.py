@@ -78,13 +78,14 @@ TournStage = IntEnum('TournStage',
                       'FINALS_BRACKET',
                       'FINALS_RESULTS',  # 20
                       'FINALS_TABULATE',
-                      'FINALS_RANKS'])
+                      'FINALS_RANKS',
+                      'TOURN_FINAL'])
 
 # represents virtual stages before and after TournStage entries
 TOURN_INIT = 0
-TOURN_FINAL = len(TournStage) + 1
-ALL_STAGES = range(TOURN_INIT, TOURN_FINAL)
-ACTIVE_STAGES = range(TournStage.PLAYER_ROSTER, TOURN_FINAL)
+TOURN_END = len(TournStage) + 1
+ALL_STAGES = range(TOURN_INIT, TOURN_END)
+ACTIVE_STAGES = range(TournStage.PLAYER_ROSTER, TOURN_END)
 
 class StageInfo(NamedTuple):
     """Behavior parameters and messages for tournament stages
@@ -130,7 +131,8 @@ STAGE_DATA = [
     StageInfo(False, True,  None,                            "Finals brackets created"),
     StageInfo(True,  False, "Finals play active",            "Finals results completed"),
     StageInfo(False, False, "Tabulate finals results",       "Finals results tabulated"),
-    StageInfo(False, False, None,                            "Finals rankings computed")
+    StageInfo(False, False, None,                            "Finals rankings computed"),
+    StageInfo(False, False, None,                            "Overall rankings computed")
 ]
 
 assert len(STAGE_DATA) == len(TournStage)  # not ensured by zip
@@ -744,6 +746,9 @@ class Team(BaseModel):
     playoff_pts_pct = FloatField(null=True)
     playoff_rank   = IntegerField(null=True)  # final four teams only
     # final rankings
+    final_pos      = IntegerField(null=True)  # based on (playoff_rank, win_pct), ties possible
+    final_tb_crit  = JSONField(null=True)     # stats criteria used to compute rank
+    final_tb_data  = JSONField(null=True)     # raw data for reference
     final_rank     = IntegerField(null=True)  # stack-ranked, no ties
     final_rank_adj = IntegerField(null=True)  # manual overrides
 

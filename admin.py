@@ -25,7 +25,7 @@ from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_se
                      prepick_champ_partners, fake_pick_partners, build_tourn_teams,
                      compute_team_seeds, build_tourn_bracket, fake_tourn_games,
                      validate_tourn, compute_team_ranks, build_playoff_bracket,
-                     validate_playoffs, compute_playoff_ranks)
+                     validate_playoffs, compute_playoff_ranks, compute_final_ranks)
 from ui_common import (process_flashes, msg_join, cap_first, render_response, redirect,
                        render_error)
 from data import (Layout, pl_layout, sg_layout, pt_layout, tm_layout, tg_layout, ff_layout,
@@ -615,6 +615,7 @@ def tabulate_finals_results(form: dict) -> str:
     """
     validate_playoffs(Bracket.FINALS, finalize=True)
     compute_playoff_ranks(Bracket.FINALS, finalize=True)
+    compute_final_ranks(finalize=True)  # TODO: move this to its own action!!!
     return render_view(View.FINAL_FOUR)
 
 #############

@@ -1,17 +1,5 @@
-Final Rank,Team ID,Team,Win Pct,Pts Pct
-1,6A,Harris / Bocci,,
-2,3A,Struble / Kramer,,
-3,2B,Mott / Kong,,
-4,6B,Chess / Crash,,
-5,8A,Fields / Silberberg / Frankel,0.625,0.515
-6,1A,Tex / Chesty,0.625,0.57
-7,3B,Cooper / Mentle,0.5,0.515
-8,1B,Wee / Cureton,0.5,0.512
-9,7A,Rooze / Pound,0.5,0.508
-10,4A,O’Leary / Mary,0.5,0.489
-11,4B,Lineman / DiPesa,0.5,0.481
-12,5A,Shutts / Rechtin,0.375,0.473
-13,5B,Aviv / Ponzio,0.375,0.402
-14,8B,Spike / House,0.25,0.457
-15,7B,Abs / Leibly,0.25,0.417
-16,2A,Chachkes / Aguirre,0.125,0.386
+Team ID,Team,Wins,Losses,Win Pct,PF1,PF2,PF3,PF4,PF5,PF6,PF Total,PA1,PA2,PA3,PA4,PA5,PA6,PA Total,Pts Pct
+6A,Harris / Bocci,4,1,0.8,10,10,-,10,4,10,44,2,8,-,5,10,6,31,0.586666666666667
+3A,Struble / Kramer,3,3,0.5,4,10,10,5,10,6,45,10,3,8,10,4,10,45,0.5
+2B,Mott / Kong,1,2,0.333333333333333,10,3,8,-,-,-,21,4,10,10,-,-,-,24,0.466666666666667
+6B,Chess / Crash,0,2,0,2,8,-,-,-,-,10,10,10,-,-,-,-,20,0.333333333333333

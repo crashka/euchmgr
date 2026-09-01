@@ -18,11 +18,13 @@ report = Blueprint('report', __name__)
 REPORT_TEMPLATE = "report.html"
 POPUP_TEMPLATE = "popup.html"
 
-TIE_BREAKER = "Round Robin Tie-Breaker Report"
+RR_TBREAK = "Round Robin Tie-Breaker Report"
+TRN_TBREAK = "Tournament Tie-Breaker Report"
 SCORE_POSTING = "Score Posting Report"
 
 REPORT_FUNCS = [
-    'tie_breaker',
+    'rr_tbreak',
+    'trn_tbreak',
     'score_posting'
 ]
 
@@ -56,18 +58,16 @@ def render_popup(context: dict) -> str:
     """
     return render_template(POPUP_TEMPLATE, **context)
 
-################
-# tie_breaker #
-################
+#############
+# rr_tbreak #
+#############
 
-# BAD: this has the same name as a different format function in ui_schema.py--we really
-# need to refactor/consolidate all of this!!!
-team_tag = lambda x: f"{x.team_name} [{x.div_seed}]"
-
-def tie_breaker(tourn: TournInfo) -> str:
+def rr_tbreak(tourn: TournInfo) -> str:
     """Render round robin tie-breaker report
     """
-    div_iter = range(1, tourn.divisions + 1)
+    # BAD: this has the same name as a different format function in ui_schema.py--we
+    # really need to refactor/consolidate all of this!!!
+    team_tag = lambda x: f"{x.team_name} [{x.div_seed}]"
 
     # dict keys: div (int), cohort_pos (int), team (Team)
     div_rpt: dict[int, dict[int, dict[Team, list[SeedGame]]]] = {}
@@ -76,6 +76,8 @@ def tie_breaker(tourn: TournInfo) -> str:
     div_elevs: dict[int, dict[int, Elevs]] = {}
     div_win_grps: dict[int, dict[int, TeamGrps]] = {}
     div_idents: dict[int, dict[int, list[Team]]] = {}
+
+    div_iter = range(1, tourn.divisions + 1)
     for div in div_iter:
         pos_rpt = {}
         pos_info = {}
@@ -107,7 +109,7 @@ def tie_breaker(tourn: TournInfo) -> str:
                 cohort_rpt[tm] = games
                 team_list.append(team_tag(tm))
 
-            # this is stupid, but we have to rederive the ranking results just to get
+            # this is STUPID, but we have to rederive the ranking results just to get
             # access to the intermediary results (i.e. `elevs` and `win_grps`)--but at
             # least we can validate against the initially computed (and saved) rankings,
             # to make sure this is right
@@ -127,7 +129,7 @@ def tie_breaker(tourn: TournInfo) -> str:
 
     context = {
         'report_num'  : 0,
-        'title'       : TIE_BREAKER,
+        'title'       : RR_TBREAK,
         'tourn'       : tourn,
         'len'         : len,
         'fmt_pct'     : fmt_pct,
@@ -137,6 +139,105 @@ def tie_breaker(tourn: TournInfo) -> str:
         'div_elevs'   : div_elevs,
         'div_win_grps': div_win_grps,
         'div_idents'  : div_idents,
+        'team_tag'    : team_tag,
+        'concat_seeds': concat_seeds,
+        'concat_teams': concat_teams,
+        'report_by'   : 'team'
+    }
+    return render_report(context)
+
+##############
+# trn_tbreak #
+##############
+
+def trn_tbreak(tourn: TournInfo) -> str:
+    """Render overall tournament tie-breaker report
+    """
+    # see BAD comment (above), and then double the badness
+    team_tag = lambda x: f"{x.team_name} [{x.team_seed}]"
+
+    # dict keys: div (int), cohort_pos (int), team (Team)
+    div_rpt: dict[int, dict[int, dict[Team, list[SeedGame]]]] = {}
+    div_info: dict[int, dict[int, str]] = {}
+    div_cohort: dict[int, dict[int, list[str]]] = {}
+    div_elevs: dict[int, dict[int, Elevs]] = {}
+    div_win_grps: dict[int, dict[int, TeamGrps]] = {}
+    div_idents: dict[int, dict[int, list[Team]]] = {}
+
+    # UGLY: use `div = 0` as secret code for tournament-level reporting (in order to keep
+    # most of the code intact here)--LATER, should really refactor all of this for proper
+    # maintainability!!!
+    div = 0
+    pos_rpt = {}
+    pos_info = {}
+    pos_cohort = {}
+    pos_elevs = {}
+    pos_win_grps = {}
+    pos_idents = {}
+    div_rpt[div] = pos_rpt
+    div_info[div] = pos_info
+    div_cohort[div] = pos_cohort
+    div_elevs[div] = pos_elevs
+    div_win_grps[div] = pos_win_grps
+    div_idents[div] = pos_idents
+
+    # NOTE: huge supporting HACK inside of `iter_teams` (see schema.py)!
+    tm_iter = Team.iter_teams(div=div, by_rank=True)
+    for k, g in groupby(tm_iter, key=lambda x: x.final_pos):
+        cohort = list(g)
+        if len(cohort) == 1:
+            continue
+        cohort_pos = cohort[0].final_pos
+        cohort_win_pct = cohort[0].tourn_win_pct
+        cohort_rpt = {}
+        team_list = []
+        pos_rpt[cohort_pos] = cohort_rpt
+        pos_info[cohort_pos] = f"Win Pct: {fmt_pct(cohort_win_pct)}"
+        pos_cohort[cohort_pos] = team_list
+        for tm in cohort:
+            # BAD HACK [part 1]: substitute div-level attributes with tourn-/final-level
+            # equivalents, to avoid having to change the template code (making sure not to
+            # save anything here!)--this REALLY NEEDS TO BE FIXED next time we are making
+            # changes to any of the tie-breaker reports!!! [see part 2 below]
+            tm.div_seed = tm.team_seed
+            tm.div_rank = tm.final_rank
+            tm.div_tb_data = tm.final_tb_data
+            games = tm.get_opps_games(cohort)  # list[TournGame]
+            # BAD HACK [part 2]!!!
+            for game in games:
+                game.team1_div_seed = game.team1.team_seed
+                game.team2_div_seed = game.team2.team_seed
+            cohort_rpt[tm] = games
+            team_list.append(team_tag(tm))
+
+        # see STUPID comment, in correlated code above (`rr_tbreak`)
+        ranked, _, _ = rank_team_cohort(cohort)  # returns with elevations undone
+        ranked, elevs, win_grps, _ = elevate_winners(ranked)
+        for i, tm in enumerate(ranked):
+            assert cohort_pos + i == tm.final_rank
+        idents = Team.ident_final_tbs(cohort_pos)
+        pos_elevs[cohort_pos] = elevs
+        pos_win_grps[cohort_pos] = win_grps
+        pos_idents[cohort_pos] = idents
+
+    # REVISIT: still not sure where all of this formatting stuff should be consolidated
+    # (but this is okay for now)!!!
+    concat_seeds = lambda x: ' - '.join(f"{tm.team_seed}" for tm in x)
+    concat_teams = lambda x: ' - '.join(f"{tm.team_name} [{tm.team_seed}]" for tm in x)
+
+    context = {
+        'report_num'  : 1,
+        'title'       : TRN_TBREAK,
+        'tourn'       : tourn,
+        'len'         : len,
+        'fmt_pct'     : fmt_pct,
+        'div_rpt'     : div_rpt,
+        'div_info'    : div_info,
+        'div_cohort'  : div_cohort,
+        'div_elevs'   : div_elevs,
+        'div_win_grps': div_win_grps,
+        'div_idents'  : div_idents,
+        'team_tag'    : team_tag,
         'concat_seeds': concat_seeds,
         'concat_teams': concat_teams,
         'report_by'   : 'team'

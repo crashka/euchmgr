@@ -29,7 +29,7 @@ def get_div_maps(tourn: TournInfo) -> dict[int, dict[int, Team]]:
     bunch of integrity checking (as good here as anywhere, I guess).
     """
     div_maps = {}
-    for tm in Team.iter_teams(by_rank=True):
+    for tm in Team.iter_teams():
         if tm.div_num not in div_maps:
             div_maps[tm.div_num] = {}
         assert tm.div_seed not in div_maps[tm.div_num]

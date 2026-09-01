@@ -641,11 +641,12 @@ LINK_INFO = {
         ('/chart/rr_brackets',  "Round Robin Brackets",  TournStage.TOURN_BRACKET),
         ('/chart/rr_scores',    "Round Robin Scores",    TournStage.TOURN_BRACKET),
         ('/dash/rr_dash',       "Live Dashboard",        TournStage.TOURN_BRACKET),
-        ('/report/tie_breaker', "Tie-Breaker Report",    TournStage.TOURN_RANKS)
+        ('/report/rr_tbreak',   "Tie-Breaker Report",    TournStage.TOURN_RANKS)
     ],
     View.PLAYOFFS: [
         ('/dash/ff_dash',       "Live Playoff Bracket",  TournStage.SEMIS_BRACKET),
-        ('/chart/trn_results',  "Tournament Results",    TournStage.TOURN_FINAL)
+        ('/chart/trn_results',  "Tournament Results",    TournStage.TOURN_FINAL),
+        ('/report/trn_tbreak',  "Tie-Breaker Report",    TournStage.TOURN_FINAL)
     ]
 }
 

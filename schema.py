@@ -767,7 +767,14 @@ class Team(BaseModel):
             if by_rank:
                 query = query.order_by(cls.div_rank.asc(nulls='last'))
         elif by_rank:
-            query = query.order_by(cls.tourn_rank.asc(nulls='last'))
+            # HUGE HACK: `div = 0` represents final tournament ranking (no nulls)--should
+            # really get rid of this at some point (just too gross)!!!
+            if div == 0:
+                tourn = TournInfo.get()
+                assert tourn.stage_compl >= TournStage.SEMIS_BRACKET
+                query = query.order_by(cls.final_rank.asc())
+            else:
+                query = query.order_by(cls.tourn_rank.asc(nulls='last'))
         for t in query:
             yield t
 
@@ -790,6 +797,24 @@ class Team(BaseModel):
             query = query.order_by(cls.playoff_rank.asc())
         for t in query:
             yield t
+
+    @classmethod
+    def ident_final_tbs(cls, final_pos: int) -> list[list[Self]]:
+        """Report teams with identical tie-break criteria for a final tournament result
+        cohort (identical overall win percentage)
+        """
+        tbs = []
+        query = (Team
+                 .select(Team.final_tb_crit,
+                         fn.group_concat(Team.id))
+                 .where(Team.final_pos == final_pos)
+                 .group_by(Team.final_tb_crit)
+                 .having(fn.count() > 1))
+        for grp in query:
+            ids: list[str] = grp.__data__['id'].split(',')
+            teams: list[Team] = [Team.get(int(x)) for x in ids]
+            tbs.append(teams)
+        return tbs
 
     @classmethod
     def ident_div_tbs(cls, div_num: int, div_pos: int) -> list[list[Self]]:

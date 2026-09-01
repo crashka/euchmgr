@@ -742,6 +742,41 @@ class Team(UIMixin, BaseTeam):
         return f"<b>{self.tourn_rank}</b>&nbsp;&nbsp;{self.team_name}"
 
     @property
+    def team_tag_fn(self) -> str:
+        """Same as `team_tag`, but for final results (so tourn_seed)
+        """
+        return f"<b>{self.team_seed}</b>&nbsp;&nbsp;{self.team_name}"
+
+    @property
+    def final_pos_str(self) -> str | None:
+        """Same as final_pos, except annotated if tied with others
+        """
+        if self.final_pos is None:
+            return None
+        elif not self.final_tb_crit:
+            return str(self.final_pos)
+        return f"{self.final_pos}*"
+
+    @property
+    def final_tb_win_rec(self) -> str:
+        """Tie-breaker (head-to-head) win-loss record as a string
+        """
+        if not self.final_tb_data:
+            return None
+        return f"{self.final_tb_data['wins']}-{self.final_tb_data['losses']}"
+
+    @property
+    def final_tb_pts_pct(self) -> float | None:
+        """Tie-breaker (head-to-head) points percentage (points-for over total points)
+        """
+        if not self.final_tb_data:
+            return None
+        tb_pts_tot = self.final_tb_data['pts_for'] + self.final_tb_data['pts_against']
+        if tb_pts_tot == 0.0:
+            return PTS_PCT_NA
+        return rnd_pct(self.final_tb_data['pts_for'] / tb_pts_tot)
+
+    @property
     def playoff_win_pct_str(self) -> str:
         """Return playoff_win_pct formatted as a string.
         """
@@ -758,7 +793,7 @@ class Team(UIMixin, BaseTeam):
         """Return playoff match record (W-L) as a string
         """
         tourn = TournInfo.get()
-        if tourn.stage_compl < TournStage.SEMIS_BRACKET:
+        if tourn.stage_compl < TournStage.SEMIS_BRACKET or not self.playoff_team:
             return None
         return f"{self.playoff_match_wins}-{self.playoff_match_losses}"
 
@@ -767,9 +802,15 @@ class Team(UIMixin, BaseTeam):
         """Return playoff game win record (W-L) as a string
         """
         tourn = TournInfo.get()
-        if tourn.stage_compl < TournStage.SEMIS_BRACKET:
+        if tourn.stage_compl < TournStage.SEMIS_BRACKET or not self.playoff_team:
             return None
         return f"{self.playoff_wins}-{self.playoff_losses}"
+
+    @property
+    def tourn_win_rec(self) -> str | None:
+        """Return round robin game win record (W-L) as a string
+        """
+        return f"{self.tourn_wins}-{self.tourn_losses}"
 
     @property
     def div_pos_str(self) -> str | None:

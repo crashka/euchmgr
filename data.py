@@ -308,7 +308,7 @@ tm_layout = [
     ('tourn_pts_pct_str', "Pts Pct",     None),
     ('tourn_rank',        "Team Rank",   None),
     ('div_rank',          "Div Rank",    None),
-    ('final_rank',        "Tourn Rank",  None)
+    ('final_rank',        "Final Rank",  None)
 ]
 
 @data.get("/teams/data")

@@ -27,7 +27,7 @@ def fmt_score(pts: int) -> str:
 
     return ret
 
-def fmt_stat(val: Numeric) -> str:
+def fmt_stat(val: Numeric | str) -> str:
     """Version for scoring charts--handle empty values properly.  Note that float vals are
     assumed to represent percentages.
     """
@@ -35,9 +35,11 @@ def fmt_stat(val: Numeric) -> str:
         return ''
     elif isinstance(val, float):
         return f"{fmt_pct(val)}"
-    else:
-        assert isinstance(val, int)
+    elif isinstance(val, int):
         return str(val)
+    else:
+        assert isinstance(val, str)
+        return val
 
 # quick and dirty stuff (yucky!)
 SPC = lambda x: '&nbsp;' * x
@@ -54,12 +56,14 @@ SD_BRACKET  = "Seeding Round Bracket"
 SD_SCORES   = "Seeding Round Scores"
 RR_BRACKETS = "Round Robin Brackets"
 RR_SCORES   = "Round Robin Scores"
+TRN_RESULTS = "Tournament Results"
 
 CHART_FUNCS = [
     'sd_bracket',
     'sd_scores',
     'rr_brackets',
-    'rr_scores'
+    'rr_scores',
+    'trn_results'
 ]
 
 @chart.get("/<chart>")
@@ -319,6 +323,25 @@ def rr_scores(tourn: TournInfo) -> str:
         'losses'      : losses,
         'win_tallies' : win_tallies,
         'loss_tallies': loss_tallies,
+        'fmt_stat'    : fmt_stat,
+        'bold_color'  : '#555555'
+    }
+    return render_chart(context)
+
+###############
+# trn_results #
+###############
+
+def trn_results(tourn: TournInfo) -> str:
+    """Render final tournament results as a chart
+    """
+    tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.final_rank)
+
+    context = {
+        'chart_num'   : 4,
+        'title'       : TRN_RESULTS,
+        'tourn'       : tourn,
+        'teams'       : tm_list,
         'fmt_stat'    : fmt_stat,
         'bold_color'  : '#555555'
     }

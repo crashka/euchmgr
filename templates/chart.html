@@ -250,6 +250,48 @@
       </div>
       {% endfor %}
       {% endif %}
+
+      {% if chart_num == 4 %}
+      <div class="section trn_results">
+        <table>
+          <thead>
+            <tr>
+              <th class="plyr_lbl hor_sect" rowspan="2">Team (by Seed)</th>
+              <th class="hor_sect vert_sect" rowspan="2">Tourn Pos</th>
+              <th class="vert_sect" colspan="3">Playoffs</th>
+              <th class="vert_sect" colspan="2">Round Robin</th>
+              <th class="vert_sect" colspan="2">Head-to-Head</th>
+              <th class="hor_sect vert_sect" rowspan="2">Final Rank</th>
+            </tr>
+            <tr>
+              <th class="hor_sect vert_sect">Matches</th>
+              <th class="hor_sect">Games</th>
+              <th class="hor_sect">Pts Pct</th>
+              <th class="hor_sect vert_sect">Win Pct</th>
+              <th class="hor_sect">Pts Pct</th>
+              <th class="hor_sect vert_sect">W-L</th>
+              <th class="hor_sect">Pts Pct</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for tm in teams %}
+            <tr>
+              <td class="team_lbl">{{tm.team_tag_fn|safe}}</td>
+              <td class="vert_sect">{{tm.final_pos_str}}</td>
+              <td class="vert_sect">{{fmt_stat(tm.playoff_match_rec)}}</td>
+              <td>{{fmt_stat(tm.playoff_win_rec)|safe}}</td>
+              <td>{{fmt_stat(tm.playoff_pts_pct)|safe}}</td>
+              <td class="vert_sect">{{fmt_stat(tm.tourn_win_pct)|safe}}</td>
+              <td>{{fmt_stat(tm.tourn_pts_pct)|safe}}</td>
+              <td class="vert_sect">{{fmt_stat(tm.final_tb_win_rec)}}</td>
+              <td>{{fmt_stat(tm.final_tb_pts_pct)|safe}}</td>
+              <td class="vert_sect">{{tm.final_rank}}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
     </div>
   </body>
 

@@ -817,6 +817,24 @@ class Team(BaseModel):
         return tbs
 
     @classmethod
+    def ident_tourn_tbs(cls, tourn_pos: int) -> list[list[Self]]:
+        """Report teams with identical tie-break criteria for an overall round robin
+        cohort (identical overall win percentage, across divisions)
+        """
+        tbs = []
+        query = (Team
+                 .select(Team.tourn_tb_crit,
+                         fn.group_concat(Team.id))
+                 .where(Team.tourn_pos == tourn_pos)
+                 .group_by(Team.tourn_tb_crit)
+                 .having(fn.count() > 1))
+        for grp in query:
+            ids: list[str] = grp.__data__['id'].split(',')
+            teams: list[Team] = [Team.get(int(x)) for x in ids]
+            tbs.append(teams)
+        return tbs
+
+    @classmethod
     def ident_div_tbs(cls, div_num: int, div_pos: int) -> list[list[Self]]:
         """Report teams with identical tie-break criteria for a divisional cohort
         (identical overall win percentage)

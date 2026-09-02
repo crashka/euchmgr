@@ -621,42 +621,21 @@ def validate_tourn(finalize: bool = False) -> None:
     if finalize:
         TournInfo.mark_stage_complete(TournStage.TOURN_TABULATE)
 
-def rank_tourn_cohort(teams: list[Team]) -> tuple[list[Team], dict[tuple], dict[dict]]:
+def rank_team_cohort(teams: list[Team], use_cohrt_stats: bool = False) -> \
+        tuple[list[Team], dict[tuple], dict[dict]]:
     """Given a list of teams (generally with the same record, though we are not checking
     here, since we don't really care), return list of teams ranked by the following stats
-    tuple:
+    tuples:
 
-      (tourn_pts_pct, -team_seed)
-
-    The inclusion of team_seed acknowledges individual player seeding rounds.  We also
-    return the actual stats tuples used to rank (for reference).  Since we are not
-    considering head-to-head play, the aggregate game data is empty (but not null).
-
-    NOTE: this function is not currently called from anywhere, but we are keeping it here
-    for reference (and just in case the need somehow re-arises).
-    """
-    stats = {}
-    data = {}
-    for tm in teams:
-        stats[tm.team_seed] = (tm.tourn_pts_pct, -tm.team_seed)
-        data[tm.team_seed] = {}
-
-    sort_key = lambda tm: tuple(x for x in stats[tm.team_seed])
-    ranked = sorted(teams, key=sort_key, reverse=True)
-    return ranked, stats, data
-
-def rank_team_cohort(teams: list[Team]) -> tuple[list[Team], dict[tuple], dict[dict]]:
-    """Given a list of teams (generally with the same record, though we are not checking
-    here, since we don't really care), return list of teams ranked by the following stats
-    tuple:
-
-      (cohrt_win_pct, wl_factor, cohrt_pts_pct, tourn_pts_pct, -team_seed)
+      (cohrt_win_pct, wl_factor, cohrt_pts_pct)   [included if `use_cohrt_stats` specified]
+      (tourn_pts_pct, tourn_pts_for, -team_seed)
 
     where `wl_factor` (win-loss factor) is used to ensure that more wins is better (if all
     wins), more losses is worse (if all losses), and 0-0 sorts below 1-1, 2-2, etc.  The
-    inclusion of team_seed acknowledges individual player seeding rounds.  The other two
-    return elements are the actual stats tuples and aggregated head-to-head game data for
-    the cohort teams, both indexed by team seed.
+    inclusion of `team_seed` acknowledges individual player seeding round play.
+
+    The other two return elements are the actual stats tuples and aggregated head-to-head
+    game data for the cohort teams, both indexed by team seed.
 
     NOTE: it is okay to call this from a UI module, since the return elements only contain
     schema objects that were passed in (and not queried from the `schema` base layer).
@@ -697,8 +676,9 @@ def rank_team_cohort(teams: list[Team]) -> tuple[list[Team], dict[tuple], dict[d
                 wl_factor = cohrt_games
             elif st['wins'] == 0:
                 wl_factor = -cohrt_games
-        stats[tm.team_seed] = (cohrt_win_pct, wl_factor, cohrt_pts_pct, tm.tourn_pts_pct,
-                               -tm.team_seed)
+        cohrt_stats = (cohrt_win_pct, wl_factor, cohrt_pts_pct)
+        tourn_stats = (tm.tourn_pts_pct, tm.tourn_pts_for, -tm.team_seed)
+        stats[tm.team_seed] = cohrt_stats + tourn_stats  if use_cohrt_stats else tourn_stats
 
     # larger is better for all stats components (except team_seed)
     sort_key = lambda tm: tuple(x for x in stats[tm.team_seed])

@@ -15,7 +15,7 @@ import os
 
 from ckautils import rankdata
 
-from core import BracketsFile, DEBUG, log
+from core import BracketsFile, log
 from database import db_init, db_close, db_name
 from schema import (rnd_pct, rnd_avg, Bracket, TournStage, TournInfo, Player, SeedGame,
                     Team, TournGame, PlayoffGame, TeamGame, schema_create)
@@ -209,7 +209,7 @@ def fake_seed_games(clear_existing: bool = False, limit: int = None, rand_seed: 
         else:
             game.add_scores(loser_pts, winner_pts)
         game.save()
-        if limit and DEBUG:
+        if limit:
             log.debug(f"{game.team1_name}: {game.team1_pts}, {game.team2_name}: {game.team2_pts}")
 
         if game.winner:
@@ -551,7 +551,7 @@ def fake_tourn_games(clear_existing: bool = False, limit: int = None, rand_seed:
         else:
             game.add_scores(loser_pts, winner_pts)
         game.save()
-        if limit and DEBUG:
+        if limit:
             log.debug(f"{game.team1_name}: {game.team1_pts}, {game.team2_name}: {game.team2_pts}")
 
         if game.winner:
@@ -799,15 +799,16 @@ def compute_tourn_ranks(active_teams: list[Team]) -> None:
         cohort_pos = cohort[0].tourn_pos
         ranked, stats, data = rank_team_cohort(cohort)
         ranked, elevs, win_grps, _ = elevate_winners(ranked)
-        if elevs and DEBUG:
+        # next two `if` statements just for traceability
+        if elevs:
             for tm, opp in elevs:
-                log.debug(f"Elevating {tm.team_seed} above {opp.team_seed} for tourn rank, "
-                      f"pos {cohort_pos}")
-        if win_grps and DEBUG:
+                log.info(f"Elevating {tm.team_seed} above {opp.team_seed} for tourn rank, "
+                         f"pos {cohort_pos}")
+        if win_grps:
             for grp in win_grps:
                 grp_seeds = set(tm.team_seed for tm in grp)
-                log.debug(f"Cyclic win group for tourn rank, pos {cohort_pos}, "
-                          f"seeds {grp_seeds}")
+                log.info(f"Cyclic win group for tourn rank, pos {cohort_pos}, "
+                         f"seeds {grp_seeds}")
         for i, tm in enumerate(ranked):
             tm.tourn_rank = cohort_pos + i
             tm.tourn_tb_crit = stats[tm.team_seed]
@@ -846,15 +847,16 @@ def compute_div_ranks(active_teams: list[Team]) -> None:
             cohort_pos = cohort[0].div_pos
             ranked, stats, data = rank_team_cohort(cohort)
             ranked, elevs, win_grps, _ = elevate_winners(ranked)
-            if elevs and DEBUG:
+            # next two `if` statements just for traceability
+            if elevs:
                 for tm, opp in elevs:
-                    log.debug(f"Elevating {tm.div_seed} above {opp.div_seed} for div {div} rank, "
-                          f"pos {cohort_pos}")
-            if win_grps and DEBUG:
+                    log.info(f"Elevating {tm.div_seed} above {opp.div_seed} for div {div} rank, "
+                             f"pos {cohort_pos}")
+            if win_grps:
                 for grp in win_grps:
                     grp_seeds = set(tm.div_seed for tm in grp)
-                    log.debug(f"Cyclic win group for div {div} rank, pos {cohort_pos}, "
-                              f"seeds {grp_seeds}")
+                    log.info(f"Cyclic win group for div {div} rank, pos {cohort_pos}, "
+                             f"seeds {grp_seeds}")
             for i, tm in enumerate(ranked):
                 tm.div_rank = cohort_pos + i
                 tm.div_tb_crit = stats[tm.team_seed]
@@ -1103,15 +1105,16 @@ def compute_final_ranks(finalize: bool = False) -> None:
         cohort_pos = cohort[0].final_pos
         ranked, stats, data = rank_team_cohort(cohort)
         ranked, elevs, win_grps, _ = elevate_winners(ranked)
-        if elevs and DEBUG:
+        # next two `if` statements just for traceability
+        if elevs:
             for tm, opp in elevs:
-                log.debug(f"Elevating {tm.team_seed} above {opp.team_seed} for final rank, "
-                      f"pos {cohort_pos}")
-        if win_grps and DEBUG:
+                log.info(f"Elevating {tm.team_seed} above {opp.team_seed} for final rank, "
+                         f"pos {cohort_pos}")
+        if win_grps:
             for grp in win_grps:
                 grp_seeds = set(tm.team_seed for tm in grp)
-                log.debug(f"Cyclic win group for final rank, pos {cohort_pos}, "
-                          f"seeds {grp_seeds}")
+                log.info(f"Cyclic win group for final rank, pos {cohort_pos}, "
+                         f"seeds {grp_seeds}")
         for i, tm in enumerate(ranked):
             tm.final_rank = cohort_pos + i
             tm.final_tb_crit = stats[tm.team_seed]

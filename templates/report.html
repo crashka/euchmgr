@@ -128,7 +128,7 @@
         <p>[<b>{{len(cohort)}} teams tied</b>] {{'; '.join(div_cohort[div][pos])}}</p>
 
         {% if div_elevs[div][pos] %}
-        <p>Head-to-Head Wins (for ranking) [{{len(div_elevs[div][pos])}}]:</p>
+        <p>Head-to-Head Wins (for ranking elevation) [{{len(div_elevs[div][pos])}}]:</p>
         <ul>
           {% for tm, opp in div_elevs[div][pos] %}
           <li>{{team_tag(tm)}} beats {{team_tag(opp)}}</li>
@@ -137,7 +137,7 @@
         {% endif %}  {# div_elevs #}
 
         {% if div_win_grps[div][pos] %}
-        <p>Cyclic Win Groups (head-to-head wins offset) [{{len(div_win_grps[div][pos])}}]:</p>
+        <p>Cyclic Win Groups (head-to-head wins are offset) [{{len(div_win_grps[div][pos])}}]:</p>
         <ul>
           {% for grp in div_win_grps[div][pos] %}
           <li>[<b>{{concat_seeds(grp)}}</b>] {{concat_teams(grp)}}</li>

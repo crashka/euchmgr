@@ -1,8 +1,6 @@
 /*.html
 /clear_*.sh
 /archive_*.sh
-/run_server*.sh
-/docker_build*.sh
 /*.csv
 *.tourn_db
 *.tourn_db-shm

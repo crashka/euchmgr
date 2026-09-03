@@ -33,6 +33,9 @@ from euchmgr import (get_div_maps, fmt_team_name, fmt_player_list, compute_playe
 FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 FLOAT_THRESH = 0.001
 
+# check if row from `csv.reader` is empty (or contains no data)
+empty_row = lambda x: not ''.join(x)
+
 ###################
 # local functions #
 ###################
@@ -100,9 +103,9 @@ def load_seed_bracket(csv_file: str) -> list[SeedGame]:
     tourn = TournInfo.get()
     nplayers = tourn.players
     nrounds = tourn.seed_rounds
+    ntables = nplayers // 4
 
-    COL_REF = ['Round', 'Table 1', 'Table 2', 'Table 3', 'Table 4',
-               'Table 5', 'Table 6', 'Table 7', 'Table 8', 'Bye']
+    COL_REF = ['Round'] + [f'Table {x + 1}' for x in range(ntables)] + ['Bye']
     games = []
     pl_map = Player.get_player_map()
     with open(os.path.join(FILE_DIR, csv_file), newline='') as f:
@@ -168,6 +171,8 @@ def load_seed_games(csv_file: str) -> None:
         header = next(reader)
         assert header == COL_REF
         for row in reader:
+            if empty_row(row):
+                break
             pl_num   = typecast(row[0])
             pl_name  = row[1]
             wins     = typecast(row[2])
@@ -244,8 +249,8 @@ def validate_player_ranks(csv_file: str) -> None:
                                f"{col} = {pl_res[col]} ({getattr(pl, col)})")
 
 def load_partner_picks(csv_file: str) -> None:
-    """Assumes champ team is pre-picked (in that we don't do the picking and/or checking
-    for keeping the champ team together)
+    """Assumes champ team is properly specified in the CSV file (in that we don't do any
+    prepicking and/or checking for keeping the champ team together)
     """
     tourn = TournInfo.get()
     nplayers = tourn.players
@@ -343,6 +348,7 @@ def load_tourn_bracket(csv_file: str) -> list[TournGame]:
     nteams = tourn.teams
     nrounds = tourn.tourn_rounds
     ndivs = tourn.divisions
+    ntables = nteams // 2
 
     # don't make assumptions on how divisions are assigned, just go off the actual count
     # of teams in each division--NOTE that div_maps is keyed off of the actual division
@@ -350,8 +356,7 @@ def load_tourn_bracket(csv_file: str) -> list[TournGame]:
     # consistency with the other indexes), this is a little messy, sorry!
     div_maps = get_div_maps(tourn)
 
-    COL_REF = ['Round', 'Table 1', 'Table 2', 'Table 3', 'Table 4',
-               'Table 5', 'Table 6', 'Table 7', 'Table 8', 'Bye']
+    COL_REF = ['Round'] + [f'Table {x + 1}' for x in range(ntables)] + ['Bye']
     DIV_MAP = {'A': 1, 'B': 2}
     games = []
     with open(os.path.join(FILE_DIR, csv_file), newline='') as f:
@@ -388,12 +393,10 @@ def load_tourn_bracket(csv_file: str) -> list[TournGame]:
                             'team2_div_seed': None}
                 else:
                     assert len(table) == 2
-                    assert len(table[0]) == 2
-                    assert len(table[1]) == 2
-                    t1_seed, t1_div_name = table[0]
-                    t2_seed, t2_div_name = table[1]
-                    t1_seed = int(t1_seed)
-                    t2_seed = int(t2_seed)
+                    assert len(table[0]) >= 2
+                    assert len(table[1]) >= 2
+                    t1_seed, t1_div_name = int(table[0][:-1]), table[0][-1]
+                    t2_seed, t2_div_name = int(table[1][:-1]), table[1][-1]
                     t1_div = DIV_MAP[t1_div_name]
                     t2_div = DIV_MAP[t2_div_name]
                     div_tbls[t1_div] += 1
@@ -440,6 +443,8 @@ def load_tourn_games(csv_file: str) -> None:
         header = next(reader)
         assert header == COL_REF
         for row in reader:
+            if empty_row(row):
+                break
             tm_ident = row[0]
             tm_name  = row[1]
             wins     = typecast(row[2])
@@ -523,6 +528,8 @@ def load_playoff_games(csv_file: str) -> None:
         header = next(reader)
         assert header == COL_REF
         for row in reader:
+            if empty_row(row):
+                break
             tm_ident = row[0]
             tm_name  = row[1]
             wins     = typecast(row[2])
@@ -638,7 +645,6 @@ ALL_FUNCS = [
     'validate_seed_round',
     'compute_player_ranks',
     'validate_player_ranks',
-    'prepick_champ_partners',
     'load_partner_picks',
     'build_tourn_teams',
     'load_team_seeds',
@@ -693,7 +699,6 @@ def main() -> int:
       - validate_seed_round
       - compute_player_ranks
       - validate_player_ranks
-      - prepick_champ_partners
       - load_partner_picks
       - build_tourn_teams
       - load_team_seeds

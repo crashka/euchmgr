@@ -490,6 +490,11 @@ def build_tourn_bracket() -> list[TournGame]:
                 seats = (int(x) for x in row)
                 tbl_k = 0
                 while table := list(islice(seats, 0, 2)):
+                    # byes can be specified by pairing with `bye_div_seed` (pseudo-team
+                    # whose value is number of teams plus 1), or an unpaired team at the
+                    # end of a row (as for seed round bracket files)
+                    if len(table) == 1:
+                        table += [bye_div_seed]
                     if bye_div_seed in table:
                         t1, t2 = sorted(table)
                         assert t2 == bye_div_seed
@@ -1050,9 +1055,10 @@ def validate_playoffs(bracket: Bracket, finalize: bool = False) -> None:
 
 def compute_playoff_ranks(bracket: Bracket, finalize: bool = False) -> None:
     """We don't have to get fancy here, since the rules are pretty simple: best 2-out-of-3
-    matchups, and playoff win_pct followed by pts_pct to determine third and fourth place.
-    We also use the playoff rankings to compute the final overall tournament rankings,
-    leveraging both div_rank and tourn_rank computations.
+    matchups (semis and finals), and then playoff win_pct followed by pts_pct to determine
+    third and fourth place.  The playoff rankings conputed here will represent the first
+    four positions in the final overall tournament rankings (see `compute_final_ranks`
+    below).
     """
     tm_iter = Team.iter_teams()
     final_four = list(filter(lambda x: x.playoff_team, tm_iter))

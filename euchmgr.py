@@ -783,7 +783,7 @@ def compute_tourn_ranks(active_teams: list[Team]) -> None:
     """
     tm_list = list(active_teams)  # make a shallow copy, since we will sort in-place
 
-    rank_key = lambda x: x.tourn_win_pct
+    rank_key = lambda x: (x.div_rank in (1, 2), x.tourn_win_pct)
     team_rank_data = [rank_key(tm) for tm in tm_list]
     tourn_ranks = rankdata(team_rank_data, method='min')
 
@@ -876,8 +876,8 @@ def compute_team_ranks(finalize: bool = False) -> None:
     tm_iter = Team.iter_teams()
     played = list(filter(lambda x: x.tourn_wins + x.tourn_losses, tm_iter))
 
-    compute_tourn_ranks(played)
     compute_div_ranks(played)
+    compute_tourn_ranks(played)
 
     if finalize:
         TournInfo.mark_stage_complete(TournStage.TOURN_RANKS)

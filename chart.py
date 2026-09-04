@@ -57,13 +57,15 @@ SD_SCORES   = "Seeding Round Scores"
 RR_BRACKETS = "Round Robin Brackets"
 RR_SCORES   = "Round Robin Scores"
 TRN_RESULTS = "Tournament Results"
+FNL_RESULTS = "Final Tournament Results"
 
 CHART_FUNCS = [
     'sd_bracket',
     'sd_scores',
     'rr_brackets',
     'rr_scores',
-    'trn_results'
+    'trn_results',
+    'fnl_results'
 ]
 
 @chart.get("/<chart>")
@@ -335,11 +337,30 @@ def rr_scores(tourn: TournInfo) -> str:
 def trn_results(tourn: TournInfo) -> str:
     """Render final tournament results as a chart
     """
-    tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.final_rank)
+    tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.tourn_rank)
 
     context = {
         'chart_num'   : 4,
         'title'       : TRN_RESULTS,
+        'tourn'       : tourn,
+        'teams'       : tm_list,
+        'fmt_stat'    : fmt_stat,
+        'bold_color'  : '#555555'
+    }
+    return render_chart(context)
+
+###############
+# fnl_results #
+###############
+
+def fnl_results(tourn: TournInfo) -> str:
+    """Render final tournament results as a chart
+    """
+    tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.final_rank)
+
+    context = {
+        'chart_num'   : 5,
+        'title'       : FNL_RESULTS,
         'tourn'       : tourn,
         'teams'       : tm_list,
         'fmt_stat'    : fmt_stat,

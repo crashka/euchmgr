@@ -645,8 +645,8 @@ LINK_INFO = {
     ],
     View.PLAYOFFS: [
         ('/dash/ff_dash',       "Live Playoff Bracket",  TournStage.SEMIS_BRACKET),
-        ('/chart/trn_results',  "Tournament Results",    TournStage.TOURN_FINAL),
-        ('/report/trn_tbreak',  "Tie-Breaker Report",    TournStage.TOURN_FINAL)
+        ('/chart/fnl_results',  "Final Results",         TournStage.TOURN_FINAL),
+        ('/report/fnl_tbreak',  "Tie-Breaker Report",    TournStage.TOURN_FINAL)
     ]
 }
 

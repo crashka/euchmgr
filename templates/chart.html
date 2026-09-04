@@ -258,6 +258,51 @@
             <tr>
               <th class="plyr_lbl hor_sect" rowspan="2">Team (by Overall Seed)</th>
               <th class="hor_sect vert_sect" rowspan="2">Tourn Pos</th>
+              <th class="vert_sect" colspan="2">Div</th>
+              <th class="vert_sect" colspan="2">Round Robin</th>
+              <th class="vert_sect" colspan="2">Head-to-Head</th>
+              <th class="hor_sect vert_sect" rowspan="2">Tourn Rank</th>
+            </tr>
+            <tr>
+              <th class="hor_sect vert_sect">Num</th>
+              <th class="hor_sect">Rank</th>
+              <th class="hor_sect vert_sect">Win Pct</th>
+              <th class="hor_sect">Pts Pct</th>
+              <th class="hor_sect vert_sect">W-L</th>
+              <th class="hor_sect">Pts Pct</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for tm in teams %}
+            <tr>
+              <td class="team_lbl">{{tm.team_tag_fn|safe}}</td>
+              <td class="vert_sect">{{tm.tourn_pos_str}}</td>
+              {% if tm.div_rank in (1, 2) %}
+              <td class="vert_sect">{{tm.div_num}}</td>
+              <td>{{tm.div_rank}}</td>
+              {% else %}
+              <td class="vert_sect"></td>
+              <td></td>
+              {% endif %}
+              <td class="vert_sect">{{fmt_stat(tm.tourn_win_pct)|safe}}</td>
+              <td>{{fmt_stat(tm.tourn_pts_pct)|safe}}</td>
+              <td class="vert_sect">{{fmt_stat(tm.tourn_tb_win_rec)}}</td>
+              <td>{{fmt_stat(tm.tourn_tb_pts_pct)|safe}}</td>
+              <td class="vert_sect">{{tm.tourn_rank}}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+      {% if chart_num == 5 %}
+      <div class="section fnl_results">
+        <table>
+          <thead>
+            <tr>
+              <th class="plyr_lbl hor_sect" rowspan="2">Team (by Overall Seed)</th>
+              <th class="hor_sect vert_sect" rowspan="2">Final Pos</th>
               <th class="vert_sect" colspan="3">Playoffs</th>
               <th class="vert_sect" colspan="2">Round Robin</th>
               <th class="vert_sect" colspan="2">Head-to-Head</th>

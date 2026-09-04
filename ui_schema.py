@@ -748,6 +748,35 @@ class Team(UIMixin, BaseTeam):
         return f"<b>{self.team_seed}</b>&nbsp;&nbsp;{self.team_name}"
 
     @property
+    def tourn_pos_str(self) -> str | None:
+        """Same as tourn_pos, except annotated if tied with others
+        """
+        if self.tourn_pos is None:
+            return None
+        elif not self.tourn_tb_crit:
+            return str(self.tourn_pos)
+        return f"{self.tourn_pos}*"
+
+    @property
+    def tourn_tb_win_rec(self) -> str:
+        """Tie-breaker (head-to-head) win-loss record as a string
+        """
+        if not self.tourn_tb_data:
+            return None
+        return f"{self.tourn_tb_data['wins']}-{self.tourn_tb_data['losses']}"
+
+    @property
+    def tourn_tb_pts_pct(self) -> float | None:
+        """Tie-breaker (head-to-head) points percentage (points-for over total points)
+        """
+        if not self.tourn_tb_data:
+            return None
+        tb_pts_tot = self.tourn_tb_data['pts_for'] + self.tourn_tb_data['pts_against']
+        if tb_pts_tot == 0.0:
+            return PTS_PCT_NA
+        return rnd_pct(self.tourn_tb_data['pts_for'] / tb_pts_tot)
+
+    @property
     def final_pos_str(self) -> str | None:
         """Same as final_pos, except annotated if tied with others
         """

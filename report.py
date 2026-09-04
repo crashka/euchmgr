@@ -20,11 +20,13 @@ POPUP_TEMPLATE = "popup.html"
 
 RR_TBREAK = "Round Robin Tie-Breaker Report"
 TRN_TBREAK = "Tournament Tie-Breaker Report"
+FNL_TBREAK = "Final Tournament Tie-Breaker Report"
 SCORE_POSTING = "Score Posting Report"
 
 REPORT_FUNCS = [
     'rr_tbreak',
     'trn_tbreak',
+    'fnl_tbreak',
     'score_posting'
 ]
 
@@ -150,8 +152,9 @@ def rr_tbreak(tourn: TournInfo) -> str:
 # trn_tbreak #
 ##############
 
-def trn_tbreak(tourn: TournInfo) -> str:
-    """Render overall tournament tie-breaker report
+def trn_tbreak(tourn: TournInfo, final_rpt: bool = False) -> str:
+    """Render intermediary tournament tie-breaker report (or final overall report, if
+    specified)
     """
     # see BAD comment (above), and then double the badness
     team_tag = lambda x: f"{x.team_name} [{x.team_seed}]"
@@ -182,12 +185,13 @@ def trn_tbreak(tourn: TournInfo) -> str:
     div_idents[div] = pos_idents
 
     # NOTE: huge supporting HACK inside of `iter_teams` (see schema.py)!
-    tm_iter = Team.iter_teams(div=div, by_rank=True)
-    for k, g in groupby(tm_iter, key=lambda x: x.final_pos):
+    tm_iter = Team.iter_teams(div=div if final_rpt else None, by_rank=True)
+    group_key = (lambda x: x.final_pos) if final_rpt else (lambda x: x.tourn_pos)
+    for k, g in groupby(tm_iter, key=group_key):
         cohort = list(g)
         if len(cohort) == 1:
             continue
-        cohort_pos = cohort[0].final_pos
+        cohort_pos = cohort[0].final_pos if final_rpt else cohort[0].tourn_pos
         cohort_win_pct = cohort[0].tourn_win_pct
         cohort_rpt = {}
         team_list = []
@@ -200,8 +204,8 @@ def trn_tbreak(tourn: TournInfo) -> str:
             # save anything here!)--this REALLY NEEDS TO BE FIXED next time we are making
             # changes to any of the tie-breaker reports!!! [see part 2 below]
             tm.div_seed = tm.team_seed
-            tm.div_rank = tm.final_rank
-            tm.div_tb_data = tm.final_tb_data
+            tm.div_rank = tm.final_rank if final_rpt else tm.tourn_rank
+            tm.div_tb_data = tm.final_tb_data if final_rpt else tm.tourn_tb_data
             games = tm.get_opps_games(cohort)  # list[TournGame]
             # BAD HACK [part 2]!!!
             for game in games:
@@ -214,8 +218,8 @@ def trn_tbreak(tourn: TournInfo) -> str:
         ranked, _, _ = rank_team_cohort(cohort)  # returns with elevations undone
         ranked, elevs, win_grps, _ = elevate_winners(ranked)
         for i, tm in enumerate(ranked):
-            assert cohort_pos + i == tm.final_rank
-        idents = Team.ident_final_tbs(cohort_pos)
+            assert cohort_pos + i == tm.final_rank if final_rpt else tm.final_rank
+        idents = Team.ident_final_tbs(cohort_pos) if final_rpt else Team.ident_tourn_tbs(cohort_pos)
         pos_elevs[cohort_pos] = elevs
         pos_win_grps[cohort_pos] = win_grps
         pos_idents[cohort_pos] = idents
@@ -227,7 +231,7 @@ def trn_tbreak(tourn: TournInfo) -> str:
 
     context = {
         'report_num'  : 1,
-        'title'       : TRN_TBREAK,
+        'title'       : FNL_TBREAK if final_rpt else TRN_TBREAK,
         'tourn'       : tourn,
         'len'         : len,
         'fmt_pct'     : fmt_pct,
@@ -243,6 +247,15 @@ def trn_tbreak(tourn: TournInfo) -> str:
         'report_by'   : 'team'
     }
     return render_report(context)
+
+##############
+# fnl_tbreak #
+##############
+
+def fnl_tbreak(tourn: TournInfo) -> str:
+    """Render overall tournament tie-breaker report
+    """
+    return trn_tbreak(tourn, final_rpt=True)
 
 #################
 # score_posting #

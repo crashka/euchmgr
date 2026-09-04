@@ -774,6 +774,7 @@ class Team(BaseModel):
                 assert tourn.stage_compl >= TournStage.SEMIS_BRACKET
                 query = query.order_by(cls.final_rank.asc())
             else:
+                assert(div is None)
                 query = query.order_by(cls.tourn_rank.asc(nulls='last'))
         for t in query:
             yield t

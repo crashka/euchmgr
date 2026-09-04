@@ -688,7 +688,8 @@ def main() -> int:
 
     Usage: python -m legacy.validate <tourn_name> <func_list> [<addl_args>]
 
-    where ``func_list`` is a comma-separated list of functions to run, or ``'all'``
+    where ``func_list`` is a comma-separated list of functions to run, a range of function
+    numbers (e.g. ``3-6``, where list of numbers can be seen with ``list``) or ``'all'``
 
     Functions:
       - tourn_create
@@ -724,6 +725,22 @@ def main() -> int:
     func_list = sys.argv[2]
     if func_list == 'all':
         funcs = ALL_FUNCS
+    elif func_list == 'list':
+        print("Functions (by number)")
+        for i, func in enumerate(ALL_FUNCS):
+            print(f"{i:2d} - {func}")
+        return 0
+    elif func_list[0].isdigit():
+        idxs = func_list.split('-')
+        if len(idxs) == 1:
+            idx = int(idxs[0])
+            funcs = ALL_FUNCS[idx:idx+1]
+        elif len(idxs) == 2:
+            start = int(idxs[0])
+            end = int(idxs[1]) + 1 if idxs[1] else len(ALL_FUNCS)
+            funcs = ALL_FUNCS[start:end]
+        else:
+            return usage("Invalid function range specified")
     else:
         funcs = func_list.split(',')
         for func in funcs:

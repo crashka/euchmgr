@@ -191,7 +191,7 @@
         {% else %}
         <p class="wide">
           <label>Import Path:</label>
-          <input name="input_path" type="text" value="{{tourn.import_path}}" readonly>
+          <input name="input_path" type="text" value="{{tourn.import_path or ''}}" readonly>
         </p>
         {% endif %}  {# new_tourn #}
         <div class="actions">

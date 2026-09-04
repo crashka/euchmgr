@@ -56,7 +56,7 @@ SD_BRACKET  = "Seeding Round Bracket"
 SD_SCORES   = "Seeding Round Scores"
 RR_BRACKETS = "Round Robin Brackets"
 RR_SCORES   = "Round Robin Scores"
-TRN_RESULTS = "Tournament Results"
+TRN_RESULTS = "Team Rank Details (pre-playoff)"
 FNL_RESULTS = "Final Tournament Results"
 
 CHART_FUNCS = [
@@ -335,7 +335,7 @@ def rr_scores(tourn: TournInfo) -> str:
 ###############
 
 def trn_results(tourn: TournInfo) -> str:
-    """Render final tournament results as a chart
+    """Render intermediary/pre-playoff tournament results as a chart
     """
     tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.tourn_rank)
 

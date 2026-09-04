@@ -637,6 +637,10 @@ LINK_INFO = {
     View.PARTNERS: [
         ('/dash/pt_dash',       "Live Dashboard",        TournStage.SEED_RANKS)
     ],
+    View.TEAMS: [
+        ('/chart/trn_results',  "Team Rank Details",     TournStage.TOURN_BRACKET),
+        ('/report/trn_tbreak',  "Tie-Breaker Report",    TournStage.TOURN_RANKS)
+    ],
     View.ROUND_ROBIN: [
         ('/chart/rr_brackets',  "Round Robin Brackets",  TournStage.TOURN_BRACKET),
         ('/chart/rr_scores',    "Round Robin Scores",    TournStage.TOURN_BRACKET),
@@ -645,7 +649,7 @@ LINK_INFO = {
     ],
     View.PLAYOFFS: [
         ('/dash/ff_dash',       "Live Playoff Bracket",  TournStage.SEMIS_BRACKET),
-        ('/chart/fnl_results',  "Final Results",         TournStage.TOURN_FINAL),
+        ('/chart/fnl_results',  "Final Tournament Results", TournStage.TOURN_FINAL),
         ('/report/fnl_tbreak',  "Tie-Breaker Report",    TournStage.TOURN_FINAL)
     ]
 }

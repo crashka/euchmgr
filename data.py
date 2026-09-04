@@ -306,8 +306,8 @@ tm_layout = [
     ('tourn_pts_for',     "Pts For",     None),
     ('tourn_pts_against', "Pts Against", None),
     ('tourn_pts_pct_str', "Pts Pct",     None),
-    ('tourn_rank',        "Team Rank",   None),
     ('div_rank',          "Div Rank",    None),
+    ('tourn_rank',        "Team Rank",   None),
     ('final_rank',        "Final Rank",  None)
 ]
 

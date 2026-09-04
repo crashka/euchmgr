@@ -15,7 +15,7 @@ import os
 
 from ckautils import rankdata
 
-from core import BracketsFile, log
+from core import BASE_DIR, BracketsFile, log
 from database import db_init, db_close, db_name
 from schema import (rnd_pct, rnd_avg, Bracket, TournStage, TournInfo, Player, SeedGame,
                     Team, TournGame, PlayoffGame, TeamGame, schema_create)
@@ -70,10 +70,17 @@ def tourn_create(force: bool = False, **tourn_attrs) -> TournInfo:
     """
     schema_create(force=force)
 
+    if import_path := tourn_attrs.get('import_path'):
+        base_pfx = BASE_DIR + os.sep
+        # convert to relative path for brevity (if possible)
+        if import_path.find(base_pfx) == 0:
+            import_path = import_path[len(base_pfx):]
+
     info = {'name'        : db_name(),  # see docheader
             'dates'       : tourn_attrs.get('dates'),
             'venue'       : tourn_attrs.get('venue'),
             'dflt_pw_hash': tourn_attrs.get('dflt_pw_hash'),
+            'import_path' : import_path,
             'stage_compl' : TournStage.TOURN_CREATE}
     tourn = TournInfo.create(**info)
     return tourn
@@ -876,6 +883,7 @@ def compute_team_ranks(finalize: bool = False) -> None:
     tm_iter = Team.iter_teams()
     played = list(filter(lambda x: x.tourn_wins + x.tourn_losses, tm_iter))
 
+    # note: tourn ranks (currently) depend on div ranks
     compute_div_ranks(played)
     compute_tourn_ranks(played)
 

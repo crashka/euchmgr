@@ -19,7 +19,7 @@ REPORT_TEMPLATE = "report.html"
 POPUP_TEMPLATE = "popup.html"
 
 RR_TBREAK = "Round Robin Tie-Breaker Report"
-TRN_TBREAK = "Tournament Tie-Breaker Report"
+TRN_TBREAK = "Team Rank Tie-Breaker Report (pre-playoff)"
 FNL_TBREAK = "Final Tournament Tie-Breaker Report"
 SCORE_POSTING = "Score Posting Report"
 

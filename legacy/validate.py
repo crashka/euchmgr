@@ -660,8 +660,9 @@ ALL_FUNCS = [
 def get_func_args(func: str, tourn_name: str) -> dict:
     """Return dict representing arguments to pass into ``func``
     """
+    import_path = os.path.join(FILE_DIR, tourn_name)
     func_args = {
-        'tourn_create'         : {'force': True},
+        'tourn_create'         : {'force': True, 'import_path': import_path},
         'upload_roster'        : {'csv_file': f"{tourn_name}_results-1.csv"},
         'load_seed_bracket'    : {'csv_file': f"{tourn_name}_results-2.csv"},
         'load_seed_games'      : {'csv_file': f"{tourn_name}_results-3.csv"},

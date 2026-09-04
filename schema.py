@@ -163,6 +163,7 @@ class TournInfo(BaseModel):
     tourn_rounds   = IntegerField(default=DFLT_TOURN_ROUNDS)
     divisions      = IntegerField(default=DFLT_DIVISIONS)
     dflt_pw_hash   = TextField(null=True)  # initial/default pw_hash for players
+    import_path    = TextField(null=True)  # enables re-importing
 
     # class variables
     inst: ClassVar[Self] = None  # singleton instance

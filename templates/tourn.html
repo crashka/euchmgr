@@ -188,6 +188,11 @@
           </p>
           {% endwith %}
         </div>
+        {% else %}
+        <p class="wide">
+          <label>Import Path:</label>
+          <input name="input_path" type="text" value="{{tourn.import_path}}" readonly>
+        </p>
         {% endif %}  {# new_tourn #}
         <div class="actions">
           {% if new_tourn %}

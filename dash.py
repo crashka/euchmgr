@@ -3,6 +3,7 @@
 """Blueprint for live dashboard rendering
 """
 
+from enum import StrEnum
 from itertools import groupby
 
 from flask import Blueprint, session, render_template, abort
@@ -109,10 +110,18 @@ COLCLS_UP   = 'grn_fg'
 COLCLS_DOWN = 'red_fg'
 
 # session storage key
-SD_DASH_KEY = 'sd_dash'
-RR_DASH_KEY = 'rr_dash'
-PT_DASH_KEY = 'pt_dash'
-FF_DASH_KEY = 'ff_dash'
+class SessKey(StrEnum):
+    SD_DASH = 'sd_dash'
+    RR_DASH = 'rr_dash'
+    PT_DASH = 'pt_dash'
+    FF_DASH = 'ff_dash'
+
+def clear_dash_storage() -> None:
+    """Clear session storage for all dashboards--needs to be called when pausing a
+    tournament (and probably when logging out as well).
+    """
+    for key in SessKey:
+        session.pop(key, None)
 
 @dash.get("/<dash>")
 def get_dash(dash: str) -> str:
@@ -189,9 +198,9 @@ def sd_dash(tourn: TournInfo) -> str:
     prev_stats_fmt   = None
     prev_mvmt        = None
     prev_colcls      = None
-    if prev_frame := session.get(SD_DASH_KEY):
+    if prev_frame := session.get(SessKey.SD_DASH):
         if str(tourn.created_at) > prev_frame['updated']:
-            session.pop(SD_DASH_KEY)
+            session.pop(SessKey.SD_DASH)
         else:
             prev_tot_gms     = prev_frame['tot_gms']
             prev_tot_pts     = prev_frame['tot_pts']
@@ -284,7 +293,7 @@ def sd_dash(tourn: TournInfo) -> str:
 
     updated = now_str()
     if tot_pts > prev_tot_pts:
-        session[SD_DASH_KEY] = {
+        session[SessKey.SD_DASH] = {
             'updated'    : updated,
             'done'       : done,
             'tot_gms'    : tot_gms,
@@ -375,9 +384,9 @@ def rr_dash(tourn: TournInfo) -> str:
     prev_stats_fmt   = None
     prev_mvmt        = None
     prev_colcls      = None
-    if prev_frame := session.get(RR_DASH_KEY):
+    if prev_frame := session.get(SessKey.RR_DASH):
         if str(tourn.created_at) > prev_frame['updated']:
-            session.pop(RR_DASH_KEY)
+            session.pop(SessKey.RR_DASH)
         else:
             prev_tot_gms     = prev_frame['tot_gms']
             prev_tot_pts     = prev_frame['tot_pts']
@@ -481,7 +490,7 @@ def rr_dash(tourn: TournInfo) -> str:
 
     updated = now_str()
     if tot_pts > prev_tot_pts:
-        session[RR_DASH_KEY] = {
+        session[SessKey.RR_DASH] = {
             'updated'    : updated,
             'done'       : done,
             'tot_gms'    : tot_gms,
@@ -535,15 +544,15 @@ def pt_dash(tourn: TournInfo) -> str:
     num_avail   = len(picks_avail)
     prev_count  = 0
 
-    if prev_frame := session.get(PT_DASH_KEY):
+    if prev_frame := session.get(SessKey.PT_DASH):
         if str(tourn.created_at) > prev_frame['updated']:
-            session.pop(PT_DASH_KEY)
+            session.pop(SessKey.PT_DASH)
         else:
             prev_count = prev_frame['num_picks']
 
     updated = now_str()
     if num_picks > prev_count:
-        session[PT_DASH_KEY] = {
+        session[SessKey.PT_DASH] = {
             'updated'  : updated,
             'done'     : done,
             'num_picks': num_picks
@@ -598,15 +607,15 @@ def ff_dash(tourn: TournInfo) -> str:
         brckt_info[matchup] = (team1, team2, winner, games)
         ncomplete += sum(1 for x in games if x.winner)
 
-    if prev_frame := session.get(FF_DASH_KEY):
+    if prev_frame := session.get(SessKey.FF_DASH):
         if str(tourn.created_at) > prev_frame['updated']:
-            session.pop(FF_DASH_KEY)
+            session.pop(SessKey.FF_DASH)
         else:
             prev_count = prev_frame['ncomplete']
 
     updated = now_str()
     if ncomplete > prev_count:
-        session[FF_DASH_KEY] = {
+        session[SessKey.FF_DASH] = {
             'updated'  : updated,
             'done'     : done,
             'ncomplete': ncomplete

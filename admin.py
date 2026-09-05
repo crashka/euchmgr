@@ -30,6 +30,7 @@ from ui_common import (process_flashes, msg_join, cap_first, render_response, re
                        render_error)
 from data import (Layout, pl_layout, sg_layout, pt_layout, tm_layout, tg_layout, ff_layout,
                   pg_layout)
+from dash import clear_dash_storage
 
 ###################
 # blueprint stuff #
@@ -500,6 +501,7 @@ def pause_tourn(form: dict) -> str:
     assert db_name() == tourn_name
     db_reset(force=True)
     clear_schema_cache()
+    clear_dash_storage()
     popped = session.pop('tourn', None)
     assert popped == tourn_name
     flash(f"info=Tournament \"{tourn_name}\" has been paused")

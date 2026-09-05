@@ -237,7 +237,7 @@ def validate_player_ranks(csv_file: str) -> None:
                     continue
 
                 if col in COL_FIX:
-                    log.notice(f"Overwriting mismatch for {pl.name}: "
+                    log.notice(f"Reverting mismatch for {pl.name}: "
                                f"{col} = {pl_res[col]} ({getattr(pl, col)})")
                     # FIX: for now, we are always just doing the adjustment in-place; for
                     # rankings, we will want to do this in the associated "_adj" column
@@ -328,7 +328,7 @@ def load_team_seeds(csv_file: str) -> None:
 
             for col in COL_FIX:
                 if tm_res[col] != getattr(tm, col):
-                    log.notice(f"Overwriting mismatch for {tm.team_name}: "
+                    log.notice(f"Reverting mismatch for {tm.team_name}: "
                                f"{col} = {tm_res[col]} ({getattr(tm, col)})")
                     setattr(tm, col, tm_res[col])
 

@@ -1,4 +1,9 @@
-# Ranking Notes
+# Ranking Notes (Obsolete)
+
+***This document is now obsolete** (as of August 2026).  But it has served us well for
+framing the discussion around the ranking system, so we will keep it around for reference.
+Going forward, documentation on rules and design choices will be captured&mdash;and kept
+up to date&mdash;in the README file for the repo.*
 
 ## General Rules for Ranking
 

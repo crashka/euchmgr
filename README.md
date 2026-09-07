@@ -2,6 +2,7 @@
 
 [Overview](#overview)<br>
 [Identifiers and Rankings](#identifiers-and-rankings)<br>
+  \- [General Description](#general-description)<br>
   \- [Players](#players)<br>
   \- [Teams](#teams)<br>
 [Tie-Breaking Rules](#tie-breaking-rules)<br>
@@ -37,6 +38,20 @@ process flow and ensure the integrity of the data for the tournament.
 
 ## Identifiers and Rankings
 
+### General Description
+
+- **"Seed"** levels for a bracket are earned through play in the previous round, and offer
+  preferential treatment when it comes to choices (e.g. picking partners) or strength of
+  opponents in the upcoming round.
+- **"Position"** represents the outcome of bracket play, where players or teams with the
+  same winning percentage occupy the same position; a tie-breaking process is then applied
+  to the players or teams sharing an identical position.
+  - Similar to a golf tournament, if two players/teams are tied for first, the player/team
+    with the next best record is said to be in third place (or "position", our case), etc.
+- **"Rank"** represents the final ordering of players or teams after tie-breaking rules
+  have been applied to all players or teams sharing positions within the bracket and/or
+  context.
+
 ### Players
 
 - **Player Num** &ndash; used to identify players for game assignments in the seeding
@@ -48,9 +63,9 @@ process flow and ensure the integrity of the data for the tournament.
   by players during seeding round play, after tie-breaking rules have been applied (see
   below)&mdash;lower is better, no ties.  This ranking represents the order in which team
   partners are picked.
-  - Note that there is a separate "Player *Pos*" stat indicating the player's seeding
-    round ranking *before tie-breakers* (thus, ties possible)&mdash;this is available in
-    the admin UI for reference.  Tie-breaking rules are then applied to player cohorts
+  - Note that there is a separate **Player Pos** number indicating the player's seeding
+    round ranking *before tie-breakers* (thus, may include ties)&mdash;this is available
+    in the admin UI for reference.  Tie-breaking rules are then applied to player cohorts
     with identical Player Pos computations in order to determine the Player Rank.
 
 ### Teams
@@ -68,10 +83,10 @@ process flow and ensure the integrity of the data for the tournament.
 - **Div Rank** &ndash; the ranking earned by teams within their division during round
   robin tournament play, after tie-breaking rules have been applied.  The top two teams in
   each division qualify for the final four playoff round.
-  - "Div *Pos*" (which appears on the Round Robin Live Dashboard and Tie-Breaker Report)
-    indicates ranking within the division *before tie-breakers* (same as with "Player
-    Pos", above).  Tie-breaking rules are then applied to team cohorts with identical Div
-    Pos computations in order to determine the Div Rank.
+  - **Div Pos** (which appears on the Round Robin Live Dashboard and Tie-Breaker Report)
+    indicates ranking within the division *before tie-breakers* (same as with Player Pos,
+    above).  Tie-breaking rules are then applied to team cohorts with identical Div Pos
+    computations in order to determine the Div Rank.
 - **Team Rank** (pre-playoffs) &ndash; the ranking earned by teams *across divisions*
   during round robin play, after tie-breaking rules have been applied.  The top two teams
   in each division always occupy the first four Team Ranks (though not necessarily in
@@ -79,20 +94,20 @@ process flow and ensure the integrity of the data for the tournament.
   relative to the remaining teams.  Note that Div Rank order is preserved here for teams
   within a division.
   - This identifier is used to denote team seeds for the final four playoff rounds.
-  - "Team *Pos*" indicates the overall team ranking (pre-playoff) before tie-breaking (see
+  - **Team Pos** indicates the overall team ranking (pre-playoff) before tie-breaking (see
     description for Div Pos above).
 - **Final Rank** &ndash; represents the final tournament ranking for teams, after playoff
   rounds are complete.  This is the same as Team Rank, except that the Final Four teams
   are ordered by playoff results (see [Playoffs](#playoffs) below).
-  - "Final *Pos*" is essentially the same as Team Pos (above), except that the final four
+  - **Final Pos** is essentially the same as Team Pos (above), except that the final four
     teams are always in positions 1 through 4 (with remaining teams in the same order,
     which may include tied positions).
 
 ## Tie-Breaking Rules
 
-The following rules are applied to players or teams with identical Win Percentage
-records&mdash;said to be in the same *position*, or considered to be "cohorts"&mdash;for
-the round.
+The following rules are applied (in order) to players or teams with identical winning
+percentages&mdash;said to be in the same *position*, or considered as "cohorts"&mdash;for
+the round and/or context (e.g. division).
 
 ### Seeding Round
 

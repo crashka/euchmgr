@@ -1,5 +1,20 @@
 # Euchre Manager
 
+[Overview](#overview)<br>
+[Identifiers and Rankings](#identifiers-and-rankings)<br>
+  \- [Players](#players)<br>
+  \- [Teams](#teams)<br>
+[Tie-Breaking Rules](#tie-breaking-rules)<br>
+  \- [Seeding Round](#seeding-round)<br>
+  \- [Tournament Round Robin](#tournament-round-robin)<br>
+  \- [Playoffs](#playoffs)<br>
+  \- [Notes on Head-to-Head Matchups](#notes-on-head-to-head-matchups)<br>
+  \- [Illustrative Examples](#illustrative-examples)<br>
+[Tournament Format](#tournament-format)<br>
+[Import/Export Format](#importexport-format)<br>
+[Admin and Mobile APIs](#admin-and-mobile-apis)<br>
+[UI Screenshots and Descriptions](#ui-screenshots-and-descriptions)<br>
+
 ## Overview
 
 The purpose of this application is to help facilitate and/or manage a Beta Upsilon-style
@@ -73,7 +88,7 @@ process flow and ensure the integrity of the data for the tournament.
     teams are always in positions 1 through 4 (with remaining teams in the same order,
     which may include tied positions).
 
-## Tie Breaking Rules
+## Tie-Breaking Rules
 
 The following rules are applied to players or teams with identical Win Percentage
 records&mdash;said to be in the same *position*, or considered to be "cohorts"&mdash;for
@@ -207,8 +222,8 @@ inadvertently clustered together teams in the same division with each other (wit
 2 in the favored position due to having the team with the highest Pts Pct).
 
 One solution for addessing the anomalies cited above is to consider **H2H W-L** and **H2H
-Pts Pct** for all matchups played within the cohort, as a *higher consideration than
-tournament-level Pts Pct*, before performing the head-to-head win elevations.  If we do
+Pts Pct** for all matchups played within the cohort, as a *higher consideration* than
+tournament-level Pts Pct, before performing the head-to-head win elevations.  If we do
 this, the following ranking obtains (with the effect compared to the previous result
 indicated):
 
@@ -231,7 +246,7 @@ tie-breaking rules (just above tournament-level Points Percentage):
 3. **Cohort Points Percentage** &ndash; (Pts For) / (Pts For + Pts Against) for games
    played within the cohort
 
-Note that cohort stats for tie-breaking (other than heaad-to-head wins) are **currently
+Note that cohort stats for tie-breaking (other than head-to-head wins) are **currently
 disabled in the application** (but can actually be turned on as an option).  It will be up
 to the rules committee to decide whether&mdash;and/or in what form&mdash;to consider this
 type of notion for tie-breaking.

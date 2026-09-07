@@ -183,9 +183,9 @@ percentage, before head-to-head elevations are applied (as described above):
 
 Here is the final ranking after the head-to-head win elevations are applied (this is
 copied from the
-[Final Tournament Results](<resources/nola_2023 - Final Tournament Results.html>),
+[Final Tournament Results](<resources/nola_2023 - Final Tournament Results.png>),
 with details further represented in the
-[Tie-Breaker Report](<resources/nola_2023 - Final Tournament Tie-Breaker Report.html>)):
+[Tie-Breaker Report](<resources/nola_2023 - Final Tournament Tie-Breaker Report.png>)):
 
 | Team | Div | Tourn<br>Win Pct | Tourn<br>Pts Pct | H2H<br>W-L | H2H<br>Pts Pct | Beat | Lost To | Effect |
 | --- | :---: | :---: | :---: | :---: | :---: | --- | --- | :---: |

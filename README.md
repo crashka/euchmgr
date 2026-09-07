@@ -41,13 +41,14 @@ process flow and ensure the integrity of the data for the tournament.
 ### General Description
 
 - **"Seed"** levels for a bracket are earned through play in the previous round, and offer
-  preferential treatment when it comes to choices (e.g. picking partners) or strength of
-  opponents in the upcoming round.
+  preferential treatment when it comes to choices (e.g. picking partners), or strength of
+  opponents and/or byes in the upcoming round.
 - **"Position"** represents the outcome of bracket play, where players or teams with the
-  same winning percentage occupy the same position; a tie-breaking process is then applied
-  to the players or teams sharing an identical position.
-  - Similar to a golf tournament, if two players/teams are tied for first, the player/team
-    with the next best record is said to be in third place (or "position", our case), etc.
+  same winning percentage occupy the same position.  Similar to a golf tournament, if two
+  players/teams are tied for first, the player/team with the next best record is said to
+  be in *third* place (or "position", our case), etc.
+  - A tie-breaking process is then applied to the players or teams sharing an identical
+  position (see [Tie-Breaking Rules](#tie-breaking-rules) below).
 - **"Rank"** represents the final ordering of players or teams after tie-breaking rules
   have been applied to all players or teams sharing positions within the bracket and/or
   context.
@@ -77,9 +78,11 @@ process flow and ensure the integrity of the data for the tournament.
   last, regardless of average Player Rank.
 - **Div Seed** &ndash; represents the relative Team Seed within each division.  This is
   used for game assignments when the division brackets for the tournament are completely
-  self-contained (no inter-div matchups).  See Tournament Format (below) for more details.
-  - Note that this only applies to multi-division tournaments.  The application may later
-    support smaller single-division tournaments (e.g. regional).
+  self-contained (no inter-div matchups).  See [Tournament Format](#tournament-format)
+  (below) for more details.
+  - Note that this only applies to multi-divisional tournaments.  The application may
+    later support smaller, single-division tournaments (e.g. off-season, regional, etc.),
+    if there is sufficient interest.
 - **Div Rank** &ndash; the ranking earned by teams within their division during round
   robin tournament play, after tie-breaking rules have been applied.  The top two teams in
   each division qualify for the final four playoff round.
@@ -132,8 +135,8 @@ the round and/or context (e.g. division).
 
 *\[applies to 3rd and 4th place teams only\]*
 
-1. **Game Win Percentage** &ndash; for the semifinal round (as opposed to *Match Win
-   Percentage*, which will always be tied at 0%)
+1. **Game Win Percentage** &ndash; for the semifinal round (as opposed to *Match* win
+   percentage, which will always be tied at 0%)
 2. **Points Percentage** &ndash;  for the semifinal round
 3. **Team Rank** &ndash; to reward better round robin play (if necessary)
 
@@ -189,6 +192,7 @@ Within each cyclic win group (1-3-5 and 2-4-6), the relative positions are maint
 (i.e. they are still in order of Pts Pct), but the *overall* Pts Pct ordering has been
 mangled.  Teams 2 and 4 have been penalized because their group "leader" (Team 2) ranks
 below the other group "leader" (Team 1); and Teams 3 and 5 have conversely benefitted.
+
 It's clearly better to skip the elevation process when both teams are part of the same
 cyclic win group, which would mean keeping the original (fair!) rankings in this case.
 The final result will be truer to the tie-breaking rules as stated above.

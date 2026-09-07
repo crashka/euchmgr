@@ -31,10 +31,10 @@ process flow and ensure the integrity of the data for the tournament.
   by players during seeding round play, after tie-breaking rules have been applied (see
   below)&mdash;lower is better, no ties.  This ranking represents the order in which team
   partners are picked.
-  - Note that there is a separate "Player *Pos*" stat indicating the player's seeding round
-    ranking *before tie-breakers* (ties possible)&mdash;this is available in the admin UI
-    for reference.  Tie-breaking rules are then applied to player cohorts with identical
-    Player Pos computations in order to determine the Player Rank.
+  - Note that there is a separate "Player *Pos*" stat indicating the player's seeding
+    round ranking *before tie-breakers* (thus, ties possible)&mdash;this is available in
+    the admin UI for reference.  Tie-breaking rules are then applied to player cohorts
+    with identical Player Pos computations in order to determine the Player Rank.
 
 ## Team Identifiers and Rankings
 
@@ -129,33 +129,33 @@ Note that the "elevation" process for head-to-head wins *can* actually be used w
 win groups, but this (contructed) example demonstrates why that is not desirable.
 
 Let's say that 6 teams are tied with the same record, each one having beat another of the
-cohort teams during round play:
+cohort teams during round play.  Here they are ranked in descending order of Pts Pct:
 
-| Team | Pts Pct | Beats |
-| :---: | :---: | :---: |
-| 1 | **.800** | 3 |
-| 2 | **.700** | 4 |
-| 3 | **.600** | 5 |
-| 4 | **.500** | 6 |
-| 5 | **.400** | 1 |
-| 6 | **.300** | 2 |
+| Team | Pts Pct | Beat | Lost To |
+| :---: | :---: | :---: | :---: |
+| 1 | **.800** | 3 | 5 |
+| 2 | **.700** | 4 | 6 |
+| 3 | **.600** | 5 | 1 |
+| 4 | **.500** | 6 | 2 |
+| 5 | **.400** | 1 | 3 |
+| 6 | **.300** | 2 | 4 |
 
 As you can see, Teams 1-3-5 form a cyclic win group, as do Teams 2-4-6.  If we were to
 start from the bottom (Team 6) and work our way up with the head-to-head "elevation"
 process&mdash;that is: 6 beats 2, 5 beats 1, 4 beats 6, 3 beats 5, 2 beats 4, and 1 beats
 3)&mdash;we would end up with the following ranking order:
 
-| Team | Pts Pct | Beats | Effect |
-| :---: | :---: | :---: | :---: |
-| 1 | .800 | 3 | - |
-| 3 | .600 | 5 | <span style="color: green;">*Up 1*</span> |
-| 5 | .400 | 1 | <span style="color: green;">*Up 2*</span> |
-| 2 | .700 | 4 | <span style="color: red;">*Down 2*</span> |
-| 4 | .500 | 6 | <span style="color: red;">*Down 1*</span> |
-| 6 | .300 | 2 | - |
+| Team | Pts Pct | Beat | Lost To | Effect |
+| :---: | :---: | :---: | :---: | :---: |
+| 1 | .800 | 3 | 5 | - |
+| 3 | *.600* | 5 | 1 | <span style="color: green;">*Up 1*</span> |
+| 5 | *.400* | 1 | 3 | <span style="color: green;">*Up 2*</span> |
+| 2 | *.700* | 4 | 6 | <span style="color: red;">*Down 2*</span> |
+| 4 | *.500* | 6 | 2 | <span style="color: red;">*Down 1*</span> |
+| 6 | .300 | 2 | 4 | - |
 
 Within each cyclic win group (1-3-5 and 2-4-6), the relative positions are maintained
-(i.e. they are still in order of Pts Pct), but the *overall Pts Pct* ordering has been
+(i.e. they are still in order of Pts Pct), but the *overall* Pts Pct ordering has been
 mangled.  Teams 2 and 4 have been penalized because their group "leader" (Team 2) ranks
 below the other group "leader" (Team 1); and Teams 3 and 5 have conversely benefitted.
 It's clearly better to skip the elevation process when both teams are part of the same
@@ -174,48 +174,50 @@ rankings as an example.  In the 7th overall position, there were five teams with
 percentage, before head-to-head elevations are applied (as described above):
 
 | Team | Div | Tourn<br>Win Pct | Tourn<br>Pts Pct | H2H<br>W-L | H2H<br>Pts Pct | Beat | Lost To |
-| --- | :---: | :---: | :---: | :---: | :---: | --- | --- |
-| Cooper/Mentle [6] | 2 | .500 | **.515** | 1-1 | .486 | Wee/Cureton [2] | Lineman/DiPesa [7] |
-| Wee/Cureton [2] | 2 | .500 | **.512** | 0-2 | .412 | | Lineman/DiPesa [7]<br>Cooper/Mentle [6] |
-| Rooze/Pound [13] | 1 | .500 | **.508** | 0-1 | .375 | | O’Leary/Mary [8] |
-| O’Leary/Mary [8] | 1 | .500 | **.489** | 1-0 | .625 | Rooze/Pound [13] | |
-| Lineman/DiPesa [7] | 2 | .500 | **.481** | 2-0 | .606 | Cooper/Mentle [6]<br>Wee/Cureton [2] | |
+| :--- | :---: | :---: | :---: | :---: | :---: | :--- | :--- |
+| Cooper/Mentle | 2 | .500 | **.515** | 1-1 | .486 | Wee/Cureton | Lineman/DiPesa |
+| Wee/Cureton | 2 | .500 | **.512** | 0-2 | .412 | | Lineman/DiPesa<br>Cooper/Mentle |
+| Rooze/Pound | 1 | .500 | **.508** | 0-1 | .375 | | O’Leary/Mary |
+| O’Leary/Mary | 1 | .500 | **.489** | 1-0 | .625 | Rooze/Pound | |
+| Lineman/DiPesa | 2 | .500 | **.481** | 2-0 | .606 | Cooper/Mentle<br>Wee/Cureton | |
 
 Here is the final ranking after the head-to-head win elevations are applied (this is
 copied from the
-[Final Tournament Results](<resources/nola_2023 - Final Tournament Results.png>),
+[Final Tournament Results](<resources/nola_2023 - Final Tournament Results.html>),
 with details further represented in the
-[Tie-Breaker Report](<resources/nola_2023 - Final Tournament Tie-Breaker Report.png>)):
+[Tie-Breaker Report](<resources/nola_2023 - Final Tournament Tie-Breaker Report.html>)
+\[see Position 7\]):
 
 | Team | Div | Tourn<br>Win Pct | Tourn<br>Pts Pct | H2H<br>W-L | H2H<br>Pts Pct | Beat | Lost To | Effect |
-| --- | :---: | :---: | :---: | :---: | :---: | --- | --- | :---: |
-| Lineman/DiPesa [7] | 2 | .500 | .481 | 2-0 | .606 | Cooper/Mentle [6]<br>Wee/Cureton [2] | | <span style="color: green;">*Up 4*</span> |
-| Cooper/Mentle [6] | 2 | .500 | .515 | 1-1 | .486 | Wee/Cureton [2] | Lineman/DiPesa [7] | <span style="color: red;">*Down 1*</span> |
-| Wee/Cureton [2] | 2 | .500 | .512 | ***0-2*** | .412 | | Lineman/DiPesa [7]<br>Cooper/Mentle [6] | <span style="color: red;">*Down 1*</span> |
-| O’Leary/Mary [8] | 1 | .500 | .489 | ***1-0*** | .625 | Rooze/Pound [13] | | - |
-| Rooze/Pound [13] | 1 | .500 | .508 | *0-1* | .375 | | O’Leary/Mary [8] | <span style="color: red;">*Down 2*</span> |
+| :--- | :---: | :---: | :---: | :---: | :---: | :--- | :--- | :---: |
+| Lineman/DiPesa | 2 | .500 | .481 | 2-0 | .606 | Cooper/Mentle<br>Wee/Cureton | | <span style="color: green;">*Up 4*</span> |
+| Cooper/Mentle | 2 | .500 | .515 | 1-1 | .486 | Wee/Cureton | Lineman/DiPesa | <span style="color: red;">*Down 1*</span> |
+| Wee/Cureton | 2 | .500 | .512 | ***0-2*** | .412 | | Lineman/DiPesa<br>Cooper/Mentle | <span style="color: red;">*Down 1*</span> |
+| O’Leary/Mary | 1 | .500 | .489 | ***1-0*** | .625 | Rooze/Pound | | - |
+| Rooze/Pound | 1 | .500 | .508 | *0-1* | .375 | | O’Leary/Mary | <span style="color: red;">*Down 2*</span> |
 
 While all of the head-to-head wins are reflected in the ranking, one apparent anomaly is
-that Team 8 (O’Leary/Mary) has an unbeated record against other .500 teams and is ranked
-4th in this list, while Team 2 (Wee/Cureton) is winless against .500 teams and is ranked
-higher (in 3rd).  A more subtle complaint might be that Team 13 (Rooze/Pound) has a *less
-bad* winless record (at 0-1) compared to Team 2 (at 0-2) against the .500 cohort teams,
-yet is ranked higher.  The elevation process has inadvertently clustered the teams in the
-same division with each other (with division 2 in the favored position due to having the
-team with the highest Pts Pct).
+that **O’Leary/Mary** has an unbeated record against other .500 teams and is ranked 4th in
+this list, while **Wee/Cureton** is winless against .500 teams and is ranked higher (in
+3rd).  A more subtle complaint might be that **Rooze/Pound** has a *less bad* winless
+record (at 0-1) compared to **Wee/Cureton** (at 0-2) against the .500 cohort teams, yet is
+ranked lower.  The elevation process has inadvertently clustered the teams in the same
+division with each other (with division 2 in the favored position due to having the team
+with the highest Pts Pct).
 
-One solution for addessing the anomalies cited above is to consider **W-L and Pts Pct for
-all matchups played within the cohort**, as a *higher consideration than tournament-level
-Pts Pct*, before performing the head-to-head win elevations.  If we do this, the following
-ranking obtains (with the effect compared to the previous result indicated):
+One solution for addessing the anomalies cited above is to consider **H2H W-L** and **H2H
+Pts Pct** for all matchups played within the cohort, as a *higher consideration than
+tournament-level Pts Pct*, before performing the head-to-head win elevations.  If we do
+this, the following ranking obtains (with the effect compared to the previous result
+indicated):
 
 | Team | Div | Tourn<br>Win Pct | Tourn<br>Pts Pct | H2H<br>W-L | H2H<br>Pts Pct | Beat | Lost To | Effect |
-| --- | :---: | :---: | :---: | :---: | :---: | --- | --- | :---: |
-| Lineman/DiPesa [7] | 2 | .500 | .481 | **2-0** | .606 | Cooper/Mentle [6]<br>Wee/Cureton [2] | | - |
-| O’Leary/Mary [8] | 1 | .500 | .489 | **1-0** | .625 | Rooze/Pound [13] | | <span style="color: green;">*Up 2*</span> |
-| Cooper/Mentle [6] | 2 | .500 | .515 | **1-1** | .486 | Wee/Cureton [2] | Lineman/DiPesa [7] | <span style="color: red;">*Down 1*</span> |
-| Rooze/Pound [13] | 1 | .500 | .508 | **0-1** | .375 | | O’Leary/Mary [8] | <span style="color: green;">*Up 1*</span> |
-| Wee/Cureton [2] | 2 | .500 | .512 | **0-2** | .412 | | Lineman/DiPesa [7]<br>Cooper/Mentle [6] | <span style="color: red;">*Down 2*</span> |
+| :--- | :---: | :---: | :---: | :---: | :---: | :--- | :--- | :---: |
+| Lineman/DiPesa | 2 | .500 | .481 | **2-0** | .606 | Cooper/Mentle<br>Wee/Cureton | | - |
+| O’Leary/Mary | 1 | .500 | .489 | **1-0** | .625 | Rooze/Pound | | <span style="color: green;">*Up 2*</span> |
+| Cooper/Mentle | 2 | .500 | .515 | **1-1** | .486 | Wee/Cureton | Lineman/DiPesa | <span style="color: red;">*Down 1*</span> |
+| Rooze/Pound | 1 | .500 | .508 | **0-1** | .375 | | O’Leary/Mary | <span style="color: green;">*Up 1*</span> |
+| Wee/Cureton | 2 | .500 | .512 | **0-2** | .412 | | Lineman/DiPesa<br>Cooper/Mentle | <span style="color: red;">*Down 2*</span> |
 
 On the surface, this looks pretty good, but the downside is that it is somewhat hard to
 understand.  At a technical level, the following criteria have actually been added to the

@@ -114,18 +114,16 @@ the round and/or context (e.g. division).
 
 ### Seeding Round
 
-1. **Head-to-Head** &ndash; winners for head-to-head matchups (in the round) are always
-   ranked above losers (except in the case of "cyclic win groups", see [Notes on
-   Head-to-Head Matchups](#notes-on-head-to-head-matchups) below)
-2. **Points Percentage** &ndash; (Pts For) / (Pts For + Pts Against) for the seeding round
-3. **Points For** &ndash; for the seeding round
-4. **Player Num** &ndash; equivalent to a coin flip (since Player Nums are determined by
+1. **Points Percentage** &ndash; (Pts For) / (Pts For + Pts Against) for the seeding round
+2. **Points For** &ndash; for the seeding round
+3. **Player Num** &ndash; equivalent to a coin flip (since Player Nums are determined by
    random), but we do it this way for traceability
 
 ### Tournament Round Robin
 
-1. **Head-to-Head** &ndash; winners for head-to-head matchups (in the round) are always
-   ranked above losers (see below)
+1. **Head-to-Head** &ndash; winners for head-to-head matchups in the round are always
+   ranked above losers (except in the case of "cyclic win groups", see [Notes on
+   Head-to-Head Matchups](#notes-on-head-to-head-matchups) below)
 2. **Points Percentage** &ndash; (Pts For) / (Pts For + Pts Against) for round robin play
 3. **Points For** &ndash; for round robin play
 4. **Team Seed** &ndash; to reward better individual player seeding round play (if
@@ -152,8 +150,8 @@ teams in the cohort (in their original order, bottom-to-top).
 Notice: head-to-head matchups are *ignored* for tie-breaking in the case of **cyclic win
 groups** (e.g. A beats B, B beats C, C beats A).  That is, a player/team is *not elevated*
 above another player/team that it has beat if they are both part of the same cyclic win
-group (see [illustrative example](#example-1---head-to-head-and-cyclic-win-groups) below).
-Note that cyclic win groups are shown in all of the Tie-Breaker Reports.
+group (see [Example 1](#example-1---head-to-head-and-cyclic-win-groups) below, as an
+illustration).  Note that cyclic win groups are shown in all of the Tie-Breaker Reports.
 
 ### Illustrative Examples
 

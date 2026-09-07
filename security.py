@@ -126,6 +126,7 @@ class AdminUser(EuchmgrUser):
         """
         assert current_user == self
         logout_user()
+        log.info(f"user logged out ({self.name})")
 
     def setpass(self, password: str) -> None:
         """See base class.  Admin logins are disabled if `password` is specified as

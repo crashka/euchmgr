@@ -531,6 +531,7 @@ class Player(BaseModel, EuchmgrUser):
         """
         assert current_user == self
         logout_user()
+        log.info(f"user logged out ({self.name})")
         return True
 
     def setpass(self, password: str) -> None:
@@ -864,6 +865,13 @@ class Team(BaseModel):
         if self.player3:
             assert self.player3.champ == self.player1.champ
         return bool(self.player1.champ)
+
+    @property
+    def playoff_bound(self) -> bool:
+        """Return true if team is playoff-bound, based on current division standings.  Can
+        be called before actual playoff teams have been determined.
+        """
+        return self.div_rank in (1, 2)
 
     @property
     def playoff_team(self) -> bool:

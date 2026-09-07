@@ -790,7 +790,7 @@ def compute_tourn_ranks(active_teams: list[Team]) -> None:
     """
     tm_list = list(active_teams)  # make a shallow copy, since we will sort in-place
 
-    rank_key = lambda x: (x.div_rank in (1, 2), x.tourn_win_pct)
+    rank_key = lambda x: (x.playoff_bound, x.tourn_win_pct)
     team_rank_data = [rank_key(tm) for tm in tm_list]
     tourn_ranks = rankdata(team_rank_data, method='min')
 

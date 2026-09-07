@@ -20,7 +20,9 @@ There are three user interface components to the application:
 Behind the scenes is a database and some application server code to help implement the
 process flow and ensure the integrity of the data for the tournament.
 
-## Player Identifiers and Rankings
+## Identifiers and Rankings
+
+### Players
 
 - **Player Num** &ndash; used to identify players for game assignments in the seeding
   bracket.  These numbers used to be determined by drawing ping pong balls from a bag, but
@@ -36,7 +38,7 @@ process flow and ensure the integrity of the data for the tournament.
     the admin UI for reference.  Tie-breaking rules are then applied to player cohorts
     with identical Player Pos computations in order to determine the Player Rank.
 
-## Team Identifiers and Rankings
+### Teams
 
 - **Team Seed** &ndash; used to identify teams for division and game assignments in the
   round robin tournament brackets.  Team Seed is determined by the average Player Rank for
@@ -66,9 +68,7 @@ process flow and ensure the integrity of the data for the tournament.
     description for Div Pos above).
 - **Final Rank** &ndash; represents the final tournament ranking for teams, after playoff
   rounds are complete.  This is the same as Team Rank, except that the Final Four teams
-  are ordered by playoff results.  The two semifinal losers are ranked by playoff Win Pct
-  followed by Pts Pct (with Team Rank as the final tie-breaker, if at all necessary, to
-  reward better round robin play).
+  are ordered by playoff results (see [Playoffs](#playoffs) below).
   - "Final *Pos*" is essentially the same as Team Pos (above), except that the final four
     teams are always in positions 1 through 4 (with remaining teams in the same order,
     which may include tied positions).
@@ -82,7 +82,8 @@ the round.
 ### Seeding Round
 
 1. **Head-to-Head** &ndash; winners for head-to-head matchups (in the round) are always
-   ranked above losers (except in the case of "cyclic win groups", see below)
+   ranked above losers (except in the case of "cyclic win groups", see [Notes on
+   Head-to-Head Matchups](#notes-on-head-to-head-matchups) below)
 2. **Points Percentage** &ndash; (Pts For) / (Pts For + Pts Against) for the seeding round
 3. **Points For** &ndash; for the seeding round
 4. **Player Num** &ndash; equivalent to a coin flip (since Player Nums are determined by
@@ -106,27 +107,27 @@ the round.
 2. **Points Percentage** &ndash;  for the semifinal round
 3. **Team Rank** &ndash; to reward better round robin play (if necessary)
 
-### Notes on Head-to-Head Comparisons
+### Notes on Head-to-Head Matchups
 
-In terms of implementation, tied players/teams are first sorted by all of the criteria
-*other than head-to-head matchups* (e.g. points percentage), and then a head-to-head
-"elevation" process is performed.  The elevation process works by starting with the lowest
-ranked team within the cohort and elevating it above the current highest ranked team that
-it has beat head-to-head in the round.  The same process is then applied to each of the
-remaining teams in the cohort (in their original order, bottom-to-top).
+In terms of implementation, tied players/teams are first sorted by all of the *other*
+criteria (e.g. points percentage, points for, etc.), and then a head-to-head "elevation"
+process is performed.  The elevation process works by starting with the lowest ranked team
+within the cohort and elevating it above the current highest ranked team that it has beat
+head-to-head in the round.  The same process is then applied to each of the remaining
+teams in the cohort (in their original order, bottom-to-top).
 
-**Important**: head-to-head matchups are *ignored for tie-breaking* in the case of
-**cyclic win groups** (e.g. A beats B, B beats C, C beats A).  That is, a player/team is
-*not elevated* above another player/team that it has beat if they are both part of the
-same cyclic win group (see illustrative example below).  Cyclic win groups are shown in
-each of the Tie-Breaker Reports.
+Notice: head-to-head matchups are *ignored* for tie-breaking in the case of **cyclic win
+groups** (e.g. A beats B, B beats C, C beats A).  That is, a player/team is *not elevated*
+above another player/team that it has beat if they are both part of the same cyclic win
+group (see [illustrative example](#example-1---head-to-head-and-cyclic-win-groups) below).
+Note that cyclic win groups are shown in all of the Tie-Breaker Reports.
 
 ### Illustrative Examples
 
 #### Example 1 - Head-to-Head and Cyclic Win Groups
 
 Note that the "elevation" process for head-to-head wins *can* actually be used with cyclic
-win groups, but this (contructed) example demonstrates why that is not desirable.
+win groups, but this (constructed) example demonstrates why that is not desirable.
 
 Let's say that 6 teams are tied with the same record, each one having beat another of the
 cohort teams during round play.  Here they are ranked in descending order of Pts Pct:
@@ -140,7 +141,7 @@ cohort teams during round play.  Here they are ranked in descending order of Pts
 | 5 | **.400** | 1 | 3 |
 | 6 | **.300** | 2 | 4 |
 
-As you can see, Teams 1-3-5 form a cyclic win group, as do Teams 2-4-6.  If we were to
+As can be seen, Teams 1-3-5 form a cyclic win group, as do Teams 2-4-6.  If we were to
 start from the bottom (Team 6) and work our way up with the head-to-head "elevation"
 process&mdash;that is: 6 beats 2, 5 beats 1, 4 beats 6, 3 beats 5, 2 beats 4, and 1 beats
 3)&mdash;we would end up with the following ranking order:
@@ -175,11 +176,11 @@ percentage, before head-to-head elevations are applied (as described above):
 
 | Team | Div | Tourn<br>Win Pct | Tourn<br>Pts Pct | H2H<br>W-L | H2H<br>Pts Pct | Beat | Lost To |
 | :--- | :---: | :---: | :---: | :---: | :---: | :--- | :--- |
-| Cooper/Mentle | 2 | .500 | **.515** | 1-1 | .486 | Wee/Cureton | Lineman/DiPesa |
-| Wee/Cureton | 2 | .500 | **.512** | 0-2 | .412 | | Lineman/DiPesa<br>Cooper/Mentle |
-| Rooze/Pound | 1 | .500 | **.508** | 0-1 | .375 | | O’Leary/Mary |
-| O’Leary/Mary | 1 | .500 | **.489** | 1-0 | .625 | Rooze/Pound | |
-| Lineman/DiPesa | 2 | .500 | **.481** | 2-0 | .606 | Cooper/Mentle<br>Wee/Cureton | |
+| Cooper/Mentle [6] | 2 | .500 | **.515** | 1-1 | .486 | Wee/Cureton [2] | Lineman/DiPesa [7] |
+| Wee/Cureton [2] | 2 | .500 | **.512** | 0-2 | .412 | | Lineman/DiPesa [7]<br>Cooper/Mentle [6] |
+| Rooze/Pound [13] | 1 | .500 | **.508** | 0-1 | .375 | | O’Leary/Mary [8] |
+| O’Leary/Mary [8] | 1 | .500 | **.489** | 1-0 | .625 | Rooze/Pound [13] | |
+| Lineman/DiPesa [7] | 2 | .500 | **.481** | 2-0 | .606 | Cooper/Mentle [6]<br>Wee/Cureton [2] | |
 
 Here is the final ranking after the head-to-head win elevations are applied (this is
 copied from the
@@ -190,20 +191,20 @@ with details further represented in the
 
 | Team | Div | Tourn<br>Win Pct | Tourn<br>Pts Pct | H2H<br>W-L | H2H<br>Pts Pct | Beat | Lost To | Effect |
 | :--- | :---: | :---: | :---: | :---: | :---: | :--- | :--- | :---: |
-| Lineman/DiPesa | 2 | .500 | .481 | 2-0 | .606 | Cooper/Mentle<br>Wee/Cureton | | <span style="color: green;">*Up 4*</span> |
-| Cooper/Mentle | 2 | .500 | .515 | 1-1 | .486 | Wee/Cureton | Lineman/DiPesa | <span style="color: red;">*Down 1*</span> |
-| Wee/Cureton | 2 | .500 | .512 | ***0-2*** | .412 | | Lineman/DiPesa<br>Cooper/Mentle | <span style="color: red;">*Down 1*</span> |
-| O’Leary/Mary | 1 | .500 | .489 | ***1-0*** | .625 | Rooze/Pound | | - |
-| Rooze/Pound | 1 | .500 | .508 | *0-1* | .375 | | O’Leary/Mary | <span style="color: red;">*Down 2*</span> |
+| Lineman/DiPesa [7] | 2 | .500 | .481 | 2-0 | .606 | Cooper/Mentle [6]<br>Wee/Cureton [2] | | <span style="color: green;">*Up 4*</span> |
+| Cooper/Mentle [6] | 2 | .500 | .515 | 1-1 | .486 | Wee/Cureton [2] | Lineman/DiPesa [7] | <span style="color: red;">*Down 1*</span> |
+| Wee/Cureton [2] | 2 | .500 | .512 | ***0-2*** | .412 | | Lineman/DiPesa [7]<br>Cooper/Mentle [6] | <span style="color: red;">*Down 1*</span> |
+| O’Leary/Mary [8] | 1 | .500 | .489 | ***1-0*** | .625 | Rooze/Pound [13] | | - |
+| Rooze/Pound [13] | 1 | .500 | .508 | *0-1* | .375 | | O’Leary/Mary [8] | <span style="color: red;">*Down 2*</span> |
 
 While all of the head-to-head wins are reflected in the ranking, one apparent anomaly is
-that **O’Leary/Mary** has an unbeated record against other .500 teams and is ranked 4th in
-this list, while **Wee/Cureton** is winless against .500 teams and is ranked higher (in
-3rd).  A more subtle complaint might be that **Rooze/Pound** has a *less bad* winless
-record (at 0-1) compared to **Wee/Cureton** (at 0-2) against the .500 cohort teams, yet is
-ranked lower.  The elevation process has inadvertently clustered the teams in the same
-division with each other (with division 2 in the favored position due to having the team
-with the highest Pts Pct).
+that **O’Leary/Mary [8]** has an unbeated record against other .500 teams and is ranked
+4th in this list, while **Wee/Cureton [2]** is winless against .500 teams and yet is
+ranked higher (3rd).  A more subtle complaint might be that **Rooze/Pound [13]** has a
+*less bad* winless record (at 0-1) against the .500 cohort teams compared to **Wee/Cureton
+[2]** (at 0-2), yet is ranked lower.  It should be noted that the elevation process has
+inadvertently clustered together teams in the same division with each other (with division
+2 in the favored position due to having the team with the highest Pts Pct).
 
 One solution for addessing the anomalies cited above is to consider **H2H W-L** and **H2H
 Pts Pct** for all matchups played within the cohort, as a *higher consideration than
@@ -213,11 +214,11 @@ indicated):
 
 | Team | Div | Tourn<br>Win Pct | Tourn<br>Pts Pct | H2H<br>W-L | H2H<br>Pts Pct | Beat | Lost To | Effect |
 | :--- | :---: | :---: | :---: | :---: | :---: | :--- | :--- | :---: |
-| Lineman/DiPesa | 2 | .500 | .481 | **2-0** | .606 | Cooper/Mentle<br>Wee/Cureton | | - |
-| O’Leary/Mary | 1 | .500 | .489 | **1-0** | .625 | Rooze/Pound | | <span style="color: green;">*Up 2*</span> |
-| Cooper/Mentle | 2 | .500 | .515 | **1-1** | .486 | Wee/Cureton | Lineman/DiPesa | <span style="color: red;">*Down 1*</span> |
-| Rooze/Pound | 1 | .500 | .508 | **0-1** | .375 | | O’Leary/Mary | <span style="color: green;">*Up 1*</span> |
-| Wee/Cureton | 2 | .500 | .512 | **0-2** | .412 | | Lineman/DiPesa<br>Cooper/Mentle | <span style="color: red;">*Down 2*</span> |
+| Lineman/DiPesa [7] | 2 | .500 | .481 | **2-0** | .606 | Cooper/Mentle [6]<br>Wee/Cureton [2] | | - |
+| O’Leary/Mary [8] | 1 | .500 | .489 | **1-0** | .625 | Rooze/Pound [13] | | <span style="color: green;">*Up 2*</span> |
+| Cooper/Mentle [6] | 2 | .500 | .515 | **1-1** | .486 | Wee/Cureton [2] | Lineman/DiPesa [7] | <span style="color: red;">*Down 1*</span> |
+| Rooze/Pound [13] | 1 | .500 | .508 | **0-1** | .375 | | O’Leary/Mary [8] | <span style="color: green;">*Up 1*</span> |
+| Wee/Cureton [2] | 2 | .500 | .512 | **0-2** | .412 | | Lineman/DiPesa [7]<br>Cooper/Mentle [6] | <span style="color: red;">*Down 2*</span> |
 
 On the surface, this looks pretty good, but the downside is that it is somewhat hard to
 understand.  At a technical level, the following criteria have actually been added to the

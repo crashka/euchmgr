@@ -12,6 +12,11 @@
   \- [Notes on Head-to-Head Matchups](#notes-on-head-to-head-matchups)<br>
   \- [Illustrative Examples](#illustrative-examples)<br>
 [Tournament Format](#tournament-format)<br>
+  \- [Player Registration](#player-registration)<br>
+  \- [Seeding Round](#seeding-round)<br>
+  \- [Partner Picking](#partner-picking)<br>
+  \- [Tournament Round Robin](#tournament-round-robin)<br>
+  \- [Final Four Playoffs](#final-four-playoffs)<br>
 [Import/Export Format](#importexport-format)<br>
 [Admin and Mobile APIs](#admin-and-mobile-apis)<br>
 [UI Screenshots and Descriptions](#ui-screenshots-and-descriptions)<br>
@@ -270,7 +275,97 @@ type of notion for tie-breaking.
 
 ## Tournament Format
 
-*\[coming soon...\]*
+This is a discussion of the current structure for tournaments, as related to the various
+phases of progression (including card playing rounds), and details on bracket generation
+and game/match assignments.  Tournaments consist of the following high-level stages:
+
+- Player Registration
+- Seeding Round
+- Partner Picking
+- Tournament Round Robin
+- Final Four Playoffs
+
+### Player Registration
+
+During player registration, individual players can enter their desired nick name
+(otherwise will be known by their last name).  If we are using physical ping pong balls,
+they can also enter their ping pong ball number.  Otherwise, the admin will generate
+random Player Nums for everyone.  Admins also have the ability to override the
+representation of player names, as they see fit.
+
+### Seeding Round
+
+For seeding round play, we currently have brackets for 23 through 50 players.  Brackets
+for higher and lower numbers of players can be generated with a little bit of effort
+(esepcially thinking about the number and types of player interactions for the lower
+numbers).
+
+Players are able enter game scores through the mobile application.  A member of the
+opposing team must confirm a submitted score before it is officially posted.  Admins have
+the ability to make corrections to any posted score, as well as adjustments to the final
+player ranking after automated tabulations at the end of the round.
+
+### Partner Picking
+
+Partner picking is done based on seeding round player rankings, starting from the top
+down.  Once a player is picked, they are skipped when it comes to their turn.  The
+reigning championship team (assuming all players are present) are automatically selected
+together in the position of their highest ranked player (not that this order really
+matters, since team seeds are determined by average player rank).
+
+### Tournament Round Robin
+
+For tournament round robin play, we are currently assuming 8 rounds of play, with teams
+split into two separate divisions.  Brackets are generated in such a way that higher
+ranked teams are correlated with easier strengths of schedule (proportionally, throughout
+the order).  Here is the current level of support (or near-support) for **two divisions**:
+
+
+- Separate divisional play for 17 to 32 teams (34 to 65 players)
+- Some inter-divisional play for 12 to 16 teams (24 to 33 players)
+  - Brackets don't currently exist for 13 or 15 teams, but can be generated with a little
+    bit of effort
+
+Overall team seeds are computed from average player rank of the team members (after the
+seeding round).  Assignment of teams to divisions then follows a "snake pattern", as
+follows (assuming division names of **A** and **B**):
+
+| Team Seed | Div | Div Seed |
+| :---: | :---: | :---: |
+| 1 | A | 1 |
+| 2 | B | 1 |
+| 3 | B | 2 |
+| 4 | A | 2 |
+| 5 | A | 3 |
+| 6 | B | 3 |
+| etc. | | |
+
+Posting of scores, as well as admin-level corrections/adjustments (to game scores or team
+rankings), are done similarly to as in the seeding round (described above).
+
+After round robin play, the top two teams in each of the two divisions (after tie-breakers
+are applied) advance to the final four playoffs.
+
+#### Single-Division Support
+
+If the need arises to support fewer than 24 players (e.g. a regional tournament), we can
+revert to a single-division round robin for main tournament play.  For this format, we
+currently have brackets for 8 to 14 teams (16 to 29 players), but it would require a
+little bit of enhancement to the application to actualize.  Going below 16 players will
+require a little more thinking and effort around format (number of rounds and bracket
+requirements).
+
+### Final Four Playoffs
+
+In the final four playoffs, the top ranked team in each division (again, assuming two) is
+paired against the second ranked team in the other division for the semifinal round.  The
+winner of each pairing, in a best of three match, advances to the finals round.  The
+finals round is also a best of three match.  The third place team, among the two
+semifinals losers, is determined as described above (under [Tie-Breaking
+Rules](#tie-breaking-rules)).
+
+As with the seeding round and tournament round robin, admins will have the ability to
+adjust playoff game scores and final tournament rankings, as needed.
 
 ## Import/Export Format
 

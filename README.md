@@ -2,21 +2,21 @@
 
 [Overview](#overview)<br>
 [Identifiers and Rankings](#identifiers-and-rankings)<br>
-  \- [General Description](#general-description)<br>
-  \- [Players](#players)<br>
-  \- [Teams](#teams)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;\- [General Description](#general-description)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;\- [Players](#players)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;\- [Teams](#teams)<br>
 [Tie-Breaking Rules](#tie-breaking-rules)<br>
-  \- [Seeding Round](#seeding-round)<br>
-  \- [Tournament Round Robin](#tournament-round-robin)<br>
-  \- [Playoffs](#playoffs)<br>
-  \- [Notes on Head-to-Head Matchups](#notes-on-head-to-head-matchups)<br>
-  \- [Illustrative Examples](#illustrative-examples)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;\- [Seeding Round](#seeding-round)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;\- [Tournament Round Robin](#tournament-round-robin)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;\- [Playoffs](#playoffs)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;\- [Notes on Head-to-Head Matchups](#notes-on-head-to-head-matchups)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;\- [Illustrative Examples](#illustrative-examples)<br>
 [Tournament Format](#tournament-format)<br>
-  \- [Player Registration](#player-registration)<br>
-  \- [Seeding Round](#seeding-round)<br>
-  \- [Partner Picking](#partner-picking)<br>
-  \- [Tournament Round Robin](#tournament-round-robin)<br>
-  \- [Final Four Playoffs](#final-four-playoffs)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;\- [Player Registration](#player-registration)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;\- [Seeding Round](#seeding-round)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;\- [Partner Picking](#partner-picking)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;\- [Tournament Round Robin](#tournament-round-robin)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;\- [Final Four Playoffs](#final-four-playoffs)<br>
 [Import/Export Format](#importexport-format)<br>
 [Admin and Mobile APIs](#admin-and-mobile-apis)<br>
 [UI Screenshots and Descriptions](#ui-screenshots-and-descriptions)<br>

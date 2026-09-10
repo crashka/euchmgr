@@ -9,8 +9,7 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 
 ## Tasks
 
-- tests for score posting scenarios
-- headless API for all data and actions, including documentation
+- documentation for admin and mobile APIs
 
 ## Features/Enhancements
 
@@ -30,9 +29,6 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 
 ## Refactoring
 
-- improve HTML and CSS design
-  - prettier styling in general
-- fix naming throughout (e.g. seed vs seeding, seed vs rank, etc.)
 - convert pl\_layout, sg\_layout, etc. from tuples to dict[str, tuple[...]]
 
 ## Framework
@@ -43,7 +39,6 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 - named admin users
 - merge application-level logging with flask/gunicorn logging?
 - audit trailing (and/or snapshotting/archiving)?
-  - created\_by/updated\_by metadata fields
 - optimistic locking (or other concurrency control)?
 
 ## Bracketology
@@ -52,4 +47,3 @@ all be addressed and dispositioned by general consensus (and/or the rules commit
 - measure/ensure fairness for inter-divisional play (if needed for either the bye problem
   or just based on numbers)
 - euchmgr needs to use new omni-bracket format
-- optimize for combination of r-squared value and RMSE (relative to ideal)

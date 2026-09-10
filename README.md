@@ -2,21 +2,21 @@
 
 [Overview](#overview)<br>
 [Identifiers and Rankings](#identifiers-and-rankings)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;\- [General Description](#general-description)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;\- [Players](#players)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;\- [Teams](#teams)<br>
+&nbsp;&nbsp;\- [General Description](#general-description)<br>
+&nbsp;&nbsp;\- [Players](#players)<br>
+&nbsp;&nbsp;\- [Teams](#teams)<br>
 [Tie-Breaking Rules](#tie-breaking-rules)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;\- [Seeding Round](#seeding-round)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;\- [Tournament Round Robin](#tournament-round-robin)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;\- [Playoffs](#playoffs)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;\- [Notes on Head-to-Head Matchups](#notes-on-head-to-head-matchups)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;\- [Illustrative Examples](#illustrative-examples)<br>
+&nbsp;&nbsp;\- [Seeding Round](#seeding-round)<br>
+&nbsp;&nbsp;\- [Tournament Round Robin](#tournament-round-robin)<br>
+&nbsp;&nbsp;\- [Playoffs](#playoffs)<br>
+&nbsp;&nbsp;\- [Notes on Head-to-Head Matchups](#notes-on-head-to-head-matchups)<br>
+&nbsp;&nbsp;\- [Illustrative Examples](#illustrative-examples)<br>
 [Tournament Format](#tournament-format)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;\- [Player Registration](#player-registration)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;\- [Seeding Round](#seeding-round)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;\- [Partner Picking](#partner-picking)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;\- [Tournament Round Robin](#tournament-round-robin)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;\- [Final Four Playoffs](#final-four-playoffs)<br>
+&nbsp;&nbsp;\- [Player Registration](#player-registration)<br>
+&nbsp;&nbsp;\- [Seeding Round](#seeding-round)<br>
+&nbsp;&nbsp;\- [Partner Picking](#partner-picking)<br>
+&nbsp;&nbsp;\- [Tournament Round Robin](#tournament-round-robin)<br>
+&nbsp;&nbsp;\- [Final Four Playoffs](#final-four-playoffs)<br>
 [Import/Export Format](#importexport-format)<br>
 [Admin and Mobile APIs](#admin-and-mobile-apis)<br>
 [UI Screenshots and Descriptions](#ui-screenshots-and-descriptions)<br>

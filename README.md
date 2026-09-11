@@ -328,7 +328,7 @@ the order).  Here is the current level of support (or near-support) for **two di
 
 Overall team seeds are computed from average player rank of the team members (after the
 seeding round).  Assignment of teams to divisions then follows a "snake pattern", as
-follows (assuming division names of **A** and **B**):
+follows (assuming division names of "A" and "B"):
 
 | Team Seed | Div | Div Seed |
 | :---: | :---: | :---: |

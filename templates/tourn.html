@@ -156,15 +156,15 @@
         <div>
           <p>
             <label>Rounds (seed):</label>
-            <input name="seed_rounds" type="number" value="{{tourn.seed_rounds}}" disabled>
+            <input name="seed_rounds" type="number" value="{{tourn.seed_rounds}}" required>
           </p>
           <p>
             <label>Rounds (tourn):</label>
-            <input name="tourn_rounds" type="number" value="{{tourn.tourn_rounds}}" disabled>
+            <input name="tourn_rounds" type="number" value="{{tourn.tourn_rounds}}" required>
           </p>
           <p>
             <label>Divisions (tourn):</label>
-            <input name="divisions" type="number" value="{{tourn.divisions}}" disabled>
+            <input name="divisions" type="number" value="{{tourn.divisions}}" required>
           </p>
         </div>
         {% with tooltip = "Leave empty if player passwords are not required" %}

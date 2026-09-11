@@ -1,0 +1,32 @@
+Failures: 9858/10000 searching for best bracket
+
+Statistic                       	Min	Max	Mean	Stddev	Optimal
+---------                       	-----	-----	-----	------	-------
+Repeat Partners                 	0	0	0	0.0	
+Repeat Opponents                	0	0	0	0.0	
+Repeat Interactions             	0	0	0	0.0	
+Distinct Partners               	3	4	3.2	0.42	3.2
+Distinct Opponents              	6	8	6.4	0.84	6.4
+Distinct Interactions           	7	8	7.2	0.42	9
+2nd-level Partnerships (avg)    	0.8	0.9	0.82	0.04	0.78
+2nd-level Oppositions (avg)     	3.8	4.4	3.92	0.25	3.84
+2nd-level Interactions (avg)    	8.6	9.8	8.84	0.51	9.17
+2nd-level Partnerships Spread   	2	2	2	0.0	
+2nd-level Oppositions Spread    	1	4	1.6	1.26	
+2nd-level Interactions Spread   	2	8	3.2	2.53	
+
+Divergence from Optimal         	Min	Max	Mean
+-----------------------         	-----	-----	-----
+Distinct Partners               	-0.2	0.8	0.0
+Distinct Opponents              	-0.4	1.6	0.0
+Distinct Interactions           	-2	-1	-1.8
+2nd-level Partnerships (avg)    	0.02	0.12	0.04
+2nd-level Oppositions (avg)     	-0.04	0.56	0.08
+2nd-level Interactions (avg)    	-0.57	0.63	-0.33
+
+Optimal: False
+---
+5,7,4,10,3,8,9,6,1,2
+1,10,6,8,5,2,7,9,3,4
+1,7,9,3,4,2,8,10,5,6
+10,5,1,3,6,4,9,2,7,8

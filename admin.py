@@ -390,16 +390,19 @@ def create_tourn(form: dict) -> str:
     """Create new tournament from form data.  Note that this is called against the
     `tourn_info` form.
     """
-    tourn       = None
-    roster_path = None
-    err_msg     = None
+    tourn        = None
+    roster_path  = None
+    err_msg      = None
 
-    tourn_name  = form.get('tourn_name')
-    dates       = form.get('dates') or None
-    venue       = form.get('venue') or None
-    dflt_pw     = form.get('dflt_pw') or None
-    overwrite   = typecast(form.get('overwrite', ""))
-    req_file    = request.files.get('roster_file')
+    tourn_name   = form.get('tourn_name')
+    dates        = form.get('dates') or None
+    venue        = form.get('venue') or None
+    seed_rounds  = form.get('seed_rounds')
+    tourn_rounds = form.get('tourn_rounds')
+    divisions    = form.get('divisions')
+    dflt_pw      = form.get('dflt_pw') or None
+    overwrite    = typecast(form.get('overwrite', ""))
+    req_file     = request.files.get('roster_file')
     if req_file:
         roster_file = secure_filename(req_file.filename)
         roster_path = os.path.join(UPLOAD_DIR, roster_file)
@@ -414,6 +417,9 @@ def create_tourn(form: dict) -> str:
             attrs = {
                 'dates'       : dates,
                 'venue'       : venue,
+                'seed_rounds' : seed_rounds,
+                'tourn_rounds': tourn_rounds,
+                'divisions'   : divisions,
                 'dflt_pw_hash': dflt_pw_hash
             }
             tourn = tourn_create(force=overwrite, **attrs)

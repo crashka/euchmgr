@@ -9,6 +9,7 @@ The To Do List has been moved to TODO.md.
 """
 
 import random
+from typing import Iterator
 from itertools import islice, groupby
 import csv
 import os
@@ -23,6 +24,36 @@ from schema import (rnd_pct, rnd_avg, Bracket, TournStage, TournInfo, Player, Se
 #####################
 # utility functions #
 #####################
+
+DATA_DELIM = '---'
+
+# check if row from `csv.reader` is empty (or contains no data)
+empty_row = lambda x: not ''.join(x)
+
+def bracket_reader(bracket_file: str) -> Iterator[list[str]]:
+    """Iterate the specified bracket file, yielding the bracket data (as lists of strings)
+    and returning any documentation in the file (see https://stackoverflow.com/a/34073559
+    for making this accessible to the caller).
+    """
+    bracket_info = []
+    with open(BracketsFile(bracket_file), newline='') as f:
+        while line := f.readline():
+            if line.strip() == DATA_DELIM:
+                break
+            bracket_info.append(line)
+            continue
+
+        reader = csv.reader(f)
+        for row in reader:
+            if empty_row(row):  # signifies end of data
+                break
+            yield row
+
+        # REVISIT: for now, we ignore anything in the file after the bracket data--perhaps
+        # later, we would keep reading and append any additional notes to `bracket_info`!!!
+        pass
+
+    return ''.join(bracket_info) or None
 
 def get_div_maps(tourn: TournInfo) -> dict[int, dict[int, Team]]:
     """For each division (top-level key), return map of Teams indexed by div_seed.  Do a
@@ -79,6 +110,9 @@ def tourn_create(force: bool = False, **tourn_attrs) -> TournInfo:
     info = {'name'        : db_name(),  # see docheader
             'dates'       : tourn_attrs.get('dates'),
             'venue'       : tourn_attrs.get('venue'),
+            'seed_rounds' : tourn_attrs.get('seed_rounds'),
+            'tourn_rounds': tourn_attrs.get('tourn_rounds'),
+            'divisions'   : tourn_attrs.get('divisions'),
             'dflt_pw_hash': tourn_attrs.get('dflt_pw_hash'),
             'import_path' : import_path,
             'stage_compl' : TournStage.TOURN_CREATE}
@@ -103,6 +137,10 @@ def upload_roster(csv_path: str) -> None:
             if player.reigning_champ:
                 nchamps += 1
             players.append(player)
+
+    # tweak, if `reigning_champ` not specified (to keep the remaining code unchanged)
+    if nchamps == 0:
+        nchamps = 2
 
     # update tournament info (players, teams, etc.)
     nplayers = len(players)
@@ -153,45 +191,47 @@ def build_seed_bracket() -> list[SeedGame]:
     tourn = TournInfo.get()
     nplayers = tourn.players
     nrounds = tourn.seed_rounds
-    bracket_file = f'seed-{nplayers}-{nrounds}.csv'  # need to reconcile with Bracket.SEED!!!
+    bracket_file = f'sd-{nplayers}-{nrounds}.brckt'  # need to reconcile with Bracket.SEED!!!
 
     games = []
     pl_map = Player.get_player_map()
-    with open(BracketsFile(bracket_file), newline='') as f:
-        reader = csv.reader(f)
-        for rnd_i, row in enumerate(reader):
-            seats = (int(x) for x in row)
-            tbl_j = 0
-            while table := list(islice(seats, 0, 4)):
-                if len(table) < 4:
-                    bye_players = fmt_player_list(pl_map, table)
-                    table += [None] * (4 - len(table))
-                    p1, p2, p3, p4 = table
-                    table_num = None
-                    label = f'{Bracket.SEED}-{rnd_i+1}-byes'
-                    team1_name = team2_name = None
-                else:
-                    p1, p2, p3, p4 = table
-                    table_num = tbl_j + 1
-                    label = f'{Bracket.SEED}-{rnd_i+1}-{tbl_j+1}'
-                    team1_name = fmt_team_name(pl_map, [p1, p2])
-                    team2_name = fmt_team_name(pl_map, [p3, p4])
-                    bye_players = None
-                info = {'round_num'  : rnd_i + 1,
-                        'table_num'  : table_num,
-                        'label'      : label,
-                        'player1_num': p1,
-                        'player2_num': p2,
-                        'player3_num': p3,
-                        'player4_num': p4,
-                        'team1_name' : team1_name,
-                        'team2_name' : team2_name,
-                        'bye_players': bye_players}
-                tbl_j += 1
-                game = SeedGame.create(**info)
-                games.append(game)
-                if game.bye_players:
-                    game.insert_player_games()
+    reader = bracket_reader(bracket_file)
+    for rnd_i, row in enumerate(reader):
+        seats = (int(x) for x in row)
+        tbl_j = 0
+        while table := list(islice(seats, 0, 4)):
+            if len(table) < 4:
+                bye_players = fmt_player_list(pl_map, table)
+                table += [None] * (4 - len(table))
+                p1, p2, p3, p4 = table
+                table_num = None
+                label = f'{Bracket.SEED}-{rnd_i+1}-byes'
+                team1_name = team2_name = None
+            else:
+                p1, p2, p3, p4 = table
+                table_num = tbl_j + 1
+                label = f'{Bracket.SEED}-{rnd_i+1}-{tbl_j+1}'
+                team1_name = fmt_team_name(pl_map, [p1, p2])
+                team2_name = fmt_team_name(pl_map, [p3, p4])
+                bye_players = None
+            info = {'round_num'  : rnd_i + 1,
+                    'table_num'  : table_num,
+                    'label'      : label,
+                    'player1_num': p1,
+                    'player2_num': p2,
+                    'player3_num': p3,
+                    'player4_num': p4,
+                    'team1_name' : team1_name,
+                    'team2_name' : team2_name,
+                    'bye_players': bye_players}
+            tbl_j += 1
+            game = SeedGame.create(**info)
+            games.append(game)
+            if game.bye_players:
+                game.insert_player_games()
+
+    # LATER: we can retrieve the bracket info (i.e. header text) from the reader and then
+    # do something with it!
 
     tourn.complete_stage(TournStage.SEED_BRACKET)
     return games
@@ -490,55 +530,58 @@ def build_tourn_bracket() -> list[TournGame]:
         div_map = div_maps[div_i + 1]
         brckt_teams = len(div_map)
         bye_div_seed = brckt_teams + 1  # TODO: only if odd number of teams!!!
-        bracket_file = f'rr-{brckt_teams}-{nrounds}.csv'  # need to reconcile with Bracket.TOURN!!!
-        with open(BracketsFile(bracket_file), newline='') as f:
-            reader = csv.reader(f)
-            for rnd_j, row in enumerate(reader):
-                seats = (int(x) for x in row)
-                tbl_k = 0
-                while table := list(islice(seats, 0, 2)):
-                    # byes can be specified by pairing with `bye_div_seed` (pseudo-team
-                    # whose value is number of teams plus 1), or an unpaired team at the
-                    # end of a row (as for seed round bracket files)
-                    if len(table) == 1:
-                        table += [bye_div_seed]
-                    if bye_div_seed in table:
-                        t1, t2 = sorted(table)
-                        assert t2 == bye_div_seed
-                        label = f'{Bracket.TOURN}-{div_i+1}-{rnd_j+1}-bye'
-                        team1 = div_map[t1]
-                        info = {'div_num'       : div_i + 1,
-                                'round_num'     : rnd_j + 1,
-                                'table_num'     : None,
-                                'label'         : label,
-                                'team1'         : team1,
-                                'team2'         : None,
-                                'team1_name'    : None,
-                                'team2_name'    : None,
-                                'bye_team'      : team1.team_name,
-                                'team1_div_seed': team1.div_seed,
-                                'team2_div_seed': None}
-                    else:
-                        t1, t2 = table
-                        label = f'{Bracket.TOURN}-{div_i+1}-{rnd_j+1}-{tbl_k+1}'
-                        team1 = div_map[t1]
-                        team2 = div_map[t2]
-                        info = {'div_num'       : div_i + 1,
-                                'round_num'     : rnd_j + 1,
-                                'table_num'     : tbl_k + 1,
-                                'label'         : label,
-                                'team1'         : team1,
-                                'team2'         : team2,
-                                'team1_name'    : team1.team_name,
-                                'team2_name'    : team2.team_name,
-                                'bye_team'      : None,
-                                'team1_div_seed': team1.div_seed,
-                                'team2_div_seed': team2.div_seed}
-                        tbl_k += 1
-                    game = TournGame.create(**info)
-                    games.append(game)
-                    if game.bye_team:
-                        game.insert_team_games()
+        bracket_file = f'rr-{brckt_teams}-{nrounds}.brckt'  # need to reconcile with Bracket.TOURN!!!
+        reader = bracket_reader(bracket_file)
+        for rnd_j, row in enumerate(reader):
+            seats = (int(x) for x in row)
+            tbl_k = 0
+            while table := list(islice(seats, 0, 2)):
+                # byes can be specified by pairing with `bye_div_seed` (pseudo-team
+                # whose value is number of teams plus 1), or an unpaired team at the
+                # end of a row (as for seed round bracket files)
+                if len(table) == 1:
+                    table += [bye_div_seed]
+                if bye_div_seed in table:
+                    t1, t2 = sorted(table)
+                    assert t2 == bye_div_seed
+                    label = f'{Bracket.TOURN}-{div_i+1}-{rnd_j+1}-bye'
+                    team1 = div_map[t1]
+                    info = {'div_num'       : div_i + 1,
+                            'round_num'     : rnd_j + 1,
+                            'table_num'     : None,
+                            'label'         : label,
+                            'team1'         : team1,
+                            'team2'         : None,
+                            'team1_name'    : None,
+                            'team2_name'    : None,
+                            'bye_team'      : team1.team_name,
+                            'team1_div_seed': team1.div_seed,
+                            'team2_div_seed': None}
+                else:
+                    t1, t2 = table
+                    label = f'{Bracket.TOURN}-{div_i+1}-{rnd_j+1}-{tbl_k+1}'
+                    team1 = div_map[t1]
+                    team2 = div_map[t2]
+                    info = {'div_num'       : div_i + 1,
+                            'round_num'     : rnd_j + 1,
+                            'table_num'     : tbl_k + 1,
+                            'label'         : label,
+                            'team1'         : team1,
+                            'team2'         : team2,
+                            'team1_name'    : team1.team_name,
+                            'team2_name'    : team2.team_name,
+                            'bye_team'      : None,
+                            'team1_div_seed': team1.div_seed,
+                            'team2_div_seed': team2.div_seed}
+                    tbl_k += 1
+                game = TournGame.create(**info)
+                games.append(game)
+                if game.bye_team:
+                    game.insert_team_games()
+
+        # LATER: we can retrieve the bracket info and do something with it (same as
+        # `build_seed_bracket` above)!
+        pass
 
     tourn.complete_stage(TournStage.TOURN_BRACKET)
     return games

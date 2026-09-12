@@ -107,15 +107,16 @@ def tourn_create(force: bool = False, **tourn_attrs) -> TournInfo:
         if import_path.find(base_pfx) == 0:
             import_path = import_path[len(base_pfx):]
 
-    info = {'name'        : db_name(),  # see docheader
-            'dates'       : tourn_attrs.get('dates'),
-            'venue'       : tourn_attrs.get('venue'),
-            'seed_rounds' : tourn_attrs.get('seed_rounds'),
-            'tourn_rounds': tourn_attrs.get('tourn_rounds'),
-            'divisions'   : tourn_attrs.get('divisions'),
-            'dflt_pw_hash': tourn_attrs.get('dflt_pw_hash'),
-            'import_path' : import_path,
-            'stage_compl' : TournStage.TOURN_CREATE}
+    info = {'name'         : db_name(),  # see docheader
+            'dates'        : tourn_attrs.get('dates'),
+            'venue'        : tourn_attrs.get('venue'),
+            'seed_rounds'  : tourn_attrs.get('seed_rounds'),
+            'tourn_rounds' : tourn_attrs.get('tourn_rounds'),
+            'divisions'    : tourn_attrs.get('divisions'),
+            'playoff_teams': tourn_attrs.get('playoff_teams'),
+            'dflt_pw_hash' : tourn_attrs.get('dflt_pw_hash'),
+            'import_path'  : import_path,
+            'stage_compl'  : TournStage.TOURN_CREATE}
     tourn = TournInfo.create(**info)
     return tourn
 
@@ -931,7 +932,14 @@ def compute_team_ranks(finalize: bool = False) -> None:
     compute_tourn_ranks(played)
 
     if finalize:
-        TournInfo.mark_stage_complete(TournStage.TOURN_RANKS)
+        tourn = TournInfo.get()
+        if tourn.playoff_teams == 4:
+            tourn.complete_stage(TournStage.TOURN_RANKS)
+        if tourn.playoff_teams == 2:
+            # REVISIT: this is a little hacky, since there aren't really any semifinal
+            # stages at all--this is serviceable, but it leaks through the UI, causing
+            # possible confusion!!!
+            tourn.complete_stage(TournStage.SEMIS_RANKS)
 
 def build_playoff_bracket(bracket: Bracket) -> list[PlayoffGame]:
     """
@@ -961,16 +969,22 @@ def build_playoff_bracket(bracket: Bracket) -> list[PlayoffGame]:
         assert bracket == Bracket.FINALS
         # this now sorts by playoff_rank (based on TournInfo stage)
         teams = list(Team.iter_playoff_teams(by_rank=True))
-        assert teams[0].playoff_match_wins == 1
-        assert teams[1].playoff_match_wins == 1
-        assert teams[2].playoff_match_wins == 0
-        assert teams[3].playoff_match_wins == 0
-        # team1 and team2 must correspond with semifinal matchup_num
-        sf_match1 = next(PlayoffGame.iter_games(Bracket.SEMIS, by_matchup=True))
-        if sf_match1.matchup_winner == teams[0]:
-            matchups = {1: (teams[0], teams[1])}
+        assert len(teams) == tourn.playoff_teams
+        if tourn.playoff_teams == 4:
+            assert teams[0].playoff_match_wins == 1
+            assert teams[1].playoff_match_wins == 1
+            assert teams[2].playoff_match_wins == 0
+            assert teams[3].playoff_match_wins == 0
+            # team1 and team2 must correspond with semifinal matchup_num
+            sf_match1 = next(PlayoffGame.iter_games(Bracket.SEMIS, by_matchup=True))
+            if sf_match1.matchup_winner == teams[0]:
+                matchups = {1: (teams[0], teams[1])}
+            else:
+                matchups = {1: (teams[1], teams[0])}
         else:
-            matchups = {1: (teams[1], teams[0])}
+            assert tourn.playoff_teams == 2
+            # put teams in order of tourn_rank
+            matchups = {1: (teams[0], teams[1])}
         stage = TournStage.FINALS_BRACKET
 
     games = []
@@ -1101,7 +1115,12 @@ def validate_playoffs(bracket: Bracket, finalize: bool = False) -> None:
             TournInfo.mark_stage_complete(TournStage.SEMIS_TABULATE)
         else:
             assert bracket == Bracket.FINALS
-            assert stats_tot['playoff_match_wins'] == 3
+            tourn = TournInfo.get()
+            if tourn.playoff_teams == 4:
+                assert stats_tot['playoff_match_wins'] == 3
+            else:
+                assert tourn.playoff_teams == 2
+                assert stats_tot['playoff_match_wins'] == 1
             TournInfo.mark_stage_complete(TournStage.FINALS_TABULATE)
 
 def compute_playoff_ranks(bracket: Bracket, finalize: bool = False) -> None:

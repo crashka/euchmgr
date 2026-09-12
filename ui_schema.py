@@ -949,9 +949,11 @@ class Team(UIMixin, BaseTeam):
         """For the Final Four view.  Note, this call is only valid for actual final four
         teams (garbage will be returned for non-playoff teams).
         """
-        if self.playoff_match_wins == 2:
+        tourn = TournInfo.get()
+        refval = (2, 1) if tourn.playoff_teams == 4 else (1, 0)
+        if self.playoff_match_wins == refval[0]:
             return "Champion"
-        elif self.playoff_match_wins == 1:
+        elif self.playoff_match_wins == refval[1]:
             return "Finalist"
         else:
             return "Semifinalist"
@@ -1209,7 +1211,12 @@ class PlayoffGame(UIMixin, BasePlayoffGame):
             return match_wins >= 2
         else:
             assert bracket == Bracket.FINALS
-            return match_wins == 3
+            if tourn.playoff_teams == 4:
+                return match_wins == 3
+            else:
+                assert tourn.playoff_teams == 2
+                assert match_wins in (0, 1)
+                return match_wins == 1
 
     @property
     def bracket_ident(self) -> str:

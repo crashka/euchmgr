@@ -130,6 +130,8 @@ VIEW_DEFS = {
         [0],  # id
         2
     ),
+    # TODO: figure out if we want to define a separate view for TOP_TWO (used when there
+    # are only two playoff teams)!!!
     View.FINAL_FOUR: ViewInfo(
         "Final Four",
         ff_layout,
@@ -150,6 +152,17 @@ def view_menu() -> list[tuple[str, str]]:
     """Return list of tuples representing navigation menu items of the following form:
     (view, label), where "view" string value doubles as its relative path name.
     """
+    tourn = TournInfo.get()
+    # TEMP: this is just a (really bad) hack--we need to solve the whole 2 vs. 4 playoff
+    # team thing when it comes to views (see View.FINAL_FOUR above)!!!
+    if tourn.playoff_teams == 2:
+        VIEW_DEFS[View.FINAL_FOUR] = ViewInfo(
+            "Top Two",
+            ff_layout,
+            "team_name",
+            [1],  # tourn_rank
+            2
+        )
     return [(str(view), info.name) for view, info in VIEW_DEFS.items()]
 
 STAGE_MAPPING = [
@@ -390,19 +403,20 @@ def create_tourn(form: dict) -> str:
     """Create new tournament from form data.  Note that this is called against the
     `tourn_info` form.
     """
-    tourn        = None
-    roster_path  = None
-    err_msg      = None
+    tourn         = None
+    roster_path   = None
+    err_msg       = None
 
-    tourn_name   = form.get('tourn_name')
-    dates        = form.get('dates') or None
-    venue        = form.get('venue') or None
-    seed_rounds  = form.get('seed_rounds')
-    tourn_rounds = form.get('tourn_rounds')
-    divisions    = form.get('divisions')
-    dflt_pw      = form.get('dflt_pw') or None
-    overwrite    = typecast(form.get('overwrite', ""))
-    req_file     = request.files.get('roster_file')
+    tourn_name    = form.get('tourn_name')
+    dates         = form.get('dates') or None
+    venue         = form.get('venue') or None
+    seed_rounds   = int(form.get('seed_rounds'))
+    tourn_rounds  = int(form.get('tourn_rounds'))
+    divisions     = int(form.get('divisions'))
+    playoff_teams = int(form.get('playoff_teams'))
+    dflt_pw       = form.get('dflt_pw') or None
+    overwrite     = typecast(form.get('overwrite', ""))
+    req_file      = request.files.get('roster_file')
     if req_file:
         roster_file = secure_filename(req_file.filename)
         roster_path = os.path.join(UPLOAD_DIR, roster_file)
@@ -415,12 +429,13 @@ def create_tourn(form: dict) -> str:
             assert not session.get('tourn')
             db_init(tourn_name, force=True)
             attrs = {
-                'dates'       : dates,
-                'venue'       : venue,
-                'seed_rounds' : seed_rounds,
-                'tourn_rounds': tourn_rounds,
-                'divisions'   : divisions,
-                'dflt_pw_hash': dflt_pw_hash
+                'dates'        : dates,
+                'venue'        : venue,
+                'seed_rounds'  : seed_rounds,
+                'tourn_rounds' : tourn_rounds,
+                'divisions'    : divisions,
+                'playoff_teams': playoff_teams,
+                'dflt_pw_hash' : dflt_pw_hash
             }
             tourn = tourn_create(force=overwrite, **attrs)
             upload_roster(roster_path)
@@ -460,9 +475,13 @@ def update_tourn(form: dict) -> str:
     assert db_is_initialized()
     assert db_name() == tourn_name
 
-    dates = form.get('dates') or None
-    venue = form.get('venue') or None
-    dflt_pw = form.get('dflt_pw') or None
+    dates         = form.get('dates') or None
+    venue         = form.get('venue') or None
+    seed_rounds   = int(form.get('seed_rounds'))
+    tourn_rounds  = int(form.get('tourn_rounds'))
+    divisions     = int(form.get('divisions'))
+    playoff_teams = int(form.get('playoff_teams'))
+    dflt_pw       = form.get('dflt_pw') or None
 
     pw_exists = bool(tourn.dflt_pw_hash)
     if pw_exists:
@@ -474,10 +493,19 @@ def update_tourn(form: dict) -> str:
     else:
         dflt_pw_hash = None
 
+    # TODO: make this more elegant, it's just super ugly right now!!!
     if dates != tourn.dates:
         tourn.dates = dates
     if venue != tourn.venue:
         tourn.venue = venue
+    if seed_rounds != tourn.seed_rounds:
+        tourn.seed_rounds = seed_rounds
+    if tourn_rounds != tourn.tourn_rounds:
+        tourn.tourn_rounds = tourn_rounds
+    if divisions != tourn.divisions:
+        tourn.divisions = divisions
+    if playoff_teams != tourn.playoff_teams:
+        tourn.playoff_teams = playoff_teams
     if pw_upd:
         tourn.dflt_pw_hash = dflt_pw_hash  # might be None (to clear)
     nrecs = tourn.save()
@@ -753,9 +781,11 @@ def render_admin(context: dict) -> str:
                 2
             )
     elif view == View.FINAL_FOUR:
+        tourn = TournInfo.get()
         if stage_compl >= TournStage.TOURN_RANKS:
             view_info = ViewInfo(
-                "Final Four",
+                # YUCK: see View.FINAL_FOUR declaration above!!!
+                "Final Four" if tourn.playoff_teams == 4 else "Top Two",
                 ff_layout,
                 "team_name",
                 [12, 1],  # playoff_rank, tourn_rank

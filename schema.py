@@ -32,9 +32,10 @@ def clear_schema_cache() -> None:
 # bracket/game stuff #
 ######################
 
-DFLT_SEED_ROUNDS  = 8
-DFLT_TOURN_ROUNDS = 8
-DFLT_DIVISIONS    = 2
+DFLT_SEED_ROUNDS   = 8
+DFLT_TOURN_ROUNDS  = 8
+DFLT_DIVISIONS     = 2
+DFLT_PLAYOFF_TEAMS = 4
 
 GAME_PTS          = 10
 
@@ -151,19 +152,20 @@ class TournInfo(BaseModel):
     name           = TextField(unique=True)
     dates          = TextField(null=True)
     venue          = TextField(null=True)
+    seed_rounds    = IntegerField(default=DFLT_SEED_ROUNDS)
+    tourn_rounds   = IntegerField(default=DFLT_TOURN_ROUNDS)
+    divisions      = IntegerField(default=DFLT_DIVISIONS)
+    playoff_teams  = IntegerField(default=DFLT_PLAYOFF_TEAMS)
+    dflt_pw_hash   = TextField(null=True)  # initial/default pw_hash for players
+    import_path    = TextField(null=True)  # enables re-importing
+    players        = IntegerField(null=True)
+    teams          = IntegerField(null=True)
+    thm_teams      = IntegerField(null=True)
     stage_start    = IntegerField()
     stage_compl    = IntegerField()
     cur_stage      = TextField()
     cur_round      = IntegerField(null=True)
     next_action    = TextField(null=True)
-    players        = IntegerField(null=True)
-    teams          = IntegerField(null=True)
-    thm_teams      = IntegerField(null=True)
-    seed_rounds    = IntegerField(default=DFLT_SEED_ROUNDS)
-    tourn_rounds   = IntegerField(default=DFLT_TOURN_ROUNDS)
-    divisions      = IntegerField(default=DFLT_DIVISIONS)
-    dflt_pw_hash   = TextField(null=True)  # initial/default pw_hash for players
-    import_path    = TextField(null=True)  # enables re-importing
 
     # class variables
     inst: ClassVar[Self] = None  # singleton instance
@@ -795,7 +797,11 @@ class Team(BaseModel):
     def iter_finals_teams(cls, by_rank: bool = False) -> Iterator[Self]:
         """Iterator for playoff teams (wrap ORM details).
         """
-        query = cls.select().where(cls.playoff_match_wins > 0)
+        tourn = TournInfo.get()
+        if tourn.playoff_teams == 2:
+            query = cls.select().where(cls.div_rank.in_([1, 2]))
+        else:
+            query = cls.select().where(cls.playoff_match_wins > 0)
         if by_rank:
             query = query.order_by(cls.playoff_rank.asc())
         for t in query:
@@ -891,7 +897,11 @@ class Team(BaseModel):
         tourn = TournInfo.get()
         if tourn.stage_compl < TournStage.SEMIS_RANKS:
             return None
-        return self.playoff_match_wins > 0
+        if tourn.playoff_teams == 2:
+            return self.div_rank in (1, 2)
+        else:
+            assert self.div_rank in (1, 2)
+            return self.playoff_match_wins > 0
 
     def get_wins(self, opps: list[Self]) -> list[BaseModel]:
         """Get TeamGame records for all wins versus specified opponents.

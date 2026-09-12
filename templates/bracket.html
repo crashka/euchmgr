@@ -139,6 +139,7 @@
       </span>
 
       <section class="bracket">
+        {% if "sf-1" in brckt %}
         <div class="round semis">
           <h2>Semifinals</h2>
           <div class="matchup" id="sf-1">
@@ -156,6 +157,7 @@
             <span class="team">{{brckt["sf-2"][1].team_tag_pl|safe}}</span>
           </div>
         </div>
+        {% endif %}  {# "sf-1" in brckt #}
         <div class="round finals">
           <h2>Finals</h2>
           <div class="empty">

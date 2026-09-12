@@ -656,6 +656,12 @@ def view_menu(player: Player) -> dict[str, str]:
         return VIEW_MENU[:-2]
     elif not team.finals_team:
         return VIEW_MENU[:-1]
+    tourn = TournInfo.get()
+    if tourn.playoff_teams == 2:
+        # HACK: really need to fix this--this is related to the overall topic of
+        # declarative views and navigation (both mobile or admin) for the various
+        # tournament configurations!!!
+        return VIEW_MENU[:-2] + VIEW_MENU[-1:]
     return VIEW_MENU
 
 VIEW_RESOURCES = {

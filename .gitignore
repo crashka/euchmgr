@@ -15,6 +15,7 @@ low_res/
 /clear_*.sh
 /archive_*.sh
 /*.html
+/*.xlsx
 /*.csv
 
 /log/

@@ -218,7 +218,7 @@ def trn_tbreak(tourn: TournInfo, final_rpt: bool = False) -> str:
         ranked, _, _ = rank_team_cohort(cohort)  # returns with elevations undone
         ranked, elevs, win_grps, _ = elevate_winners(ranked)
         for i, tm in enumerate(ranked):
-            assert cohort_pos + i == tm.final_rank if final_rpt else tm.final_rank
+            assert cohort_pos + i == tm.final_rank if final_rpt else tm.tourn_rank
         idents = Team.ident_final_tbs(cohort_pos) if final_rpt else Team.ident_tourn_tbs(cohort_pos)
         pos_elevs[cohort_pos] = elevs
         pos_win_grps[cohort_pos] = win_grps

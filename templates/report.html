@@ -91,6 +91,12 @@
        font-style: italic;
        margin-top: 0.25rem;
      }
+     p.msg2 {
+       display: block;
+       font-size: 1.125rem;
+       font-style: italic;
+       margin-top: 0.25rem;
+     }
      table {
        border: 2px solid darkgrey;
        border-collapse: collapse;
@@ -120,6 +126,7 @@
       {% if div %}
       <h2>Division {{div}}</h2>
       {% endif %}
+      {% if cohorts %}
       {% for pos, cohort in cohorts.items() %}
       <article class="cohort">
         <h3>Position {{pos}}&nbsp;&nbsp;<span class="h3_info">({{div_info[div][pos]}})</span></h3>
@@ -233,6 +240,9 @@
         {% endfor %}  {# team #}
       </article>
       {% endfor %}  {# pos #}
+      {% else %}  {# cohorts #}
+      <p class="msg2">[No ties to break]</p>
+      {% endif %}  {# cohorts #}
     </article>
     {% endfor %}  {# div #}
     {% endif %}  {# report_num in (0, 1) #}

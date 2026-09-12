@@ -87,7 +87,7 @@ BRACKET_TEMPLATE = "bracket.html"
 SD_DASH = "Seeding Round Live Dashboard"
 RR_DASH = "Round Robin Live Dashboard"
 PT_DASH = "Partner Picks Live Dashboard"
-FF_DASH = "Final Four Live Bracket"
+FF_DASH = "Live Playoff Bracket"
 
 DASH_FUNCS = [
     'sd_dash',

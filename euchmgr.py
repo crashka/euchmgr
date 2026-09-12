@@ -93,6 +93,32 @@ def fmt_team_name(pl_map: dict[int, Player], player_nums: list[int]) -> str:
 # euchmgr functions #
 #####################
 
+# TEMP: this will be moved to the config file!!!
+DFLT_SEED_ROUNDS   = 8
+DFLT_TOURN_ROUNDS  = 8
+DFLT_DIVISIONS     = 2
+DFLT_PLAYOFF_TEAMS = 4
+
+FMT_FULL = 'full'
+FMT_MINI = 'mini'
+
+TOURN_DFLTS = {
+    FMT_FULL: {
+        'seed_rounds'  : 8,
+        'tourn_rounds' : 8,
+        'divisions'    : 2,
+        'playoff_teams': 4,
+    },
+    FMT_MINI: {
+        'seed_rounds'  : None,  # auto
+        'tourn_rounds' : None,  # auto
+        'divisions'    : 1,
+        'playoff_teams': 2,
+    }
+}
+
+DFLT_FMT = FMT_FULL
+
 def tourn_create(force: bool = False, **tourn_attrs) -> TournInfo:
     """Create a tournament with its name specified by the currently-connected database
     name (this is a little bit of a cheat to make the __main__ script for this module
@@ -101,18 +127,24 @@ def tourn_create(force: bool = False, **tourn_attrs) -> TournInfo:
     """
     schema_create(force=force)
 
+    dflts = TOURN_DFLTS[DFLT_FMT]
+
     if import_path := tourn_attrs.get('import_path'):
         base_pfx = BASE_DIR + os.sep
         # convert to relative path for brevity (if possible)
         if import_path.find(base_pfx) == 0:
             import_path = import_path[len(base_pfx):]
 
-    info = {'name'        : db_name(),  # see docheader
-            'dates'       : tourn_attrs.get('dates'),
-            'venue'       : tourn_attrs.get('venue'),
-            'dflt_pw_hash': tourn_attrs.get('dflt_pw_hash'),
-            'import_path' : import_path,
-            'stage_compl' : TournStage.TOURN_CREATE}
+    info = {'name'         : db_name(),  # see docheader
+            'dates'        : tourn_attrs.get('dates'),
+            'venue'        : tourn_attrs.get('venue'),
+            'seed_rounds'  : tourn_attrs.get('seed_rounds') or dflts['seed_rounds'],
+            'tourn_rounds' : tourn_attrs.get('tourn_rounds') or dflts['tourn_rounds'],
+            'divisions'    : tourn_attrs.get('divisions') or dflts['divisions'],
+            'playoff_teams': tourn_attrs.get('playoff_teams') or dflts['playoff_teams'],
+            'dflt_pw_hash' : tourn_attrs.get('dflt_pw_hash'),
+            'import_path'  : import_path,
+            'stage_compl'  : TournStage.TOURN_CREATE}
     tourn = TournInfo.create(**info)
     return tourn
 

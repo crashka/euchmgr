@@ -410,10 +410,10 @@ def create_tourn(form: dict) -> str:
     tourn_name    = form.get('tourn_name')
     dates         = form.get('dates') or None
     venue         = form.get('venue') or None
-    seed_rounds   = int(form.get('seed_rounds'))
-    tourn_rounds  = int(form.get('tourn_rounds'))
-    divisions     = int(form.get('divisions'))
-    playoff_teams = int(form.get('playoff_teams'))
+    seed_rounds   = typecast(form.get('seed_rounds'))
+    tourn_rounds  = typecast(form.get('tourn_rounds'))
+    divisions     = typecast(form.get('divisions'))
+    playoff_teams = typecast(form.get('playoff_teams'))
     dflt_pw       = form.get('dflt_pw') or None
     overwrite     = typecast(form.get('overwrite', ""))
     req_file      = request.files.get('roster_file')
@@ -477,10 +477,10 @@ def update_tourn(form: dict) -> str:
 
     dates         = form.get('dates') or None
     venue         = form.get('venue') or None
-    seed_rounds   = int(form.get('seed_rounds'))
-    tourn_rounds  = int(form.get('tourn_rounds'))
-    divisions     = int(form.get('divisions'))
-    playoff_teams = int(form.get('playoff_teams'))
+    seed_rounds   = typecast(form.get('seed_rounds'))
+    tourn_rounds  = typecast(form.get('tourn_rounds'))
+    divisions     = typecast(form.get('divisions'))
+    playoff_teams = typecast(form.get('playoff_teams'))
     dflt_pw       = form.get('dflt_pw') or None
 
     pw_exists = bool(tourn.dflt_pw_hash)

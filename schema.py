@@ -32,12 +32,7 @@ def clear_schema_cache() -> None:
 # bracket/game stuff #
 ######################
 
-DFLT_SEED_ROUNDS   = 8
-DFLT_TOURN_ROUNDS  = 8
-DFLT_DIVISIONS     = 2
-DFLT_PLAYOFF_TEAMS = 4
-
-GAME_PTS          = 10
+GAME_PTS = 10
 
 class Bracket(StrEnum):
     SEED   = 'sd'
@@ -152,10 +147,10 @@ class TournInfo(BaseModel):
     name           = TextField(unique=True)
     dates          = TextField(null=True)
     venue          = TextField(null=True)
-    seed_rounds    = IntegerField(default=DFLT_SEED_ROUNDS)
-    tourn_rounds   = IntegerField(default=DFLT_TOURN_ROUNDS)
-    divisions      = IntegerField(default=DFLT_DIVISIONS)
-    playoff_teams  = IntegerField(default=DFLT_PLAYOFF_TEAMS)
+    seed_rounds    = IntegerField()
+    tourn_rounds   = IntegerField()
+    divisions      = IntegerField()
+    playoff_teams  = IntegerField()
     dflt_pw_hash   = TextField(null=True)  # initial/default pw_hash for players
     import_path    = TextField(null=True)  # enables re-importing
     players        = IntegerField(null=True)

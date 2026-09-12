@@ -93,6 +93,11 @@ def fmt_team_name(pl_map: dict[int, Player], player_nums: list[int]) -> str:
 # euchmgr functions #
 #####################
 
+DFLT_SEED_ROUNDS   = 8
+DFLT_TOURN_ROUNDS  = 8
+DFLT_DIVISIONS     = 2
+DFLT_PLAYOFF_TEAMS = 4
+
 def tourn_create(force: bool = False, **tourn_attrs) -> TournInfo:
     """Create a tournament with its name specified by the currently-connected database
     name (this is a little bit of a cheat to make the __main__ script for this module
@@ -110,10 +115,10 @@ def tourn_create(force: bool = False, **tourn_attrs) -> TournInfo:
     info = {'name'         : db_name(),  # see docheader
             'dates'        : tourn_attrs.get('dates'),
             'venue'        : tourn_attrs.get('venue'),
-            'seed_rounds'  : tourn_attrs.get('seed_rounds'),
-            'tourn_rounds' : tourn_attrs.get('tourn_rounds'),
-            'divisions'    : tourn_attrs.get('divisions'),
-            'playoff_teams': tourn_attrs.get('playoff_teams'),
+            'seed_rounds'  : tourn_attrs.get('seed_rounds')   or DFLT_SEED_ROUNDS,
+            'tourn_rounds' : tourn_attrs.get('tourn_rounds')  or DFLT_TOURN_ROUNDS,
+            'divisions'    : tourn_attrs.get('divisions')     or DFLT_DIVISIONS,
+            'playoff_teams': tourn_attrs.get('playoff_teams') or DFLT_PLAYOFF_TEAMS,
             'dflt_pw_hash' : tourn_attrs.get('dflt_pw_hash'),
             'import_path'  : import_path,
             'stage_compl'  : TournStage.TOURN_CREATE}

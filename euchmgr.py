@@ -758,7 +758,7 @@ def rank_team_cohort(teams: list[Team], use_cohrt_stats: bool = False) -> \
                 wl_factor = -cohrt_games
         cohrt_stats = (cohrt_win_pct, wl_factor, cohrt_pts_pct)
         tourn_stats = (tm.tourn_pts_pct, tm.tourn_pts_for, -tm.team_seed)
-        stats[tm.team_seed] = cohrt_stats + tourn_stats  if use_cohrt_stats else tourn_stats
+        stats[tm.team_seed] = (cohrt_stats + tourn_stats) if use_cohrt_stats else tourn_stats
 
     # larger is better for all stats components (except team_seed)
     sort_key = lambda tm: tuple(x for x in stats[tm.team_seed])

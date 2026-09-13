@@ -80,7 +80,9 @@ TournStage = IntEnum('TournStage',
 # represents virtual stages before and after TournStage entries
 TOURN_INIT = 0
 TOURN_END = len(TournStage) + 1
+PRELIM_END = TournStage.TOURN_CREATE + 1
 ALL_STAGES = range(TOURN_INIT, TOURN_END)
+PRELIM_STAGES = range(TOURN_INIT, PRELIM_END)
 ACTIVE_STAGES = range(TournStage.PLAYER_ROSTER, TOURN_END)
 
 class StageInfo(NamedTuple):
@@ -147,6 +149,7 @@ class TournInfo(BaseModel):
     name           = TextField(unique=True)
     dates          = TextField(null=True)
     venue          = TextField(null=True)
+    tourn_fmt      = TextField()
     players        = IntegerField(null=True)
     teams          = IntegerField(null=True)
     thm_teams      = IntegerField(null=True)
@@ -352,6 +355,12 @@ class Player(BaseModel, EuchmgrUser):
         for p in query:
             player_map[p.player_num] = p
         return player_map
+
+    @classmethod
+    def clear_players(cls) -> None:
+        """Delete all player records (e.g. before uploading a new roster file).
+        """
+        cls.truncate_table()
 
     @classmethod
     def clear_player_nums(cls, ids: list[int] = None) -> int:

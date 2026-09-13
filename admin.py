@@ -19,7 +19,7 @@ from core import DATA_DIR, UPLOAD_DIR, log, ImplementationError
 from security import current_user, DUMMY_PW_STR
 from database import DB_FILETYPE, db_init, db_name, db_reset, db_is_initialized
 from schema import (clear_schema_cache, Bracket, TournStage, TOURN_INIT, ALL_STAGES,
-                    ACTIVE_STAGES, TournInfo)
+                    PRELIM_STAGES, ACTIVE_STAGES, TournInfo)
 from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_seed_bracket,
                      fake_seed_games, validate_seed_round, compute_player_ranks,
                      prepick_champ_partners, fake_pick_partners, build_tourn_teams,
@@ -163,6 +163,7 @@ STAGE_MAPPING = [
     (TournStage.PARTNER_PICK,   View.PARTNERS),
     (TournStage.SEED_RESULTS,   View.SEEDING),
     (TournStage.PLAYER_NUMS,    View.PLAYERS),
+    (TournStage.TOURN_CREATE,   View.TOURN)
 ]
 
 def active_view(tourn: TournInfo) -> View:
@@ -204,9 +205,10 @@ def tourn() -> str:
         assert tourn.name == tourn_name
         # render admin view for existing tournament
         context = {
-            'tourn'   : tourn,
-            'err_msg' : msg_join(err_msgs) or msg_join(info_msgs),
-            'info_msg': msg_join(info_msgs)
+            'tourn'    : tourn,
+            'no_roster': tourn.stage_compl in PRELIM_STAGES,
+            'err_msg'  : msg_join(err_msgs) or msg_join(info_msgs),
+            'info_msg' : msg_join(info_msgs)
         }
         return render_tourn(context)
 
@@ -222,6 +224,7 @@ def tourn() -> str:
     context = {
         'tourn'    : tourn,
         'new_tourn': create_new,
+        'no_roster': create_new,
         'err_msg'  : msg_join(err_msgs) or msg_join(info_msgs),
         'info_msg' : msg_join(info_msgs)
     }
@@ -303,10 +306,10 @@ VIEW_ACTIONS = {
 # key: action function (doubles as button name in views)
 # value: tuple(action/button display name, list of stages when valid/callable)
 ACTION_INFO = {
-    'select_tourn'           : ("[Ceci n'existe pas]",         list(ALL_STAGES)),
-    'create_tourn'           : ("Create Tournament",           [TOURN_INIT]),
-    'update_tourn'           : ("Update Tournament",           list(ACTIVE_STAGES)),
-    'pause_tourn'            : ("Pause Tournament",            list(ACTIVE_STAGES)),
+    'select_tourn'           : ("[Ceci n'existe pas]",         ALL_STAGES),
+    'create_tourn'           : ("Create Tournament",           PRELIM_STAGES),
+    'update_tourn'           : ("Update Tournament",           ACTIVE_STAGES),
+    'pause_tourn'            : ("Pause Tournament",            ACTIVE_STAGES),
     'gen_player_nums'        : ("Generate Player Nums",        [TournStage.PLAYER_ROSTER]),
     'gen_seed_bracket'       : ("Create Seeding Bracket",      [TournStage.PLAYER_NUMS]),
     'fake_seed_results'      : ("Generate Fake Results",       [TournStage.SEED_BRACKET]),
@@ -352,8 +355,7 @@ def view_action(action: str) -> str:
     valid_stages = ACTION_INFO[action][1]
     if db_is_initialized():
         tourn = TournInfo.get()
-        stage_compl = tourn.stage_compl
-        if stage_compl not in valid_stages:
+        if tourn.stage_compl not in valid_stages:
             abort(400, f"Invalid action '{action}' for stage '{tourn.cur_stage}'")
     elif TOURN_INIT not in valid_stages:
         abort(400, f"No active tournament for action '{action}'")
@@ -383,7 +385,9 @@ def select_tourn(form: dict) -> str:
         db_init(tourn_name, force=True)
         session['tourn'] = tourn_name
         log.info(f"setting tourn = '{tourn_name}' in session state")
-        flash(f"info=Resuming operation of tournament \"{tourn_name}\"")
+        tourn = TournInfo.get()
+        oper = "operation" if tourn.stage_compl in ACTIVE_STAGES else "creation"
+        flash(f"info=Resuming {oper} of tournament \"{tourn_name}\"")
     return redirect(url_for('index'))
 
 def create_tourn(form: dict) -> str:
@@ -393,10 +397,12 @@ def create_tourn(form: dict) -> str:
     tourn       = None
     roster_path = None
     err_msg     = None
+    partial     = bool(session.get('tourn'))
 
     tourn_name  = form.get('tourn_name')
     dates       = form.get('dates') or None
     venue       = form.get('venue') or None
+    tourn_fmt   = form.get('tourn_fmt')
     dflt_pw     = form.get('dflt_pw') or None
     overwrite   = typecast(form.get('overwrite', ""))
     req_file    = request.files.get('roster_file')
@@ -409,11 +415,11 @@ def create_tourn(form: dict) -> str:
         else:
             dflt_pw_hash = None
         try:
-            assert not session.get('tourn')
             db_init(tourn_name, force=True)
             attrs = {
                 'dates'       : dates,
                 'venue'       : venue,
+                'tourn_fmt'   : tourn_fmt,
                 'dflt_pw_hash': dflt_pw_hash
             }
             tourn = tourn_create(force=overwrite, **attrs)
@@ -430,16 +436,21 @@ def create_tourn(form: dict) -> str:
             else:
                 err_msg = cap_first(str(e))
             # FALLTHROUGH
+        except RuntimeError as e:
+            db_reset(force=True)
+            err_msg = cap_first(str(e))
+            # FALLTHROUGH
         # FALLTHROUGH
     else:
         err_msg = "Roster file required (manual roster creation not yet supported)"
 
-    tourn = TournInfo(name=tourn_name, dates=dates, venue=venue)
+    tourn = TournInfo(name=tourn_name, dates=dates, venue=venue, tourn_fmt=tourn_fmt)
     context = {
         'tourn'      : tourn,
         'overwrite'  : overwrite,
         'roster_path': roster_path,
-        'new_tourn'  : True,
+        'new_tourn'  : not partial,
+        'no_roster'  : True,
         'err_msg'    : err_msg
     }
     return render_tourn(context)
@@ -504,7 +515,8 @@ def pause_tourn(form: dict) -> str:
     clear_dash_storage()
     popped = session.pop('tourn', None)
     assert popped == tourn_name
-    flash(f"info=Tournament \"{tourn_name}\" has been paused")
+    if tourn.stage_compl in ACTIVE_STAGES:
+        flash(f"info=Tournament \"{tourn_name}\" has been paused")
     return redirect(url_for('index'))
 
 ####################
@@ -683,6 +695,7 @@ def render_tourn(context: dict) -> str:
         'dummy_pw' : DUMMY_PW_STR,
         'tourn'    : None,   # context may contain override
         'new_tourn': False,  # ditto
+        'no_roster': False,  # ditto
         'buttons'  : buttons,
         'btn_lbl'  : btn_lbl,
         'btn_attr' : btn_attr,

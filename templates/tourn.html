@@ -78,6 +78,16 @@
        margin: 0.0rem;
        vertical-align: middle;
      }
+     .tourn_fmt label.inline {
+       display: inline-block;
+       margin-left: 0.6rem;
+       margin-right: 0.3rem;
+       vertical-align: middle;
+     }
+     .tourn_fmt input {
+       margin: 0.0rem 0.3rem 0.15rem 0.3rem;
+       vertical-align: middle;
+     }
      .opts {
        margin-top: 1.5rem;
      }
@@ -134,7 +144,7 @@
     </header>
     {% if tourn %}
     <section class="tourn">
-      {% set new = "New " if new_tourn else "" %}
+      {% set new = "New " if no_roster else "" %}
       <h2>{{new}}Tournament Info</h2>
       <form action="/tourn" method="post" enctype="multipart/form-data">
         <input type="hidden" name="tourn_id" value="{{tourn.id}}">
@@ -153,6 +163,33 @@
           <label>Venue:</label>
           <input name="venue" type="text" value="{{tourn.venue or ''}}">
         </p>
+        {% if no_roster %}
+        <p class="tourn_fmt">
+          <label>Tournament Format:</label>
+          <label class="inline">Full
+            {% set checked = " checked" if tourn.tourn_fmt in ("full", None) else "" %}
+            <input type="radio" name="tourn_fmt" value="full"{{checked}}>
+          </label>
+          <label class="inline">Mini
+            {% set checked = " checked" if tourn.tourn_fmt == "mini" else "" %}
+            <input type="radio" name="tourn_fmt" value="mini"{{checked}}>
+          </label>
+        </p>
+        {% else %}  {# no_roster #}
+        <div>
+          <p>
+            <label>Players:</label>
+            <input name="players" type="number" value="{{tourn.players}}" disabled>
+          </p>
+          <p>
+            <label>Teams:</label>
+            <input name="teams" type="number" value="{{tourn.teams}}" disabled>
+          </p>
+          <p>
+            <label>THM Teams:</label>
+            <input name="thm_teams" type="number" value="{{tourn.thm_teams}}" disabled>
+          </p>
+        </div>
         <div>
           <p>
             <label>Rounds (seed):</label>
@@ -166,7 +203,12 @@
             <label>Divisions (tourn):</label>
             <input name="divisions" type="number" value="{{tourn.divisions}}" disabled>
           </p>
+          <p>
+            <label>Playoff Teams:</label>
+            <input name="playoff_teams" type="number" value="{{tourn.playoff_teams}}" disabled>
+          </p>
         </div>
+        {% endif %}  {# no_roster #}
         {% with tooltip = "Leave empty if player passwords are not required" %}
         <p class="wide" title="{{tooltip}}">
           <label>Default Player Password:</label>
@@ -174,12 +216,13 @@
           <input name="dflt_pw" type="password" value="{{pw_str}}">
         </p>
         {% endwith %}
-        {% if new_tourn %}
+        {% if no_roster %}
         <div class="opts">
           <p class="wide">
             <label class="inline">Roster File:</label>
             <input name="roster_file" type="file" value="" accept=".csv" required>
           </p>
+          {% if new_tourn %}
           {% with tooltip = "Delete all data for existing tournament with the same name" %}
           <p class="wide" title="{{tooltip}}">
             <label class="inline">Overwrite Existing:</label>
@@ -187,15 +230,18 @@
             <input type="checkbox" name="overwrite" value="yes"{{checked}}>
           </p>
           {% endwith %}
+          {% else %}
+          <input type="hidden" name="overwrite" value="yes">
+          {% endif %}
         </div>
-        {% else %}
+        {% else %}  {# no_roster #}
         <p class="wide">
           <label>Import Path:</label>
           <input name="input_path" type="text" value="{{tourn.import_path or ''}}" readonly>
         </p>
-        {% endif %}  {# new_tourn #}
+        {% endif %}  {# no_roster #}
         <div class="actions">
-          {% if new_tourn %}
+          {% if no_roster %}
           <button value="{{buttons[1]}}"{{btn_attr[1]}}>{{btn_lbl[1]}}</button>
           <a class="reset" href="javascript:void(0);">[reset]</a>
           {% else %}
@@ -232,7 +278,8 @@
        window.location.href = "./";
      });
      $('a.reset').on('click', function() {
-       $('.tourn input:text').val("");
+       $('.tourn input:text:not([readonly])').val("");
+       $('.tourn input:radio[value="full"]').prop("checked", true);
        $('.tourn input:file').val("");
        $('.tourn input:checkbox').prop("checked", false);
        $('.tourn input:password').val("{{pw_str}}");

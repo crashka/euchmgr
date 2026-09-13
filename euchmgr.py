@@ -9,6 +9,7 @@ The To Do List has been moved to TODO.md.
 """
 
 import random
+from enum import StrEnum
 from typing import Iterator
 from itertools import islice, groupby
 import csv
@@ -93,23 +94,27 @@ def fmt_team_name(pl_map: dict[int, Player], player_nums: list[int]) -> str:
 # euchmgr functions #
 #####################
 
-# TEMP: this will be moved to the config file!!!
-DFLT_SEED_ROUNDS   = 8
-DFLT_TOURN_ROUNDS  = 8
-DFLT_DIVISIONS     = 2
-DFLT_PLAYOFF_TEAMS = 4
+# tournament formats
+class TournFmt(StrEnum):
+    FULL  = 'full'   # standard format (used in Nola)
+    MINI  = 'mini'   # abbreviated format (minimal seeding)
+    MINI2 = 'mini2'  # abbreviated format (balanced seeding)
 
-FMT_FULL = 'full'
-FMT_MINI = 'mini'
-
+# TEMP: this will all be moved to the config file (defaults and rounds, by format!!!
 TOURN_DFLTS = {
-    FMT_FULL: {
+    TournFmt.FULL: {
         'seed_rounds'  : 8,
         'tourn_rounds' : 8,
         'divisions'    : 2,
         'playoff_teams': 4,
     },
-    FMT_MINI: {
+    TournFmt.MINI: {
+        'seed_rounds'  : None,  # auto
+        'tourn_rounds' : None,  # auto
+        'divisions'    : 1,
+        'playoff_teams': 2,
+    },
+    TournFmt.MINI2: {
         'seed_rounds'  : None,  # auto
         'tourn_rounds' : None,  # auto
         'divisions'    : 1,
@@ -117,7 +122,30 @@ TOURN_DFLTS = {
     }
 }
 
-DFLT_FMT = FMT_FULL
+# FIX: this isn't quite right--there should really be separate mappings for nplayers and
+# nteams (and their respective rounds of play)!!!
+ROUNDS_MAP = {
+    TournFmt.MINI: {
+        8:  (3, 3),
+        9:  (3, 3),
+        10: (3, 5),
+        11: (3, 5),
+        12: (4, 5),
+        13: (4, 5),
+        14: (4, 7),
+    },
+    TournFmt.MINI2: {
+        8:  (3, 3),
+        9:  (3, 3),
+        10: (4, 5),
+        11: (4, 5),
+        12: (4, 5),
+        13: (4, 5),
+        14: (4, 7),
+    }
+}
+
+DFLT_FMT = TournFmt.FULL
 
 def tourn_create(force: bool = False, **tourn_attrs) -> TournInfo:
     """Create a tournament with its name specified by the currently-connected database
@@ -127,7 +155,8 @@ def tourn_create(force: bool = False, **tourn_attrs) -> TournInfo:
     """
     schema_create(force=force)
 
-    dflts = TOURN_DFLTS[DFLT_FMT]
+    tourn_fmt = tourn_attrs.get('tourn_fmt') or DFLT_FMT
+    dflts = TOURN_DFLTS[tourn_fmt]
 
     if import_path := tourn_attrs.get('import_path'):
         base_pfx = BASE_DIR + os.sep
@@ -138,6 +167,7 @@ def tourn_create(force: bool = False, **tourn_attrs) -> TournInfo:
     info = {'name'         : db_name(),  # see docheader
             'dates'        : tourn_attrs.get('dates'),
             'venue'        : tourn_attrs.get('venue'),
+            'tourn_fmt'    : tourn_fmt,
             'seed_rounds'  : tourn_attrs.get('seed_rounds') or dflts['seed_rounds'],
             'tourn_rounds' : tourn_attrs.get('tourn_rounds') or dflts['tourn_rounds'],
             'divisions'    : tourn_attrs.get('divisions') or dflts['divisions'],
@@ -173,10 +203,16 @@ def upload_roster(csv_path: str) -> None:
     non_champs = nplayers - nchamps
     if non_champs & 0x01:
         thm_teams += 1
-    nteams = non_champs // 2 + 1
+    nteams = non_champs // 2 + (1 if nchamps else 0)
     assert nteams == (nplayers - thm_teams) // 2
 
     tourn = TournInfo.get()
+    if not tourn.seed_rounds or not tourn.tourn_rounds:
+        rounds = ROUNDS_MAP[tourn.tourn_fmt]
+        if nplayers not in rounds:
+            raise RuntimeError(f"No support for {tourn.tourn_fmt} tournament with {nplayers} players")
+        tourn.seed_rounds = rounds[nplayers][0]
+        tourn.tourn_rounds = rounds[nplayers][1]
     tourn.players = nplayers
     tourn.teams = nteams
     tourn.thm_teams = thm_teams

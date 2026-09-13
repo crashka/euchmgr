@@ -992,7 +992,16 @@ def compute_team_ranks(finalize: bool = False) -> None:
     compute_tourn_ranks(played)
 
     if finalize:
-        TournInfo.mark_stage_complete(TournStage.TOURN_RANKS)
+        tourn = TournInfo.get()
+        if tourn.playoff_teams == 2:
+            # REVISIT: this is a little hacky, since there aren't really any semifinal
+            # stages at all (with the `show_stage` part being even more hacky, but note
+            # that it doesn't affect anything functionally)!!!
+            tourn.complete_stage(TournStage.SEMIS_RANKS)
+            tourn.show_stage(TournStage.TOURN_RANKS)
+        else:
+            assert tourn.playoff_teams == 4
+            tourn.complete_stage(TournStage.TOURN_RANKS)
 
 def build_playoff_bracket(bracket: Bracket) -> list[PlayoffGame]:
     """
@@ -1020,18 +1029,23 @@ def build_playoff_bracket(bracket: Bracket) -> list[PlayoffGame]:
         stage = TournStage.SEMIS_BRACKET
     else:
         assert bracket == Bracket.FINALS
-        # this now sorts by playoff_rank (based on TournInfo stage)
         teams = list(Team.iter_playoff_teams(by_rank=True))
-        assert teams[0].playoff_match_wins == 1
-        assert teams[1].playoff_match_wins == 1
-        assert teams[2].playoff_match_wins == 0
-        assert teams[3].playoff_match_wins == 0
-        # team1 and team2 must correspond with semifinal matchup_num
-        sf_match1 = next(PlayoffGame.iter_games(Bracket.SEMIS, by_matchup=True))
-        if sf_match1.matchup_winner == teams[0]:
-            matchups = {1: (teams[0], teams[1])}
+        assert len(teams) == tourn.playoff_teams
+        if tourn.playoff_teams == 4:
+            assert teams[0].playoff_match_wins == 1
+            assert teams[1].playoff_match_wins == 1
+            assert teams[2].playoff_match_wins == 0
+            assert teams[3].playoff_match_wins == 0
+            # team1 and team2 must correspond with semifinal matchup_num
+            sf_match1 = next(PlayoffGame.iter_games(Bracket.SEMIS, by_matchup=True))
+            if sf_match1.matchup_winner == teams[0]:
+                matchups = {1: (teams[0], teams[1])}
+            else:
+                matchups = {1: (teams[1], teams[0])}
         else:
-            matchups = {1: (teams[1], teams[0])}
+            assert tourn.playoff_teams == 2
+            # put teams in order of playoff_rank
+            matchups = {1: (teams[0], teams[1])}
         stage = TournStage.FINALS_BRACKET
 
     games = []
@@ -1162,7 +1176,12 @@ def validate_playoffs(bracket: Bracket, finalize: bool = False) -> None:
             TournInfo.mark_stage_complete(TournStage.SEMIS_TABULATE)
         else:
             assert bracket == Bracket.FINALS
-            assert stats_tot['playoff_match_wins'] == 3
+            tourn = TournInfo.get()
+            if tourn.playoff_teams == 2:
+                assert stats_tot['playoff_match_wins'] == 1
+            else:
+                assert tourn.playoff_teams == 4
+                assert stats_tot['playoff_match_wins'] == 3
             TournInfo.mark_stage_complete(TournStage.FINALS_TABULATE)
 
 def compute_playoff_ranks(bracket: Bracket, finalize: bool = False) -> None:

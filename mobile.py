@@ -649,13 +649,20 @@ VIEW_MENU = [(view, label) for view, label in VIEW_NAME.items()]
 def view_menu(player: Player) -> dict[str, str]:
     """Return dict of view name (URL) to menu label for the specified player.
     """
+    tourn = TournInfo.get()
     team = player.team  # may be `None` if teams not yet picked
     if not team:
         return VIEW_MENU[:-2]
     elif not team.playoff_team:
         return VIEW_MENU[:-2]
     elif not team.finals_team:
+        assert tourn.playoff_teams == 4
         return VIEW_MENU[:-1]
+    if tourn.playoff_teams == 2:
+        # HACK: really need to fix this--this is related to the overall topic of
+        # declarative views and navigation (both mobile or admin) for the various
+        # tournament configurations!!!
+        return VIEW_MENU[:-2] + VIEW_MENU[-1:]
     return VIEW_MENU
 
 VIEW_RESOURCES = {

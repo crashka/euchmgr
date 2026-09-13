@@ -258,6 +258,24 @@ class TournInfo(BaseModel):
         if auto_save:
             self.save()
 
+    def show_stage(self, stage: TournStage, auto_save: bool = True) -> None:
+        """Show specified stage in the display fields (and save, by default).  Note that
+        this is purely visual, and doesn't affect anything functionally.  Should only be
+        used judiciously, and need to keep synced with similar code in `save`.
+        """
+        stage_data = StageData[stage]
+        assert not stage_data.auto_advance
+
+        self.cur_stage = stage_data.compl_msg
+        self.cur_round = None
+        stage_next = stage + 1
+        if stage_next < len(StageData):
+            self.next_action = StageData[stage_next].start_msg
+        else:
+            self.next_action = None
+        if auto_save:
+            self.save()
+
     def seeding_done(self) -> bool:
         """Official way to check if seeding is complete (scores validated and final player
         rankings computed).
@@ -801,7 +819,15 @@ class Team(BaseModel):
     def iter_finals_teams(cls, by_rank: bool = False) -> Iterator[Self]:
         """Iterator for playoff teams (wrap ORM details).
         """
-        query = cls.select().where(cls.playoff_match_wins > 0)
+        tourn = TournInfo.get()
+        if tourn.playoff_teams == 2:
+            assert tourn.divisions == 1
+            query = cls.select().where(cls.div_rank.in_([1, 2]))
+        else:
+            assert tourn.playoff_teams == 4
+            assert tourn.divisions == 2
+            query = cls.select().where(cls.playoff_match_wins > 0)
+
         if by_rank:
             query = query.order_by(cls.playoff_rank.asc())
         for t in query:
@@ -897,7 +923,13 @@ class Team(BaseModel):
         tourn = TournInfo.get()
         if tourn.stage_compl < TournStage.SEMIS_RANKS:
             return None
-        return self.playoff_match_wins > 0
+        if tourn.playoff_teams == 2:
+            assert tourn.divisions == 1
+            return self.div_rank in (1, 2)
+        else:
+            assert tourn.playoff_teams == 4
+            assert tourn.divisions == 2
+            return self.playoff_match_wins > 0
 
     def get_wins(self, opps: list[Self]) -> list[BaseModel]:
         """Get TeamGame records for all wins versus specified opponents.

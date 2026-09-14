@@ -13,7 +13,7 @@
 &nbsp;&nbsp;\- [Illustrative Examples](#illustrative-examples)<br>
 [Tournament Format](#tournament-format)<br>
 &nbsp;&nbsp;\- [Player Registration](#player-registration)<br>
-&nbsp;&nbsp;\- [Seeding Round](#seeding-round)<br>
+&nbsp;&nbsp;\- [Seeding Round](#seeding-round-1)<br>
 &nbsp;&nbsp;\- [Partner Picking](#partner-picking)<br>
 &nbsp;&nbsp;\- [Tournament Round Robin](#tournament-round-robin-1)<br>
 &nbsp;&nbsp;\- [Final Four Playoffs](#final-four-playoffs)<br>
@@ -289,7 +289,7 @@ below.
 Tournaments consist of the following high-level stages:
 
 - [Player Registration](#player-registration)
-- [Seeding Round](#seeding-round)
+- [Seeding Round](#seeding-round-1)
 - [Partner Picking](#partner-picking)
 - [Tournament Round Robin](#tournament-round-robin-1)
 - [Final Four Playoffs](#final-four-playoffs)

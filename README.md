@@ -416,8 +416,8 @@ between team seed and strength or ease of schedule, including byes):
 1. Two completely separate divisions, each with a self-contained round robin bracket
 2. Two *somewhat* separate divisions, where each team plays all other teams in the their
    division, plus a uniform number of inter-divisonal games
-3. A single division, with the top *four* teams advancing to the semifinals (1 vs. 4, 2
-   vs. 3).
+3. A single division, with the top *four* teams (after tie-breaking) advancing to the
+   semifinals (1 vs. 4, 2 vs. 3).
 
 **Option 1** (completely separate divisions) is specified as the "standard" format
 (described above), with division assignments done using the A-B-B-A-A-.... "snake"

@@ -283,7 +283,8 @@ things have been done differently in the past, and may be done differently in th
 (as part of inevitable progression, or as circumstances compel), especially when it comes
 to rounds of play, divisions, and brackets for the main round robin part of the
 tournament.  Some of those variations will be discussed in the [Alternate
-Formats](#alternate-formats) section below.
+Formats](#alternate-formats) and [Advanced Bracketology](#advanced-bracketology) sections
+below.
 
 Tournaments consist of the following high-level stages:
 

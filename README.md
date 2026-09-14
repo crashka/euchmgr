@@ -17,6 +17,8 @@
 &nbsp;&nbsp;\- [Partner Picking](#partner-picking)<br>
 &nbsp;&nbsp;\- [Tournament Round Robin](#tournament-round-robin)<br>
 &nbsp;&nbsp;\- [Final Four Playoffs](#final-four-playoffs)<br>
+&nbsp;&nbsp;\- [Alternate Formats](#alternate-formats)<br>
+&nbsp;&nbsp;\- [Advanced Bracketology](#advanced-bracketology)<br>
 [Import/Export Format](#importexport-format)<br>
 [Admin and Mobile APIs](#admin-and-mobile-apis)<br>
 [UI Screenshots and Descriptions](#ui-screenshots-and-descriptions)<br>
@@ -37,7 +39,7 @@ There are three user interface components to the application:
   partner picks, and game scores
 - The **Charts and Dashboards** layer, which can provide projectable representations of
   the traditionally hand-drawn brackets and scoring posters
-  
+
 Behind the scenes is a database and some application server code to help implement the
 process flow and ensure the integrity of the data for the tournament.
 
@@ -275,15 +277,21 @@ type of notion for tie-breaking.
 
 ## Tournament Format
 
-This is a discussion of the current structure for tournaments, as related to the various
-phases of progression (including card playing rounds), and details on bracket generation
-and game/match assignments.  Tournaments consist of the following high-level stages:
+The following is a description of the current "standard" structure for a tournament, as
+related to its various stages&mdash;including (of course) card playing rounds.  Note that
+things have been done differently in the past, and may be done differently in the future
+(as part of inevitable progression, or as circumstances compel), especially when it comes
+to rounds of play, divisions, and brackets for the main round robin part of the
+tournament.  Some of those variations will be discussed in the [Alternate
+Formats](#alternate-formats) section below.
 
-- Player Registration
-- Seeding Round
-- Partner Picking
-- Tournament Round Robin
-- Final Four Playoffs
+Tournaments consist of the following high-level stages:
+
+- [Player Registration](#player-registration)
+- [Seeding Round](#seeding-round)
+- [Partner Picking](#partner-picking)
+- [Tournament Round Robin](#tournament-round-robin)
+- [Final Four Playoffs](#final-four-playoffs)
 
 ### Player Registration
 
@@ -321,13 +329,16 @@ ranked teams are correlated with easier strengths of schedule (proportionally, t
 the order).  Here is the current level of support (or near-support) for **two divisions**:
 
 
-- Separate divisional play for 17 to 32 teams (34 to 65 players)
-- Some inter-divisional play for 12 to 16 teams (24 to 33 players)
+- Separate divisional play for 17 to 32 teams (34 to 65 players<sup>&dagger;</sup>)
+- Some inter-divisional play for 12 to 16 teams (24 to 33 players<sup>&dagger;</sup>)
   - Brackets don't currently exist for 13 or 15 teams, but can be generated with a little
     bit of effort
 
+<sup>&dagger;</sup> *note that the top number of players might be +1, in the case of
+a three-headed monster reigning champion*
+
 Overall team seeds are computed from average player rank of the team members (after the
-seeding round).  Assignment of teams to divisions then follows a "snake pattern", as
+seeding round).  Assignment of teams to divisions then follows a "snake" pattern, as
 follows (assuming division names of "A" and "B"):
 
 | Team Seed | Div | Div Seed |
@@ -346,15 +357,6 @@ rankings), are done similarly to as in the seeding round (described above).
 After round robin play, the top two teams in each of the two divisions (after tie-breakers
 are applied) advance to the final four playoffs.
 
-#### Single-Division Support
-
-If the need arises to support fewer than 24 players (e.g. a regional tournament), we can
-revert to a single-division round robin for main tournament play.  For this format, we
-currently have brackets for 8 to 14 teams (16 to 29 players), but it would require a
-little bit of enhancement to the application to actualize.  Going below 16 players will
-require a little more thinking and effort around format (number of rounds and bracket
-requirements).
-
 ### Final Four Playoffs
 
 In the final four playoffs, the top ranked team in each division (again, assuming two) is
@@ -366,6 +368,103 @@ Rules](#tie-breaking-rules)).
 
 As with the seeding round and tournament round robin, admins will have the ability to
 adjust playoff game scores and final tournament rankings, as needed.
+
+### Alternate Formats
+
+#### Single-Division Support
+
+If the need arises to support fewer than 24 players (e.g. a local tournament, or some
+unforeseen dropoff in annual participation), we can revert to a single-division round
+robin for main tournament play, as has been done in the past.  For this format, we
+currently have brackets for 8 to 14 teams (16 to 29 players).  Going below 16 players will
+require a little more thinking and effort around format (number of rounds and bracket
+requirements).
+
+#### Mini Tournaments
+
+The application currently has the option for facilitating single-division "mini"
+tournaments, consisting of abbreviated seeding and round robin play (within a single
+division).  The top *two* main tournament teams (after tie-breaking, as described above)
+advance to the playoffs, which is a best-of-3 game final round to determine the champion
+(no semifinal round).  Player registration and partner picking work the same way as in the
+full "standard" tournament.
+
+The following configurations are currently supported:
+
+| Players | Teams | Seeding Rounds | Tournament Rounds |
+| :---: | :---: | :---: | :---: |
+| 8 | 4 | 3 | 3 |
+| 9 | 4 | 3 | 3 |
+| 10 | 5 | 3 or 4 | 5 |
+| 11 | 5 | 3 or 4<sup>&dagger;</sup> | 5 |
+| 12 | 6 | 4 | 5 |
+| 13 | 6 | 4 | 5 |
+| 14 | 7 | 4 | 7 |
+
+<sup>&dagger;</sup> *note that one player has two bye rounds in this configuration*
+
+Brackets for other configurations can be generated, as needed.
+
+### Advanced Bracketology
+
+#### Round Robin
+
+There are (at least) three different ways of generating brackets for the main tournament
+round robin play, in the interest of fairness (meaning a consistent correlation
+between team seed and strength or ease of schedule, including byes):
+
+1. Two completely separate divisions, each with a self-contained round robin bracket
+2. Two *somewhat* separate divisions, where each team plays all other teams in the their
+   division, plus a uniform number of inter-divisonal games
+3. A single division, with the top *four* teams advancing to the semifinals (1 vs. 4, 2
+   vs. 3).
+
+**Option 1** (completely separate divisions) is specified as the "standard" format
+(described above), with division assignments done using the A-B-B-A-A-.... "snake"
+pattern.  There are a couple of considerations (and possible problems) associated with
+this approach:
+
+- If there are an odd number of teams, then the brackets used in the two divisions will
+  have different degrees of absolute fairness.
+  - Note that we have not verified that absolute fairness obtains with an even number of
+    teams (and identical brackets) using A-B-B-A-A-... division assignment (this will be a
+    good math exercise for some motivated Beta).
+- If there are an odd number of teams, the division with the top seed should have the odd
+  number of players (which may be the larger or smaller of the divisions), so that the top
+  team gets a bye.  However, this would mean that seeds 2 and 3 don't get byes, whereas
+  seeds 4 and 5 do.
+  - This can possibly(!?) be made most equitable by a using different (non-snake pattern)
+    division assignment scheme.  This, again, would be an interesting math problem to
+    investigate.
+- This tournament structure should generally be discouraged if fewer than 18 teams, since
+  divisional brackets start to get unbalanced going down from 8 teams (assuming 8 rounds).
+
+**Option 2** (two *somewhat* separate divisions) has been used as recently as 2023 and
+2024 (with 16 teams, both years).  We currently only have brackets for this approach
+(constructed by Ray) for 12, 14, and 16 teams.  Note that Ray specified a different
+division assignment pattern for these brackets, namely
+A-B-B-A-***B-A-A-B***-A-B-B-A-... (used in 2024, but not in 2023).
+
+- It is not known whether good brackets (i.e. better than Option 1) can be generated for
+  other numbers of teams (e.g. 13 and 15, or greater than 16) using this same design.
+- We may need to rethink and create specific tie-breaking rules for tournaments that
+  include inter-divisional play.
+  - In particular, we need to explicitly decide whether stats for games against
+    non-division teams count in breaking ties within a division.  Specifications should be
+    made for both cohort-level stats (if we are using them) as well as overall stats
+    (e.g. pts pct), in a tie-breaking context.
+
+**Option 3** (a single division, with the top four teams advancing) will almost certainly
+yield the mathematically fairest brackets (i.e. best seed-to-strength of schedule
+fairness), without the constraints and effects of specific division assignments schemes.
+But, on the negative side, this completely takes away the interest and dynamics of
+concentrated intra-divisional play and competition.
+
+- This approach may actually be the best option for any tournament with fewer than 24
+  players (meaning 12 teams), including smaller local/regional tournaments (as discussed
+  above).
+- Note that we currently have a bracket template from Ray for 13 teams (26 or 27 players),
+  but not for 15 teams (30 or 31 players).
 
 ## Import/Export Format
 

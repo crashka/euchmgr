@@ -456,10 +456,10 @@ A-B-B-A-***B-A-A-B***-A-B-B-A-... (used in 2024, but not in 2023).
     (e.g. pts pct), in a tie-breaking context.
 
 **Option 3** (a single division, with the top four teams advancing) will almost certainly
-yield the mathematically fairest brackets (i.e. best seed-to-strength of schedule
-fairness), without the constraints and effects of specific division assignments schemes.
-But, on the negative side, this completely takes away the interest and dynamics of
-concentrated intra-divisional play and competition.
+yield the mathematically fairest brackets (i.e. best *overall* seed-to-strength of
+schedule fairness), without the constraints and effects of specific division assignments
+schemes.  But, on the negative side, this completely takes away the interest and dynamics
+of concentrated intra-divisional play and competition.
 
 - This approach may actually be the best option for any tournament with fewer than 24
   players (meaning 12 teams), including smaller local/regional tournaments (as discussed

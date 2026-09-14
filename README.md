@@ -408,7 +408,7 @@ Brackets for other configurations can be generated, as needed.
 
 ### Advanced Bracketology
 
-#### Round Robin
+#### Tournament Round Robin
 
 There are (at least) three different ways of generating brackets for the main tournament
 round robin play, in the interest of fairness (meaning a consistent correlation

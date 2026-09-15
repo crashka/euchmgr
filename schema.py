@@ -300,8 +300,9 @@ class TournInfo(BaseModel):
         """
         if self.playoff_teams == 2:
             return self.stage_compl >= TournStage.FINALS_BRACKET
-        assert self.playoff_teams == 4
-        return self.stage_compl >= TournStage.SEMIS_BRACKET
+        else:
+            assert self.playoff_teams == 4
+            return self.stage_compl >= TournStage.SEMIS_BRACKET
 
     def playoffs_done(self) -> bool:
         """Official way to check if playoffs (and hence the tournament) is complete

@@ -737,7 +737,7 @@ def validate_tourn(finalize: bool = False) -> None:
     if finalize:
         TournInfo.mark_stage_complete(TournStage.TOURN_TABULATE)
 
-def rank_team_cohort(teams: list[Team], use_cohrt_stats: bool = False) -> \
+def rank_team_cohort(teams: list[Team], use_cohrt_stats: bool = True) -> \
         tuple[list[Team], dict[tuple], dict[dict]]:
     """Given a list of teams (generally with the same record, though we are not checking
     here, since we don't really care), return list of teams ranked by the following stats

@@ -193,9 +193,14 @@ def post_seeding() -> dict:
             game.update_player_stats()
             game.insert_player_games()
             compute_player_ranks()
+            # see "KINDA HOKEY" comment about this button stuff in post_playoffs() below
+            enable_button = None
             if SeedGame.current_round() == -1:
                 TournInfo.mark_stage_complete(TournStage.SEED_RESULTS)
+                enable_button = 'tabulate_seed_results'
             sg_props = {prop: getattr(game, prop) for prop in sg_addl_props}
+            if enable_button:
+                sg_props['enableButton'] = enable_button
             sg_data = game.__data__ | sg_props
     except TypeError as e:
         return ajax_error("Invalid type specified")
@@ -408,9 +413,14 @@ def post_round_robin() -> dict:
             game.update_team_stats()
             game.insert_team_games()
             compute_team_ranks()
+            # see "KINDA HOKEY" comment about this button stuff in post_playoffs() below
+            enable_button = None
             if TournGame.current_round() == -1:
                 TournInfo.mark_stage_complete(TournStage.TOURN_RESULTS)
+                enable_button = 'tabulate_tourn_results'
             tg_props = {prop: getattr(game, prop) for prop in tg_addl_props}
+            if enable_button:
+                tg_props['enableButton'] = enable_button
             tg_data = game.__data__ | tg_props
     except TypeError as e:
         return ajax_error("Invalid type specified")

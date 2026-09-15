@@ -400,7 +400,7 @@ class PartnerPick(UIMixin, BasePlayer):
         indicate that the partner picking stage is complete.
         """
         tourn = TournInfo.get()
-        if tourn.stage_compl < TournStage.SEED_RANKS:
+        if not tourn.seeding_done():
             return 0
 
         query = (cls
@@ -434,7 +434,7 @@ class PartnerPick(UIMixin, BasePlayer):
         currently picking during the partner selection process.
         """
         tourn = TournInfo.get()
-        if tourn.stage_compl < TournStage.SEED_RANKS:
+        if not tourn.seeding_done():
             return None
 
         # NOTE: need to instantiate `Player` instances here
@@ -454,7 +454,7 @@ class PartnerPick(UIMixin, BasePlayer):
         problems).
         """
         tourn = TournInfo.get()
-        if tourn.stage_compl < TournStage.SEED_RANKS:
+        if not tourn.seeding_done():
             return None  # as distinguished from `[]` (below)
 
         # NOTE: need to instantiate `Player` instances here (as above)
@@ -701,7 +701,7 @@ class Team(UIMixin, BaseTeam):
         not relevant
         """
         tourn = TournInfo.get()
-        if tourn.stage_compl < TournStage.SEMIS_BRACKET:
+        if not tourn.playoffs_started():
             return self.__data__ | EMPTY_FINAL_FOUR_STATS
         return self.__data__
 
@@ -822,7 +822,7 @@ class Team(UIMixin, BaseTeam):
         """Return playoff match record (W-L) as a string
         """
         tourn = TournInfo.get()
-        if tourn.stage_compl < TournStage.SEMIS_BRACKET or not self.playoff_team:
+        if not tourn.playoffs_started() or not self.playoff_team:
             return None
         return f"{self.playoff_match_wins}-{self.playoff_match_losses}"
 
@@ -831,7 +831,7 @@ class Team(UIMixin, BaseTeam):
         """Return playoff game win record (W-L) as a string
         """
         tourn = TournInfo.get()
-        if tourn.stage_compl < TournStage.SEMIS_BRACKET or not self.playoff_team:
+        if not tourn.playoffs_started() or not self.playoff_team:
             return None
         return f"{self.playoff_wins}-{self.playoff_losses}"
 
@@ -916,7 +916,7 @@ class Team(UIMixin, BaseTeam):
         """Return current TournGame for team (only if round robin stage is active)
         """
         tourn = TournInfo.get()
-        if tourn.stage_compl < TournStage.SEMIS_BRACKET:
+        if not tourn.playoffs_started():
             return None
 
         if tourn.stage_compl < TournStage.FINALS_BRACKET:

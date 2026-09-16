@@ -70,6 +70,7 @@
      .round .empty {
        position: relative;
      }
+     {% if "sf-1" in brckt %}
      .semis .matchup {
        height: var(--base-ht);
      }
@@ -91,6 +92,20 @@
      .champ .empty:last-of-type {
        border-top: 2px solid black;
      }
+     {% else %}
+     .finals .matchup {
+       height: var(--base-ht);
+     }
+     .finals .empty {
+       height: 0.0rem;
+     }
+     .champ .empty {
+       height: calc(var(--base-ht) / 2.0);
+     }
+     .champ .empty:last-of-type {
+       border-top: 2px solid black;
+     }
+     {% endif %}
      .round .team {
        display: inline-block;
        position: absolute;
@@ -106,12 +121,18 @@
        text-align: left;
        margin-left: calc(50% + var(--score-off-x));
      }
+     {% if "sf-1" in brckt %}
      .semis .scores {
        top: calc(var(--base-ht) / 2.0 + var(--score-off-y));
      }
      .finals .scores {
        top: calc((var(--total-ht) - var(--base-ht)) / 2.0 + var(--score-off-y));
      }
+     {% else %}
+     .finals .scores {
+       top: calc(var(--base-ht) / 2.0 + var(--score-off-y));
+     }
+     {% endif %}
      .red-bg {
        background-color: #FFECEC;
      }
@@ -160,8 +181,10 @@
         {% endif %}  {# "sf-1" in brckt #}
         <div class="round finals">
           <h2>Finals</h2>
+          {% if "sf-1" in brckt %}
           <div class="empty">
           </div>
+          {% endif %}
           <div class="matchup" id="fn-1">
             {% if "fn-1" in brckt %}
             <span class="team">{{brckt["fn-1"][0].team_tag_pl|safe}}</span>

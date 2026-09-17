@@ -5,14 +5,18 @@
 NOTE: currently includes data layout information (but need to refactor/reconcile data with
 view management).
 """
+from copy import deepcopy
+
 from ckautils import typecast
 from peewee import IntegrityError
 from flask import Blueprint, g, request
 
 from security import login_required
-from schema import Bracket, TournStage, TournInfo
+from database import db_atomic
+from schema import Bracket, TournStage, TournInfo, ScoreAction
 from euchmgr import compute_player_ranks, compute_team_ranks, compute_playoff_ranks
-from ui_schema import Player, PartnerPick, SeedGame, Team, TournGame, PlayoffGame
+from ui_schema import Player, PartnerPick, SeedGame, Team, TournGame, PlayoffGame, PostScore
+from ui_common import redirect, render_error
 
 ###################
 # blueprint stuff #
@@ -21,9 +25,10 @@ from ui_schema import Player, PartnerPick, SeedGame, Team, TournGame, PlayoffGam
 data = Blueprint('data', __name__)
 
 # magic strings
-HIDDEN   = 'hidden'
-CENTERED = 'centered'
-EDITABLE = 'editable'
+HIDDEN    = 'hidden'
+CENTERED  = 'centered'
+EDITABLE  = 'editable'
+CLICKABLE = 'clickable'
 
 Layout = list[tuple[str, str, str]]
 
@@ -155,7 +160,7 @@ sg_layout = [
     ('bye_players', "Bye(s)",      None),
     ('team1_pts',   "Team 1 Pts",  EDITABLE),
     ('team2_pts',   "Team 2 Pts",  EDITABLE),
-    ('winner',      "Winner",      None)
+    ('winner',      "Winner",      CLICKABLE)
 ]
 
 @data.get("/seeding/data")
@@ -177,36 +182,66 @@ def post_seeding() -> dict:
     """Post scrores to seeding round game.
     """
     data = request.form
+    admin_adj = '/report/score_adjust/' in request.referrer
     sg_data = None
 
-    try:
-        # TODO: wrap this entire try block in a transaction!!!
-        game = SeedGame[typecast(data.get('id'))]
-        upd_info = {x[0]: typecast(data.get(x[0])) for x in sg_layout if x[2] == EDITABLE}
-        team1_pts = upd_info.pop('team1_pts')
-        team2_pts = upd_info.pop('team2_pts')
-        assert len(upd_info) == 0
-        game.add_scores(team1_pts, team2_pts)
-        game.save()
+    with db_atomic() as txn:
+        try:
+            # TODO: wrap this entire try block in a transaction!!!
+            game = SeedGame[typecast(data.get('id'))]
+            game_orig = deepcopy(game) if admin_adj else None
+            upd_info = {x[0]: typecast(data.get(x[0])) for x in sg_layout if x[2] == EDITABLE}
+            team1_pts = upd_info.pop('team1_pts')
+            team2_pts = upd_info.pop('team2_pts')
+            assert len(upd_info) == 0
+            game.add_scores(team1_pts, team2_pts, admin_adj=admin_adj)
+            game.save()
 
-        if game.winner:
-            game.update_player_stats()
-            game.insert_player_games()
-            compute_player_ranks()
-            # see "KINDA HOKEY" comment about this button stuff in post_playoffs() below
-            enable_button = None
-            if SeedGame.current_round() == -1:
-                TournInfo.mark_stage_complete(TournStage.SEED_RESULTS)
-                enable_button = 'tabulate_seed_results'
-            sg_props = {prop: getattr(game, prop) for prop in sg_addl_props}
-            if enable_button:
-                sg_props['enableButton'] = enable_button
-            sg_data = game.__data__ | sg_props
-    except TypeError as e:
-        return ajax_error("Invalid type specified")
-    except RuntimeError as e:
-        return ajax_error(str(e))
+            if game.winner:
+                info = {
+                    'bracket'      : Bracket.SEED,
+                    'game_label'   : game.label,
+                    'post_action'  : data.get('post_action', ScoreAction.POST_ADMIN),
+                    'action_info'  : data.get('action_info', 'Seeding View'),
+                    'team1_pts'    : team1_pts,
+                    'team2_pts'    : team2_pts,
+                    'posted_by_num': None,
+                    'team_idx'     : None,
+                    'ref_score'    : None,
+                    'do_push'      : True  # already pushed, lol
+                }
+                score = PostScore.create(**info)
+                if admin_adj:
+                    game_orig.update_player_stats(revert=True)
+                    game.update_player_stats()
+                    game.update_player_games()
+                else:
+                    game.update_player_stats()
+                    game.insert_player_games()
+                compute_player_ranks()
+                # see "KINDA HOKEY" comment about this button stuff in post_playoffs() below
+                enable_button = None
+                if SeedGame.current_round() == -1:
+                    TournInfo.mark_stage_complete(TournStage.SEED_RESULTS)
+                    enable_button = 'tabulate_seed_results'
+                sg_props = {prop: getattr(game, prop) for prop in sg_addl_props}
+                if enable_button:
+                    sg_props['enableButton'] = enable_button
+                sg_data = game.__data__ | sg_props
+        except TypeError as e:
+            txn.rollback()
+            err_msg = "Invalid type specified"
+            if admin_adj:
+                return render_error(500, desc=err_msg)
+            return ajax_error(err_msg)
+        except RuntimeError as e:
+            txn.rollback()
+            if admin_adj:
+                return render_error(500, desc=str(e))
+            return ajax_error(str(e))
 
+    if admin_adj:
+        return redirect('/report/score_posting/' + game.label)
     return ajax_data(sg_data)
 
 #############

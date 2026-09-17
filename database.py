@@ -71,6 +71,7 @@ db = CySqliteDatabase(None, pragmas=pragmas, **db_params)
 
 # expose useful attributes (discourage importing `db` directly)
 db_connection_context = db.connection_context
+db_atomic = db.atomic
 
 def db_filepath(name: str, db_dir: str = None) -> str:
     """Build filename (or pathname) based on specified name.

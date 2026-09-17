@@ -243,11 +243,11 @@
         <div class="actions">
           {% if no_roster %}
           <button value="{{buttons[1]}}"{{btn_attr[1]}}>{{btn_lbl[1]}}</button>
-          <a class="reset" href="javascript:void(0);">[reset]</a>
+          <a class="reset" href="javascript:void(0);" tabindex="-1">[reset]</a>
           {% else %}
           <button value="{{buttons[2]}}"{{btn_attr[2]}}>{{btn_lbl[2]}}</button>
           <button value="{{buttons[3]}}"{{btn_attr[3]}}>{{btn_lbl[3]}}</button>
-          <a class="cancel" href="./">[cancel]</a>
+          <a class="cancel" href="./" tabindex="-1">[cancel]</a>
           {% endif %}
         </div>
       </form>

@@ -272,7 +272,7 @@
                 showError(resp.err);
               }
               else if (resp.succ) {
-                if (resp.data.reloadTable) {
+                if (resp.data && resp.data.reloadTable) {
                   console.log('Reloading table data');
                   table.ajax.reload();
                 }
@@ -280,13 +280,13 @@
                   console.log('Updating row data: ', resp.data);
                   row.data(resp.data).draw();
                 }
-                if (resp.data.enableButton) {
+                if (resp.data && resp.data.enableButton) {
                   // REVISIT: should we be doing some integrity checking here and/or better
                   // (or any?) state management for buttons in general???
                   const btnSelector = 'button[value="' + resp.data.enableButton + '"]';
                   $(btnSelector).prop('disabled', false);
                 }
-                if (resp.data.disableButton) {
+                if (resp.data && resp.data.disableButton) {
                   // same comment appies here
                   const btnSelector = 'button[value="' + resp.data.disableButton + '"]';
                   $(btnSelector).prop('disabled', true);
@@ -336,6 +336,8 @@
          {target: {{loop.index0}}, className: 'dt-center'},
          {% elif col[2] == 'editable' %}
          {target: {{loop.index0}}, createdCell: editable},
+         {% elif col[2] == 'clickable' %}
+         {target: {{loop.index0}}, className: 'clickable'},
          {% else %}
          {target: {{loop.index0}}},
          {% endif %}
@@ -350,6 +352,20 @@
          $(".tbl_wrapper").css('visibility', 'visible');
          table.columns.adjust().draw();
        }
+     });
+
+     let popupWin;
+     $('#view_tbl').on('click', 'td.clickable', function(e) {
+       rec = table.row(this).data();
+       console.log(rec);
+       if (popupWin && !popupWin.closed) {
+         popupWin.close();
+       }
+       if (!rec.winner) {
+         return false;
+       }
+       const specs = "popup,width=900,height=600,top=200,left=200";
+       popupWin = window.open('/report/score_posting/' + rec.label, "_blank", specs);
      });
 
      // links for charts, dashboards, reports

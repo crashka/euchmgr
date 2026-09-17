@@ -619,13 +619,16 @@ class SeedGame(BaseModel):
         for t in query:
             yield t
 
-    def add_scores(self, team1_pts: int, team2_pts: int) -> None:
+    def add_scores(self, team1_pts: int, team2_pts: int, admin_adj: bool = False) -> None:
         """Record scores for completed (or incomplete) game.  It is no longer required
         that score updates come through here (since denorms are now managed elsewhere),
         but there is a little bit of integrity checking here that is slightly useful
         """
         if self.winner:
-            raise RuntimeError("Completed game score cannot be overwritten")
+            if admin_adj:
+                assert current_user.is_admin
+            else:
+                raise RuntimeError("Completed game score cannot be overwritten")
         if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
             raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points)")
 
@@ -718,6 +721,25 @@ class SeedGame(BaseModel):
             pl_games.append(pl_game)
 
         return len(pl_games)
+
+    def update_player_games(self) -> None:
+        """Update scores for PlayerGame records; called in the case of a correction to a
+        score after it has been posted and denorms processed.
+        """
+        players     = [self.player1, self.player2, self.player3, self.player4]
+        team_scores = [self.team1_pts, self.team1_pts, self.team2_pts, self.team2_pts]
+        opp_scores  = [self.team2_pts, self.team2_pts, self.team1_pts, self.team1_pts]
+        assert self.table_num
+
+        game_map = PlayerGame.get_game_map(self.label)
+
+        for idx, player in enumerate(players):
+            # REVISIT: should we do some validation here???
+            pg = game_map[player.player_num]
+            pg.team_pts = team_scores[idx]
+            pg.opp_pts = opp_scores[idx]
+            pg.is_winner = pg.team_pts > pg.opp_pts
+            pg.save()
 
     def save(self, *args, **kwargs):
         """Determine (and set) winner if game is complete
@@ -1281,13 +1303,26 @@ class PlayerGame(BaseModel):
 
     @classmethod
     def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
-        """Iterator for seed_games (wrap ORM details).
+        """Iterator for player_game records (wrap ORM details).
         """
         query = cls.select()
         if not include_byes:
             query = query.where(cls.is_bye == False)
         for t in query:
             yield t
+
+    @classmethod
+    def get_game_map(cls, label: str) -> dict[int, Self]:
+        """Return map of player_game records for the specified game label, index by
+        player_num.
+        """
+        pg_map = {}
+        query = cls.select().where(cls.game_label == label)
+        for pg in query:
+            pg_map[pg.player_num] = pg
+
+        assert len(pg_map) == 4
+        return pg_map
 
     def save(self, *args, **kwargs):
         """Set player name (denorm field) as player's nick name
@@ -1376,13 +1411,15 @@ class StandinGame(BaseModel):
 #############
 
 class ScoreAction(StrEnum):
-    SUBMIT     = "submit"
-    ACCEPT     = "accept"
-    CORRECT    = "correct"
-    IGNORE     = " (ignored)"
-    DISCARD    = " (discarded)"
-    POST_ADMIN = "post (admin)"
-    POST_FAKE  = "post (fake)"
+    SUBMIT      = "submit"
+    ACCEPT      = "accept"
+    CORRECT     = "correct"
+    IGNORE      = " (ignored)"
+    DISCARD     = " (discarded)"
+    POST_ADMIN  = "post (admin)"
+    POST_IMPORT = "post (import)"
+    POST_FAKE   = "post (fake)"
+    ADJ_ADMIN   = "adjust (admin)"
 
 class PostScore(BaseModel):
     """
@@ -1393,8 +1430,9 @@ class PostScore(BaseModel):
     action_info    = TextField(null=True)
     team1_pts      = IntegerField()
     team2_pts      = IntegerField()
-    posted_by      = ForeignKeyField(Player, field='player_num', column_name='posted_by_num')
-    team_idx       = IntegerField()           # for `posted_by` (`0` - team1, `1` - team2)
+    posted_by      = ForeignKeyField(Player, field='player_num', column_name='posted_by_num',
+                                     null=True)
+    team_idx       = IntegerField(null=True)  # for `posted_by` (`0` - team1, `1` - team2)
     ref_score      = ForeignKeyField('self', null=True)
     do_push        = BooleanField(null=True)
 

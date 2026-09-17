@@ -29,6 +29,10 @@
      .actions {
        margin-top: 2.0rem;
      }
+     .actions button {
+       margin-right: 0.8rem;
+       padding: 0.0rem 0.2rem;
+     }
      table {
        border: 2px solid darkgrey;
        border-collapse: collapse;
@@ -43,13 +47,35 @@
      .team, .pts, .chk {
        text-align: center;
      }
+     .pts input {
+       text-align: center;
+       width: 2.0rem;
+     }
+     td.act_info {
+       width: 10.5rem;
+     }
+     .act_info input {
+       width: 10.0rem;
+     }
+     input::-webkit-outer-spin-button,
+     input::-webkit-inner-spin-button {
+       -webkit-appearance: none;
+     }
+     input[type='number'] {
+       -moz-appearance:textfield;
+     }
+     input.dummy {
+       border: 0;
+       width: 0;
+     }
     </style>
   </head>
 
   <body>
+    <form action="{{action}}" method="post">
     <main>
       <h1>{{tourn.name}} &ndash; {{title}}</h1>
-      {% if popup_num == 0 %}
+      {% if popup_num in (0, 1) %}
       <section class="game_info">
         <h2>Game Info</h2>
         <p>
@@ -86,19 +112,44 @@
             </tr>
           </thead>
           <tbody>
+            {% set pushed = none %}
             {% for post in posts %}
-            {% set team = "Team " ~ (post.team_idx + 1) %}
+            {% set team = "Team " ~ (post.team_idx + 1) if post.team_idx is not none else "" %}
+            {% set posted_by = post.posted_by.name if post.posted_by_num else "" %}
+            {% if post.do_push %}
+            {% set pushed = post %}
+            {% endif %}
             <tr>
-              <td class="team">{{post.team_idx + 1}}</td>
-              <td>{{post.posted_by.name}}</td>
+              <td class="team">{{team}}</td>
+              <td>{{posted_by}}</td>
               <td>{{post.post_action|capitalize}}</td>
-              <td>{{post.action_info or ""}}</td>
+              <td class="act_info">{{post.action_info or ""}}</td>
               <td class="pts">{{post.team1_pts}}</td>
               <td class="pts">{{post.team2_pts}}</td>
               <td class="chk">{{"&#x2714;"|safe if post.do_push else ""}}</td>
               <td>{{post.created_at.strftime('%H:%M:%S')}}</td>
             </tr>
             {% endfor %}
+            {% if popup_num == 1 %}
+            <input name="id" type="hidden" value="{{game.id}}">
+            <input name="post_action" type="hidden" value="{{post_action}}">
+            <tr class="adjust">
+              <td></td>
+              <td></td>
+              <td>{{post_action.capitalize()}}</td>
+              <td class="act_info">
+                <input name="action_info" type="text" placeholder="indicate reason">
+              </td>
+              <td class="pts">
+                <input name="team1_pts" type="number" min="0" max="10">
+              </td>
+              <td class="pts">
+                <input name="team2_pts" type="number" min="0" max="10">
+              </td>
+              <td></td>
+              <td></td>
+            </tr>
+            {% endif %}  {# popup_num == 1 #}
           </tbody>
         </table>
         {% else %}  {# posts #}
@@ -110,8 +161,43 @@
       {% endif %}
     </main>
     <p class="actions">
+      {% if popup_num == 1 %}
+      <input name="dummy" class="dummy">
+      <button type="submit" disabled>Adjust score</button>
+      <a class="cancel" href="{{cancel_url}}">[cancel]</a>
+      {% else %}
+      <button class="adj_score" type="button">Adjust score</button>
       <button type="button" onclick="window.close();">Close window</button>
+      {% endif %}
     </p>
+    </form>
   </body>
 
+  <script src="/static/jquery-3.7.1.min.js"></script>
+  <script>
+   $(function() {
+     $('button.adj_score').on('click', function() {
+       window.location.href = "{{adjust_url}}";
+     });
+
+     $('.adjust input').on('change', function() {
+       let actionInfo = $('input[name="action_info"]').val();
+       let team1Pts = $('input[name="team1_pts"]').val();
+       let team2Pts = $('input[name="team2_pts"]').val();
+
+       if (actionInfo && team1Pts && team2Pts) {
+         $('button[type="submit"]').prop('disabled', false);
+       }
+       else {
+         $('button[type="submit"]').prop('disabled', true);
+       }
+     });
+
+     // we do this so we can tab over to the submit button from the
+     // last form input (if it becomes enabled)
+     $('input.dummy').on("focus", function() {
+       $(this).nextAll('button:enabled, a').first().focus();
+     });
+   });
+  </script>
 </html>

@@ -114,8 +114,8 @@
           <tbody>
             {% set pushed = none %}
             {% for post in posts %}
-            {% set team = "Team " ~ (post.team_idx + 1) if post.team_idx is not none else "" %}
-            {% set posted_by = post.posted_by.name if post.posted_by_num else "" %}
+            {% set team = "Team " ~ (post.team_idx + 1) if post.team_idx is not none else "-" %}
+            {% set posted_by = post.posted_by.name if post.posted_by_num else "admin" %}
             {% if post.do_push %}
             {% set pushed = post %}
             {% endif %}
@@ -133,9 +133,10 @@
             {% if popup_num == 1 %}
             <input name="id" type="hidden" value="{{game.id}}">
             <input name="post_action" type="hidden" value="{{post_action}}">
+            <input name="redirect_to" type="hidden" value="{{redirect_to}}">
             <tr class="adjust">
-              <td></td>
-              <td></td>
+              <td class="team">-</td>
+              <td>admin</td>
               <td>{{post_action.capitalize()}}</td>
               <td class="act_info">
                 <input name="action_info" type="text" placeholder="indicate reason">

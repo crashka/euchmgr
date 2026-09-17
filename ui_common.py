@@ -10,8 +10,8 @@ from dataclasses import asdict
 import re
 
 from ckautils import typecast
-from flask import (g, request, render_template, redirect as flask_redirect, abort,
-                   get_flashed_messages)
+from flask import (Request, g, request, render_template, redirect as flask_redirect,
+                   abort, get_flashed_messages)
 
 from core import log, ImplementationError
 from security import SecurityMixin
@@ -27,6 +27,13 @@ def mobile_client() -> bool:
     """Determine mobile client by the user-agent string.
     """
     return re.search(MOBILE_REGEX, request.user_agent.string) is not None
+
+def referrer_path(req: Request) -> str:
+    """Parse out the referrer path from the request.
+    """
+    assert req.referrer.startswith(req.host_url)
+    assert req.host_url[-1] == '/'
+    return req.referrer.removeprefix(req.host_url[:-1])
 
 Scalar = str | int | float | bool | None
 

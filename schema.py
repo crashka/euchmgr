@@ -610,12 +610,15 @@ class SeedGame(BaseModel):
         )
 
     @classmethod
-    def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
+    def iter_games(cls, include_byes: bool = False, complete_only: bool = False) -> Iterator[Self]:
         """Iterator for seed_games (wrap ORM details).
         """
+        assert not (include_byes and complete_only)  # contradictory
         query = cls.select()
         if not include_byes:
             query = query.where(cls.table_num.is_null(False))
+        if complete_only:
+            query = query.where(cls.winner.is_null(False))
         for t in query:
             yield t
 
@@ -726,10 +729,10 @@ class SeedGame(BaseModel):
         """Update scores for PlayerGame records; called in the case of a correction to a
         score after it has been posted and denorms processed.
         """
+        assert self.table_num  # must be an actual game (not a bye record)
         players     = [self.player1, self.player2, self.player3, self.player4]
         team_scores = [self.team1_pts, self.team1_pts, self.team2_pts, self.team2_pts]
         opp_scores  = [self.team2_pts, self.team2_pts, self.team1_pts, self.team1_pts]
-        assert self.table_num
 
         game_map = PlayerGame.get_game_map(self.label)
 
@@ -1416,10 +1419,10 @@ class ScoreAction(StrEnum):
     CORRECT     = "correct"
     IGNORE      = " (ignored)"
     DISCARD     = " (discarded)"
-    POST_ADMIN  = "post (admin)"
-    POST_IMPORT = "post (import)"
-    POST_FAKE   = "post (fake)"
-    ADJ_ADMIN   = "adjust (admin)"
+    POST_ADMIN  = "post"
+    POST_IMPORT = "import"
+    POST_FAKE   = "fake"
+    ADJ_ADMIN   = "adjust"
 
 class PostScore(BaseModel):
     """

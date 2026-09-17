@@ -33,7 +33,9 @@ def fmt_dash_score(pts: int, prev_pts: int = -1) -> str:
     #    ret = f"<i>{ret}</i>"
 
     if prev_pts != -1 and pts != prev_pts:
-        assert pts >= (prev_pts or 0)
+        # REVISIT: this is not true for any downward score correction--is there a valid
+        # integrity check we can and/or should do here???
+        #assert pts >= (prev_pts or 0)
         ret = f"<b>{ret}</b>"
 
     return ret

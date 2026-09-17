@@ -4,10 +4,11 @@
 """
 from itertools import groupby
 
-from flask import Blueprint, session, render_template, abort
+from flask import Blueprint, session, request, render_template, abort
 
 from schema import GAME_PTS, ScoreAction
 from ui_schema import fmt_pct, TournInfo, Player, Team, PostScore, get_game_by_label
+from ui_common import referrer_path
 from euchmgr import Elevs, TeamGrps, rank_team_cohort, elevate_winners
 
 ###################
@@ -279,15 +280,16 @@ def score_posting(game_label: str, tourn: TournInfo) -> str:
     }
     return render_popup(context)
 
-####################
+################
 # score_adjust #
-####################
+################
 
 def score_adjust(game_label: str, tourn: TournInfo) -> str:
     """Render admin score adjustment window (as a popup)
     """
     game = get_game_by_label(game_label)
     posts = PostScore.get_posts(game_label)
+    parent_url = referrer_path(request)
 
     context = {
         'popup_num'  : 1,
@@ -296,7 +298,8 @@ def score_adjust(game_label: str, tourn: TournInfo) -> str:
         'game'       : game,
         'posts'      : posts,
         'post_action': ScoreAction.ADJ_ADMIN,
-        'action'     : '/seeding/data',
-        'cancel_url' : '/report/score_posting/' + game.label
+        'action'     : '/seeding/score_adj',
+        'cancel_url' : parent_url,
+        'redirect_to': parent_url
     }
     return render_popup(context)

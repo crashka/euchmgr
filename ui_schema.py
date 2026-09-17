@@ -1286,7 +1286,8 @@ class TeamGame(UIMixin, BaseTeamGame):
 class PostScore(UIMixin, BasePostScore):
     """
     """
-    posted_by = ForeignKeyField(Player, field='player_num', column_name='posted_by_num')
+    posted_by = ForeignKeyField(Player, field='player_num', column_name='posted_by_num',
+                                null=True)
     ref_score = ForeignKeyField('self', null=True)
 
     class Meta:

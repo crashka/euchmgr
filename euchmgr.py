@@ -1240,6 +1240,8 @@ def validate_playoffs(bracket: Bracket, finalize: bool = False) -> None:
     tm_stats = {tm.id: stats_tmpl.copy() for tm in tm_list}
 
     unnec = []
+    # NOTE: we'll handle unplayed games below, as opposed to here in the query (this is
+    # different than seeding and tourn validation above)
     by_matchup = PlayoffGame.iter_games(by_matchup=True)
     for k, g in groupby(by_matchup, key=lambda x: (x.bracket, x.matchup_num)):
         # TODO: track stats for the matchup to tabulate/validate match wins/losses!!!
@@ -1249,7 +1251,8 @@ def validate_playoffs(bracket: Bracket, finalize: bool = False) -> None:
             if not gm.winner:
                 assert not gm.team1_pts
                 assert not gm.team2_pts
-                unnec.append(gm)
+                if finalize:
+                    unnec.append(gm)
                 continue
 
             stats1 = tm_stats[gm.team1_id]
@@ -1261,6 +1264,7 @@ def validate_playoffs(bracket: Bracket, finalize: bool = False) -> None:
                 matchup_stats1['playoff_wins'] += 1
                 matchup_stats2['playoff_losses'] += 1
             else:
+                assert gm.winner == gm.team2_name
                 stats1['playoff_losses'] += 1
                 stats2['playoff_wins'] += 1
                 matchup_stats1['playoff_losses'] += 1
@@ -1302,13 +1306,17 @@ def validate_playoffs(bracket: Bracket, finalize: bool = False) -> None:
         assert tm.playoff_pts_against  == stats['playoff_pts_against']
 
         ngames  = stats['playoff_wins'] + stats['playoff_losses']
-        win_pct = rnd_pct(stats['playoff_wins'] / ngames)
-        pts_tot = stats['playoff_pts_for'] + stats['playoff_pts_against']
-        pts_pct = rnd_pct(stats['playoff_pts_for'] / pts_tot)
+        if ngames:
+            win_pct = rnd_pct(stats['playoff_wins'] / ngames)
+            pts_tot = stats['playoff_pts_for'] + stats['playoff_pts_against']
+            pts_pct = rnd_pct(stats['playoff_pts_for'] / pts_tot)
 
-        # see note about floating points and rounding in `validate_seed_round` (above)
-        assert tm.playoff_win_pct == win_pct
-        assert tm.playoff_pts_pct == pts_pct
+            # see note about floating points and rounding in `validate_seed_round` (above)
+            assert tm.playoff_win_pct == win_pct
+            assert tm.playoff_pts_pct == pts_pct
+        else:
+            assert tm.playoff_win_pct is None
+            assert tm.playoff_pts_pct is None
 
     assert stats_tot['playoff_match_wins'] == stats_tot['playoff_match_losses']
     assert stats_tot['playoff_wins']       == stats_tot['playoff_losses']

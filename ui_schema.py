@@ -10,10 +10,11 @@ from peewee import ForeignKeyField, DeferredForeignKey, fn
 from flask import g
 
 from database import BaseModel
-from schema import (rnd_pct, Bracket, BRACKET_NAME, TournStage, TournInfo, Player as BasePlayer,
-                    SeedGame as BaseSeedGame, Team as BaseTeam, TournGame as BaseTournGame,
-                    PlayoffGame as BasePlayoffGame, PlayerGame as BasePlayerGame,
-                    TeamGame as BaseTeamGame, PostScore as BasePostScore)
+from schema import (rnd_pct, Bracket, BRACKET_NAME, get_bracket, TournStage, TournInfo,
+                    Player as BasePlayer, SeedGame as BaseSeedGame, Team as BaseTeam,
+                    TournGame as BaseTournGame, PlayoffGame as BasePlayoffGame,
+                    PlayerGame as BasePlayerGame, TeamGame as BaseTeamGame,
+                    PostScore as BasePostScore)
 
 #################
 # utility stuff #
@@ -1307,14 +1308,6 @@ BRACKET_GAME_CLS = {
 }
 
 StageGame = SeedGame | TournGame | PlayoffGame
-
-def get_bracket(label: str) -> str:
-    """Get bracket for the specified game label.  FIX: quick and dirty for now--need a
-    proper representations of bracket definitions overall!!!
-    """
-    pfx = label.split('-', 1)[0]
-    assert pfx in Bracket
-    return pfx
 
 def get_game_by_label(label: str) -> StageGame:
     """Use a little ORM knowledge to fetch from the appropriate table--LATER: can put this

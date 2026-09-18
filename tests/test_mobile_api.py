@@ -127,7 +127,7 @@ def clear_pushed_score(label: str, nposts: int) -> None:
 
         # revert player/team stats
         upd_stats = getattr(game, stats_meth)
-        nrows = upd_stats(revert=True)
+        nrows = upd_stats(revert=(game.team1_pts, game.team2_pts))
         assert nrows == ndenorms
 
     # delete from post_score

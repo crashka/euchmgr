@@ -6,8 +6,8 @@ from itertools import groupby
 
 from flask import Blueprint, session, request, render_template, abort
 
-from schema import GAME_PTS, Bracket, ScoreAction
-from ui_schema import fmt_pct, TournInfo, Player, Team, PostScore, get_bracket, get_game_by_label
+from schema import GAME_PTS, Bracket, get_bracket, ScoreAction
+from ui_schema import fmt_pct, TournInfo, Player, Team, PostScore, get_game_by_label
 from ui_common import referrer_path
 from euchmgr import Elevs, TeamGrps, rank_team_cohort, elevate_winners
 
@@ -294,10 +294,10 @@ BRACKET_ADJ_ACTION = {
 def score_adjust(game_label: str, tourn: TournInfo) -> str:
     """Render admin score adjustment window (as a popup)
     """
+    bracket = get_bracket(game_label)
     game = get_game_by_label(game_label)
     posts = PostScore.get_posts(game_label)
     parent_url = referrer_path(request)
-    bracket = get_bracket(game_label)
 
     context = {
         'popup_num'  : 1,

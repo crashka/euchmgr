@@ -387,7 +387,7 @@ def validate_seed_round(finalize: bool = False) -> None:
         assert pl.seed_pts_for     == stats['seed_pts_for']
         assert pl.seed_pts_against == stats['seed_pts_against']
 
-        ngames  = stats['seed_wins'] + stats['seed_losses']
+        ngames = stats['seed_wins'] + stats['seed_losses']
         if ngames:
             win_pct = rnd_pct(stats['seed_wins'] / ngames)
             pts_tot = stats['seed_pts_for'] + stats['seed_pts_against']
@@ -759,7 +759,7 @@ def validate_tourn(finalize: bool = False) -> None:
     }
     tm_stats = {tm.id: stats_tmpl.copy() for tm in tm_list}
 
-    for gm in TournGame.iter_games():
+    for gm in TournGame.iter_games(complete_only=(not finalize)):
         stats1 = tm_stats[gm.team1_id]
         stats2 = tm_stats[gm.team2_id]
 
@@ -767,6 +767,7 @@ def validate_tourn(finalize: bool = False) -> None:
             stats1['tourn_wins'] += 1
             stats2['tourn_losses'] += 1
         else:
+            assert gm.winner == gm.team2_name
             stats1['tourn_losses'] += 1
             stats2['tourn_wins'] += 1
 
@@ -786,20 +787,79 @@ def validate_tourn(finalize: bool = False) -> None:
         assert tm.tourn_pts_for     == stats['tourn_pts_for']
         assert tm.tourn_pts_against == stats['tourn_pts_against']
 
-        ngames  = stats['tourn_wins'] + stats['tourn_losses']
-        win_pct = rnd_pct(stats['tourn_wins'] / ngames)
-        pts_tot = stats['tourn_pts_for'] + stats['tourn_pts_against']
-        pts_pct = rnd_pct(stats['tourn_pts_for'] / pts_tot)
+        ngames = stats['tourn_wins'] + stats['tourn_losses']
+        if ngames:
+            win_pct = rnd_pct(stats['tourn_wins'] / ngames)
+            pts_tot = stats['tourn_pts_for'] + stats['tourn_pts_against']
+            pts_pct = rnd_pct(stats['tourn_pts_for'] / pts_tot)
 
-        # see note about floating points and rounding in `validate_seed_round` (above)
-        assert tm.tourn_win_pct == win_pct
-        assert tm.tourn_pts_pct == pts_pct
+            # see note about floating points and rounding in `validate_seed_round` (above)
+            assert tm.tourn_win_pct == win_pct
+            assert tm.tourn_pts_pct == pts_pct
+        else:
+            assert tm.tourn_win_pct is None
+            assert tm.tourn_pts_pct is None
 
     assert stats_tot['tourn_wins'] == stats_tot['tourn_losses']
     assert stats_tot['tourn_pts_for'] == stats_tot['tourn_pts_against']
 
+    validate_team_games()
     if finalize:
         TournInfo.mark_stage_complete(TournStage.TOURN_TABULATE)
+
+def validate_team_games() -> None:
+    """Validate integrity of the team_game denormalization against tourn_game records
+    (including byes).  We do not check that all games have been played (we'll say that's
+    someone else's job).
+
+    Note: this is called by `validate_tourn`, so should not need to be called directly
+    from elsewhere.
+    """
+    tmg_map = {}  # indexed by (game_label, team_id)
+    for tmg in TeamGame.iter_games(include_byes=True):
+        tmg_map[(tmg.game_label, tmg.team_id)] = tmg
+
+    for trng in TournGame.iter_games(include_byes=True):
+        teams = [trng.team1, trng.team2]
+        if trng.table_num is None:
+            # make sure bye records have not be disrupted
+            assert trng.team1_pts is None
+            assert trng.team2_pts is None
+            assert trng.winner is None
+            assert teams[0] is not None
+            assert teams[1] is None
+            team = teams[0]
+            key = (trng.label, team.id)
+            tmg = tmg_map[key]
+
+            assert tmg.team_pts is None
+            assert tmg.opp_pts is None
+            assert tmg.is_winner is None
+            del tmg_map[key]
+            continue
+
+        if not trng.winner:
+            continue  # see final check below
+
+        team_scores = [trng.team1_pts, trng.team2_pts]
+        assert None not in team_scores
+        assert 10 in team_scores
+        assert team_scores != [10, 10]
+
+        for tm_idx, team in enumerate(teams):
+            op_idx   = tm_idx ^ 0x01
+            team_pts = team_scores[tm_idx]
+            opp_pts  = team_scores[op_idx]
+            key      = (trng.label, team.id)
+            tmg      = tmg_map[key]
+
+            assert tmg.team_pts == team_pts
+            assert tmg.opp_pts == opp_pts
+            assert tmg.is_winner == (team_pts > opp_pts)
+            del tmg_map[key]
+
+    # games not yet completed (skipped above) should not have associated denorm records
+    assert len(tmg_map) == 0
 
 def rank_team_cohort(teams: list[Team], use_cohrt_stats: bool = True) -> \
         tuple[list[Team], dict[tuple], dict[dict]]:

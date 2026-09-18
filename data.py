@@ -14,8 +14,8 @@ from flask import Blueprint, g, request
 from security import login_required
 from database import db_atomic
 from schema import Bracket, TournStage, TournInfo, ScoreAction
-from euchmgr import (validate_seed_round, compute_player_ranks, compute_team_ranks,
-                     compute_playoff_ranks)
+from euchmgr import (validate_seed_round, compute_player_ranks, validate_tourn,
+                     compute_team_ranks, validate_playoffs, compute_playoff_ranks)
 from ui_schema import Player, PartnerPick, SeedGame, Team, TournGame, PlayoffGame, PostScore
 from ui_common import referrer_path, redirect, render_error
 
@@ -245,6 +245,8 @@ def post_seeding_adj() -> dict:
         team1_pts = typecast(data.get('team1_pts'))
         team2_pts = typecast(data.get('team2_pts'))
         assert None not in (team1_pts, team2_pts)
+        if (team1_pts, team2_pts) == (game_orig.team1_pts, game_orig.team2_pts):
+            raise RuntimeError("Score unchanged")
         game.add_scores(team1_pts, team2_pts, admin_adj=True)
         game.save()
         assert game.winner
@@ -436,7 +438,7 @@ tg_layout = [
     ('bye_team',   "Bye",        None),
     ('team1_pts',  "Team 1 Pts", EDITABLE),
     ('team2_pts',  "Team 2 Pts", EDITABLE),
-    ('winner',     "Winner",     None)
+    ('winner',     "Winner",     CLICKABLE)
 ]
 
 @data.get("/round_robin/data")
@@ -471,6 +473,19 @@ def post_round_robin() -> dict:
         game.save()
 
         if game.winner:
+            info = {
+                'bracket'      : Bracket.TOURN,
+                'game_label'   : game.label,
+                'post_action'  : ScoreAction.POST_ADMIN,
+                'action_info'  : 'Round Robin View',
+                'team1_pts'    : team1_pts,
+                'team2_pts'    : team2_pts,
+                'posted_by_num': None,
+                'team_idx'     : None,
+                'ref_score'    : None,
+                'do_push'      : True  # already pushed, lol
+            }
+            score = PostScore.create(**info)
             game.update_team_stats()
             game.insert_team_games()
             compute_team_ranks()
@@ -489,6 +504,49 @@ def post_round_robin() -> dict:
         return ajax_error(str(e))
 
     return ajax_data(tg_data)
+
+@data.post("/round_robin/score_adj")
+@login_required
+def post_round_robin_adj() -> dict:
+    """Post score adjustment to tournament round robin game.
+    """
+    # see REVISIT for `post_seeding_adj` (above)
+    assert referrer_path(request).startswith('/report/score_adjust/')
+    data = request.form
+    assert 'redirect_to' in data
+
+    with db_atomic() as txn:
+        game = TournGame[typecast(data.get('id'))]
+        game_orig = deepcopy(game)
+        team1_pts = typecast(data.get('team1_pts'))
+        team2_pts = typecast(data.get('team2_pts'))
+        assert None not in (team1_pts, team2_pts)
+        if (team1_pts, team2_pts) == (game_orig.team1_pts, game_orig.team2_pts):
+            raise RuntimeError("Score unchanged")
+        game.add_scores(team1_pts, team2_pts, admin_adj=True)
+        game.save()
+        assert game.winner
+
+        info = {
+            'bracket'      : Bracket.TOURN,
+            'game_label'   : game.label,
+            'post_action'  : data.get('post_action'),
+            'action_info'  : data.get('action_info'),
+            'team1_pts'    : team1_pts,
+            'team2_pts'    : team2_pts,
+            'posted_by_num': None,
+            'team_idx'     : None,
+            'ref_score'    : None,
+            'do_push'      : True  # already pushed, lol
+        }
+        score = PostScore.create(**info)
+        game_orig.update_team_stats(revert=True)
+        game.update_team_stats()
+        game.update_team_games()
+        compute_team_ranks()
+        validate_tourn()
+
+    return redirect(data['redirect_to'])
 
 ###############
 # /final_four #

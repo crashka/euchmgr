@@ -6,8 +6,8 @@ from itertools import groupby
 
 from flask import Blueprint, session, request, render_template, abort
 
-from schema import GAME_PTS, ScoreAction
-from ui_schema import fmt_pct, TournInfo, Player, Team, PostScore, get_game_by_label
+from schema import GAME_PTS, Bracket, ScoreAction
+from ui_schema import fmt_pct, TournInfo, Player, Team, PostScore, get_bracket, get_game_by_label
 from ui_common import referrer_path
 from euchmgr import Elevs, TeamGrps, rank_team_cohort, elevate_winners
 
@@ -284,12 +284,20 @@ def score_posting(game_label: str, tourn: TournInfo) -> str:
 # score_adjust #
 ################
 
+BRACKET_ADJ_ACTION = {
+    Bracket.SEED  : '/seeding/score_adj',
+    Bracket.TOURN : '/round_robin/score_adj',
+    Bracket.SEMIS : '/playoffs/score_adj',
+    Bracket.FINALS: '/playoffs/score_adj'
+}
+
 def score_adjust(game_label: str, tourn: TournInfo) -> str:
     """Render admin score adjustment window (as a popup)
     """
     game = get_game_by_label(game_label)
     posts = PostScore.get_posts(game_label)
     parent_url = referrer_path(request)
+    bracket = get_bracket(game_label)
 
     context = {
         'popup_num'  : 1,
@@ -298,7 +306,7 @@ def score_adjust(game_label: str, tourn: TournInfo) -> str:
         'game'       : game,
         'posts'      : posts,
         'post_action': ScoreAction.ADJ_ADMIN,
-        'action'     : '/seeding/score_adj',
+        'action'     : BRACKET_ADJ_ACTION[bracket],
         'cancel_url' : parent_url,
         'redirect_to': parent_url
     }

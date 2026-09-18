@@ -1313,7 +1313,7 @@ def get_bracket(label: str) -> str:
     proper representations of bracket definitions overall!!!
     """
     pfx = label.split('-', 1)[0]
-    assert pfx in BRACKET_GAME_CLS
+    assert pfx in Bracket
     return pfx
 
 def get_game_by_label(label: str) -> StageGame:

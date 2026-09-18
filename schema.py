@@ -730,19 +730,23 @@ class SeedGame(BaseModel):
         score after it has been posted and denorms processed.
         """
         assert self.table_num  # must be an actual game (not a bye record)
-        players     = [self.player1, self.player2, self.player3, self.player4]
-        team_scores = [self.team1_pts, self.team1_pts, self.team2_pts, self.team2_pts]
-        opp_scores  = [self.team2_pts, self.team2_pts, self.team1_pts, self.team1_pts]
+        players = [self.player1, self.player2, self.player3, self.player4]
+        team_scores = [self.team1_pts, self.team2_pts]
 
-        game_map = PlayerGame.get_game_map(self.label)
+        pg_map = PlayerGame.get_game_map(self.label)
 
-        for idx, player in enumerate(players):
+        for pl_idx, player in enumerate(players):
+            tm_idx = pl_idx // 2
+            op_idx = tm_idx ^ 0x01
             # REVISIT: should we do some validation here???
-            pg = game_map[player.player_num]
-            pg.team_pts = team_scores[idx]
-            pg.opp_pts = opp_scores[idx]
+            pg = pg_map.pop(player.player_num)
+            pg.team_pts = team_scores[tm_idx]
+            pg.opp_pts = team_scores[op_idx]
             pg.is_winner = pg.team_pts > pg.opp_pts
             pg.save()
+
+        # integrity check
+        assert len(pg_map) == 0
 
     def save(self, *args, **kwargs):
         """Determine (and set) winner if game is complete
@@ -1035,22 +1039,28 @@ class TournGame(BaseModel):
         )
 
     @classmethod
-    def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
+    def iter_games(cls, include_byes: bool = False, complete_only: bool = False) -> Iterator[Self]:
         """Iterator for tourn_games (wrap ORM details).
         """
+        assert not (include_byes and complete_only)  # contradictory
         query = cls.select()
         if not include_byes:
             query = query.where(cls.table_num.is_null(False))
+        if complete_only:
+            query = query.where(cls.winner.is_null(False))
         for t in query:
             yield t
 
-    def add_scores(self, team1_pts: int, team2_pts: int) -> None:
+    def add_scores(self, team1_pts: int, team2_pts: int, admin_adj: bool = False) -> None:
         """Record scores for completed (or incomplete) game.  It is no longer required
         that score updates come through here (since denorms are now managed elsewhere),
         but there is a little bit of integrity checking here that is slightly useful
         """
         if self.winner:
-            raise RuntimeError("Completed game score cannot be overwritten")
+            if admin_adj:
+                assert current_user.is_admin
+            else:
+                raise RuntimeError("Completed game score cannot be overwritten")
         if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
             raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points)")
 
@@ -1132,6 +1142,28 @@ class TournGame(BaseModel):
             tm_games.append(tm_game)
 
         return len(tm_games)
+
+    def update_team_games(self) -> None:
+        """Update scores for TeamGame records; called in the case of a correction to a
+        score after it has been posted and denorms processed.
+        """
+        assert self.table_num  # must be an actual game (not a bye record)
+        teams = [self.team1, self.team2]
+        team_scores = [self.team1_pts, self.team2_pts]
+
+        tg_map = TeamGame.get_game_map(self.label)
+
+        for tm_idx, team in enumerate(teams):
+            op_idx = tm_idx ^ 0x01
+            # REVISIT: should we do some validation here???
+            tg = tg_map.pop(team.id)
+            tg.team_pts = team_scores[tm_idx]
+            tg.opp_pts = team_scores[op_idx]
+            tg.winner = self.winner
+            tg.save()
+
+        # integrity check
+        assert len(tg_map) == 0
 
     def save(self, *args, **kwargs):
         """Compute winner if both scores have been entered
@@ -1370,6 +1402,19 @@ class TeamGame(BaseModel):
             query = query.where(cls.is_bye == False)
         for t in query:
             yield t
+
+    @classmethod
+    def get_game_map(cls, label: str) -> dict[int, Self]:
+        """Return map of team_game records for the specified game label, index by
+        team_id.
+        """
+        tg_map = {}
+        query = cls.select().where(cls.game_label == label)
+        for tg in query:
+            tg_map[tg.team_id] = tg
+
+        assert len(tg_map) == 2
+        return tg_map
 
     def save(self, *args, **kwargs):
         """Set team and opponane names (denorm fields)

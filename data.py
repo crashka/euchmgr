@@ -185,46 +185,48 @@ def post_seeding() -> dict:
     data = request.form
     sg_data = None
 
-    try:
-        # TODO: wrap this entire try block in a transaction!!!
-        game = SeedGame[typecast(data.get('id'))]
-        upd_info = {x[0]: typecast(data.get(x[0])) for x in sg_layout if x[2] == EDITABLE}
-        team1_pts = upd_info.pop('team1_pts')
-        team2_pts = upd_info.pop('team2_pts')
-        assert len(upd_info) == 0
-        game.add_scores(team1_pts, team2_pts)
-        game.save()
+    with db_atomic() as txn:
+        try:
+            game = SeedGame[typecast(data.get('id'))]
+            upd_info = {x[0]: typecast(data.get(x[0])) for x in sg_layout if x[2] == EDITABLE}
+            team1_pts = upd_info.pop('team1_pts')
+            team2_pts = upd_info.pop('team2_pts')
+            assert len(upd_info) == 0
+            game.add_scores(team1_pts, team2_pts)
+            game.save()
 
-        if game.winner:
-            info = {
-                'bracket'      : Bracket.SEED,
-                'game_label'   : game.label,
-                'post_action'  : ScoreAction.POST_ADMIN,
-                'action_info'  : 'Seeding View',
-                'team1_pts'    : team1_pts,
-                'team2_pts'    : team2_pts,
-                'posted_by_num': None,
-                'team_idx'     : None,
-                'ref_score'    : None,
-                'do_push'      : True  # already pushed, lol
-            }
-            score = PostScore.create(**info)
-            game.update_player_stats()
-            game.insert_player_games()
-            compute_player_ranks()
-            # see "KINDA HOKEY" comment about this button stuff in post_playoffs() below
-            enable_button = None
-            if SeedGame.current_round() == -1:
-                TournInfo.mark_stage_complete(TournStage.SEED_RESULTS)
-                enable_button = 'tabulate_seed_results'
-            sg_props = {prop: getattr(game, prop) for prop in sg_addl_props}
-            if enable_button:
-                sg_props['enableButton'] = enable_button
-            sg_data = game.__data__ | sg_props
-    except TypeError as e:
-        return ajax_error("Invalid type specified")
-    except RuntimeError as e:
-        return ajax_error(str(e))
+            if game.winner:
+                info = {
+                    'bracket'      : Bracket.SEED,
+                    'game_label'   : game.label,
+                    'post_action'  : ScoreAction.POST_ADMIN,
+                    'action_info'  : 'Seeding View',
+                    'team1_pts'    : team1_pts,
+                    'team2_pts'    : team2_pts,
+                    'posted_by_num': None,
+                    'team_idx'     : None,
+                    'ref_score'    : None,
+                    'do_push'      : True  # already pushed, lol
+                }
+                score = PostScore.create(**info)
+                game.update_player_stats()
+                game.insert_player_games()
+                compute_player_ranks()
+                # see "KINDA HOKEY" comment about this button stuff in post_playoffs() below
+                enable_button = None
+                if SeedGame.current_round() == -1:
+                    TournInfo.mark_stage_complete(TournStage.SEED_RESULTS)
+                    enable_button = 'tabulate_seed_results'
+                sg_props = {prop: getattr(game, prop) for prop in sg_addl_props}
+                if enable_button:
+                    sg_props['enableButton'] = enable_button
+                sg_data = game.__data__ | sg_props
+        except TypeError as e:
+            txn.rollback()
+            return ajax_error("Invalid type specified")
+        except RuntimeError as e:
+            txn.rollback()
+            return ajax_error(str(e))
 
     return ajax_data(sg_data)
 
@@ -462,46 +464,48 @@ def post_round_robin() -> dict:
     data = request.form
     tg_data = None
 
-    try:
-        # TODO: wrap this entire try block in a transaction!!!
-        game = TournGame[typecast(data.get('id'))]
-        upd_info = {x[0]: typecast(data.get(x[0])) for x in tg_layout if x[2] == EDITABLE}
-        team1_pts = upd_info.pop('team1_pts')
-        team2_pts = upd_info.pop('team2_pts')
-        assert len(upd_info) == 0
-        game.add_scores(team1_pts, team2_pts)
-        game.save()
+    with db_atomic() as txn:
+        try:
+            game = TournGame[typecast(data.get('id'))]
+            upd_info = {x[0]: typecast(data.get(x[0])) for x in tg_layout if x[2] == EDITABLE}
+            team1_pts = upd_info.pop('team1_pts')
+            team2_pts = upd_info.pop('team2_pts')
+            assert len(upd_info) == 0
+            game.add_scores(team1_pts, team2_pts)
+            game.save()
 
-        if game.winner:
-            info = {
-                'bracket'      : Bracket.TOURN,
-                'game_label'   : game.label,
-                'post_action'  : ScoreAction.POST_ADMIN,
-                'action_info'  : 'Round Robin View',
-                'team1_pts'    : team1_pts,
-                'team2_pts'    : team2_pts,
-                'posted_by_num': None,
-                'team_idx'     : None,
-                'ref_score'    : None,
-                'do_push'      : True  # already pushed, lol
-            }
-            score = PostScore.create(**info)
-            game.update_team_stats()
-            game.insert_team_games()
-            compute_team_ranks()
-            # see "KINDA HOKEY" comment about this button stuff in post_playoffs() below
-            enable_button = None
-            if TournGame.current_round() == -1:
-                TournInfo.mark_stage_complete(TournStage.TOURN_RESULTS)
-                enable_button = 'tabulate_tourn_results'
-            tg_props = {prop: getattr(game, prop) for prop in tg_addl_props}
-            if enable_button:
-                tg_props['enableButton'] = enable_button
-            tg_data = game.__data__ | tg_props
-    except TypeError as e:
-        return ajax_error("Invalid type specified")
-    except RuntimeError as e:
-        return ajax_error(str(e))
+            if game.winner:
+                info = {
+                    'bracket'      : Bracket.TOURN,
+                    'game_label'   : game.label,
+                    'post_action'  : ScoreAction.POST_ADMIN,
+                    'action_info'  : 'Round Robin View',
+                    'team1_pts'    : team1_pts,
+                    'team2_pts'    : team2_pts,
+                    'posted_by_num': None,
+                    'team_idx'     : None,
+                    'ref_score'    : None,
+                    'do_push'      : True  # already pushed, lol
+                }
+                score = PostScore.create(**info)
+                game.update_team_stats()
+                game.insert_team_games()
+                compute_team_ranks()
+                # see "KINDA HOKEY" comment about this button stuff in post_playoffs() below
+                enable_button = None
+                if TournGame.current_round() == -1:
+                    TournInfo.mark_stage_complete(TournStage.TOURN_RESULTS)
+                    enable_button = 'tabulate_tourn_results'
+                tg_props = {prop: getattr(game, prop) for prop in tg_addl_props}
+                if enable_button:
+                    tg_props['enableButton'] = enable_button
+                tg_data = game.__data__ | tg_props
+        except TypeError as e:
+            txn.rollback()
+            return ajax_error("Invalid type specified")
+        except RuntimeError as e:
+            txn.rollback()
+            return ajax_error(str(e))
 
     return ajax_data(tg_data)
 
@@ -660,47 +664,49 @@ def post_playoffs() -> dict:
     data = request.form
     pg_data = None
 
-    try:
-        # TODO: wrap this entire try block in a transaction!!!
-        game = PlayoffGame[typecast(data.get('id'))]
-        upd_info = {x[0]: typecast(data.get(x[0])) for x in pg_layout if x[2] == EDITABLE}
-        team1_pts = upd_info.pop('team1_pts')
-        team2_pts = upd_info.pop('team2_pts')
-        assert len(upd_info) == 0
-        game.add_scores(team1_pts, team2_pts)
-        game.save()
+    with db_atomic() as txn:
+        try:
+            game = PlayoffGame[typecast(data.get('id'))]
+            upd_info = {x[0]: typecast(data.get(x[0])) for x in pg_layout if x[2] == EDITABLE}
+            team1_pts = upd_info.pop('team1_pts')
+            team2_pts = upd_info.pop('team2_pts')
+            assert len(upd_info) == 0
+            game.add_scores(team1_pts, team2_pts)
+            game.save()
 
-        if game.winner:
-            game.update_team_stats()
-            # REVISIT/FIX: commenting this out for now, since we aren't currently managing
-            # the different brackets properly within team_games!!!
-            #game.insert_team_games()
+            if game.winner:
+                game.update_team_stats()
+                # REVISIT/FIX: commenting this out for now, since we aren't currently managing
+                # the different brackets properly within team_games!!!
+                #game.insert_team_games()
 
-            # NOTE that we don't automatically finalize the playoff ranks when the bracket
-            # is complete, since the workflow (currently) requires the tabulation to be
-            # manually initiated by the admin.  This same principle applies to seeding,
-            # partner pick, and round robin updates (all above).
-            compute_playoff_ranks(game.bracket)
-            # KINDA HOKEY: we are hard-coding the names of the buttons here (because this
-            # feature is too cool not to wire up right now)--LATER, we should really make
-            # button identification more symbolic!  See associated comments in admin.html.
-            enable_button = None
-            if PlayoffGame.bracket_complete(game.bracket):
-                if game.bracket == Bracket.SEMIS:
-                    TournInfo.mark_stage_complete(TournStage.SEMIS_RESULTS)
-                    enable_button = 'tabulate_semis_results'
-                else:
-                    assert game.bracket == Bracket.FINALS
-                    TournInfo.mark_stage_complete(TournStage.FINALS_RESULTS)
-                    enable_button = 'tabulate_finals_results'
-            pg_props = {prop: getattr(game, prop) for prop in pg_addl_props}
-            if enable_button:
-                pg_props['enableButton'] = enable_button
-            pg_data = game.__data__ | pg_props
-    except TypeError as e:
-        return ajax_error("Invalid type specified")
-    except RuntimeError as e:
-        return ajax_error(str(e))
+                # NOTE that we don't automatically finalize the playoff ranks when the bracket
+                # is complete, since the workflow (currently) requires the tabulation to be
+                # manually initiated by the admin.  This same principle applies to seeding,
+                # partner pick, and round robin updates (all above).
+                compute_playoff_ranks(game.bracket)
+                # KINDA HOKEY: we are hard-coding the names of the buttons here (because this
+                # feature is too cool not to wire up right now)--LATER, we should really make
+                # button identification more symbolic!  See associated comments in admin.html.
+                enable_button = None
+                if PlayoffGame.bracket_complete(game.bracket):
+                    if game.bracket == Bracket.SEMIS:
+                        TournInfo.mark_stage_complete(TournStage.SEMIS_RESULTS)
+                        enable_button = 'tabulate_semis_results'
+                    else:
+                        assert game.bracket == Bracket.FINALS
+                        TournInfo.mark_stage_complete(TournStage.FINALS_RESULTS)
+                        enable_button = 'tabulate_finals_results'
+                pg_props = {prop: getattr(game, prop) for prop in pg_addl_props}
+                if enable_button:
+                    pg_props['enableButton'] = enable_button
+                pg_data = game.__data__ | pg_props
+        except TypeError as e:
+            txn.rollback()
+            return ajax_error("Invalid type specified")
+        except RuntimeError as e:
+            txn.rollback()
+            return ajax_error(str(e))
 
     return ajax_data(pg_data)
 

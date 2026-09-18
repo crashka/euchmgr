@@ -12,11 +12,10 @@ from ckautils import typecast
 
 from core import log, ImplementationError, LogicError
 from security import current_user
-from schema import GAME_PTS, Bracket, TournStage, TournInfo, ScoreAction
+from schema import GAME_PTS, Bracket, get_bracket, TournStage, TournInfo, ScoreAction
 from euchmgr import compute_player_ranks, compute_team_ranks, compute_playoff_ranks
-from ui_schema import (fmt_pct, PTS_PCT_NA, get_bracket, get_game_by_label, Player,
-                       PlayerRegister, PartnerPick, SeedGame, Team, TournGame, PlayoffGame,
-                       PostScore)
+from ui_schema import (fmt_pct, PTS_PCT_NA, get_game_by_label, Player, PlayerRegister,
+                       PartnerPick, SeedGame, Team, TournGame, PlayoffGame, PostScore)
 from ui_common import process_flashes, msg_join, render_response, redirect
 
 ###################
@@ -494,6 +493,8 @@ def accept_score(form: dict, ref_score: PostScore = None) -> str:
             flash(f"err=Discarding acceptance due to {lc_first(action_info)} "
                   f"({post_info(latest, team_idx)})")
 
+    # TODO: put a transaction wrapper around the writes here (trying not to return from
+    # inside the context block, since that's kind of ugly)!!!
     do_push = (post_action == ScoreAction.ACCEPT)
     info = {
         'bracket'      : bracket,

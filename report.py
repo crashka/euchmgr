@@ -4,10 +4,11 @@
 """
 from itertools import groupby
 
-from flask import Blueprint, session, render_template, abort
+from flask import Blueprint, session, request, render_template, abort
 
-from schema import GAME_PTS
+from schema import GAME_PTS, Bracket, get_bracket, ScoreAction
 from ui_schema import fmt_pct, TournInfo, Player, Team, PostScore, get_game_by_label
+from ui_common import referrer_path
 from euchmgr import Elevs, TeamGrps, rank_team_cohort, elevate_winners
 
 ###################
@@ -22,12 +23,14 @@ RR_TBREAK = "Round Robin Tie-Breaker Report"
 TRN_TBREAK = "Team Rank Tie-Breaker Report (pre-playoff)"
 FNL_TBREAK = "Final Tournament Tie-Breaker Report"
 SCORE_POSTING = "Score Posting Report"
+SCORE_ADJUST = "Admin Score Adjustment"
 
 REPORT_FUNCS = [
     'rr_tbreak',
     'trn_tbreak',
     'fnl_tbreak',
-    'score_posting'
+    'score_posting',
+    'score_adjust'
 ]
 
 @report.get("/<report>")
@@ -268,10 +271,43 @@ def score_posting(game_label: str, tourn: TournInfo) -> str:
     posts = PostScore.get_posts(game_label)
 
     context = {
-        'popup_num': 0,
-        'title'    : SCORE_POSTING,
-        'tourn'    : tourn,
-        'game'     : game,
-        'posts'    : posts
+        'popup_num' : 0,
+        'title'     : SCORE_POSTING,
+        'tourn'     : tourn,
+        'game'      : game,
+        'posts'     : posts,
+        'adjust_url': '/report/score_adjust/' + game.label
+    }
+    return render_popup(context)
+
+################
+# score_adjust #
+################
+
+BRACKET_ADJ_ACTION = {
+    Bracket.SEED  : '/seeding/score_adj',
+    Bracket.TOURN : '/round_robin/score_adj',
+    Bracket.SEMIS : '/playoffs/score_adj',
+    Bracket.FINALS: '/playoffs/score_adj'
+}
+
+def score_adjust(game_label: str, tourn: TournInfo) -> str:
+    """Render admin score adjustment window (as a popup)
+    """
+    bracket = get_bracket(game_label)
+    game = get_game_by_label(game_label)
+    posts = PostScore.get_posts(game_label)
+    parent_url = referrer_path(request)
+
+    context = {
+        'popup_num'  : 1,
+        'title'      : SCORE_ADJUST,
+        'tourn'      : tourn,
+        'game'       : game,
+        'posts'      : posts,
+        'post_action': ScoreAction.ADJ_ADMIN,
+        'action'     : BRACKET_ADJ_ACTION[bracket],
+        'cancel_url' : parent_url,
+        'redirect_to': parent_url
     }
     return render_popup(context)

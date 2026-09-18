@@ -20,7 +20,8 @@ from ckautils import rankdata
 from core import BASE_DIR, BracketsFile, log
 from database import db_init, db_close, db_name
 from schema import (rnd_pct, rnd_avg, Bracket, TournStage, TournInfo, Player, SeedGame,
-                    Team, TournGame, PlayoffGame, TeamGame, schema_create)
+                    Team, TournGame, PlayoffGame, PlayerGame, TeamGame, ScoreAction,
+                    PostScore, schema_create)
 
 #####################
 # utility functions #
@@ -321,6 +322,19 @@ def fake_seed_games(clear_existing: bool = False, limit: int = None, rand_seed: 
             log.debug(f"{game.team1_name}: {game.team1_pts}, {game.team2_name}: {game.team2_pts}")
 
         if game.winner:
+            info = {
+                'bracket'      : Bracket.SEED,
+                'game_label'   : game.label,
+                'post_action'  : ScoreAction.POST_FAKE,
+                'action_info'  : None,
+                'team1_pts'    : game.team1_pts,
+                'team2_pts'    : game.team2_pts,
+                'posted_by_num': None,
+                'team_idx'     : None,
+                'ref_score'    : None,
+                'do_push'      : True  # already pushed, lol
+            }
+            score = PostScore.create(**info)
             game.update_player_stats()
             game.insert_player_games()
 
@@ -333,7 +347,11 @@ def fake_seed_games(clear_existing: bool = False, limit: int = None, rand_seed: 
     TournInfo.mark_stage_complete(TournStage.SEED_RESULTS)
 
 def validate_seed_round(finalize: bool = False) -> None:
-    """
+    """Validate player stats against seeding round game records.  In order to finalize the
+    stage, all games must be completed for a full bracket validation.  If `finalize` is not
+    specified, then only completed games will be covered for the cross-checking.
+
+    This call now also covers the player_game denormalization.
     """
     pl_list = list(Player.iter_players())
 
@@ -345,7 +363,7 @@ def validate_seed_round(finalize: bool = False) -> None:
     }
     pl_stats = {pl.player_num: stats_tmpl.copy() for pl in pl_list}
 
-    for gm in SeedGame.iter_games():
+    for gm in SeedGame.iter_games(complete_only=(not finalize)):
         stats1 = pl_stats[gm.player1_num]
         stats2 = pl_stats[gm.player2_num]
         stats3 = pl_stats[gm.player3_num]
@@ -357,6 +375,7 @@ def validate_seed_round(finalize: bool = False) -> None:
             stats3['seed_losses'] += 1
             stats4['seed_losses'] += 1
         else:
+            assert gm.winner == gm.team2_name
             stats1['seed_losses'] += 1
             stats2['seed_losses'] += 1
             stats3['seed_wins'] += 1
@@ -382,22 +401,81 @@ def validate_seed_round(finalize: bool = False) -> None:
         assert pl.seed_pts_for     == stats['seed_pts_for']
         assert pl.seed_pts_against == stats['seed_pts_against']
 
-        ngames  = stats['seed_wins'] + stats['seed_losses']
-        win_pct = rnd_pct(stats['seed_wins'] / ngames)
-        pts_tot = stats['seed_pts_for'] + stats['seed_pts_against']
-        pts_pct = rnd_pct(stats['seed_pts_for'] / pts_tot)
+        ngames = stats['seed_wins'] + stats['seed_losses']
+        if ngames:
+            win_pct = rnd_pct(stats['seed_wins'] / ngames)
+            pts_tot = stats['seed_pts_for'] + stats['seed_pts_against']
+            pts_pct = rnd_pct(stats['seed_pts_for'] / pts_tot)
 
-        # note that floating point values should have been similarly rounded, so using
-        # `==` should be robust (for equivalence) as well as help validate consistent
-        # rounding in code
-        assert pl.seed_win_pct == win_pct
-        assert pl.seed_pts_pct == pts_pct
+            # note that floating point values should have been similarly rounded, so using
+            # `==` should be robust (for equivalence) as well as help validate consistent
+            # rounding in code
+            assert pl.seed_win_pct == win_pct
+            assert pl.seed_pts_pct == pts_pct
+        else:
+            assert pl.seed_win_pct is None
+            assert pl.seed_pts_pct is None
 
     assert stats_tot['seed_wins'] == stats_tot['seed_losses']
     assert stats_tot['seed_pts_for'] == stats_tot['seed_pts_against']
 
+    validate_player_games()
     if finalize:
         TournInfo.mark_stage_complete(TournStage.SEED_TABULATE)
+
+def validate_player_games() -> None:
+    """Validate integrity of the player_game denormalization against seed_game records
+    (including byes).  We do not check that all games have been played (we'll say that's
+    someone else's job).
+
+    Note: this is called by `validate_seed_round`, so should not need to be called
+    directly from elsewhere.
+    """
+    pg_map = {}  # indexed by (game_label, player_num)
+    for pg in PlayerGame.iter_games(include_byes=True):
+        pg_map[(pg.game_label, pg.player_num)] = pg
+
+    for sg in SeedGame.iter_games(include_byes=True):
+        players = [sg.player1, sg.player2, sg.player3, sg.player4]
+        if sg.table_num is None:
+            # make sure bye records have not be disrupted
+            assert sg.team1_pts is None
+            assert sg.team2_pts is None
+            assert sg.winner is None
+            assert players[0] is not None
+            assert players[-1] is None
+            for player in filter(None, players):
+                key = (sg.label, player.player_num)
+                pg = pg_map[key]
+                assert pg.team_pts is None
+                assert pg.opp_pts is None
+                assert pg.is_winner is None
+                del pg_map[key]
+            continue
+
+        if not sg.winner:
+            continue  # see final check below
+
+        team_scores = [sg.team1_pts, sg.team2_pts]
+        assert None not in team_scores
+        assert 10 in team_scores
+        assert team_scores != [10, 10]
+
+        for pl_idx, player in enumerate(players):
+            tm_idx   = pl_idx // 2
+            op_idx   = tm_idx ^ 0x01
+            team_pts = team_scores[tm_idx]
+            opp_pts  = team_scores[op_idx]
+            key      = (sg.label, player.player_num)
+            pg       = pg_map[key]
+
+            assert pg.team_pts == team_pts
+            assert pg.opp_pts == opp_pts
+            assert pg.is_winner == (team_pts > opp_pts)
+            del pg_map[key]
+
+    # games not yet completed (skipped above) should not have associated denorm records
+    assert len(pg_map) == 0
 
 def rank_player_cohort(players: list[Player]) -> list[tuple[Player, tuple, dict]]:
     """Given a list of players (generally with the same record, though we are not checking
@@ -671,6 +749,19 @@ def fake_tourn_games(clear_existing: bool = False, limit: int = None, rand_seed:
             log.debug(f"{game.team1_name}: {game.team1_pts}, {game.team2_name}: {game.team2_pts}")
 
         if game.winner:
+            info = {
+                'bracket'      : Bracket.TOURN,
+                'game_label'   : game.label,
+                'post_action'  : ScoreAction.POST_FAKE,
+                'action_info'  : None,
+                'team1_pts'    : game.team1_pts,
+                'team2_pts'    : game.team2_pts,
+                'posted_by_num': None,
+                'team_idx'     : None,
+                'ref_score'    : None,
+                'do_push'      : True  # already pushed, lol
+            }
+            score = PostScore.create(**info)
             game.update_team_stats()
             game.insert_team_games()
 
@@ -695,7 +786,7 @@ def validate_tourn(finalize: bool = False) -> None:
     }
     tm_stats = {tm.id: stats_tmpl.copy() for tm in tm_list}
 
-    for gm in TournGame.iter_games():
+    for gm in TournGame.iter_games(complete_only=(not finalize)):
         stats1 = tm_stats[gm.team1_id]
         stats2 = tm_stats[gm.team2_id]
 
@@ -703,6 +794,7 @@ def validate_tourn(finalize: bool = False) -> None:
             stats1['tourn_wins'] += 1
             stats2['tourn_losses'] += 1
         else:
+            assert gm.winner == gm.team2_name
             stats1['tourn_losses'] += 1
             stats2['tourn_wins'] += 1
 
@@ -722,20 +814,79 @@ def validate_tourn(finalize: bool = False) -> None:
         assert tm.tourn_pts_for     == stats['tourn_pts_for']
         assert tm.tourn_pts_against == stats['tourn_pts_against']
 
-        ngames  = stats['tourn_wins'] + stats['tourn_losses']
-        win_pct = rnd_pct(stats['tourn_wins'] / ngames)
-        pts_tot = stats['tourn_pts_for'] + stats['tourn_pts_against']
-        pts_pct = rnd_pct(stats['tourn_pts_for'] / pts_tot)
+        ngames = stats['tourn_wins'] + stats['tourn_losses']
+        if ngames:
+            win_pct = rnd_pct(stats['tourn_wins'] / ngames)
+            pts_tot = stats['tourn_pts_for'] + stats['tourn_pts_against']
+            pts_pct = rnd_pct(stats['tourn_pts_for'] / pts_tot)
 
-        # see note about floating points and rounding in `validate_seed_round` (above)
-        assert tm.tourn_win_pct == win_pct
-        assert tm.tourn_pts_pct == pts_pct
+            # see note about floating points and rounding in `validate_seed_round` (above)
+            assert tm.tourn_win_pct == win_pct
+            assert tm.tourn_pts_pct == pts_pct
+        else:
+            assert tm.tourn_win_pct is None
+            assert tm.tourn_pts_pct is None
 
     assert stats_tot['tourn_wins'] == stats_tot['tourn_losses']
     assert stats_tot['tourn_pts_for'] == stats_tot['tourn_pts_against']
 
+    validate_team_games()
     if finalize:
         TournInfo.mark_stage_complete(TournStage.TOURN_TABULATE)
+
+def validate_team_games() -> None:
+    """Validate integrity of the team_game denormalization against tourn_game records
+    (including byes).  We do not check that all games have been played (we'll say that's
+    someone else's job).
+
+    Note: this is called by `validate_tourn`, so should not need to be called directly
+    from elsewhere.
+    """
+    tmg_map = {}  # indexed by (game_label, team_id)
+    for tmg in TeamGame.iter_games(include_byes=True):
+        tmg_map[(tmg.game_label, tmg.team_id)] = tmg
+
+    for trng in TournGame.iter_games(include_byes=True):
+        teams = [trng.team1, trng.team2]
+        if trng.table_num is None:
+            # make sure bye records have not be disrupted
+            assert trng.team1_pts is None
+            assert trng.team2_pts is None
+            assert trng.winner is None
+            assert teams[0] is not None
+            assert teams[1] is None
+            team = teams[0]
+            key = (trng.label, team.id)
+            tmg = tmg_map[key]
+
+            assert tmg.team_pts is None
+            assert tmg.opp_pts is None
+            assert tmg.is_winner is None
+            del tmg_map[key]
+            continue
+
+        if not trng.winner:
+            continue  # see final check below
+
+        team_scores = [trng.team1_pts, trng.team2_pts]
+        assert None not in team_scores
+        assert 10 in team_scores
+        assert team_scores != [10, 10]
+
+        for tm_idx, team in enumerate(teams):
+            op_idx   = tm_idx ^ 0x01
+            team_pts = team_scores[tm_idx]
+            opp_pts  = team_scores[op_idx]
+            key      = (trng.label, team.id)
+            tmg      = tmg_map[key]
+
+            assert tmg.team_pts == team_pts
+            assert tmg.opp_pts == opp_pts
+            assert tmg.is_winner == (team_pts > opp_pts)
+            del tmg_map[key]
+
+    # games not yet completed (skipped above) should not have associated denorm records
+    assert len(tmg_map) == 0
 
 def rank_team_cohort(teams: list[Team], use_cohrt_stats: bool = True) -> \
         tuple[list[Team], dict[tuple], dict[dict]]:
@@ -1089,6 +1240,8 @@ def validate_playoffs(bracket: Bracket, finalize: bool = False) -> None:
     tm_stats = {tm.id: stats_tmpl.copy() for tm in tm_list}
 
     unnec = []
+    # NOTE: we'll handle unplayed games below, as opposed to here in the query (this is
+    # different than seeding and tourn validation above)
     by_matchup = PlayoffGame.iter_games(by_matchup=True)
     for k, g in groupby(by_matchup, key=lambda x: (x.bracket, x.matchup_num)):
         # TODO: track stats for the matchup to tabulate/validate match wins/losses!!!
@@ -1098,7 +1251,8 @@ def validate_playoffs(bracket: Bracket, finalize: bool = False) -> None:
             if not gm.winner:
                 assert not gm.team1_pts
                 assert not gm.team2_pts
-                unnec.append(gm)
+                if finalize:
+                    unnec.append(gm)
                 continue
 
             stats1 = tm_stats[gm.team1_id]
@@ -1110,6 +1264,7 @@ def validate_playoffs(bracket: Bracket, finalize: bool = False) -> None:
                 matchup_stats1['playoff_wins'] += 1
                 matchup_stats2['playoff_losses'] += 1
             else:
+                assert gm.winner == gm.team2_name
                 stats1['playoff_losses'] += 1
                 stats2['playoff_wins'] += 1
                 matchup_stats1['playoff_losses'] += 1
@@ -1151,13 +1306,17 @@ def validate_playoffs(bracket: Bracket, finalize: bool = False) -> None:
         assert tm.playoff_pts_against  == stats['playoff_pts_against']
 
         ngames  = stats['playoff_wins'] + stats['playoff_losses']
-        win_pct = rnd_pct(stats['playoff_wins'] / ngames)
-        pts_tot = stats['playoff_pts_for'] + stats['playoff_pts_against']
-        pts_pct = rnd_pct(stats['playoff_pts_for'] / pts_tot)
+        if ngames:
+            win_pct = rnd_pct(stats['playoff_wins'] / ngames)
+            pts_tot = stats['playoff_pts_for'] + stats['playoff_pts_against']
+            pts_pct = rnd_pct(stats['playoff_pts_for'] / pts_tot)
 
-        # see note about floating points and rounding in `validate_seed_round` (above)
-        assert tm.playoff_win_pct == win_pct
-        assert tm.playoff_pts_pct == pts_pct
+            # see note about floating points and rounding in `validate_seed_round` (above)
+            assert tm.playoff_win_pct == win_pct
+            assert tm.playoff_pts_pct == pts_pct
+        else:
+            assert tm.playoff_win_pct is None
+            assert tm.playoff_pts_pct is None
 
     assert stats_tot['playoff_match_wins'] == stats_tot['playoff_match_losses']
     assert stats_tot['playoff_wins']       == stats_tot['playoff_losses']

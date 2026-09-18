@@ -47,6 +47,14 @@ BRACKET_NAME = {
     Bracket.FINALS: "Finals",
 }
 
+def get_bracket(label: str) -> str:
+    """Get bracket for the specified game label.  FIX: quick and dirty for now--need a
+    proper representations of bracket definitions overall!!!
+    """
+    pfx = label.split('-', 1)[0]
+    assert pfx in Bracket
+    return pfx
+
 ##########################
 # tournament stage stuff #
 ##########################
@@ -610,38 +618,44 @@ class SeedGame(BaseModel):
         )
 
     @classmethod
-    def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
+    def iter_games(cls, include_byes: bool = False, complete_only: bool = False) -> Iterator[Self]:
         """Iterator for seed_games (wrap ORM details).
         """
+        assert not (include_byes and complete_only)  # contradictory
         query = cls.select()
         if not include_byes:
             query = query.where(cls.table_num.is_null(False))
+        if complete_only:
+            query = query.where(cls.winner.is_null(False))
         for t in query:
             yield t
 
-    def add_scores(self, team1_pts: int, team2_pts: int) -> None:
+    def add_scores(self, team1_pts: int, team2_pts: int, admin_adj: bool = False) -> None:
         """Record scores for completed (or incomplete) game.  It is no longer required
         that score updates come through here (since denorms are now managed elsewhere),
         but there is a little bit of integrity checking here that is slightly useful
         """
         if self.winner:
-            raise RuntimeError("Completed game score cannot be overwritten")
+            if admin_adj:
+                assert current_user.is_admin
+            else:
+                raise RuntimeError("Completed game score cannot be overwritten")
         if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
             raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points)")
 
         self.team1_pts = team1_pts
         self.team2_pts = team2_pts
 
-    def update_player_stats(self, revert: bool = False) -> int:
+    def update_player_stats(self, revert: tuple[int, int] | bool = False) -> int:
         """Update stats for all players involved in the game; returns number of records
         updated.  Called by front-end after the game is complete (i.e. winner determined).
         There is no need to support partial-game stats.
 
-        The `revert` flag is intended for use just before a posted game score is cleared
-        out (either in testing, or if a score needs to be corrected).
+        Caller may choose to revert the current score (i.e. undo the game), or revert to a
+        specified (e.g. previous) score.
         """
-        players = [self.player1, self.player2, self.player3, self.player4]
-        team_scores = [self.team1_pts, self.team2_pts]
+        players = (self.player1, self.player2, self.player3, self.player4)
+        team_scores = revert if isinstance(revert, tuple) else (self.team1_pts, self.team2_pts)
 
         upd = 0
         for pl_idx, player in enumerate(players):
@@ -650,16 +664,16 @@ class SeedGame(BaseModel):
             team_pts = team_scores[tm_idx]
             opp_pts  = team_scores[op_idx]
 
-            if not revert:
-                player.seed_wins        += int(team_pts > opp_pts)
-                player.seed_losses      += int(team_pts < opp_pts)
-                player.seed_pts_for     += team_pts
-                player.seed_pts_against += opp_pts
-            else:
+            if revert:
                 player.seed_wins        -= int(team_pts > opp_pts)
                 player.seed_losses      -= int(team_pts < opp_pts)
                 player.seed_pts_for     -= team_pts
                 player.seed_pts_against -= opp_pts
+            else:
+                player.seed_wins        += int(team_pts > opp_pts)
+                player.seed_losses      += int(team_pts < opp_pts)
+                player.seed_pts_for     += team_pts
+                player.seed_pts_against += opp_pts
 
             ngames = player.seed_wins + player.seed_losses
             totpts = player.seed_pts_for + player.seed_pts_against
@@ -675,7 +689,7 @@ class SeedGame(BaseModel):
         complete (i.e. winner determined)
         """
         bracket = Bracket.SEED
-        players = [self.player1, self.player2, self.player3, self.player4]
+        players = (self.player1, self.player2, self.player3, self.player4)
         if self.table_num is None:
             assert self.bye_players is not None
             assert players[0] is not None
@@ -690,9 +704,9 @@ class SeedGame(BaseModel):
                 pl_game = PlayerGame.create(**pg_info)
             return len(byes)
 
-        partners = [players[1], players[0], players[3], players[2]]
-        opps_tups = [(players[2], players[3]), (players[0], players[1])]
-        team_scores = [self.team1_pts, self.team2_pts]
+        partners = (players[1], players[0], players[3], players[2])
+        opps_tups = ((players[2], players[3]), (players[0], players[1]))
+        team_scores = (self.team1_pts, self.team2_pts)
 
         pl_games = []
         for pl_idx, player in enumerate(players):
@@ -718,6 +732,29 @@ class SeedGame(BaseModel):
             pl_games.append(pl_game)
 
         return len(pl_games)
+
+    def update_player_games(self) -> None:
+        """Update scores for PlayerGame records; called in the case of a correction to a
+        score after it has been posted and denorms processed.
+        """
+        assert self.table_num  # must be an actual game (not a bye record)
+        players = (self.player1, self.player2, self.player3, self.player4)
+        team_scores = (self.team1_pts, self.team2_pts)
+
+        pg_map = PlayerGame.get_game_map(self.label)
+
+        for pl_idx, player in enumerate(players):
+            tm_idx = pl_idx // 2
+            op_idx = tm_idx ^ 0x01
+            # REVISIT: should we do some validation here???
+            pg = pg_map.pop(player.player_num)
+            pg.team_pts = team_scores[tm_idx]
+            pg.opp_pts = team_scores[op_idx]
+            pg.is_winner = pg.team_pts > pg.opp_pts
+            pg.save()
+
+        # integrity check
+        assert len(pg_map) == 0
 
     def save(self, *args, **kwargs):
         """Determine (and set) winner if game is complete
@@ -827,7 +864,7 @@ class Team(BaseModel):
 
     @classmethod
     def iter_finals_teams(cls, by_rank: bool = False) -> Iterator[Self]:
-        """Iterator for playoff teams (wrap ORM details).
+        """Iterator for finals teams (wrap ORM details).
         """
         tourn = TournInfo.get()
         if tourn.playoff_teams == 2:
@@ -1010,38 +1047,44 @@ class TournGame(BaseModel):
         )
 
     @classmethod
-    def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
+    def iter_games(cls, include_byes: bool = False, complete_only: bool = False) -> Iterator[Self]:
         """Iterator for tourn_games (wrap ORM details).
         """
+        assert not (include_byes and complete_only)  # contradictory
         query = cls.select()
         if not include_byes:
             query = query.where(cls.table_num.is_null(False))
+        if complete_only:
+            query = query.where(cls.winner.is_null(False))
         for t in query:
             yield t
 
-    def add_scores(self, team1_pts: int, team2_pts: int) -> None:
+    def add_scores(self, team1_pts: int, team2_pts: int, admin_adj: bool = False) -> None:
         """Record scores for completed (or incomplete) game.  It is no longer required
         that score updates come through here (since denorms are now managed elsewhere),
         but there is a little bit of integrity checking here that is slightly useful
         """
         if self.winner:
-            raise RuntimeError("Completed game score cannot be overwritten")
+            if admin_adj:
+                assert current_user.is_admin
+            else:
+                raise RuntimeError("Completed game score cannot be overwritten")
         if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
             raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points)")
 
         self.team1_pts = team1_pts
         self.team2_pts = team2_pts
 
-    def update_team_stats(self, revert: bool = False) -> int:
+    def update_team_stats(self, revert: tuple[int, int] | bool = False) -> int:
         """Update stats for teams involved in the game; returns number of records updated.
         Called by front-end after the game is complete (i.e. winner determined).  There is
         no need to support partial-game stats.
 
-        The `revert` flag is intended for use just before a posted game score is cleared
-        out (either in testing, or if a score needs to be corrected).
+        Caller may choose to revert the current score (i.e. undo the game), or revert to a
+        specified (e.g. previous) score.
         """
-        teams = [self.team1, self.team2]
-        team_scores = [self.team1_pts, self.team2_pts]
+        teams = (self.team1, self.team2)
+        team_scores = revert if isinstance(revert, tuple) else (self.team1_pts, self.team2_pts)
 
         upd = 0
         for tm_idx, team in enumerate(teams):
@@ -1049,16 +1092,16 @@ class TournGame(BaseModel):
             team_pts = team_scores[tm_idx]
             opp_pts  = team_scores[op_idx]
 
-            if not revert:
-                team.tourn_wins        += int(team_pts > opp_pts)
-                team.tourn_losses      += int(team_pts < opp_pts)
-                team.tourn_pts_for     += team_pts
-                team.tourn_pts_against += opp_pts
-            else:
+            if revert:
                 team.tourn_wins        -= int(team_pts > opp_pts)
                 team.tourn_losses      -= int(team_pts < opp_pts)
                 team.tourn_pts_for     -= team_pts
                 team.tourn_pts_against -= opp_pts
+            else:
+                team.tourn_wins        += int(team_pts > opp_pts)
+                team.tourn_losses      += int(team_pts < opp_pts)
+                team.tourn_pts_for     += team_pts
+                team.tourn_pts_against += opp_pts
 
             ngames = team.tourn_wins + team.tourn_losses
             totpts = team.tourn_pts_for + team.tourn_pts_against
@@ -1086,8 +1129,8 @@ class TournGame(BaseModel):
             tm_game = TeamGame.create(**tg_info)
             return 1
 
-        teams = [self.team1, self.team2]
-        team_scores = [self.team1_pts, self.team2_pts]
+        teams = (self.team1, self.team2)
+        team_scores = (self.team1_pts, self.team2_pts)
 
         tm_games = []
         for tm_idx, team in enumerate(teams):
@@ -1107,6 +1150,28 @@ class TournGame(BaseModel):
             tm_games.append(tm_game)
 
         return len(tm_games)
+
+    def update_team_games(self) -> None:
+        """Update scores for TeamGame records; called in the case of a correction to a
+        score after it has been posted and denorms processed.
+        """
+        assert self.table_num  # must be an actual game (not a bye record)
+        teams = (self.team1, self.team2)
+        team_scores = (self.team1_pts, self.team2_pts)
+
+        tg_map = TeamGame.get_game_map(self.label)
+
+        for tm_idx, team in enumerate(teams):
+            op_idx = tm_idx ^ 0x01
+            # REVISIT: should we do some validation here???
+            tg = tg_map.pop(team.id)
+            tg.team_pts = team_scores[tm_idx]
+            tg.opp_pts = team_scores[op_idx]
+            tg.is_winner = tg.team_pts > tg.opp_pts
+            tg.save()
+
+        # integrity check
+        assert len(tg_map) == 0
 
     def save(self, *args, **kwargs):
         """Compute winner if both scores have been entered
@@ -1186,29 +1251,35 @@ class PlayoffGame(BaseModel):
             raise DataError(f"More than one winner for matchup {self.matchup_ident}")
         return self.team1 if query[0].winner == self.team1.team_name else self.team2
 
-    def add_scores(self, team1_pts: int, team2_pts: int) -> None:
+    def add_scores(self, team1_pts: int, team2_pts: int, admin_adj: bool = False) -> None:
         """Record scores for completed (or incomplete) game.  It is no longer required
         that score updates come through here (since denorms are now managed elsewhere),
         but there is a little bit of integrity checking here that is slightly useful
         """
         if self.winner:
-            raise RuntimeError("Completed game score cannot be overwritten")
+            if admin_adj:
+                assert current_user.is_admin
+            else:
+                raise RuntimeError("Completed game score cannot be overwritten")
         if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
             raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points)")
 
-        if self.matchup_winner:
+        if self.matchup_winner and not admin_adj:
             raise RuntimeError(f"Matchup already complete (winner '{self.matchup_winner.team_name}')")
 
         self.team1_pts = team1_pts
         self.team2_pts = team2_pts
 
-    def update_team_stats(self) -> int:
+    def update_team_stats(self, revert: tuple[int, int] | bool = False) -> int:
         """Update stats for teams involved in the game; returns number of records updated.
         Called by front-end after the game is complete (i.e. winner determined).  There is
         no need to support partial-game stats.
+
+        Caller may choose to revert the current score (i.e. undo the game), or revert to a
+        specified (e.g. previous) score.
         """
-        teams = [self.team1, self.team2]
-        team_scores = [self.team1_pts, self.team2_pts]
+        teams = (self.team1, self.team2)
+        team_scores = revert if isinstance(revert, tuple) else (self.team1_pts, self.team2_pts)
 
         upd = 0
         for tm_idx, team in enumerate(teams):
@@ -1216,21 +1287,29 @@ class PlayoffGame(BaseModel):
             team_pts = team_scores[tm_idx]
             opp_pts  = team_scores[op_idx]
 
-            team.playoff_wins        += int(team_pts > opp_pts)
-            team.playoff_losses      += int(team_pts < opp_pts)
-            team.playoff_pts_for     += team_pts
-            team.playoff_pts_against += opp_pts
-
-            if self.matchup_winner:
-                if team == self.matchup_winner:
-                    team.playoff_match_wins += 1
-                else:
-                    team.playoff_match_losses += 1
+            if revert:
+                team.playoff_wins        -= int(team_pts > opp_pts)
+                team.playoff_losses      -= int(team_pts < opp_pts)
+                team.playoff_pts_for     -= team_pts
+                team.playoff_pts_against -= opp_pts
+                # just hard-reset match stats (don't muck with matchup_winner here)
+                team.playoff_match_wins   = 0
+                team.playoff_match_losses = 0
+            else:
+                team.playoff_wins        += int(team_pts > opp_pts)
+                team.playoff_losses      += int(team_pts < opp_pts)
+                team.playoff_pts_for     += team_pts
+                team.playoff_pts_against += opp_pts
+                if self.matchup_winner:
+                    if team == self.matchup_winner:
+                        team.playoff_match_wins += 1
+                    else:
+                        team.playoff_match_losses += 1
 
             ngames = team.playoff_wins + team.playoff_losses
             totpts = team.playoff_pts_for + team.playoff_pts_against
-            team.playoff_win_pct = rnd_pct(team.playoff_wins / ngames)
-            team.playoff_pts_pct = rnd_pct(team.playoff_pts_for / totpts)
+            team.playoff_win_pct = rnd_pct(team.playoff_wins / ngames) if ngames else None
+            team.playoff_pts_pct = rnd_pct(team.playoff_pts_for / totpts) if totpts else None
             upd += team.save()
 
         return upd
@@ -1281,13 +1360,26 @@ class PlayerGame(BaseModel):
 
     @classmethod
     def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
-        """Iterator for seed_games (wrap ORM details).
+        """Iterator for player_games (wrap ORM details).
         """
         query = cls.select()
         if not include_byes:
             query = query.where(cls.is_bye == False)
         for t in query:
             yield t
+
+    @classmethod
+    def get_game_map(cls, label: str) -> dict[int, Self]:
+        """Return map of player_game records for the specified game label, index by
+        player_num.
+        """
+        pg_map = {}
+        query = cls.select().where(cls.game_label == label)
+        for pg in query:
+            pg_map[pg.player_num] = pg
+
+        assert len(pg_map) == 4
+        return pg_map
 
     def save(self, *args, **kwargs):
         """Set player name (denorm field) as player's nick name
@@ -1333,6 +1425,19 @@ class TeamGame(BaseModel):
         for t in query:
             yield t
 
+    @classmethod
+    def get_game_map(cls, label: str) -> dict[int, Self]:
+        """Return map of team_game records for the specified game label, index by
+        team_id.
+        """
+        tg_map = {}
+        query = cls.select().where(cls.game_label == label)
+        for tg in query:
+            tg_map[tg.team_id] = tg
+
+        assert len(tg_map) == 2
+        return tg_map
+
     def save(self, *args, **kwargs):
         """Set team and opponane names (denorm fields)
         """
@@ -1376,13 +1481,15 @@ class StandinGame(BaseModel):
 #############
 
 class ScoreAction(StrEnum):
-    SUBMIT     = "submit"
-    ACCEPT     = "accept"
-    CORRECT    = "correct"
-    IGNORE     = " (ignored)"
-    DISCARD    = " (discarded)"
-    POST_ADMIN = "post (admin)"
-    POST_FAKE  = "post (fake)"
+    SUBMIT      = "submit"
+    ACCEPT      = "accept"
+    CORRECT     = "correct"
+    IGNORE      = " (ignored)"
+    DISCARD     = " (discarded)"
+    POST_ADMIN  = "post"
+    POST_IMPORT = "import"
+    POST_FAKE   = "fake results"
+    ADJ_ADMIN   = "adjust"
 
 class PostScore(BaseModel):
     """
@@ -1393,8 +1500,9 @@ class PostScore(BaseModel):
     action_info    = TextField(null=True)
     team1_pts      = IntegerField()
     team2_pts      = IntegerField()
-    posted_by      = ForeignKeyField(Player, field='player_num', column_name='posted_by_num')
-    team_idx       = IntegerField()           # for `posted_by` (`0` - team1, `1` - team2)
+    posted_by      = ForeignKeyField(Player, field='player_num', column_name='posted_by_num',
+                                     null=True)
+    team_idx       = IntegerField(null=True)  # for `posted_by` (`0` - team1, `1` - team2)
     ref_score      = ForeignKeyField('self', null=True)
     do_push        = BooleanField(null=True)
 

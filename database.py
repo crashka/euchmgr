@@ -57,20 +57,21 @@ DB_FILETYPE = '.tourn_db'
 # note that sharing connections across threads removes some integrity checks
 shared_conn = False
 
-pragmas = {'journal_mode'            : 'wal',
-           'cache_size'              : -1 * 64000,  # 64MB
-           'foreign_keys'            : 1,
-           'ignore_check_constraints': 0,
-           'synchronous'             : 0}
+pragmas = {'journal_mode' : 'wal',
+           'cache_size'   : -1 * 64000,  # 64MB
+           'foreign_keys' : 1,
+           'synchronous'  : 1}
 
-db_params = {'autoconnect'      : False,
-             'thread_safe'      : not shared_conn}
+db_params = {'autoconnect': False,
+             'thread_safe': not shared_conn,
+             'lock_type'  : 'IMMEDIATE'}
 
 # start in "deferred" mode
 db = CySqliteDatabase(None, pragmas=pragmas, **db_params)
 
 # expose useful attributes (discourage importing `db` directly)
 db_connection_context = db.connection_context
+db_atomic = db.atomic
 
 def db_filepath(name: str, db_dir: str = None) -> str:
     """Build filename (or pathname) based on specified name.

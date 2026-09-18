@@ -122,7 +122,7 @@
             <tr>
               <td class="team">{{team}}</td>
               <td>{{posted_by}}</td>
-              <td>{{post.post_action|capitalize}}</td>
+              <td>{{post.post_action}}</td>
               <td class="act_info">{{post.action_info or ""}}</td>
               <td class="pts">{{post.team1_pts}}</td>
               <td class="pts">{{post.team2_pts}}</td>
@@ -137,7 +137,7 @@
             <tr class="adjust">
               <td class="team">-</td>
               <td>admin</td>
-              <td>{{post_action.capitalize()}}</td>
+              <td>{{post_action}}</td>
               <td class="act_info">
                 <input name="action_info" type="text" placeholder="indicate reason">
               </td>

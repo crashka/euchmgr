@@ -1481,15 +1481,15 @@ class StandinGame(BaseModel):
 #############
 
 class ScoreAction(StrEnum):
-    SUBMIT      = "submit"
-    ACCEPT      = "accept"
-    CORRECT     = "correct"
+    SUBMIT      = "Submit"
+    ACCEPT      = "Accept"
+    CORRECT     = "Correct"
     IGNORE      = " (ignored)"
     DISCARD     = " (discarded)"
-    POST_ADMIN  = "post"
-    POST_IMPORT = "import"
-    POST_FAKE   = "fake results"
-    ADJ_ADMIN   = "adjust"
+    POST_ADMIN  = "Post"
+    POST_IMPORT = "Import"
+    POST_FAKE   = "Fake Results"
+    ADJ_ADMIN   = "Adjust"
 
 class PostScore(BaseModel):
     """

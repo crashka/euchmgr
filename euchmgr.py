@@ -20,7 +20,8 @@ from ckautils import rankdata
 from core import BASE_DIR, BracketsFile, log
 from database import db_init, db_close, db_name
 from schema import (rnd_pct, rnd_avg, Bracket, TournStage, TournInfo, Player, SeedGame,
-                    Team, TournGame, PlayoffGame, PlayerGame, TeamGame, schema_create)
+                    Team, TournGame, PlayoffGame, PlayerGame, TeamGame, ScoreAction,
+                    PostScore, schema_create)
 
 #####################
 # utility functions #
@@ -321,6 +322,19 @@ def fake_seed_games(clear_existing: bool = False, limit: int = None, rand_seed: 
             log.debug(f"{game.team1_name}: {game.team1_pts}, {game.team2_name}: {game.team2_pts}")
 
         if game.winner:
+            info = {
+                'bracket'      : Bracket.SEED,
+                'game_label'   : game.label,
+                'post_action'  : ScoreAction.POST_FAKE,
+                'action_info'  : 'Seeding View',
+                'team1_pts'    : game.team1_pts,
+                'team2_pts'    : game.team2_pts,
+                'posted_by_num': None,
+                'team_idx'     : None,
+                'ref_score'    : None,
+                'do_push'      : True  # already pushed, lol
+            }
+            score = PostScore.create(**info)
             game.update_player_stats()
             game.insert_player_games()
 
@@ -735,6 +749,19 @@ def fake_tourn_games(clear_existing: bool = False, limit: int = None, rand_seed:
             log.debug(f"{game.team1_name}: {game.team1_pts}, {game.team2_name}: {game.team2_pts}")
 
         if game.winner:
+            info = {
+                'bracket'      : Bracket.TOURN,
+                'game_label'   : game.label,
+                'post_action'  : ScoreAction.POST_FAKE,
+                'action_info'  : 'Round Robin View',
+                'team1_pts'    : game.team1_pts,
+                'team2_pts'    : game.team2_pts,
+                'posted_by_num': None,
+                'team_idx'     : None,
+                'ref_score'    : None,
+                'do_push'      : True  # already pushed, lol
+            }
+            score = PostScore.create(**info)
             game.update_team_stats()
             game.insert_team_games()
 

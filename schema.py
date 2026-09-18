@@ -646,13 +646,16 @@ class SeedGame(BaseModel):
         self.team1_pts = team1_pts
         self.team2_pts = team2_pts
 
-    def update_player_stats(self, revert: tuple[int, int] = None) -> int:
+    def update_player_stats(self, revert: tuple[int, int] | bool = False) -> int:
         """Update stats for all players involved in the game; returns number of records
         updated.  Called by front-end after the game is complete (i.e. winner determined).
         There is no need to support partial-game stats.
+
+        Caller may choose to revert the current score (i.e. undo the game), or revert to a
+        specified (e.g. previous) score.
         """
         players = (self.player1, self.player2, self.player3, self.player4)
-        team_scores = revert or (self.team1_pts, self.team2_pts)
+        team_scores = revert if isinstance(revert, tuple) else (self.team1_pts, self.team2_pts)
 
         upd = 0
         for pl_idx, player in enumerate(players):
@@ -1072,13 +1075,16 @@ class TournGame(BaseModel):
         self.team1_pts = team1_pts
         self.team2_pts = team2_pts
 
-    def update_team_stats(self, revert: tuple[int, int] = None) -> int:
+    def update_team_stats(self, revert: tuple[int, int] | bool = False) -> int:
         """Update stats for teams involved in the game; returns number of records updated.
         Called by front-end after the game is complete (i.e. winner determined).  There is
         no need to support partial-game stats.
+
+        Caller may choose to revert the current score (i.e. undo the game), or revert to a
+        specified (e.g. previous) score.
         """
         teams = (self.team1, self.team2)
-        team_scores = revert or (self.team1_pts, self.team2_pts)
+        team_scores = revert if isinstance(revert, tuple) else (self.team1_pts, self.team2_pts)
 
         upd = 0
         for tm_idx, team in enumerate(teams):
@@ -1264,13 +1270,16 @@ class PlayoffGame(BaseModel):
         self.team1_pts = team1_pts
         self.team2_pts = team2_pts
 
-    def update_team_stats(self, revert: tuple[int, int] = None) -> int:
+    def update_team_stats(self, revert: tuple[int, int] | bool = False) -> int:
         """Update stats for teams involved in the game; returns number of records updated.
         Called by front-end after the game is complete (i.e. winner determined).  There is
         no need to support partial-game stats.
+
+        Caller may choose to revert the current score (i.e. undo the game), or revert to a
+        specified (e.g. previous) score.
         """
         teams = (self.team1, self.team2)
-        team_scores = revert or (self.team1_pts, self.team2_pts)
+        team_scores = revert if isinstance(revert, tuple) else (self.team1_pts, self.team2_pts)
 
         upd = 0
         for tm_idx, team in enumerate(teams):

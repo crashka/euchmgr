@@ -589,6 +589,19 @@ def load_playoff_games(csv_file: str) -> None:
         game.save()
 
         if game.winner:
+            info = {
+                'bracket'      : game.bracket,
+                'game_label'   : game.label,
+                'post_action'  : ScoreAction.POST_IMPORT,
+                'action_info'  : 'Playoff Scores',
+                'team1_pts'    : game.team1_pts,
+                'team2_pts'    : game.team2_pts,
+                'posted_by_num': None,
+                'team_idx'     : None,
+                'ref_score'    : None,
+                'do_push'      : True  # already pushed, lol
+            }
+            score = PostScore.create(**info)
             game.update_team_stats()
 
     TournInfo.mark_stage_complete(TournStage.SEMIS_RESULTS)
@@ -610,6 +623,19 @@ def load_playoff_games(csv_file: str) -> None:
         game.save()
 
         if game.winner:
+            info = {
+                'bracket'      : game.bracket,
+                'game_label'   : game.label,
+                'post_action'  : ScoreAction.POST_IMPORT,
+                'action_info'  : 'Playoff Scores',
+                'team1_pts'    : game.team1_pts,
+                'team2_pts'    : game.team2_pts,
+                'posted_by_num': None,
+                'team_idx'     : None,
+                'ref_score'    : None,
+                'do_push'      : True  # already pushed, lol
+            }
+            score = PostScore.create(**info)
             game.update_team_stats()
 
     TournInfo.mark_stage_complete(TournStage.FINALS_RESULTS)

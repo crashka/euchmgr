@@ -27,7 +27,7 @@ data = Blueprint('data', __name__)
 HIDDEN    = 'hidden'
 CENTERED  = 'centered'
 EDITABLE  = 'editable'
-CLICKABLE = 'clickable'
+CLICKABLE = 'clickable'  # see NOTE in admin.html
 
 Layout = list[tuple[str, str, str]]
 

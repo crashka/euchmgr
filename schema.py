@@ -864,7 +864,7 @@ class Team(BaseModel):
 
     @classmethod
     def iter_finals_teams(cls, by_rank: bool = False) -> Iterator[Self]:
-        """Iterator for playoff teams (wrap ORM details).
+        """Iterator for finals teams (wrap ORM details).
         """
         tourn = TournInfo.get()
         if tourn.playoff_teams == 2:
@@ -1360,7 +1360,7 @@ class PlayerGame(BaseModel):
 
     @classmethod
     def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
-        """Iterator for player_game records (wrap ORM details).
+        """Iterator for player_games (wrap ORM details).
         """
         query = cls.select()
         if not include_byes:

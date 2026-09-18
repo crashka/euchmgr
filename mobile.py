@@ -493,6 +493,8 @@ def accept_score(form: dict, ref_score: PostScore = None) -> str:
             flash(f"err=Discarding acceptance due to {lc_first(action_info)} "
                   f"({post_info(latest, team_idx)})")
 
+    # TODO: put a transaction wrapper around the writes here (trying not to return from
+    # inside the context block, since that's kind of ugly)!!!
     do_push = (post_action == ScoreAction.ACCEPT)
     info = {
         'bracket'      : bracket,

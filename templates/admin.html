@@ -356,12 +356,14 @@
 
      let popupWin;
      $('#view_tbl').on('click', 'td.clickable', function(e) {
+       // NOTE: "clickable" is completely not descriptive, but for now it implicitly
+       // means to open the score posting popup window--we should really FIX this!!!
        rec = table.row(this).data();
        console.log(rec);
        if (popupWin && !popupWin.closed) {
          popupWin.close();
        }
-       if (!rec.winner) {
+       if (!rec.winner || !rec.label) {
          return false;
        }
        const specs = "popup,width=900,height=600,top=200,left=200";

@@ -12,6 +12,7 @@ from ckautils import typecast
 
 from core import log, ImplementationError, LogicError
 from security import current_user
+from database import db_atomic
 from schema import GAME_PTS, Bracket, get_bracket, TournStage, TournInfo, ScoreAction
 from euchmgr import compute_player_ranks, compute_team_ranks, compute_playoff_ranks
 from ui_schema import (fmt_pct, PTS_PCT_NA, get_game_by_label, Player, PlayerRegister,
@@ -493,33 +494,32 @@ def accept_score(form: dict, ref_score: PostScore = None) -> str:
             flash(f"err=Discarding acceptance due to {lc_first(action_info)} "
                   f"({post_info(latest, team_idx)})")
 
-    # TODO: put a transaction wrapper around the writes here (trying not to return from
-    # inside the context block, since that's kind of ugly)!!!
-    do_push = (post_action == ScoreAction.ACCEPT)
-    info = {
-        'bracket'      : bracket,
-        'game_label'   : game_label,
-        'post_action'  : post_action,
-        'action_info'  : action_info,
-        'team1_pts'    : team1_pts,
-        'team2_pts'    : team2_pts,
-        'posted_by_num': player_num,
-        'team_idx'     : team_idx,
-        'ref_score'    : ref_score,
-        'do_push'      : do_push
-    }
-    score = PostScore.create(**info)
-    if not do_push:
-        if score_pushed:
-            return render_game_in_view(game_label)
-        return render_view(BRACKET_VIEW[bracket])
-    score.push_scores()
-    # ATTN: we really need to consolidate this with the same general call sequence used
-    # for updates through the admin interface (in data.py)!!!
-    update_rankings(bracket)
-    update_tourn_stage(bracket)
-    # be a little fancy here and highlight the accepted game
-    return render_game_in_view(game_label)
+    with db_atomic() as txn:
+        do_push = (post_action == ScoreAction.ACCEPT)
+        info = {
+            'bracket'      : bracket,
+            'game_label'   : game_label,
+            'post_action'  : post_action,
+            'action_info'  : action_info,
+            'team1_pts'    : team1_pts,
+            'team2_pts'    : team2_pts,
+            'posted_by_num': player_num,
+            'team_idx'     : team_idx,
+            'ref_score'    : ref_score,
+            'do_push'      : do_push
+        }
+        score = PostScore.create(**info)
+        if do_push:
+            score.push_scores()
+            # ATTN: we really need to consolidate this with the same general call sequence
+            # used for updates through the admin interface (in data.py)!!!
+            update_rankings(bracket)
+            update_tourn_stage(bracket)
+
+    if do_push or score_pushed:
+        # be a little fancy here and highlight the accepted game
+        return render_game_in_view(game_label)
+    return render_view(BRACKET_VIEW[bracket])
 
 def correct_score(form: dict, ref_score: PostScore = None) -> str:
     """Correct a game score, superceding all previous submitted (or corrected) scores.  As
@@ -873,14 +873,20 @@ def render_mobile(context: dict, view: str) -> str:
         info_data[sect] = [UserData(*fld_def, data[i])
                            for i, fld_def in enumerate(INFO_FIELDS[sect])]
 
+    # `cur_game` in the inbound context represents a completed game that we want to
+    # highlight (to be fancy), rather than show the actual current game as active (for
+    # now).  REVISIT: we might want to call it something else (or just leave it in the
+    # context, and clear out `cur_game` locally instead)!!!
+    if compl_game := context.pop('cur_game', None):
+        if cur_game:
+            log.debug(f"highlight previous game ({compl_game.label}) rather than current "
+                      f"game ({cur_game.label}) for user \"{current_user.name}\"")
+        cur_game = compl_game
+        assert cur_game.winner
+        # take note, this is a little kludgy!
+        team_idx = cur_game.team_idx(team if team else player)
+        ref_score = PostScore.get_last(cur_game.label, include_accept=True)
     if cur_game:
-        if context.get('cur_game'):
-            # if `cur_game` was passed in to us, it takes precendence (e.g. highlight game
-            # for accepted score)
-            cur_game = context.get('cur_game')
-            assert cur_game.winner
-            team_idx = cur_game.team_idx(team if team else player)
-            ref_score = PostScore.get_last(cur_game.label, include_accept=True)
         assert team_idx in (0, 1)
         opp_idx  = team_idx ^ 0x01
         map_pts  = lambda x, i: x.team1_pts if i == 0 else x.team2_pts
@@ -888,7 +894,7 @@ def render_mobile(context: dict, view: str) -> str:
         team_pts = map_pts(cur_game, team_idx)
         opp_tag  = cur_game.team_tags[opp_idx]
         opp_pts  = map_pts(cur_game, opp_idx)
-        if not context.get('cur_game'):
+        if not compl_game:
             assert not cur_game.winner
             ref_score = PostScore.get_last(cur_game.label)
             if ref_score:

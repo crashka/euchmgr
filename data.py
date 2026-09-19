@@ -9,6 +9,7 @@ from ckautils import typecast
 from peewee import IntegrityError
 from flask import Blueprint, g, request
 
+from core import log
 from security import login_required
 from database import db_atomic
 from schema import Bracket, TournStage, TournInfo, ScoreAction
@@ -270,6 +271,9 @@ def post_seeding_adj() -> dict:
         compute_player_ranks()
         validate_seed_round()
 
+    new_score = (team1_pts, team2_pts)
+    log.notice(f"Adjusting score for seed game {game.label}: {prev_score} -> {new_score} "
+               f"[{data.get('action_info')}]")
     return redirect(data['redirect_to'])
 
 #############
@@ -323,30 +327,32 @@ def post_partners() -> dict:
     data = request.form
     pt_data = None
 
-    try:
-        player = Player[typecast(data.get('id'))]
-        upd_info = {x[0]: typecast(data.get(x[0])) for x in pt_layout if x[2] == EDITABLE}
-        # TODO: add support for `partner_num` (in addition to `picks_info`)!!!
-        picks_info = upd_info.pop('picks_info')
-        assert len(upd_info) == 0
+    with db_atomic() as txn:
+        try:
+            player = Player[typecast(data.get('id'))]
+            upd_info = {x[0]: typecast(data.get(x[0])) for x in pt_layout if x[2] == EDITABLE}
+            # TODO: add support for `partner_num` (in addition to `picks_info`)!!!
+            picks_info = upd_info.pop('picks_info')
+            assert len(upd_info) == 0
 
-        if isinstance(picks_info, bool) or picks_info is None:
-            # revert over-aggressive typecasting (could mask viable matches)
-            picks_info = data.get('picks_info')
-        partners, avail = player.pick_partners(picks_info)
-        player.set_partners(*partners)
-        player.save(cascade=True)
+            if isinstance(picks_info, bool) or picks_info is None:
+                # revert over-aggressive typecasting (could mask viable matches)
+                picks_info = data.get('picks_info')
+            partners, avail = player.pick_partners(picks_info)
+            player.set_partners(*partners)
+            player.save(cascade=True)
 
-        # see "KINDA HOKEY" comment about this button stuff in post_playoffs() below
-        enable_button = None
-        if PartnerPick.current_round() == -1:
-            TournInfo.mark_stage_complete(TournStage.PARTNER_PICK)
-            enable_button = 'comp_team_seeds'
-        pt_data = {'reloadTable': True}
-        if enable_button:
-            pt_data['enableButton'] = enable_button
-    except RuntimeError as e:
-        return ajax_error(str(e))
+            # see "KINDA HOKEY" comment about this button stuff in post_playoffs() below
+            enable_button = None
+            if PartnerPick.current_round() == -1:
+                TournInfo.mark_stage_complete(TournStage.PARTNER_PICK)
+                enable_button = 'comp_team_seeds'
+            pt_data = {'reloadTable': True}
+            if enable_button:
+                pt_data['enableButton'] = enable_button
+        except RuntimeError as e:
+            txn.rollback()
+            return ajax_error(str(e))
 
     # REVISIT: return available players? (...and if so, by num or seed?)
     return ajax_data(pt_data)
@@ -548,6 +554,9 @@ def post_round_robin_adj() -> dict:
         compute_team_ranks()
         validate_tourn()
 
+    new_score = (team1_pts, team2_pts)
+    log.notice(f"Adjusting score for tourn game {game.label}: {prev_score} -> {new_score} "
+               f"[{data.get('action_info')}]")
     return redirect(data['redirect_to'])
 
 ###############
@@ -762,6 +771,9 @@ def post_playoffs_adj() -> dict:
         compute_playoff_ranks(game.bracket)
         validate_playoffs(game.bracket)
 
+    new_score = (team1_pts, team2_pts)
+    log.notice(f"Adjusting score for playoff game {game.label}: {prev_score} -> {new_score} "
+               f"[{data.get('action_info')}]")
     return redirect(data['redirect_to'])
 
 #############

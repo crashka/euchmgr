@@ -1580,16 +1580,15 @@ class PostScore(BaseModel):
 ############
 
 class RankType(StrEnum):
-    PLAYER     = "player"
-    TOURN      = "tourn"
-    DIV        = "div"
-    FINAL      = "final"
+    PLAYER  = "player"
+    TOURN   = "tourn"
+    DIV     = "div"
+    FINAL   = "final"
 
 class RankAction(StrEnum):
-    COMPUTE    = "compute"
-    ADJUST     = "adjust"
-    SHIFT_UP   = "shift up"
-    SHIFT_DOWN = "shift down"
+    COMPUTE = "compute"
+    ADJUST  = "adjust"
+    REVERT  = "revert"
 
 class PostRank(BaseModel):
     """

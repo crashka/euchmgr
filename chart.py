@@ -398,6 +398,7 @@ def fnl_results(tourn: TournInfo) -> str:
         'title'       : FNL_RESULTS,
         'tourn'       : tourn,
         'teams'       : tm_list,
+        'adjust_url'  : '/chart/fnl_rank_adj',
         'fmt_stat'    : fmt_stat,
         'bold_color'  : '#555555'
     }
@@ -425,6 +426,7 @@ def fnl_rank_adj(tourn: TournInfo) -> str:
         'cancel_url' : parent_url,
         'redirect_to': parent_url,
         'len'        : len,
+        'str'        : str,
         'fmt_stat'   : fmt_stat,
         'bold_color' : '#555555'
     }

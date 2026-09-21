@@ -74,8 +74,14 @@
        vertical-align: bottom;
      }
      .rank input {
+       font-family: ui-serif;
+       font-size: 1.0rem;
        text-align: center;
        width: 2.0rem;
+       padding: 0;
+       margin: 0;
+       border: 0;
+       background: #f0f0f0;
      }
      input::-webkit-outer-spin-button,
      input::-webkit-inner-spin-button {
@@ -98,6 +104,12 @@
      .u2 {
        text-decoration: solid underline grey 2px;
      }
+     .red_fg {
+       color: #D70000;
+     }
+     .grn_fg {
+       color: #108810;
+     }
      .highlight1 {
        background-color: #ffffdd;
      }
@@ -105,10 +117,16 @@
        background-color: #ddffff;
      }
      .highlight3 {
-       background-color: #ffe1ff;
+       background-color: #ffecff;
      }
      .highlight4 {
        background-color: #ddffdd;
+     }
+     .highlight5 {
+       background-color: #ececff;
+     }
+     .highlight6 {
+       background-color: #ffecec;
      }
     </style>
   </head>
@@ -350,8 +368,11 @@
                 <th class="vert_sect" colspan="2">Round Robin</th>
                 <th class="vert_sect" colspan="2">Head-to-Head</th>
                 {% if chart_num == 6 %}
-                <th class="rank_lbl hor_sect vert_sect" rowspan="2">Final<br>Rank</th>
-                <th class="rank_lbl hor_sect vert_sect" rowspan="2">Adj<br>Rank</th>
+                {% set adj_txt = "Enter new rankings, or use up/down arrows to move" %}
+                <th class="rank_lbl hor_sect vert_sect" rowspan="2" title="{{adj_txt}}">
+                  Adjst<br>Rank
+                </th>
+                <th class="rank_lbl hor_sect vert_sect" rowspan="2">Rank<br>Mvmt</th>
                 {% else %}
                 <th class="rank_lbl hor_sect vert_sect" rowspan="2">Final<br>Rank</th>
                 {% endif %}
@@ -378,30 +399,35 @@
                 <td>{{fmt_stat(tm.tourn_pts_pct)|safe}}</td>
                 <td class="vert_sect">{{fmt_stat(tm.final_tb_win_rec)}}</td>
                 <td>{{fmt_stat(tm.final_tb_pts_pct)|safe}}</td>
-                <td class="vert_sect">{{tm.final_rank}}</td>
                 {% if chart_num == 6 %}
                 <td class="rank vert_sect">
-                  <input class="orig" name="tm_{{tm.id}}_prev_rank" type="hidden"
+                  <input class="orig" name="tm_{{tm.id}}_orig_rank" type="hidden"
                          value="{{tm.final_rank}}">
                   <input class="prev" name="tm_{{tm.id}}_prev_rank" type="hidden"
                          value="{{tm.final_rank}}">
-                  <input class="cur" name="tm_{{tm.id}}_rank" type="number" min="1"
-                         max="{{len(teams)}}" value="{{tm.final_rank}}">
+                  <input class="cur" name="tm_{{tm.id}}_rank" type="number"
+                         min="1" max="{{len(teams)}}" value="{{tm.final_rank}}"
+                         title="Original rank: {{tm.final_rank}}">
                 </td>
+                <td class="mvmt vert_sect">-</td>
+                {% else %}
+                <td class="vert_sect">{{tm.final_rank}}</td>
                 {% endif %}
               </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-        {% if chart_num == 6 %}
         <p class="actions">
+          {% if chart_num == 5 %}
+          <button class="adj_ranks" type="button">Adjust rankings</button>
+          {% elif chart_num == 6 %}
           <input name="dummy" class="dummy">
           <button type="submit" disabled>Save adjustments</button>
           <a class="reset">[reset]</a>
           <a class="cancel" href="{{cancel_url}}">[cancel]</a>
+          {% endif %}
         </p>
-        {% endif %}
       </form>
       {% endif %}
     </div>
@@ -419,8 +445,16 @@
        popupWin = window.open('/report/score_posting/' + this.id, "_blank", specs);
      });
 
+     {% if chart_num == 5 %}
+     $('button.adj_ranks').on('click', function() {
+       window.location.href = "{{adjust_url}}";
+     });
+     {% endif %}
+
      {% if chart_num == 6 %}
-     const hlClasses = Array("highlight1", "highlight2", "highlight3", "highlight4");
+     //const hlClasses = Array("highlight1", "highlight2", "highlight3",
+     //                        "highlight4", "highlight5", "highlight6");
+     const hlClasses = Array("highlight1");
      let iHighlight = -1;
 
      function assert(condition, message) {
@@ -452,7 +486,38 @@
        const aRank = $(a).find('td.rank input.cur');
        const bRank = $(b).find('td.rank input.cur');
        return parseInt(aRank.val() || 0) > parseInt(bRank.val() || 0) ? 1 : -1;
-     };
+     }
+
+     function setMvmt($cur) {
+       assert($cur.hasClass('cur'));
+       const curVal = parseInt($cur.val());
+       const $orig = $cur.siblings('.orig');
+       const origVal = parseInt($orig.val());
+       const $mvmt = $cur.parent('td.rank').next();
+       assert($mvmt.hasClass('mvmt'));
+       const colClasses = Array("grn_fg", "red_fg");
+
+       let mvmtStr;
+       let colCls;
+       if (curVal < origVal) {  // moved up
+         mvmtStr = "+" + String(origVal - curVal);
+         colCls = colClasses[0];
+       }
+       else if (curVal > origVal) {  // moved down
+         mvmtStr = String(origVal - curVal);
+         colCls = colClasses[1];
+       }
+       else {
+         mvmtStr = "-";
+         colCls = null;
+       }
+
+       $mvmt.text(mvmtStr);
+       $mvmt.removeClass(colClasses);
+       if (colCls) {
+         $mvmt.addClass(colCls)
+       }
+     }
 
      // override arrow behavior for rank input fields (more intuitive, I think)
      $('td.rank input.cur').on('keydown', function(event) {
@@ -475,6 +540,14 @@
        else if (event.which == 13) {
          const val = parseInt($(this).val());
          $(this).trigger('change');
+
+         const $nextRow = $(this).parents('tr.team').next();
+         if ($nextRow.length) {
+           $nextRow.find('td.rank input.cur').focus().select();
+         }
+         else {
+           $('.actions input.dummy').focus();
+         }
          event.preventDefault();
        }
      });
@@ -512,17 +585,21 @@
        // TODO: probably want to put some protection against an infinite loop here,
        // since this is not the most robust way to propagate the change!!!
        while ($found.is($prevRank) == false) {
-         const $fndRank = $found;
+         const $fndPrev = $found;
+         const $fndCur = $fndPrev.next();
+         assert($fndCur.hasClass('cur'));
 
          newVal += incr;
          $found = $('input.prev').filter((idx, node) => node.value == newVal);
          console.log("found: ", $found, $found[0]);
          $found.parents('tr.team').removeClass(hlClasses).addClass(highlight);
-         $fndRank.val(newVal);
-         $fndRank.next().val(newVal);
+         $fndPrev.val(newVal);
+         $fndCur.val(newVal);
+         setMvmt($fndCur);
        }
        assert(newVal == myPrevVal);
        $prevRank.val(myNewVal);
+       setMvmt($curRank);
 
        window.setTimeout(function() {
          const $curFocus = $('input:focus, button:focus, a:focus');
@@ -536,11 +613,14 @@
      // reset link
      $('a.reset').on('click', function() {
        $('table.ranks tr.team').each(function() {
-         const $curRank = $(this).find('td.rank input.cur');
+         const $curRank  = $(this).find('td.rank input.cur');
          const $prevRank = $(this).find('td.rank input.prev');
          const $origRank = $(this).find('td.rank input.orig');
+         const $mvmt     = $(this).find('td.mvmt');
+
          $curRank.val($origRank.val());
          $prevRank.val($origRank.val());
+         $mvmt.text("-");
          $(this).removeClass(hlClasses);
        });
 

@@ -425,6 +425,14 @@ def post_teams() -> dict:
 
     return ajax_data(tm_data)
 
+@data.post("/teams/final_rank_adj")
+@login_required
+def final_rank_adj() -> dict:
+    """
+    """
+    data = request.form
+    assert False, "No yet implemented"
+
 ################
 # /round_robin #
 ################

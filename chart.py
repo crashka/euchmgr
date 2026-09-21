@@ -3,11 +3,13 @@
 """Blueprint for chart rendering
 """
 
-from flask import Blueprint, session, render_template, abort
+from ckautils import typecast
+from flask import Blueprint, session, request, render_template, abort
 
-from schema import GAME_PTS
+from schema import GAME_PTS, RankType, RankAction
 from ui_schema import (Numeric, fmt_pct, fmt_tally, TournInfo, Player, SeedGame, Team,
                        TournGame, PlayerGame, TeamGame)
+from ui_common import referrer_path
 from euchmgr import get_div_maps
 
 #################
@@ -52,12 +54,18 @@ PTS = lambda x: f"{SPC(1)}{x}{SPC(2)}" if x == GAME_PTS else f"{SPC(2)}{x}{SPC(2
 chart = Blueprint('chart', __name__)
 CHART_TEMPLATE = "chart.html"
 
-SD_BRACKET  = "Seeding Round Bracket"
-SD_SCORES   = "Seeding Round Scores"
-RR_BRACKETS = "Round Robin Brackets"
-RR_SCORES   = "Round Robin Scores"
-TRN_RESULTS = "Team Rank Details (pre-playoff)"
-FNL_RESULTS = "Final Tournament Results"
+SD_BRACKET   = "Seeding Round Bracket"
+SD_SCORES    = "Seeding Round Scores"
+RR_BRACKETS  = "Round Robin Brackets"
+RR_SCORES    = "Round Robin Scores"
+TRN_RESULTS  = "Team Rank Details (pre-playoff)"
+FNL_RESULTS  = "Final Tournament Results"
+FNL_RANK_ADJ = "Final Tournament Rank Adjustment"
+
+SD_RESULTS   = "Seeding Round Results"
+SD_RANK_ADJ  = "Seeding Round Rank Adjustment"
+DIV_RESULTS  = "Round Robin Results"
+DIV_RANK_ADJ = "Round Robin Rank Adjustment"
 
 CHART_FUNCS = [
     'sd_bracket',
@@ -65,7 +73,12 @@ CHART_FUNCS = [
     'rr_brackets',
     'rr_scores',
     'trn_results',
-    'fnl_results'
+    'fnl_results',
+    'fnl_rank_adj',
+    'sd_results',
+    'sd_rank_adj',
+    'div_results',
+    'div_rank_adj'
 ]
 
 @chart.get("/<chart>")
@@ -78,10 +91,31 @@ def get_chart(chart: str) -> str:
     tourn = TournInfo.get(requery=True)
     return globals()[chart](tourn)
 
+@chart.get("/<chart>/<target>")
+def get_chart_targ(chart: str, target: str) -> str:
+    """Render specified chart (with target)
+    """
+    if chart not in CHART_FUNCS:
+        abort(404, f"Invalid chart '{chart}'")
+
+    tourn = TournInfo.get(requery=True)
+    return globals()[chart](typecast(target), tourn)
+
 def render_chart(context: dict) -> str:
     """Common post-processing of context before rendering chart pages through Jinja
     """
     return render_template(CHART_TEMPLATE, **context)
+
+###################
+# rank_adj  stuff #
+###################
+
+RANK_ADJ_ACTION = {
+    RankType.PLAYER: '/players/rank_adj',
+    RankType.DIV   : '/teams/div_rank_adj',
+    RankType.TOURN : '/teams/tourn_rank_adj',
+    RankType.FINAL : '/teams/final_rank_adj'
+}
 
 ##############
 # sd_bracket #
@@ -110,6 +144,7 @@ def sd_bracket(tourn: TournInfo) -> str:
         labels[rnd][tbl] = sg.label
         complete[rnd][tbl] = False
         if tbl:
+
             if sg.winner:
                 tm1_str = f"{sg.team_tags[0]}{SPC(3)}<u class='u2'>{PTS(sg.team1_pts)}</u>"
                 tm2_str = f"{sg.team_tags[1]}{SPC(3)}<u class='u2'>{PTS(sg.team2_pts)}</u>"
@@ -361,6 +396,110 @@ def fnl_results(tourn: TournInfo) -> str:
     context = {
         'chart_num'   : 5,
         'title'       : FNL_RESULTS,
+        'tourn'       : tourn,
+        'teams'       : tm_list,
+        'fmt_stat'    : fmt_stat,
+        'bold_color'  : '#555555'
+    }
+    return render_chart(context)
+
+################
+# fnl_rank_adj #
+################
+
+def fnl_rank_adj(tourn: TournInfo) -> str:
+    """Render final tournament rank_adjustment as a chart
+    """
+    rank_type = RankType.FINAL
+    tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.final_rank)
+    #parent_url = referrer_path(request)
+    parent_url = '/chart/fnl_results'
+
+    context = {
+        'chart_num'  : 6,
+        'title'      : FNL_RANK_ADJ,
+        'tourn'      : tourn,
+        'teams'      : tm_list,
+        'action'     : RANK_ADJ_ACTION[rank_type],
+        'post_action': RankAction.ADJUST,
+        'cancel_url' : parent_url,
+        'redirect_to': parent_url,
+        'len'        : len,
+        'fmt_stat'   : fmt_stat,
+        'bold_color' : '#555555'
+    }
+    return render_chart(context)
+
+##############
+# sd_results #
+##############
+
+def sd_results(tourn: TournInfo) -> str:
+    """Render seeding round results as a chart
+    """
+    pl_iter  = Player.iter_players(by_rank=True)
+
+    context = {
+        'chart_num'   : 7,
+        'title'       : SD_RESULTS,
+        'tourn'       : tourn,
+        'players'     : list(pl_iter),
+        'fmt_stat'    : fmt_stat,
+        'bold_color'  : '#555555'
+    }
+    return render_chart(context)
+
+###############
+# sd_rank_adj #
+###############
+
+def sd_rank_adj(tourn: TournInfo) -> str:
+    """Render seeding round rank adjustment as a chart
+    """
+    pl_iter  = Player.iter_players(by_rank=True)
+
+    context = {
+        'chart_num'   : 8,
+        'title'       : SD_RANK_ADJ,
+        'tourn'       : tourn,
+        'players'     : list(pl_iter),
+        'fmt_stat'    : fmt_stat,
+        'bold_color'  : '#555555'
+    }
+    return render_chart(context)
+
+###############
+# div_results #
+###############
+
+def div_results(div_num: int, tourn: TournInfo) -> str:
+    """Render tournament round robin results as a chart (for the specified division)
+    """
+    tm_list  = sorted(Team.iter_teams(div=div_num), key=lambda tm: tm.div_rank)
+
+    context = {
+        'chart_num'   : 9,
+        'title'       : DIV_RESULTS,
+        'tourn'       : tourn,
+        'teams'       : tm_list,
+        'fmt_stat'    : fmt_stat,
+        'bold_color'  : '#555555'
+    }
+    return render_chart(context)
+
+################
+# div_rank_adj #
+################
+
+def div_rank_adj(div_num: int, tourn: TournInfo) -> str:
+    """Render tournament round robin rank adjustment as a chart (for the specified
+    division)
+    """
+    tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.final_rank)
+
+    context = {
+        'chart_num'   : 10,
+        'title'       : DIV_RANK_ADJ,
         'tourn'       : tourn,
         'teams'       : tm_list,
         'fmt_stat'    : fmt_stat,

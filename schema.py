@@ -1575,12 +1575,49 @@ class PostScore(BaseModel):
         else:
             raise LogicError(f"Invalid bracket '{self.bracket}'")
 
+############
+# PostRank #
+############
+
+class RankType(StrEnum):
+    PLAYER     = "player"
+    TOURN      = "tourn"
+    DIV        = "div"
+    FINAL      = "final"
+
+class RankAction(StrEnum):
+    COMPUTE    = "compute"
+    ADJUST     = "adjust"
+    SHIFT_UP   = "shift up"
+    SHIFT_DOWN = "shift down"
+
+class PostRank(BaseModel):
+    """
+    """
+    rank_type      = TextField()
+    div_num        = IntegerField(null=True)
+    player         = ForeignKeyField(Player, field='player_num', column_name='player_num',
+                                     null=True)
+    team           = ForeignKeyField(Team, null=True)
+    post_action    = TextField()
+    action_info    = TextField(null=True)
+    old_rank       = IntegerField(null=True)
+    new_rank       = IntegerField()
+    ref_rank       = ForeignKeyField('self', null=True)
+    tourn_stage    = TextField()
+
+    class Meta:
+        indexes = (
+            (('rank_type', 'player', 'created_at'), False),
+            (('rank_type', 'div_num', 'team', 'created_at'), False)
+        )
+
 #################
 # schema_create #
 #################
 
 ALL_MODELS = [TournInfo, Player, SeedGame, Team, TournGame, PlayoffGame, PlayerGame,
-              TeamGame, StandinPlayer, StandinGame, PostScore]
+              TeamGame, StandinPlayer, StandinGame, PostScore, PostRank]
 
 def schema_create(models: list[BaseModel | str] | str = None, force = False) -> None:
     """Create tables for specified models (list of objects or comma-separated list of

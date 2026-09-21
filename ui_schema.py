@@ -14,7 +14,7 @@ from schema import (rnd_pct, Bracket, BRACKET_NAME, get_bracket, TournStage, Tou
                     Player as BasePlayer, SeedGame as BaseSeedGame, Team as BaseTeam,
                     TournGame as BaseTournGame, PlayoffGame as BasePlayoffGame,
                     PlayerGame as BasePlayerGame, TeamGame as BaseTeamGame,
-                    PostScore as BasePostScore)
+                    PostScore as BasePostScore, PostRank as BasePostRank)
 
 #################
 # utility stuff #
@@ -1293,6 +1293,21 @@ class PostScore(UIMixin, BasePostScore):
 
     class Meta:
         table_name = BasePostScore._meta.table_name
+
+############
+# PostRank #
+############
+
+class PostRank(UIMixin, BasePostRank):
+    """
+    """
+    player         = ForeignKeyField(Player, field='player_num', column_name='player_num',
+                                     null=True)
+    team           = ForeignKeyField(Team, null=True)
+    ref_rank       = ForeignKeyField('self', null=True)
+
+    class Meta:
+        table_name = BasePostRank._meta.table_name
 
 ######################
 # more utility stuff #

@@ -4,10 +4,11 @@
 """
 from itertools import groupby
 
+from ckautils import typecast
 from flask import Blueprint, session, request, render_template, abort
 
-from schema import GAME_PTS, Bracket, get_bracket, ScoreAction
-from ui_schema import fmt_pct, TournInfo, Player, Team, PostScore, get_game_by_label
+from schema import GAME_PTS, Bracket, get_bracket, ScoreAction, RankType
+from ui_schema import fmt_pct, TournInfo, Player, Team, PostScore, PostRank, get_game_by_label
 from ui_common import referrer_path
 from euchmgr import Elevs, TeamGrps, rank_team_cohort, elevate_winners
 
@@ -24,13 +25,15 @@ TRN_TBREAK = "Team Rank Tie-Breaker Report (pre-playoff)"
 FNL_TBREAK = "Final Tournament Tie-Breaker Report"
 SCORE_POSTING = "Score Posting Report"
 SCORE_ADJUST = "Admin Score Adjustment"
+FINAL_RANK_HIST = "Final Rank History"
 
 REPORT_FUNCS = [
     'rr_tbreak',
     'trn_tbreak',
     'fnl_tbreak',
     'score_posting',
-    'score_adjust'
+    'score_adjust',
+    'final_rank_hist'
 ]
 
 @report.get("/<report>")
@@ -309,5 +312,26 @@ def score_adjust(game_label: str, tourn: TournInfo) -> str:
         'action'     : BRACKET_ADJ_ACTION[bracket],
         'cancel_url' : parent_url,
         'redirect_to': parent_url
+    }
+    return render_popup(context)
+
+###################
+# final_rank_hist #
+###################
+
+def final_rank_hist(target: str, tourn: TournInfo) -> str:
+    """Render rank posting report (as a popup), where `target` is tm_<id>
+    """
+    segs = target.split("_", 1)
+    assert len(segs) == 2 and segs[0] == 'tm'
+    team = Team[typecast(segs[1])]
+    posts = PostRank.get_posts(RankType.FINAL, team)
+
+    context = {
+        'popup_num' : 2,
+        'title'     : FINAL_RANK_HIST,
+        'tourn'     : tourn,
+        'team'      : team,
+        'posts'     : posts
     }
     return render_popup(context)

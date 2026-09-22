@@ -748,7 +748,7 @@ def render_admin(context: dict) -> str:
                 "Teams",
                 tm_layout,
                 "team_name",
-                [14],  # final_rank
+                [14],  # final_rank_eff
                 2
             )
         elif stage_compl >= TournStage.TOURN_RANKS:

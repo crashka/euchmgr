@@ -212,6 +212,13 @@ class TournInfo(BaseModel):
         tourn.complete_stage(stage)
 
     @property
+    def stage_tag(self) -> dict:
+        """Return short, printable representation of current stage name
+        """
+        stage = max(self.stage_start, self.stage_compl)
+        return TournStage(stage).name.replace("_", " ").capitalize()
+
+    @property
     def tourn_data(self) -> dict:
         """Return tournament data as a dict, removing hidden values.
         """
@@ -313,10 +320,16 @@ class TournInfo(BaseModel):
             return self.stage_compl >= TournStage.SEMIS_BRACKET
 
     def playoffs_done(self) -> bool:
-        """Official way to check if playoffs (and hence the tournament) is complete
-        (scores validated and final team rankings computed).
+        """Official way to check if playoffs are complete (scores validated and playoff
+        rankings computed).
         """
         return self.stage_compl >= TournStage.FINALS_RANKS
+
+    def tournament_done(self) -> bool:
+        """Official way to check if the overall tournament is complete (final team
+        rankings computed).
+        """
+        return self.stage_compl >= TournStage.TOURN_FINAL
 
 ##########
 # Player #
@@ -474,6 +487,12 @@ class Player(BaseModel, EuchmgrUser):
         """For UI support ('y' or empty)
         """
         return 'y' if self.reigning_champ else None
+
+    @property
+    def player_rank_eff(self) -> int:
+        """Effective player_rank (used in determining partner pick order)
+        """
+        return self.player_rank_adj or self.player_rank
 
     @property
     def available(self) -> str | None:
@@ -935,6 +954,24 @@ class Team(BaseModel):
             teams: list[Team] = [Team.get(int(x)) for x in ids]
             tbs.append(teams)
         return tbs
+
+    @property
+    def tourn_rank_eff(self) -> int:
+        """Effective tourn_rank (not currently used!)
+        """
+        return self.tourn_rank_adj or self.tourn_rank
+
+    @property
+    def div_rank_eff(self) -> int:
+        """Effective div_rank (used in computing playoff-bound teams)
+        """
+        return self.div_rank_adj or self.div_rank
+
+    @property
+    def final_rank_eff(self) -> int:
+        """Effective final_rank (used for final overall tournament results)
+        """
+        return self.final_rank_adj or self.final_rank
 
     @property
     def is_champ(self) -> bool:
@@ -1580,15 +1617,16 @@ class PostScore(BaseModel):
 ############
 
 class RankType(StrEnum):
-    PLAYER  = "player"
-    TOURN   = "tourn"
-    DIV     = "div"
-    FINAL   = "final"
+    PLAYER    = "player"
+    TOURN     = "tourn"
+    DIV       = "div"
+    FINAL     = "final"
 
 class RankAction(StrEnum):
-    COMPUTE = "compute"
-    ADJUST  = "adjust"
-    REVERT  = "revert"
+    COMPUTE   = "Compute"
+    RECOMPUTE = "Recompute"
+    ADJUST    = "Adjust"
+    REVERT    = "Revert"
 
 class PostRank(BaseModel):
     """
@@ -1610,6 +1648,19 @@ class PostRank(BaseModel):
             (('rank_type', 'player', 'created_at'), False),
             (('rank_type', 'div_num', 'team', 'created_at'), False)
         )
+
+    @classmethod
+    def get_posts(cls, rank_type: RankType, target: Player | Team) -> list[Self]:
+        """Return PostRank records for specified ranking type and target (player or team),
+        in chronological orde
+        """
+        cls_target = cls.player if rank_type == RankType.PLAYER else cls.team
+        query = (cls
+                 .select()
+                 .where(cls.rank_type == rank_type,
+                        cls_target == target)
+                 .order_by(cls.id))
+        return list(query)
 
 #################
 # schema_create #

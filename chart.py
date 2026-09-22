@@ -391,13 +391,21 @@ def trn_results(tourn: TournInfo) -> str:
 def fnl_results(tourn: TournInfo) -> str:
     """Render final tournament results as a chart
     """
-    tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.final_rank)
+    tm_list = sorted(Team.iter_teams(), key=lambda tm: tm.final_rank_eff)
+
+    tm_note = {}
+    for tm in tm_list:
+        note = f"Computed rank: {tm.final_rank}"
+        if tm.final_rank_adj:
+            note += chr(10) + f"Adjusted to: {tm.final_rank_adj}"
+        tm_note[tm.id] = note
 
     context = {
         'chart_num'   : 5,
         'title'       : FNL_RESULTS,
         'tourn'       : tourn,
         'teams'       : tm_list,
+        'tm_note'     : tm_note,
         'adjust_url'  : '/chart/fnl_rank_adj',
         'fmt_stat'    : fmt_stat,
         'bold_color'  : '#555555'
@@ -412,21 +420,26 @@ def fnl_rank_adj(tourn: TournInfo) -> str:
     """Render final tournament rank_adjustment as a chart
     """
     rank_type = RankType.FINAL
-    tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.final_rank)
-    #parent_url = referrer_path(request)
-    parent_url = '/chart/fnl_results'
+    tm_list = sorted(Team.iter_teams(), key=lambda tm: tm.final_rank_eff)
+    parent_url = referrer_path(request)
+
+    tm_note = {}
+    for tm in tm_list:
+        note = f"Computed rank: {tm.final_rank}"
+        if tm.final_rank_adj:
+            note += chr(10) + f"Previously adjusted to: {tm.final_rank_adj}"
+        tm_note[tm.id] = note
 
     context = {
         'chart_num'  : 6,
         'title'      : FNL_RANK_ADJ,
         'tourn'      : tourn,
         'teams'      : tm_list,
+        'tm_note'    : tm_note,
         'action'     : RANK_ADJ_ACTION[rank_type],
-        'post_action': RankAction.ADJUST,
         'cancel_url' : parent_url,
         'redirect_to': parent_url,
         'len'        : len,
-        'str'        : str,
         'fmt_stat'   : fmt_stat,
         'bold_color' : '#555555'
     }

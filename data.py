@@ -12,10 +12,11 @@ from flask import Blueprint, g, request
 from core import log
 from security import login_required
 from database import db_atomic
-from schema import Bracket, TournStage, TournInfo, ScoreAction
+from schema import Bracket, TournStage, TournInfo, ScoreAction, RankType, RankAction
 from euchmgr import (validate_seed_round, compute_player_ranks, validate_tourn,
                      compute_team_ranks, validate_playoffs, compute_playoff_ranks)
-from ui_schema import Player, PartnerPick, SeedGame, Team, TournGame, PlayoffGame, PostScore
+from ui_schema import (Player, PartnerPick, SeedGame, Team, TournGame, PlayoffGame,
+                       PostScore, PostRank)
 from ui_common import referrer_path, redirect, render_error
 
 ###################
@@ -364,7 +365,8 @@ def post_partners() -> dict:
 tm_addl_props = [
     'player_nums',
     'tourn_win_pct_str',
-    'tourn_pts_pct_str'
+    'tourn_pts_pct_str',
+    'final_rank_eff'
 ]
 
 tm_layout = [
@@ -382,7 +384,7 @@ tm_layout = [
     ('tourn_pts_pct_str', "Pts Pct",     None),
     ('div_rank',          "Div Rank",    None),
     ('tourn_rank',        "Team Rank",   None),
-    ('final_rank',        "Final Rank",  None)
+    ('final_rank_eff',    "Final Rank",  None)
 ]
 
 @data.get("/teams/data")
@@ -430,8 +432,52 @@ def post_teams() -> dict:
 def final_rank_adj() -> dict:
     """
     """
+    tourn = TournInfo.get()
     data = request.form
-    assert False, "No yet implemented"
+    assert 'action_info' in data
+    assert 'redirect_to' in data
+
+    for field in data:
+        # looking for "tm_<id>_rank"
+        segs = field.split("_", 2)
+        if len(segs) != 3 or (segs[0], segs[2]) != ('tm', 'rank'):
+            continue
+        team = Team[typecast(segs[1])]
+        new_rank = typecast(data[field])
+        orig_field = field.replace('rank', 'orig_rank', 1)
+        assert orig_field != field
+        orig_rank = typecast(data[orig_field])
+        if new_rank == orig_rank:
+            #log.debug(f"skipping unadjusted final rank for team {team.id}")
+            continue
+
+        if new_rank == team.final_rank:
+            rank_action = RankAction.REVERT
+            assert team.final_rank_adj
+            old_rank = team.final_rank_adj
+            team.final_rank_adj = None
+        else:
+            rank_action = RankAction.ADJUST
+            old_rank = team.final_rank_adj or team.final_rank
+            team.final_rank_adj = new_rank
+        assert old_rank == orig_rank
+        team.save()
+
+        info = {
+            'rank_type'   : RankType.FINAL,
+            'team'        : team,
+            'post_action' : rank_action,
+            'action_info' : data['action_info'],
+            'old_rank'    : old_rank,
+            'new_rank'    : new_rank,
+            'tourn_stage' : tourn.stage_tag
+        }
+        rank = PostRank.create(**info)
+        verb = rank_action.capitalize() + "ing"
+        log.notice(f"{verb} final rank for team {team.id}: {orig_rank} -> {new_rank} "
+                   f"[{data['action_info']}]")
+
+    return redirect(data['redirect_to'])
 
 ################
 # /round_robin #

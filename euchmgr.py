@@ -21,7 +21,7 @@ from core import BASE_DIR, BracketsFile, log
 from database import db_init, db_close, db_name
 from schema import (rnd_pct, rnd_avg, Bracket, TournStage, TournInfo, Player, SeedGame,
                     Team, TournGame, PlayoffGame, PlayerGame, TeamGame, ScoreAction,
-                    PostScore, schema_create)
+                    PostScore, RankType, RankAction, PostRank, schema_create)
 
 #####################
 # utility functions #
@@ -1418,6 +1418,17 @@ def compute_final_ranks(finalize: bool = False) -> None:
             tm.save()
 
     if finalize:
+        tourn = TournInfo.get()
+        rank_action = RankAction.COMPUTE if not tourn.tournament_done() else RankAction.RECOMPUTE
+        for tm in tm_list:
+            info = {
+                'rank_type'   : RankType.FINAL,
+                'team'        : tm,
+                'post_action' : rank_action,
+                'new_rank'    : tm.final_rank,
+                'tourn_stage' : tourn.stage_tag
+            }
+            rank = PostRank.create(**info)
         TournInfo.mark_stage_complete(TournStage.TOURN_FINAL)
 
 ########

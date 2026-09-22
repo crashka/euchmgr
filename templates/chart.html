@@ -28,8 +28,9 @@
        margin-top: 2.0rem;
      }
      .actions button {
+       margin-left: 0.5rem;
        margin-right: 0.8rem;
-       padding: 0.0rem 0.2rem;
+       padding: 0.2rem 0.5rem;
      }
      .actions a {
        margin-right: 0.3rem;
@@ -90,9 +91,18 @@
      input[type='number'] {
        -moz-appearance:textfield;
      }
+     input.reason {
+       font-size: 0.92rem;
+       width: 15rem;
+       margin-left: 0.8rem;
+       margin-right: 0.8rem;
+       padding: 0.0rem 0.4rem;
+       display: none;
+     }
      input.dummy {
-       border: 0;
        width: 0;
+       padding: 0;
+       border: 0;
      }
      b {
        font-weight: bold;
@@ -358,6 +368,7 @@
 
       {% if chart_num in (5, 6) %}
       <form action="{{action}}" method="post">
+        <input name="redirect_to" type="hidden" value="{{redirect_to}}">
         <div class="section fnl_results">
           <table class="ranks">
             <thead>
@@ -400,18 +411,19 @@
                 <td class="vert_sect">{{fmt_stat(tm.final_tb_win_rec)}}</td>
                 <td>{{fmt_stat(tm.final_tb_pts_pct)|safe}}</td>
                 {% if chart_num == 6 %}
-                <td class="rank vert_sect">
+                <td class="rank vert_sect" id="tm_{{tm.id}}" title="{{tm_note[tm.id]}}">
                   <input class="orig" name="tm_{{tm.id}}_orig_rank" type="hidden"
-                         value="{{tm.final_rank}}">
+                         value="{{tm.final_rank_eff}}">
                   <input class="prev" name="tm_{{tm.id}}_prev_rank" type="hidden"
-                         value="{{tm.final_rank}}">
+                         value="{{tm.final_rank_eff}}">
                   <input class="cur" name="tm_{{tm.id}}_rank" type="number"
-                         min="1" max="{{len(teams)}}" value="{{tm.final_rank}}"
-                         title="Original rank: {{tm.final_rank}}">
+                         min="1" max="{{len(teams)}}" value="{{tm.final_rank_eff}}">
                 </td>
                 <td class="mvmt vert_sect">-</td>
                 {% else %}
-                <td class="vert_sect">{{tm.final_rank}}</td>
+                <td class="rank vert_sect" id="tm_{{tm.id}}" title="{{tm_note[tm.id]}}">
+                  {{tm.final_rank_disp}}
+                </td>
                 {% endif %}
               </tr>
               {% endfor %}
@@ -420,8 +432,11 @@
         </div>
         <p class="actions">
           {% if chart_num == 5 %}
+          <input name="dummy" class="dummy">
           <button class="adj_ranks" type="button">Adjust rankings</button>
           {% elif chart_num == 6 %}
+          <input class="reason" name="action_info" type="text" placeholder="indicate reason"
+                 required>
           <input name="dummy" class="dummy">
           <button type="submit" disabled>Save adjustments</button>
           <a class="reset">[reset]</a>
@@ -437,6 +452,7 @@
   <script>
    $(function() {
      let popupWin;
+     {% if chart_num in (0, 2) %}
      $('td.matchup.compl').on('click', function(e) {
        if (popupWin && !popupWin.closed) {
          popupWin.close();
@@ -444,6 +460,15 @@
        const specs = "popup,width=900,height=600,top=200,left=200";
        popupWin = window.open('/report/score_posting/' + this.id, "_blank", specs);
      });
+     {% elif chart_num in (5,) %}
+     $('td.rank').on('click', function(e) {
+       if (popupWin && !popupWin.closed) {
+         popupWin.close();
+       }
+       const specs = "popup,width=900,height=600,top=200,left=200";
+       popupWin = window.open('/report/final_rank_hist/' + this.id, "_blank", specs);
+     });
+     {% endif %}  {# chart_num #}
 
      {% if chart_num == 5 %}
      $('button.adj_ranks').on('click', function() {
@@ -473,10 +498,12 @@
 
      function updateBtnState() {
        if (changed()) {
+         $('input.reason').css('display', 'inline-block');
          $('button[type="submit"]').prop('disabled', false);
          $('a.reset').attr('href', "javascript:void(0);");
        }
        else {
+         $('input.reason').css('display', 'none');
          $('button[type="submit"]').prop('disabled', true);
          $('a.reset').removeAttr('href');
        }
@@ -616,26 +643,26 @@
          const $curRank  = $(this).find('td.rank input.cur');
          const $prevRank = $(this).find('td.rank input.prev');
          const $origRank = $(this).find('td.rank input.orig');
-         const $mvmt     = $(this).find('td.mvmt');
 
          $curRank.val($origRank.val());
          $prevRank.val($origRank.val());
-         $mvmt.text("-");
-         $(this).removeClass(hlClasses);
        });
+       $('tr.team').removeClass(hlClasses);
+       $('td.mvmt').text("-");
+       $('input.reason').val('');
 
        $('table.ranks tr.team').sort(byRankVal).appendTo('table.ranks');
        updateBtnState();
        iHighlight = -1;
        return false;
      });
+     {% endif %}
 
      // we do this so we can tab over to the submit button from the
      // last form input (if it becomes enabled)
      $('input.dummy').on("focus", function() {
        $(this).nextAll('button:enabled, a[href]').first().focus();
      });
-     {% endif %}
    });
   </script>
 </html>

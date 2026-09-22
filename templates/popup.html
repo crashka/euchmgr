@@ -12,7 +12,8 @@
        font-size: 1.125rem;
        margin-bottom: 0.5rem;
      }
-     .game_info p {
+     .game_info p,
+     .team_info p {
        margin: 0.25rem 0.0rem;
      }
      .game_info label {
@@ -20,7 +21,13 @@
        text-align: right;
        min-width: 3.5rem;
      }
-     .game_info span {
+     .team_info label {
+       display: inline-block;
+       text-align: right;
+       min-width: 6.0rem;
+     }
+     .game_info span,
+     .team_info span {
        font-weight: bold;
      }
      .posts p {
@@ -44,7 +51,7 @@
        border-collapse: collapse;
        padding: 0.2rem 0.5rem;
      }
-     .team, .pts, .chk {
+     .team, .pts, .chk, .rank {
        text-align: center;
      }
      .pts input {
@@ -159,15 +166,92 @@
         </p>
         {% endif %}  {# posts #}
       </section>
-      {% endif %}
+      {% endif %}  {# popup_num in (0, 1) #}
+
+      {% if popup_num == 2 %}
+      <section class="team_info">
+        <h2>Team Info</h2>
+        <p>
+          <label>Team Name</label>:
+          <span>{{team.team_name}}</span>
+        </p>
+        <p>
+          <label>Team Seed</label>:
+          <span>{{team.team_seed}}</span>
+        </p>
+        <p>
+          <label>Div/Rank</label>:
+          <span>{{team.div_num}} / {{team.div_rank_disp}}</span>
+        </p>
+        <p>
+          <label>Tourn Record</label>:
+          <span>{{team.tourn_win_rec}} ({{team.tourn_win_pct_str}})</span>
+        </p>
+        <p>
+          <label>[pts pct]</label>:
+          <span>{{team.tourn_pts_pct_str}}</span>
+        </p>
+        {% if team.playoff_team %}
+        <p>
+          <label>Playoff Record</label>:
+          <span>{{team.playoff_match_rec}}</span>
+        </p>
+        <p>
+          <label>[games]</label>:
+          <span>{{team.playoff_win_rec}} ({{team.playoff_win_pct_str}})</span>
+        </p>
+        <p>
+          <label>[pts ptc]</label>:
+          <span>{{team.playoff_pts_pct_str}}</span>
+        </p>
+        {% endif %}  {# tean.playoff_team #}
+      </section>
+      <section class="posts">
+        <h2>Rank History</h2>
+        {% if posts %}
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>Action</th>
+              <th>Reason</th>
+              <th>Prev Rank</th>
+              <th>New Rank</th>
+              <th>Stage</th>
+              <th>Timestamp</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for post in posts %}
+            <tr>
+              <td>{{loop.index}}</td>
+              <td>{{post.post_action}}</td>
+              <td class="act_info">{{post.action_info or ""}}</td>
+              <td class="rank">{{post.old_rank or "-"}}</td>
+              <td class="rank">{{post.new_rank}}</td>
+              <td>{{post.tourn_stage}}</td>
+              <td>{{post.created_at.strftime('%H:%M:%S')}}</td>
+            </tr>
+            {% endfor %}  {# posts #}
+          </tbody>
+        </table>
+        {% else %}  {# posts #}
+        <p>
+          <i>No data</i>
+        </p>
+        {% endif %}  {# posts #}
+      </section>
+      {% endif %}  {# popup_num == 2 #}
     </main>
     <p class="actions">
-      {% if popup_num == 1 %}
+      {% if popup_num == 0 %}
+      <button class="adj_score" type="button">Adjust score</button>
+      <button type="button" onclick="window.close();">Close window</button>
+      {% elif popup_num == 1 %}
       <input name="dummy" class="dummy">
       <button type="submit" disabled>Save adjustment</button>
       <a class="cancel" href="{{cancel_url}}">[cancel]</a>
       {% else %}
-      <button class="adj_score" type="button">Adjust score</button>
       <button type="button" onclick="window.close();">Close window</button>
       {% endif %}
     </p>

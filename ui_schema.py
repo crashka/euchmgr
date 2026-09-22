@@ -231,18 +231,14 @@ class Player(UIMixin, BasePlayer):
         return fmt_pct(self.seed_pts_pct)
 
     @property
-    def player_rank_final(self, annotated: bool = False) -> int | str:
-        """The official value for player ranking (defaults to player_rank, with override
-        from player_rank_adj).  String value is returned if `annotated` is specified as
-        True, with override indicated (if present).
+    def player_rank_disp(self) -> str:
+        """The display value for player ranking (defaults to player_rank, with override
+        from player_rank_adj).
         """
-        if annotated:
-            if self.player_rank_adj:
-                return f"{self.player_rank_adj} ({self.player_rank})"
-            else:
-                return str(self.player_rank)
-
-        return self.player_rank_adj or self.player_rank
+        if self.player_rank_adj:
+            return f"{self.player_rank_adj} ({self.player_rank})"
+        else:
+            return str(self.player_rank)
 
     @property
     def current_game(self) -> BaseModel:
@@ -807,6 +803,17 @@ class Team(UIMixin, BaseTeam):
         return rnd_pct(self.final_tb_data['pts_for'] / tb_pts_tot)
 
     @property
+    def final_rank_disp(self) -> str:
+        """The display value for final ranking (defaults to final_rank, with override from
+        final_rank_adj).
+        """
+        if self.final_rank_adj:
+            #return f"{self.final_rank_adj} ({self.final_rank})"
+            return f"{self.final_rank_adj}*"
+        else:
+            return str(self.final_rank)
+
+    @property
     def playoff_win_pct_str(self) -> str:
         """Return playoff_win_pct formatted as a string.
         """
@@ -880,18 +887,14 @@ class Team(UIMixin, BaseTeam):
         return rnd_pct(self.div_tb_data['pts_for'] / tb_pts_tot)
 
     @property
-    def div_rank_final(self, annotated: bool = False) -> int | str:
-        """The official value for division ranking (defaults to div_rank, with override
-        from div_rank_adj).  String value is returned if `annotated` is specified as True,
-        with override indicated (if present).
+    def div_rank_disp(self) -> str:
+        """The display value for division ranking (defaults to div_rank, with override
+        from div_rank_adj).
         """
-        if annotated:
-            if self.div_rank_adj:
-                return f"{self.div_rank_adj} ({self.div_rank})"
-            else:
-                return str(self.div_rank)
-
-        return self.div_rank_adj or self.div_rank
+        if self.div_rank_adj:
+            return f"{self.div_rank_adj} ({self.div_rank})"
+        else:
+            return str(self.div_rank)
 
     @property
     def current_game(self) -> BaseModel:

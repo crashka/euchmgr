@@ -232,7 +232,7 @@ def post_seeding() -> dict:
 
 @data.post("/seeding/score_adj")
 @login_required
-def post_seeding_adj() -> dict:
+def post_seeding_adj() -> str:
     """Post score adjustment to seeding round game.
     """
     # REVISIT: this is a currently hacked up integrity/security check, need to make this
@@ -427,12 +427,12 @@ def post_teams() -> dict:
 
     return ajax_data(tm_data)
 
-@data.post("/teams/final_rank_adj")
+@data.post("/teams/rank_adj/<rank_type>")
 @login_required
-def final_rank_adj() -> dict:
+def post_rank_adj(rank_type: str) -> str:
     """
     """
-    tourn = TournInfo.get()
+    assert rank_type in RankType
     data = request.form
     assert 'action_info' in data
     assert 'redirect_to' in data
@@ -448,23 +448,37 @@ def final_rank_adj() -> dict:
         assert orig_field != field
         orig_rank = typecast(data[orig_field])
         if new_rank == orig_rank:
-            #log.debug(f"skipping unadjusted final rank for team {team.id}")
+            #log.debug(f"skipping unadjusted {rank_type} rank for team {team.id}")
             continue
 
-        if new_rank == team.final_rank:
-            rank_action = RankAction.REVERT
-            assert team.final_rank_adj
-            old_rank = team.final_rank_adj
-            team.final_rank_adj = None
+        if rank_type == RankType.DIV:
+            if new_rank == team.div_rank:
+                rank_action = RankAction.REVERT
+                assert team.div_rank_adj
+                old_rank = team.div_rank_adj
+                team.div_rank_adj = None
+            else:
+                rank_action = RankAction.ADJUST
+                old_rank = team.div_rank_adj or team.div_rank
+                team.div_rank_adj = new_rank
+        elif rank_type == RankType.FINAL:
+            if new_rank == team.final_rank:
+                rank_action = RankAction.REVERT
+                assert team.final_rank_adj
+                old_rank = team.final_rank_adj
+                team.final_rank_adj = None
+            else:
+                rank_action = RankAction.ADJUST
+                old_rank = team.final_rank_adj or team.final_rank
+                team.final_rank_adj = new_rank
         else:
-            rank_action = RankAction.ADJUST
-            old_rank = team.final_rank_adj or team.final_rank
-            team.final_rank_adj = new_rank
+            raise RuntimeError(f"Rank type '{rank_type}' not supported")
         assert old_rank == orig_rank
         team.save()
 
+        tourn = TournInfo.get()
         info = {
-            'rank_type'   : RankType.FINAL,
+            'rank_type'   : rank_type,
             'team'        : team,
             'post_action' : rank_action,
             'action_info' : data['action_info'],
@@ -474,7 +488,7 @@ def final_rank_adj() -> dict:
         }
         rank = PostRank.create(**info)
         verb = rank_action.capitalize() + "ing"
-        log.notice(f"{verb} final rank for team {team.id}: {orig_rank} -> {new_rank} "
+        log.notice(f"{verb} {rank_type} rank for team {team.id}: {orig_rank} -> {new_rank} "
                    f"[{data['action_info']}]")
 
     return redirect(data['redirect_to'])

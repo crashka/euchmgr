@@ -4,25 +4,30 @@
     <title>{{title}}</title>
 
     <style>
-     .red {
-       background-color: #FFECEC;
+     h1 {
+       display: inline-block;
+       font-size: 1.5rem;
+       margin-top: 0.125rem;
+       margin-bottom: 0.0rem;
+     }
+     .h1_info {
+       font-size: 1.125rem;
+       font-weight: normal;
+     }
+     h2 {
+       display: inline-block;
+       font-size: 1.125rem;
+       margin-top: 0.0rem;
+       margin-bottom: 0.0rem;
      }
      .container {
        margin-top: 1.0rem;
        overflow-x: auto;
        white-space: nowrap;
      }
-     .container_lbl {
-       font-size: x-large;
-       font-weight: bold;
-     }
      .section {
-       margin-top: 2.0rem;
-       margin-bottom: 2.0rem;
-     }
-     .section_lbl {
-       font-size: large;
-       font-weight: bold;
+       margin-top: 1.5rem;
+       margin-bottom: 1.75rem;
      }
      .actions {
        margin-top: 2.0rem;
@@ -37,7 +42,7 @@
        padding: 0.0rem 0.2rem;
      }
      table {
-       margin-top: 1.5rem;
+       margin-top: 1.25rem;
        border: 2px solid darkgrey;
        border-collapse: collapse;
      }
@@ -65,7 +70,7 @@
      .plyr_lbl,
      .team_lbl {
        text-align: left;
-       width: 12rem;
+       width: 14rem;
      }
      .pos_lbl,
      .rank_lbl {
@@ -143,8 +148,10 @@
 
   <body>
     <div class="container">
-      <span class="container_lbl">{{tourn.name}} &ndash; {{title}}</span>
-
+      <h1 class="div_toggle">
+        {{tourn.name}} &ndash; {{title}}
+        <span class="h1_info">{{title_note|safe or ''}}</span>
+      </h1>
       {% if chart_num == 0 %}
       <div class="section seed_bracket">
         <table>
@@ -233,7 +240,7 @@
       {% if chart_num == 2 %}
       {% for div in div_list %}
       <div class="section rr_brackets">
-        <span class="section_lbl">Division {{div}}</span>
+        <h2>Division {{div}}</h2>
         <table>
           <thead>
             <tr>
@@ -272,7 +279,7 @@
       {% if chart_num == 3 %}
       {% for div in div_list %}
       <div class="section rr_scores">
-        <span class="section_lbl">Division {{div}}</span>
+        <h2>Division {{div}}</h2>
         <table>
           <thead>
             <tr>
@@ -366,7 +373,7 @@
       </div>
       {% endif %}
 
-      {% if chart_num in (5, 6) %}
+      {% if chart_num in (5, 6, 7, 8) %}
       <form action="{{action}}" method="post">
         <input name="redirect_to" type="hidden" value="{{redirect_to}}">
         <div class="section fnl_results">
@@ -374,24 +381,32 @@
             <thead>
               <tr>
                 <th class="plyr_lbl hor_sect" rowspan="2">Team (by Overall Seed)</th>
+                {% if chart_num in (5, 6) %}
                 <th class="pos_lbl hor_sect vert_sect" rowspan="2">Final<br>Pos</th>
                 <th class="vert_sect" colspan="3">Playoffs</th>
+                {% elif chart_num in (7, 8) %}
+                <th class="pos_lbl hor_sect vert_sect" rowspan="2">Div<br>Pos</th>
+                {% endif %}
                 <th class="vert_sect" colspan="2">Round Robin</th>
                 <th class="vert_sect" colspan="2">Head-to-Head</th>
-                {% if chart_num == 6 %}
+                {% if chart_num == 5 %}
+                <th class="rank_lbl hor_sect vert_sect" rowspan="2">Final<br>Rank</th>
+                {% elif chart_num == 7 %}
+                <th class="rank_lbl hor_sect vert_sect" rowspan="2">Div<br>Rank</th>
+                {% elif chart_num in (6, 8) %}
                 {% set adj_txt = "Enter new rankings, or use up/down arrows to move" %}
                 <th class="rank_lbl hor_sect vert_sect" rowspan="2" title="{{adj_txt}}">
                   Adjst<br>Rank
                 </th>
                 <th class="rank_lbl hor_sect vert_sect" rowspan="2">Rank<br>Mvmt</th>
-                {% else %}
-                <th class="rank_lbl hor_sect vert_sect" rowspan="2">Final<br>Rank</th>
                 {% endif %}
               </tr>
               <tr>
+                {% if chart_num in (5, 6) %}
                 <th class="hor_sect vert_sect">Matches</th>
                 <th class="hor_sect">Games</th>
                 <th class="hor_sect">Pts Pct</th>
+                {% endif %}
                 <th class="hor_sect vert_sect">Win Pct</th>
                 <th class="hor_sect">Pts Pct</th>
                 <th class="hor_sect vert_sect">W-L</th>
@@ -402,15 +417,28 @@
               {% for tm in teams %}
               <tr class="team">
                 <td class="team_lbl">{{tm.team_tag_fn|safe}}</td>
+                {% if chart_num in (5, 6) %}
                 <td class="vert_sect">{{tm.final_pos_str}}</td>
                 <td class="vert_sect">{{fmt_stat(tm.playoff_match_rec)}}</td>
                 <td>{{fmt_stat(tm.playoff_win_rec)|safe}}</td>
                 <td>{{fmt_stat(tm.playoff_pts_pct)|safe}}</td>
+                {% elif chart_num in (7, 8) %}
+                <td class="vert_sect">{{tm.div_pos_str}}</td>
+                {% endif %}
                 <td class="vert_sect">{{fmt_stat(tm.tourn_win_pct)|safe}}</td>
                 <td>{{fmt_stat(tm.tourn_pts_pct)|safe}}</td>
+                {% if chart_num in (5, 6) %}
                 <td class="vert_sect">{{fmt_stat(tm.final_tb_win_rec)}}</td>
                 <td>{{fmt_stat(tm.final_tb_pts_pct)|safe}}</td>
-                {% if chart_num == 6 %}
+                {% elif chart_num in (7, 8) %}
+                <td class="vert_sect">{{fmt_stat(tm.div_tb_win_rec)}}</td>
+                <td>{{fmt_stat(tm.div_tb_pts_pct)|safe}}</td>
+                {% endif %}
+                {% if chart_num == 5 %}
+                <td class="rank vert_sect" id="tm_{{tm.id}}" title="{{tm_note[tm.id]}}">
+                  {{tm.final_rank_disp}}
+                </td>
+                {% elif chart_num == 6 %}
                 <td class="rank vert_sect" id="tm_{{tm.id}}" title="{{tm_note[tm.id]}}">
                   <input class="orig" name="tm_{{tm.id}}_orig_rank" type="hidden"
                          value="{{tm.final_rank_eff}}">
@@ -420,10 +448,20 @@
                          min="1" max="{{len(teams)}}" value="{{tm.final_rank_eff}}">
                 </td>
                 <td class="mvmt vert_sect">-</td>
-                {% else %}
+                {% elif chart_num == 7 %}
                 <td class="rank vert_sect" id="tm_{{tm.id}}" title="{{tm_note[tm.id]}}">
-                  {{tm.final_rank_disp}}
+                  {{tm.div_rank_disp}}
                 </td>
+                {% elif chart_num == 8 %}
+                <td class="rank vert_sect" id="tm_{{tm.id}}" title="{{tm_note[tm.id]}}">
+                  <input class="orig" name="tm_{{tm.id}}_orig_rank" type="hidden"
+                         value="{{tm.div_rank_eff}}">
+                  <input class="prev" name="tm_{{tm.id}}_prev_rank" type="hidden"
+                         value="{{tm.div_rank_eff}}">
+                  <input class="cur" name="tm_{{tm.id}}_rank" type="number"
+                         min="1" max="{{len(teams)}}" value="{{tm.div_rank_eff}}">
+                </td>
+                <td class="mvmt vert_sect">-</td>
                 {% endif %}
               </tr>
               {% endfor %}
@@ -431,10 +469,10 @@
           </table>
         </div>
         <p class="actions">
-          {% if chart_num == 5 %}
+          {% if chart_num in (5, 7) %}
           <input name="dummy" class="dummy">
           <button class="adj_ranks" type="button">Adjust rankings</button>
-          {% elif chart_num == 6 %}
+          {% elif chart_num in (6, 8) %}
           <input class="reason" name="action_info" type="text" placeholder="indicate reason"
                  required>
           <input name="dummy" class="dummy">
@@ -451,6 +489,12 @@
   <script src="/static/jquery-3.7.1.min.js"></script>
   <script>
    $(function() {
+     {% if chart_num == 7 %}
+     $('.div_toggle').on('click', function(e) {
+       window.location.replace("{{other_div}}");
+     });
+     {% endif %}
+
      let popupWin;
      {% if chart_num in (0, 2) %}
      $('td.matchup.compl').on('click', function(e) {
@@ -460,23 +504,23 @@
        const specs = "popup,width=900,height=600,top=200,left=200";
        popupWin = window.open('/report/score_posting/' + this.id, "_blank", specs);
      });
-     {% elif chart_num in (5,) %}
+     {% elif chart_num in (5, 7) %}
      $('td.rank').on('click', function(e) {
        if (popupWin && !popupWin.closed) {
          popupWin.close();
        }
        const specs = "popup,width=900,height=600,top=200,left=200";
-       popupWin = window.open('/report/final_rank_hist/' + this.id, "_blank", specs);
+       popupWin = window.open('{{hist_rpt}}/' + this.id, "_blank", specs);
      });
      {% endif %}  {# chart_num #}
 
-     {% if chart_num == 5 %}
+     {% if chart_num in (5, 7) %}
      $('button.adj_ranks').on('click', function() {
        window.location.href = "{{adjust_url}}";
      });
      {% endif %}
 
-     {% if chart_num == 6 %}
+     {% if chart_num in (6, 8) %}
      //const hlClasses = Array("highlight1", "highlight2", "highlight3",
      //                        "highlight4", "highlight5", "highlight6");
      const hlClasses = Array("highlight1");
@@ -656,7 +700,7 @@
        iHighlight = -1;
        return false;
      });
-     {% endif %}
+     {% endif %}  {# chart_num in (6, 8) #}
 
      // we do this so we can tab over to the submit button from the
      // last form input (if it becomes enabled)

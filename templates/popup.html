@@ -30,6 +30,17 @@
      .team_info span {
        font-weight: bold;
      }
+     .tourn_info {
+       display: inline-block;
+       width: 17rem;
+       vertical-align: top;
+       padding-top: 0.5rem;
+     }
+     .playoff_info {
+       display: inline-block;
+       vertical-align: top;
+       padding-top: 0.5rem;
+     }
      .posts p {
        margin: 0.5rem 0.0rem;
      }
@@ -168,7 +179,7 @@
       </section>
       {% endif %}  {# popup_num in (0, 1) #}
 
-      {% if popup_num == 2 %}
+      {% if popup_num in (2, 3) %}
       <section class="team_info">
         <h2>Team Info</h2>
         <p>
@@ -183,6 +194,7 @@
           <label>Div/Rank</label>:
           <span>{{team.div_num}} / {{team.div_rank_disp}}</span>
         </p>
+        <div class="tourn_info">
         <p>
           <label>Tourn Record</label>:
           <span>{{team.tourn_win_rec}} ({{team.tourn_win_pct_str}})</span>
@@ -191,7 +203,9 @@
           <label>[pts pct]</label>:
           <span>{{team.tourn_pts_pct_str}}</span>
         </p>
+        </div>
         {% if team.playoff_team %}
+        <div class="playoff_info">
         <p>
           <label>Playoff Record</label>:
           <span>{{team.playoff_match_rec}}</span>
@@ -204,6 +218,7 @@
           <label>[pts ptc]</label>:
           <span>{{team.playoff_pts_pct_str}}</span>
         </p>
+        </div>
         {% endif %}  {# tean.playoff_team #}
       </section>
       <section class="posts">
@@ -241,7 +256,7 @@
         </p>
         {% endif %}  {# posts #}
       </section>
-      {% endif %}  {# popup_num == 2 #}
+      {% endif %}  {# popup_num in (2, 3) #}
     </main>
     <p class="actions">
       {% if popup_num == 0 %}

@@ -26,6 +26,8 @@ FNL_TBREAK = "Final Tournament Tie-Breaker Report"
 SCORE_POSTING = "Score Posting Report"
 SCORE_ADJUST = "Admin Score Adjustment"
 FINAL_RANK_HIST = "Final Rank History"
+DIV_RANK_HIST = "Division Rank History"
+SEED_RANK_HIST = "Seeding Rank History"
 
 REPORT_FUNCS = [
     'rr_tbreak',
@@ -33,7 +35,9 @@ REPORT_FUNCS = [
     'fnl_tbreak',
     'score_posting',
     'score_adjust',
-    'final_rank_hist'
+    'final_rank_hist',
+    'div_rank_hist',
+    'seed_rank_hist'
 ]
 
 @report.get("/<report>")
@@ -54,7 +58,7 @@ def get_report_targ(report: str, target: str) -> str:
         abort(404, f"Invalid report func '{report}'")
 
     tourn = TournInfo.get(requery=True)
-    return globals()[report](target, tourn)
+    return globals()[report](typecast(target), tourn)
 
 def render_report(context: dict) -> str:
     """Render full-sized report
@@ -332,6 +336,48 @@ def final_rank_hist(target: str, tourn: TournInfo) -> str:
         'title'     : FINAL_RANK_HIST,
         'tourn'     : tourn,
         'team'      : team,
+        'posts'     : posts
+    }
+    return render_popup(context)
+
+#################
+# div_rank_hist #
+#################
+
+def div_rank_hist(target: str, tourn: TournInfo) -> str:
+    """Render rank posting report (as a popup), where `target` is tm_<id>
+    """
+    segs = target.split("_", 1)
+    assert len(segs) == 2 and segs[0] == 'tm'
+    team = Team[typecast(segs[1])]
+    posts = PostRank.get_posts(RankType.DIV, team)
+
+    context = {
+        'popup_num' : 3,
+        'title'     : DIV_RANK_HIST,
+        'tourn'     : tourn,
+        'team'      : team,
+        'posts'     : posts
+    }
+    return render_popup(context)
+
+##################
+# seed_rank_hist #
+##################
+
+def seed_rank_hist(target: str, tourn: TournInfo) -> str:
+    """Render rank posting report (as a popup), where `target` is pl_<num>
+    """
+    segs = target.split("_", 1)
+    assert len(segs) == 2 and segs[0] == 'pl'
+    player = Player.fetch_by_num(typecast(segs[1]))
+    posts = PostRank.get_posts(RankType.SEED, player)
+
+    context = {
+        'popup_num' : 4,
+        'title'     : SEED_RANK_HIST,
+        'tourn'     : tourn,
+        'player'    : player,
         'posts'     : posts
     }
     return render_popup(context)

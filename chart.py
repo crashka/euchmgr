@@ -61,11 +61,10 @@ RR_SCORES    = "Round Robin Scores"
 TRN_RESULTS  = "Team Rank Details (pre-playoff)"
 FNL_RESULTS  = "Final Tournament Results"
 FNL_RANK_ADJ = "Final Tournament Rank Adjustment"
-
+DIV_RESULTS  = "Division {0} Results"
+DIV_RANK_ADJ = "Division {0} Rank Adjustment"
 SD_RESULTS   = "Seeding Round Results"
 SD_RANK_ADJ  = "Seeding Round Rank Adjustment"
-DIV_RESULTS  = "Round Robin Results"
-DIV_RANK_ADJ = "Round Robin Rank Adjustment"
 
 CHART_FUNCS = [
     'sd_bracket',
@@ -75,10 +74,10 @@ CHART_FUNCS = [
     'trn_results',
     'fnl_results',
     'fnl_rank_adj',
-    'sd_results',
-    'sd_rank_adj',
     'div_results',
-    'div_rank_adj'
+    'div_rank_adj',
+    'sd_results',
+    'sd_rank_adj'
 ]
 
 @chart.get("/<chart>")
@@ -106,15 +105,20 @@ def render_chart(context: dict) -> str:
     """
     return render_template(CHART_TEMPLATE, **context)
 
-###################
-# rank_adj  stuff #
-###################
+#######################
+# rank hist/adj stuff #
+#######################
+
+RANK_HIST_REPORT = {
+    RankType.PLAYER: '/report/seed_rank_hist',
+    RankType.DIV   : '/report/div_rank_hist',
+    RankType.FINAL : '/report/final_rank_hist'
+}
 
 RANK_ADJ_ACTION = {
     RankType.PLAYER: '/players/rank_adj',
-    RankType.DIV   : '/teams/div_rank_adj',
-    RankType.TOURN : '/teams/tourn_rank_adj',
-    RankType.FINAL : '/teams/final_rank_adj'
+    RankType.DIV   : '/teams/rank_adj/div',
+    RankType.FINAL : '/teams/rank_adj/final'
 }
 
 ##############
@@ -391,6 +395,7 @@ def trn_results(tourn: TournInfo) -> str:
 def fnl_results(tourn: TournInfo) -> str:
     """Render final tournament results as a chart
     """
+    rank_type = RankType.FINAL
     tm_list = sorted(Team.iter_teams(), key=lambda tm: tm.final_rank_eff)
 
     tm_note = {}
@@ -406,6 +411,7 @@ def fnl_results(tourn: TournInfo) -> str:
         'tourn'       : tourn,
         'teams'       : tm_list,
         'tm_note'     : tm_note,
+        'hist_rpt'    : RANK_HIST_REPORT[rank_type],
         'adjust_url'  : '/chart/fnl_rank_adj',
         'fmt_stat'    : fmt_stat,
         'bold_color'  : '#555555'
@@ -431,17 +437,94 @@ def fnl_rank_adj(tourn: TournInfo) -> str:
         tm_note[tm.id] = note
 
     context = {
-        'chart_num'  : 6,
-        'title'      : FNL_RANK_ADJ,
-        'tourn'      : tourn,
-        'teams'      : tm_list,
-        'tm_note'    : tm_note,
-        'action'     : RANK_ADJ_ACTION[rank_type],
-        'cancel_url' : parent_url,
-        'redirect_to': parent_url,
-        'len'        : len,
-        'fmt_stat'   : fmt_stat,
-        'bold_color' : '#555555'
+        'chart_num'   : 6,
+        'title'       : FNL_RANK_ADJ,
+        'tourn'       : tourn,
+        'teams'       : tm_list,
+        'tm_note'     : tm_note,
+        'action'      : RANK_ADJ_ACTION[rank_type],
+        'cancel_url'  : parent_url,
+        'redirect_to' : parent_url,
+        'len'         : len,
+        'fmt_stat'    : fmt_stat,
+        'bold_color'  : '#555555'
+    }
+    return render_chart(context)
+
+###############
+# div_results #
+###############
+
+DIV_DFLT = 1
+
+def div_results(tourn: TournInfo) -> str:
+    """Render tournament round robin results as a chart (for the specified division)
+    """
+    rank_type = RankType.DIV
+    div_num = typecast(request.args.get('div')) or DIV_DFLT
+    assert div_num in (1, 2)
+    other_div = div_num % 2 + 1
+    tm_list = sorted(Team.iter_teams(div=div_num), key=lambda tm: tm.div_rank_eff)
+
+    tm_note = {}
+    for tm in tm_list:
+        note = f"Computed rank: {tm.div_rank}"
+        if tm.div_rank_adj:
+            note += chr(10) + f"Adjusted to: {tm.div_rank_adj}"
+        tm_note[tm.id] = note
+
+    RESULTS_URL  = '/chart/div_results?div={0}'
+    RANK_ADJ_URL = '/chart/div_rank_adj?div={0}'
+    context = {
+        'chart_num'   : 7,
+        'title'       : DIV_RESULTS.format(div_num),
+        'title_note'  : "&nbsp;<i>(click to switch divisions)</i>",
+        'tourn'       : tourn,
+        'div_num'     : div_num,
+        'teams'       : tm_list,
+        'tm_note'     : tm_note,
+        'other_div'   : RESULTS_URL.format(other_div),
+        'hist_rpt'    : RANK_HIST_REPORT[rank_type],
+        'adjust_url'  : RANK_ADJ_URL.format(div_num),
+        'fmt_stat'    : fmt_stat,
+        'bold_color'  : '#555555'
+    }
+    return render_chart(context)
+
+################
+# div_rank_adj #
+################
+
+def div_rank_adj(tourn: TournInfo) -> str:
+    """Render tournament round robin rank adjustment as a chart (for the specified
+    division)
+    """
+    rank_type = RankType.DIV
+    div_num = typecast(request.args.get('div')) or DIV_DFLT
+    assert div_num in (1, 2)
+    tm_list = sorted(Team.iter_teams(div=div_num), key=lambda tm: tm.div_rank_eff)
+    parent_url = referrer_path(request)
+
+    tm_note = {}
+    for tm in tm_list:
+        note = f"Computed rank: {tm.div_rank}"
+        if tm.div_rank_adj:
+            note += chr(10) + f"Previously adjusted to: {tm.div_rank_adj}"
+        tm_note[tm.id] = note
+
+    context = {
+        'chart_num'   : 8,
+        'title'       : DIV_RANK_ADJ.format(div_num),
+        'tourn'       : tourn,
+        'div_num'     : div_num,
+        'teams'       : tm_list,
+        'tm_note'     : tm_note,
+        'action'      : RANK_ADJ_ACTION[rank_type],
+        'cancel_url'  : parent_url,
+        'redirect_to' : parent_url,
+        'len'         : len,
+        'fmt_stat'    : fmt_stat,
+        'bold_color'  : '#555555'
     }
     return render_chart(context)
 
@@ -455,7 +538,7 @@ def sd_results(tourn: TournInfo) -> str:
     pl_iter  = Player.iter_players(by_rank=True)
 
     context = {
-        'chart_num'   : 7,
+        'chart_num'   : 9,
         'title'       : SD_RESULTS,
         'tourn'       : tourn,
         'players'     : list(pl_iter),
@@ -474,49 +557,10 @@ def sd_rank_adj(tourn: TournInfo) -> str:
     pl_iter  = Player.iter_players(by_rank=True)
 
     context = {
-        'chart_num'   : 8,
+        'chart_num'   : 10,
         'title'       : SD_RANK_ADJ,
         'tourn'       : tourn,
         'players'     : list(pl_iter),
-        'fmt_stat'    : fmt_stat,
-        'bold_color'  : '#555555'
-    }
-    return render_chart(context)
-
-###############
-# div_results #
-###############
-
-def div_results(div_num: int, tourn: TournInfo) -> str:
-    """Render tournament round robin results as a chart (for the specified division)
-    """
-    tm_list  = sorted(Team.iter_teams(div=div_num), key=lambda tm: tm.div_rank)
-
-    context = {
-        'chart_num'   : 9,
-        'title'       : DIV_RESULTS,
-        'tourn'       : tourn,
-        'teams'       : tm_list,
-        'fmt_stat'    : fmt_stat,
-        'bold_color'  : '#555555'
-    }
-    return render_chart(context)
-
-################
-# div_rank_adj #
-################
-
-def div_rank_adj(div_num: int, tourn: TournInfo) -> str:
-    """Render tournament round robin rank adjustment as a chart (for the specified
-    division)
-    """
-    tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.final_rank)
-
-    context = {
-        'chart_num'   : 10,
-        'title'       : DIV_RANK_ADJ,
-        'tourn'       : tourn,
-        'teams'       : tm_list,
         'fmt_stat'    : fmt_stat,
         'bold_color'  : '#555555'
     }

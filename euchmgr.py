@@ -1144,6 +1144,17 @@ def compute_team_ranks(finalize: bool = False) -> None:
 
     if finalize:
         tourn = TournInfo.get()
+        rank_action = RankAction.COMPUTE if not tourn.round_robin_done() else RankAction.RECOMPUTE
+        for tm in played:
+            info = {
+                'rank_type'   : RankType.DIV,
+                'team'        : tm,
+                'post_action' : rank_action,
+                'new_rank'    : tm.div_rank,
+                'tourn_stage' : tourn.stage_tag
+            }
+            rank = PostRank.create(**info)
+
         if tourn.playoff_teams == 2:
             # REVISIT: this is a little hacky, since there aren't really any semifinal
             # stages at all (with the `show_stage` part being even more hacky, but note

@@ -236,7 +236,8 @@ class Player(UIMixin, BasePlayer):
         from player_rank_adj).
         """
         if self.player_rank_adj:
-            return f"{self.player_rank_adj} ({self.player_rank})"
+            #return f"{self.player_rank_adj} ({self.player_rank})"
+            return f"{self.player_rank_adj}*"
         else:
             return str(self.player_rank)
 
@@ -892,7 +893,8 @@ class Team(UIMixin, BaseTeam):
         from div_rank_adj).
         """
         if self.div_rank_adj:
-            return f"{self.div_rank_adj} ({self.div_rank})"
+            #return f"{self.div_rank_adj} ({self.div_rank})"
+            return f"{self.div_rank_adj}*"
         else:
             return str(self.div_rank)
 

@@ -149,7 +149,7 @@
               <td class="pts">{{post.team1_pts}}</td>
               <td class="pts">{{post.team2_pts}}</td>
               <td class="chk">{{"&#x2714;"|safe if post.do_push else ""}}</td>
-              <td>{{post.created_at.strftime('%H:%M:%S')}}</td>
+              <td title="Stage: {{post.tourn_stage}}">{{post.created_at.strftime('%H:%M:%S')}}</td>
             </tr>
             {% endfor %}
             {% if popup_num == 1 %}

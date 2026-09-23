@@ -306,6 +306,7 @@ def fake_seed_games(clear_existing: bool = False, limit: int = None, rand_seed: 
     if isinstance(rand_seed, int):
         my_rand.seed(rand_seed)  # for reproducible debugging only
 
+    tourn = TournInfo.get()
     nfake = 0
     sort_key = lambda x: (x.round_num, x.table_num)
     for game in sorted(SeedGame.iter_games(), key=sort_key):
@@ -332,7 +333,8 @@ def fake_seed_games(clear_existing: bool = False, limit: int = None, rand_seed: 
                 'posted_by_num': None,
                 'team_idx'     : None,
                 'ref_score'    : None,
-                'do_push'      : True  # already pushed, lol
+                'do_push'      : True,  # already pushed, lol
+                'tourn_stage'  : tourn.stage_tag
             }
             score = PostScore.create(**info)
             game.update_player_stats()
@@ -344,7 +346,7 @@ def fake_seed_games(clear_existing: bool = False, limit: int = None, rand_seed: 
             return
 
     compute_player_ranks()
-    TournInfo.mark_stage_complete(TournStage.SEED_RESULTS)
+    tourn.complete_stage(TournStage.SEED_RESULTS)
 
 def validate_seed_round(finalize: bool = False) -> None:
     """Validate player stats against seeding round game records.  In order to finalize the
@@ -536,7 +538,7 @@ def compute_player_ranks(finalize: bool = False) -> None:
                 'tourn_stage' : tourn.stage_tag
             }
             rank = PostRank.create(**info)
-        TournInfo.mark_stage_complete(TournStage.SEED_RANKS)
+        tourn.complete_stage(TournStage.SEED_RANKS)
 
 def prepick_champ_partners() -> None:
     """Reigning champs get paired (or tripled) as a team before general partner picking
@@ -744,6 +746,7 @@ def fake_tourn_games(clear_existing: bool = False, limit: int = None, rand_seed:
     if isinstance(rand_seed, int):
         my_rand.seed(rand_seed)  # for reproducible debugging only
 
+    tourn = TournInfo.get()
     nfake = 0
     sort_key = lambda x: (x.round_num, x.table_num)
     for game in sorted(TournGame.iter_games(), key=sort_key):
@@ -770,7 +773,8 @@ def fake_tourn_games(clear_existing: bool = False, limit: int = None, rand_seed:
                 'posted_by_num': None,
                 'team_idx'     : None,
                 'ref_score'    : None,
-                'do_push'      : True  # already pushed, lol
+                'do_push'      : True,  # already pushed, lol
+                'tourn_stage'  : tourn.stage_tag
             }
             score = PostScore.create(**info)
             game.update_team_stats()
@@ -782,7 +786,7 @@ def fake_tourn_games(clear_existing: bool = False, limit: int = None, rand_seed:
             return
 
     compute_team_ranks()
-    TournInfo.mark_stage_complete(TournStage.TOURN_RESULTS)
+    tourn.complete_stage(TournStage.TOURN_RESULTS)
 
 def validate_tourn(finalize: bool = False) -> None:
     """
@@ -1451,7 +1455,7 @@ def compute_final_ranks(finalize: bool = False) -> None:
                 'tourn_stage' : tourn.stage_tag
             }
             rank = PostRank.create(**info)
-        TournInfo.mark_stage_complete(TournStage.TOURN_FINAL)
+        tourn.complete_stage(TournStage.TOURN_FINAL)
 
 ########
 # main #

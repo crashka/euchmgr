@@ -1542,6 +1542,7 @@ class PostScore(BaseModel):
     team_idx       = IntegerField(null=True)  # for `posted_by` (`0` - team1, `1` - team2)
     ref_score      = ForeignKeyField('self', null=True)
     do_push        = BooleanField(null=True)
+    tourn_stage    = TextField()
 
     class Meta:
         indexes = (

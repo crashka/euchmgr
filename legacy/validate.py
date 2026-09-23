@@ -213,14 +213,15 @@ def load_seed_games(csv_file: str) -> None:
                 'posted_by_num': None,
                 'team_idx'     : None,
                 'ref_score'    : None,
-                'do_push'      : True  # already pushed, lol
+                'do_push'      : True,  # already pushed, lol
+                'tourn_stage'  : tourn.stage_tag
             }
             score = PostScore.create(**info)
             game.update_player_stats()
             game.insert_player_games()
 
     compute_player_ranks()
-    TournInfo.mark_stage_complete(TournStage.SEED_RESULTS)
+    tourn.complete_stage(TournStage.SEED_RESULTS)
 
 def validate_player_ranks(csv_file: str) -> None:
     """Check computed results against spreadsheet results.  Flag any field discrepancies
@@ -494,14 +495,15 @@ def load_tourn_games(csv_file: str) -> None:
                 'posted_by_num': None,
                 'team_idx'     : None,
                 'ref_score'    : None,
-                'do_push'      : True  # already pushed, lol
+                'do_push'      : True,  # already pushed, lol
+                'tourn_stage'  : tourn.stage_tag
             }
             score = PostScore.create(**info)
             game.update_team_stats()
             game.insert_team_games()
 
     compute_team_ranks()
-    TournInfo.mark_stage_complete(TournStage.TOURN_RESULTS)
+    tourn.complete_stage(TournStage.TOURN_RESULTS)
 
 def validate_team_ranks(csv_file: str) -> None:
     """Check computed results against spreadsheet results.  Flag any field discrepancies
@@ -543,6 +545,7 @@ def validate_team_ranks(csv_file: str) -> None:
 def load_playoff_games(csv_file: str) -> None:
     """Load playoff game results from CSV file.
     """
+    tourn = TournInfo.get()
     nteams = 4
     nrounds = 6  # 3 semis + 3 finals
 
@@ -599,12 +602,13 @@ def load_playoff_games(csv_file: str) -> None:
                 'posted_by_num': None,
                 'team_idx'     : None,
                 'ref_score'    : None,
-                'do_push'      : True  # already pushed, lol
+                'do_push'      : True,  # already pushed, lol
+                'tourn_stage'  : tourn.stage_tag
             }
             score = PostScore.create(**info)
             game.update_team_stats()
 
-    TournInfo.mark_stage_complete(TournStage.SEMIS_RESULTS)
+    tourn.complete_stage(TournStage.SEMIS_RESULTS)
     validate_playoffs(Bracket.SEMIS, finalize=True)
     compute_playoff_ranks(Bracket.SEMIS, finalize=True)
 
@@ -633,12 +637,13 @@ def load_playoff_games(csv_file: str) -> None:
                 'posted_by_num': None,
                 'team_idx'     : None,
                 'ref_score'    : None,
-                'do_push'      : True  # already pushed, lol
+                'do_push'      : True,  # already pushed, lol
+                'tourn_stage'  : tourn.stage_tag
             }
             score = PostScore.create(**info)
             game.update_team_stats()
 
-    TournInfo.mark_stage_complete(TournStage.FINALS_RESULTS)
+    tourn.complete_stage(TournStage.FINALS_RESULTS)
     validate_playoffs(Bracket.FINALS, finalize=True)
     compute_playoff_ranks(Bracket.FINALS, finalize=True)
     compute_final_ranks(finalize=True)

@@ -422,6 +422,7 @@ def submit_score(form: dict) -> str:
             action_info = "Conflicting submission"
             flash(f"err=Discarding {lc_first(action_info)} ({post_info(latest, team_idx)})")
 
+    tourn = TournInfo.get()
     info = {
         'bracket'      : bracket,
         'game_label'   : game_label,
@@ -432,7 +433,8 @@ def submit_score(form: dict) -> str:
         'posted_by_num': player_num,
         'team_idx'     : team_idx,
         'ref_score'    : None,
-        'do_push'      : False
+        'do_push'      : False,
+        'tourn_stage'  : tourn.stage_tag
     }
     score = PostScore.create(**info)
     if score_pushed:
@@ -495,6 +497,7 @@ def accept_score(form: dict, ref_score: PostScore = None) -> str:
                   f"({post_info(latest, team_idx)})")
 
     with db_atomic() as txn:
+        tourn = TournInfo.get()
         do_push = (post_action == ScoreAction.ACCEPT)
         info = {
             'bracket'      : bracket,
@@ -506,7 +509,8 @@ def accept_score(form: dict, ref_score: PostScore = None) -> str:
             'posted_by_num': player_num,
             'team_idx'     : team_idx,
             'ref_score'    : ref_score,
-            'do_push'      : do_push
+            'do_push'      : do_push,
+            'tourn_stage'  : tourn.stage_tag
         }
         score = PostScore.create(**info)
         if do_push:
@@ -586,6 +590,7 @@ def correct_score(form: dict, ref_score: PostScore = None) -> str:
         action_info = "Unchanged score correction"
         log.info(f"Ignoring {lc_first(action_info)}")
 
+    tourn = TournInfo.get()
     info = {
         'bracket'      : bracket,
         'game_label'   : game_label,
@@ -596,7 +601,8 @@ def correct_score(form: dict, ref_score: PostScore = None) -> str:
         'posted_by_num': player_num,
         'team_idx'     : team_idx,
         'ref_score'    : ref_score,
-        'do_push'      : False
+        'do_push'      : False,
+        'tourn_stage'  : tourn.stage_tag
     }
     score = PostScore.create(**info)
     if score_pushed:

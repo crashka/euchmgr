@@ -475,12 +475,16 @@
         <p class="actions">
           {% if chart_num in (5, 7) %}
           <input name="dummy" class="dummy">
+          {% if user.is_admin %}
           <button class="adj_ranks" type="button">Adjust rankings</button>
+          {% endif %}
           {% elif chart_num in (6, 8) %}
           <input class="reason" name="action_info" type="text" placeholder="indicate reason"
                  required>
           <input name="dummy" class="dummy">
+          {% if user.is_admin %}
           <button type="submit" disabled>Save adjustments</button>
+          {% endif %}
           <a class="reset">[reset]</a>
           <a class="cancel" href="{{cancel_url}}">[cancel]</a>
           {% endif %}  {# chart_num #}
@@ -544,12 +548,16 @@
         <p class="actions">
           {% if chart_num == 9 %}
           <input name="dummy" class="dummy">
+          {% if user.is_admin %}
           <button class="adj_ranks" type="button">Adjust rankings</button>
+          {% endif %}
           {% elif chart_num == 10 %}
           <input class="reason" name="action_info" type="text" placeholder="indicate reason"
                  required>
           <input name="dummy" class="dummy">
+          {% if user.is_admin %}
           <button type="submit" disabled>Save adjustments</button>
+          {% endif %}
           <a class="reset">[reset]</a>
           <a class="cancel" href="{{cancel_url}}">[cancel]</a>
           {% endif %}  {# chart_num #}

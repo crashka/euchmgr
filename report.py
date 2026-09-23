@@ -7,6 +7,7 @@ from itertools import groupby
 from ckautils import typecast
 from flask import Blueprint, session, request, render_template, abort
 
+from security import current_user
 from schema import GAME_PTS, Bracket, get_bracket, ScoreAction, RankType
 from ui_schema import fmt_pct, TournInfo, Player, Team, PostScore, PostRank, get_game_by_label
 from ui_common import referrer_path
@@ -280,6 +281,7 @@ def score_posting(game_label: str, tourn: TournInfo) -> str:
     context = {
         'popup_num' : 0,
         'title'     : SCORE_POSTING,
+        'user'      : current_user,
         'tourn'     : tourn,
         'game'      : game,
         'posts'     : posts,
@@ -309,6 +311,7 @@ def score_adjust(game_label: str, tourn: TournInfo) -> str:
     context = {
         'popup_num'  : 1,
         'title'      : SCORE_ADJUST,
+        'user'       : current_user,
         'tourn'      : tourn,
         'game'       : game,
         'posts'      : posts,
@@ -334,6 +337,7 @@ def final_rank_hist(target: str, tourn: TournInfo) -> str:
     context = {
         'popup_num' : 2,
         'title'     : FINAL_RANK_HIST,
+        'user'      : current_user,
         'tourn'     : tourn,
         'team'      : team,
         'posts'     : posts
@@ -355,6 +359,7 @@ def div_rank_hist(target: str, tourn: TournInfo) -> str:
     context = {
         'popup_num' : 3,
         'title'     : DIV_RANK_HIST,
+        'user'      : current_user,
         'tourn'     : tourn,
         'team'      : team,
         'posts'     : posts
@@ -376,6 +381,7 @@ def seed_rank_hist(target: str, tourn: TournInfo) -> str:
     context = {
         'popup_num' : 4,
         'title'     : SEED_RANK_HIST,
+        'user'      : current_user,
         'tourn'     : tourn,
         'player'    : player,
         'posts'     : posts

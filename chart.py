@@ -6,6 +6,7 @@
 from ckautils import typecast
 from flask import Blueprint, session, request, render_template, abort
 
+from security import current_user
 from schema import GAME_PTS, RankType, RankAction
 from ui_schema import (Numeric, fmt_pct, fmt_tally, TournInfo, Player, SeedGame, Team,
                        TournGame, PlayerGame, TeamGame)
@@ -390,6 +391,7 @@ def trn_results(tourn: TournInfo) -> str:
     context = {
         'chart_num'   : 4,
         'title'       : TRN_RESULTS,
+        'user'        : current_user,
         'tourn'       : tourn,
         'teams'       : tm_list,
         'tb_crit'     : tb_crit,
@@ -421,6 +423,7 @@ def fnl_results(tourn: TournInfo) -> str:
     context = {
         'chart_num'   : 5,
         'title'       : FNL_RESULTS,
+        'user'        : current_user,
         'tourn'       : tourn,
         'teams'       : tm_list,
         'tb_crit'     : tb_crit,
@@ -455,6 +458,7 @@ def fnl_rank_adj(tourn: TournInfo) -> str:
     context = {
         'chart_num'   : 6,
         'title'       : FNL_RANK_ADJ,
+        'user'        : current_user,
         'tourn'       : tourn,
         'nteams'      : len(tm_list),
         'teams'       : tm_list,
@@ -498,6 +502,7 @@ def div_results(tourn: TournInfo) -> str:
         'chart_num'   : 7,
         'title'       : DIV_RESULTS.format(div_num),
         'title_note'  : "&nbsp;<i>(click to switch divisions)</i>",
+        'user'        : current_user,
         'tourn'       : tourn,
         'div_num'     : div_num,
         'teams'       : tm_list,
@@ -537,6 +542,7 @@ def div_rank_adj(tourn: TournInfo) -> str:
     context = {
         'chart_num'   : 8,
         'title'       : DIV_RANK_ADJ.format(div_num),
+        'user'        : current_user,
         'tourn'       : tourn,
         'div_num'     : div_num,
         'nteams'      : len(tm_list),
@@ -573,6 +579,7 @@ def sd_results(tourn: TournInfo) -> str:
     context = {
         'chart_num'   : 9,
         'title'       : SD_RESULTS,
+        'user'        : current_user,
         'tourn'       : tourn,
         'players'     : pl_list,
         'tb_crit'     : tb_crit,
@@ -607,6 +614,7 @@ def sd_rank_adj(tourn: TournInfo) -> str:
     context = {
         'chart_num'   : 10,
         'title'       : SD_RANK_ADJ,
+        'user'        : current_user,
         'tourn'       : tourn,
         'nplayers'    : len(pl_list),
         'players'     : pl_list,

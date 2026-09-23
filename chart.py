@@ -110,15 +110,15 @@ def render_chart(context: dict) -> str:
 #######################
 
 RANK_HIST_REPORT = {
-    RankType.PLAYER: '/report/seed_rank_hist',
-    RankType.DIV   : '/report/div_rank_hist',
-    RankType.FINAL : '/report/final_rank_hist'
+    RankType.SEED : '/report/seed_rank_hist',
+    RankType.DIV  : '/report/div_rank_hist',
+    RankType.FINAL: '/report/final_rank_hist'
 }
 
 RANK_ADJ_ACTION = {
-    RankType.PLAYER: '/players/rank_adj',
-    RankType.DIV   : '/teams/rank_adj/div',
-    RankType.FINAL : '/teams/rank_adj/final'
+    RankType.SEED : '/players/rank_adj/seed',
+    RankType.DIV  : '/teams/rank_adj/div',
+    RankType.FINAL: '/teams/rank_adj/final'
 }
 
 ##############
@@ -440,12 +440,12 @@ def fnl_rank_adj(tourn: TournInfo) -> str:
         'chart_num'   : 6,
         'title'       : FNL_RANK_ADJ,
         'tourn'       : tourn,
+        'nteams'      : len(tm_list),
         'teams'       : tm_list,
         'tm_note'     : tm_note,
         'action'      : RANK_ADJ_ACTION[rank_type],
         'cancel_url'  : parent_url,
         'redirect_to' : parent_url,
-        'len'         : len,
         'fmt_stat'    : fmt_stat,
         'bold_color'  : '#555555'
     }
@@ -517,12 +517,12 @@ def div_rank_adj(tourn: TournInfo) -> str:
         'title'       : DIV_RANK_ADJ.format(div_num),
         'tourn'       : tourn,
         'div_num'     : div_num,
+        'nteams'      : len(tm_list),
         'teams'       : tm_list,
         'tm_note'     : tm_note,
         'action'      : RANK_ADJ_ACTION[rank_type],
         'cancel_url'  : parent_url,
         'redirect_to' : parent_url,
-        'len'         : len,
         'fmt_stat'    : fmt_stat,
         'bold_color'  : '#555555'
     }
@@ -535,13 +535,24 @@ def div_rank_adj(tourn: TournInfo) -> str:
 def sd_results(tourn: TournInfo) -> str:
     """Render seeding round results as a chart
     """
-    pl_iter  = Player.iter_players(by_rank=True)
+    rank_type = RankType.SEED
+    pl_list = sorted(Player.iter_players(), key=lambda pl: pl.player_rank_eff)
+
+    pl_note = {}
+    for pl in pl_list:
+        note = f"Computed rank: {pl.player_rank}"
+        if pl.player_rank_adj:
+            note += chr(10) + f"Adjusted to: {pl.player_rank_adj}"
+        pl_note[pl.id] = note
 
     context = {
         'chart_num'   : 9,
         'title'       : SD_RESULTS,
         'tourn'       : tourn,
-        'players'     : list(pl_iter),
+        'players'     : pl_list,
+        'pl_note'     : pl_note,
+        'hist_rpt'    : RANK_HIST_REPORT[rank_type],
+        'adjust_url'  : '/chart/sd_rank_adj',
         'fmt_stat'    : fmt_stat,
         'bold_color'  : '#555555'
     }
@@ -554,13 +565,27 @@ def sd_results(tourn: TournInfo) -> str:
 def sd_rank_adj(tourn: TournInfo) -> str:
     """Render seeding round rank adjustment as a chart
     """
-    pl_iter  = Player.iter_players(by_rank=True)
+    rank_type = RankType.SEED
+    pl_list = sorted(Player.iter_players(), key=lambda pl: pl.player_rank_eff)
+    parent_url = referrer_path(request)
+
+    pl_note = {}
+    for pl in pl_list:
+        note = f"Computed rank: {pl.player_rank}"
+        if pl.player_rank_adj:
+            note += chr(10) + f"Previously adjusted to: {pl.player_rank_adj}"
+        pl_note[pl.id] = note
 
     context = {
         'chart_num'   : 10,
         'title'       : SD_RANK_ADJ,
         'tourn'       : tourn,
-        'players'     : list(pl_iter),
+        'nplayers'    : len(pl_list),
+        'players'     : pl_list,
+        'pl_note'     : pl_note,
+        'action'      : RANK_ADJ_ACTION[rank_type],
+        'cancel_url'  : parent_url,
+        'redirect_to' : parent_url,
         'fmt_stat'    : fmt_stat,
         'bold_color'  : '#555555'
     }

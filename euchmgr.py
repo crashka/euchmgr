@@ -525,6 +525,17 @@ def compute_player_ranks(finalize: bool = False) -> None:
             pl.save()
 
     if finalize:
+        tourn = TournInfo.get()
+        rank_action = RankAction.COMPUTE if not tourn.seeding_done() else RankAction.RECOMPUTE
+        for pl in played:
+            info = {
+                'rank_type'   : RankType.SEED,
+                'player'      : pl,
+                'post_action' : rank_action,
+                'new_rank'    : pl.player_rank,
+                'tourn_stage' : tourn.stage_tag
+            }
+            rank = PostRank.create(**info)
         TournInfo.mark_stage_complete(TournStage.SEED_RANKS)
 
 def prepick_champ_partners() -> None:

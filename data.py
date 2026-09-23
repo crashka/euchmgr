@@ -143,6 +143,62 @@ def post_players() -> dict:
 
     return ajax_data(pl_data)
 
+@data.post("/players/rank_adj/<rank_type>")
+@login_required
+def players_rank_adj(rank_type: str) -> str:
+    """
+    """
+    assert rank_type in RankType
+    data = request.form
+    assert 'action_info' in data
+    assert 'redirect_to' in data
+
+    for field in data:
+        # looking for "pl_<id>_rank"
+        segs = field.split("_", 2)
+        if len(segs) != 3 or (segs[0], segs[2]) != ('pl', 'rank'):
+            continue
+        player = Player[typecast(segs[1])]
+        new_rank = typecast(data[field])
+        orig_field = field.replace('rank', 'orig_rank', 1)
+        assert orig_field != field
+        orig_rank = typecast(data[orig_field])
+        if new_rank == orig_rank:
+            #log.debug(f"skipping unadjusted {rank_type} rank for player {player.id}")
+            continue
+
+        if rank_type == RankType.SEED:
+            if new_rank == player.player_rank:
+                rank_action = RankAction.REVERT
+                assert player.player_rank_adj
+                old_rank = player.player_rank_adj
+                player.player_rank_adj = None
+            else:
+                rank_action = RankAction.ADJUST
+                old_rank = player.player_rank_adj or player.player_rank
+                player.player_rank_adj = new_rank
+        else:
+            raise RuntimeError(f"Rank type '{rank_type}' not supported")
+        assert old_rank == orig_rank
+        player.save()
+
+        tourn = TournInfo.get()
+        info = {
+            'rank_type'   : rank_type,
+            'player'      : player,
+            'post_action' : rank_action,
+            'action_info' : data['action_info'],
+            'old_rank'    : old_rank,
+            'new_rank'    : new_rank,
+            'tourn_stage' : tourn.stage_tag
+        }
+        rank = PostRank.create(**info)
+        verb = rank_action.capitalize() + "ing"
+        log.notice(f"{verb} {rank_type} rank for player {player.id}: {orig_rank} -> {new_rank} "
+                   f"[{data['action_info']}]")
+
+    return redirect(data['redirect_to'])
+
 ############
 # /seeding #
 ############
@@ -429,7 +485,7 @@ def post_teams() -> dict:
 
 @data.post("/teams/rank_adj/<rank_type>")
 @login_required
-def post_rank_adj(rank_type: str) -> str:
+def teams_rank_adj(rank_type: str) -> str:
     """
     """
     assert rank_type in RankType

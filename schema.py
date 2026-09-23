@@ -1617,7 +1617,7 @@ class PostScore(BaseModel):
 ############
 
 class RankType(StrEnum):
-    PLAYER    = "player"
+    SEED      = "seed"
     TOURN     = "tourn"
     DIV       = "div"
     FINAL     = "final"
@@ -1654,7 +1654,7 @@ class PostRank(BaseModel):
         """Return PostRank records for specified ranking type and target (player or team),
         in chronological orde
         """
-        cls_target = cls.player if rank_type == RankType.PLAYER else cls.team
+        cls_target = cls.player if rank_type == RankType.SEED else cls.team
         query = (cls
                  .select()
                  .where(cls.rank_type == rank_type,

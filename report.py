@@ -366,11 +366,11 @@ def div_rank_hist(target: str, tourn: TournInfo) -> str:
 ##################
 
 def seed_rank_hist(target: str, tourn: TournInfo) -> str:
-    """Render rank posting report (as a popup), where `target` is pl_<num>
+    """Render rank posting report (as a popup), where `target` is pl_<id>
     """
     segs = target.split("_", 1)
     assert len(segs) == 2 and segs[0] == 'pl'
-    player = Player.fetch_by_num(typecast(segs[1]))
+    player = Player[typecast(segs[1])]
     posts = PostRank.get_posts(RankType.SEED, player)
 
     context = {

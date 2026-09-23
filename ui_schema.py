@@ -219,10 +219,22 @@ class Player(UIMixin, BasePlayer):
         return f"{self.player_pos}*"
 
     @property
+    def seed_win_rec(self) -> str:
+        """Return seed game win record (W-L) as a string.
+        """
+        return f"{self.seed_wins}-{self.seed_losses}"
+
+    @property
     def seed_win_pct_str(self) -> str:
         """Return seed_win_pct formatted as a string.
         """
         return fmt_pct(self.seed_win_pct)
+
+    @property
+    def seed_pts_rec(self) -> str:
+        """Return seed game points record (PF-PA) as a string.
+        """
+        return f"{self.seed_pts_for}-{self.seed_pts_against}"
 
     @property
     def seed_pts_pct_str(self) -> str:

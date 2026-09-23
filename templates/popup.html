@@ -13,7 +13,8 @@
        margin-bottom: 0.5rem;
      }
      .game_info p,
-     .team_info p {
+     .team_info p,
+     .player_info p {
        margin: 0.25rem 0.0rem;
      }
      .game_info label {
@@ -21,16 +22,19 @@
        text-align: right;
        min-width: 3.5rem;
      }
-     .team_info label {
+     .team_info label,
+     .player_info label {
        display: inline-block;
        text-align: right;
-       min-width: 6.0rem;
+       min-width: 6.5rem;
      }
      .game_info span,
-     .team_info span {
+     .team_info span,
+     .player_info span {
        font-weight: bold;
      }
-     .tourn_info {
+     .tourn_info,
+     .seeding_info {
        display: inline-block;
        width: 17rem;
        vertical-align: top;
@@ -221,6 +225,30 @@
         </div>
         {% endif %}  {# tean.playoff_team #}
       </section>
+      {% elif popup_num == 4 %}
+      <section class="player_info">
+        <h2>Player Info</h2>
+        <p>
+          <label>Player Name</label>:
+          <span>{{player.display_name}}</span>
+        </p>
+        <p>
+          <label>Player Num</label>:
+          <span>{{player.player_num}}</span>
+        </p>
+        <div class="seeding_info">
+          <p>
+            <label>Seeding Record</label>:
+            <span>{{player.seed_win_rec}} ({{player.seed_win_pct_str}})</span>
+          </p>
+          <p>
+            <label>[pts pct]</label>:
+            <span>{{player.seed_pts_pct_str}}</span>
+          </p>
+        </div>
+      </section>
+      {% endif %}
+      {% if popup_num in (2, 3, 4) %}
       <section class="posts">
         <h2>Rank History</h2>
         {% if posts %}

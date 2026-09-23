@@ -646,7 +646,8 @@ LINK_INFO = {
     View.SEEDING: [
         ('/chart/sd_bracket',   "Seeding Round Bracket", TournStage.SEED_BRACKET),
         ('/chart/sd_scores',    "Seeding Round Scores",  TournStage.SEED_BRACKET),
-        ('/dash/sd_dash',       "Live Dashboard",        TournStage.SEED_BRACKET)
+        ('/dash/sd_dash',       "Live Dashboard",        TournStage.SEED_BRACKET),
+        ('/chart/sd_results',   "Seeding Round Results", TournStage.SEED_RANKS)
     ],
     View.PARTNERS: [
         ('/dash/pt_dash',       "Live Dashboard",        TournStage.SEED_RANKS)

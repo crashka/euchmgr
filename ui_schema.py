@@ -787,6 +787,17 @@ class Team(UIMixin, BaseTeam):
         return rnd_pct(self.tourn_tb_data['pts_for'] / tb_pts_tot)
 
     @property
+    def tourn_rank_disp(self) -> str:
+        """The display value for (pre-playoff) tournament ranking (defaults to tourn_rank,
+        with override from tourn_rank_adj).
+        """
+        if self.tourn_rank_adj:
+            #return f"{self.tourn_rank_adj} ({self.tourn_rank})"
+            return f"{self.tourn_rank_adj}*"
+        else:
+            return str(self.tourn_rank)
+
+    @property
     def final_pos_str(self) -> str | None:
         """Same as final_pos, except annotated if tied with others
         """

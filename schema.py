@@ -212,11 +212,11 @@ class TournInfo(BaseModel):
         tourn.complete_stage(stage)
 
     @property
-    def stage_tag(self) -> dict:
+    def stage_tag(self) -> str:
         """Return short, printable representation of current stage name
         """
         stage = max(self.stage_start, self.stage_compl)
-        return TournStage(stage).name.replace("_", " ").capitalize()
+        return TournStage(stage).name.replace("_", " ").capitalize() + f" ({stage})"
 
     @property
     def tourn_data(self) -> dict:

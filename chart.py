@@ -378,11 +378,22 @@ def trn_results(tourn: TournInfo) -> str:
     """
     tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.tourn_rank)
 
+    tb_crit = {}
+    rank_note = {}
+    for tm in tm_list:
+        tb_crit[tm.id] = f"Tie-break criteria: {tm.tourn_tb_crit}"
+        note = f"Computed rank: {tm.tourn_rank}"
+        if tm.tourn_rank_adj:
+            note += chr(10) + f"Adjusted to: {tm.tourn_rank_adj}"
+        rank_note[tm.id] = note
+
     context = {
         'chart_num'   : 4,
         'title'       : TRN_RESULTS,
         'tourn'       : tourn,
         'teams'       : tm_list,
+        'tb_crit'     : tb_crit,
+        'rank_note'   : rank_note,
         'fmt_stat'    : fmt_stat,
         'bold_color'  : '#555555'
     }
@@ -398,19 +409,22 @@ def fnl_results(tourn: TournInfo) -> str:
     rank_type = RankType.FINAL
     tm_list = sorted(Team.iter_teams(), key=lambda tm: tm.final_rank_eff)
 
-    tm_note = {}
+    tb_crit = {}
+    rank_note = {}
     for tm in tm_list:
+        tb_crit[tm.id] = f"Tie-break criteria: {tm.final_tb_crit}"
         note = f"Computed rank: {tm.final_rank}"
         if tm.final_rank_adj:
             note += chr(10) + f"Adjusted to: {tm.final_rank_adj}"
-        tm_note[tm.id] = note
+        rank_note[tm.id] = note
 
     context = {
         'chart_num'   : 5,
         'title'       : FNL_RESULTS,
         'tourn'       : tourn,
         'teams'       : tm_list,
-        'tm_note'     : tm_note,
+        'tb_crit'     : tb_crit,
+        'rank_note'   : rank_note,
         'hist_rpt'    : RANK_HIST_REPORT[rank_type],
         'adjust_url'  : '/chart/fnl_rank_adj',
         'fmt_stat'    : fmt_stat,
@@ -429,12 +443,14 @@ def fnl_rank_adj(tourn: TournInfo) -> str:
     tm_list = sorted(Team.iter_teams(), key=lambda tm: tm.final_rank_eff)
     parent_url = referrer_path(request)
 
-    tm_note = {}
+    tb_crit = {}
+    rank_note = {}
     for tm in tm_list:
+        tb_crit[tm.id] = f"Tie-break criteria: {tm.final_tb_crit}"
         note = f"Computed rank: {tm.final_rank}"
         if tm.final_rank_adj:
             note += chr(10) + f"Previously adjusted to: {tm.final_rank_adj}"
-        tm_note[tm.id] = note
+        rank_note[tm.id] = note
 
     context = {
         'chart_num'   : 6,
@@ -442,7 +458,8 @@ def fnl_rank_adj(tourn: TournInfo) -> str:
         'tourn'       : tourn,
         'nteams'      : len(tm_list),
         'teams'       : tm_list,
-        'tm_note'     : tm_note,
+        'tb_crit'     : tb_crit,
+        'rank_note'   : rank_note,
         'action'      : RANK_ADJ_ACTION[rank_type],
         'cancel_url'  : parent_url,
         'redirect_to' : parent_url,
@@ -466,12 +483,14 @@ def div_results(tourn: TournInfo) -> str:
     other_div = div_num % 2 + 1
     tm_list = sorted(Team.iter_teams(div=div_num), key=lambda tm: tm.div_rank_eff)
 
-    tm_note = {}
+    tb_crit = {}
+    rank_note = {}
     for tm in tm_list:
+        tb_crit[tm.id] = f"Tie-break criteria: {tm.div_tb_crit}"
         note = f"Computed rank: {tm.div_rank}"
         if tm.div_rank_adj:
             note += chr(10) + f"Adjusted to: {tm.div_rank_adj}"
-        tm_note[tm.id] = note
+        rank_note[tm.id] = note
 
     RESULTS_URL  = '/chart/div_results?div={0}'
     RANK_ADJ_URL = '/chart/div_rank_adj?div={0}'
@@ -482,7 +501,8 @@ def div_results(tourn: TournInfo) -> str:
         'tourn'       : tourn,
         'div_num'     : div_num,
         'teams'       : tm_list,
-        'tm_note'     : tm_note,
+        'tb_crit'     : tb_crit,
+        'rank_note'   : rank_note,
         'other_div'   : RESULTS_URL.format(other_div),
         'hist_rpt'    : RANK_HIST_REPORT[rank_type],
         'adjust_url'  : RANK_ADJ_URL.format(div_num),
@@ -505,12 +525,14 @@ def div_rank_adj(tourn: TournInfo) -> str:
     tm_list = sorted(Team.iter_teams(div=div_num), key=lambda tm: tm.div_rank_eff)
     parent_url = referrer_path(request)
 
-    tm_note = {}
+    tb_crit = {}
+    rank_note = {}
     for tm in tm_list:
+        tb_crit[tm.id] = f"Tie-break criteria: {tm.div_tb_crit}"
         note = f"Computed rank: {tm.div_rank}"
         if tm.div_rank_adj:
             note += chr(10) + f"Previously adjusted to: {tm.div_rank_adj}"
-        tm_note[tm.id] = note
+        rank_note[tm.id] = note
 
     context = {
         'chart_num'   : 8,
@@ -519,7 +541,8 @@ def div_rank_adj(tourn: TournInfo) -> str:
         'div_num'     : div_num,
         'nteams'      : len(tm_list),
         'teams'       : tm_list,
-        'tm_note'     : tm_note,
+        'tb_crit'     : tb_crit,
+        'rank_note'   : rank_note,
         'action'      : RANK_ADJ_ACTION[rank_type],
         'cancel_url'  : parent_url,
         'redirect_to' : parent_url,
@@ -538,19 +561,22 @@ def sd_results(tourn: TournInfo) -> str:
     rank_type = RankType.SEED
     pl_list = sorted(Player.iter_players(), key=lambda pl: pl.player_rank_eff)
 
-    pl_note = {}
+    tb_crit = {}
+    rank_note = {}
     for pl in pl_list:
+        tb_crit[pl.id] = f"Tie-break criteria: {pl.seed_tb_crit}"
         note = f"Computed rank: {pl.player_rank}"
         if pl.player_rank_adj:
             note += chr(10) + f"Adjusted to: {pl.player_rank_adj}"
-        pl_note[pl.id] = note
+        rank_note[pl.id] = note
 
     context = {
         'chart_num'   : 9,
         'title'       : SD_RESULTS,
         'tourn'       : tourn,
         'players'     : pl_list,
-        'pl_note'     : pl_note,
+        'tb_crit'     : tb_crit,
+        'rank_note'   : rank_note,
         'hist_rpt'    : RANK_HIST_REPORT[rank_type],
         'adjust_url'  : '/chart/sd_rank_adj',
         'fmt_stat'    : fmt_stat,
@@ -569,12 +595,14 @@ def sd_rank_adj(tourn: TournInfo) -> str:
     pl_list = sorted(Player.iter_players(), key=lambda pl: pl.player_rank_eff)
     parent_url = referrer_path(request)
 
-    pl_note = {}
+    tb_crit = {}
+    rank_note = {}
     for pl in pl_list:
+        tb_crit[pl.id] = f"Tie-break criteria: {pl.seed_tb_crit}"
         note = f"Computed rank: {pl.player_rank}"
         if pl.player_rank_adj:
             note += chr(10) + f"Previously adjusted to: {pl.player_rank_adj}"
-        pl_note[pl.id] = note
+        rank_note[pl.id] = note
 
     context = {
         'chart_num'   : 10,
@@ -582,7 +610,8 @@ def sd_rank_adj(tourn: TournInfo) -> str:
         'tourn'       : tourn,
         'nplayers'    : len(pl_list),
         'players'     : pl_list,
-        'pl_note'     : pl_note,
+        'tb_crit'     : tb_crit,
+        'rank_note'   : rank_note,
         'action'      : RANK_ADJ_ACTION[rank_type],
         'cancel_url'  : parent_url,
         'redirect_to' : parent_url,

@@ -229,7 +229,7 @@
               {% endfor %}
               <td class="vert_sect">{{fmt_stat(pl.seed_win_pct)|safe}}</td>
               <td>{{fmt_stat(pl.seed_pts_pct)|safe}}</td>
-              <td>{{fmt_stat(pl.player_rank)|safe}}</td>
+              <td>{{fmt_stat(pl.player_rank)}}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -319,7 +319,7 @@
               {% endfor %}
               <td class="vert_sect">{{fmt_stat(tm.tourn_win_pct)|safe}}</td>
               <td>{{fmt_stat(tm.tourn_pts_pct)|safe}}</td>
-              <td>{{fmt_stat(tm.div_rank)|safe}}</td>
+              <td>{{fmt_stat(tm.div_rank)}}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -336,14 +336,15 @@
               <th class="team_lbl hor_sect" rowspan="2">Team (by Team Seed)</th>
               <th class="hor_sect vert_sect" rowspan="2">Team Pos</th>
               <th class="vert_sect" colspan="2">Div Info</th>
-              <th class="vert_sect" colspan="2">Round Robin</th>
+              <th class="vert_sect" colspan="3">Round Robin</th>
               <th class="vert_sect" colspan="2">Head-to-Head</th>
               <th class="hor_sect vert_sect" rowspan="2">Team Rank</th>
             </tr>
             <tr>
               <th class="hor_sect vert_sect">Num</th>
               <th class="hor_sect">Rank</th>
-              <th class="hor_sect vert_sect">Win Pct</th>
+              <th class="hor_sect vert_sect">W-L</th>
+              <th class="hor_sect">Win Pct</th>
               <th class="hor_sect">Pts Pct</th>
               <th class="hor_sect vert_sect">W-L</th>
               <th class="hor_sect">Pts Pct</th>
@@ -361,7 +362,8 @@
               <td class="vert_sect"></td>
               <td></td>
               {% endif %}
-              <td class="vert_sect">{{fmt_stat(tm.tourn_win_pct)|safe}}</td>
+              <td class="vert_sect">{{fmt_stat(tm.tourn_win_rec)}}</td>
+              <td>{{fmt_stat(tm.tourn_win_pct)|safe}}</td>
               <td>{{fmt_stat(tm.tourn_pts_pct)|safe}}</td>
               <td class="vert_sect">{{fmt_stat(tm.tourn_tb_win_rec)}}</td>
               <td>{{fmt_stat(tm.tourn_tb_pts_pct)|safe}}</td>
@@ -421,12 +423,12 @@
                 {% if chart_num in (5, 6) %}
                 <td class="vert_sect" title="{{tb_crit[tm.id]}}">{{tm.final_pos_str}}</td>
                 <td class="vert_sect">{{fmt_stat(tm.playoff_match_rec)}}</td>
-                <td>{{fmt_stat(tm.playoff_win_rec)|safe}}</td>
+                <td>{{fmt_stat(tm.playoff_win_rec)}}</td>
                 <td>{{fmt_stat(tm.playoff_pts_pct)|safe}}</td>
                 {% elif chart_num in (7, 8) %}
                 <td class="vert_sect" title="{{tb_crit[tm.id]}}">{{tm.div_pos_str}}</td>
                 {% endif %}
-                <td class="vert_sect">{{tm.tourn_win_rec}}</td>
+                <td class="vert_sect">{{fmt_stat(tm.tourn_win_rec)}}</td>
                 <td>{{fmt_stat(tm.tourn_win_pct)|safe}}</td>
                 <td>{{fmt_stat(tm.tourn_pts_pct)|safe}}</td>
                 {% if chart_num in (5, 6) %}
@@ -515,10 +517,10 @@
               <tr class="cmpt">
                 <td class="plyr_lbl">{{pl.player_tag|safe}}</td>
                 <td class="vert_sect" title="{{tb_crit[pl.id]}}">{{pl.player_pos_str}}</td>
-                <td class="vert_sect">{{pl.seed_win_rec}}</td>
-                <td>{{fmt_stat(pl.seed_win_pct)}}</td>
+                <td class="vert_sect">{{fmt_stat(pl.seed_win_rec)}}</td>
+                <td>{{fmt_stat(pl.seed_win_pct)|safe}}</td>
                 <td class="vert_sect">{{pl.seed_pts_rec}}</td>
-                <td>{{fmt_stat(pl.seed_pts_pct)}}</td>
+                <td>{{fmt_stat(pl.seed_pts_pct)|safe}}</td>
                 {% if chart_num == 9 %}
                 <td class="rank vert_sect" id="pl_{{pl.id}}" title="{{rank_note[pl.id]}}">
                   {{pl.player_rank_disp}}

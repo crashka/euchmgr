@@ -653,7 +653,7 @@ LINK_INFO = {
         ('/dash/pt_dash',       "Live Dashboard",        TournStage.SEED_RANKS)
     ],
     View.TEAMS: [
-        ('/chart/trn_results',  "Team Rank Details",     TournStage.TOURN_BRACKET),
+        ('/chart/trn_results',  "Team Rank Details",     TournStage.TOURN_RANKS),
         ('/report/trn_tbreak',  "Tie-Breaker Report",    TournStage.TOURN_RANKS)
     ],
     View.ROUND_ROBIN: [

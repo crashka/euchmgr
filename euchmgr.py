@@ -306,7 +306,6 @@ def fake_seed_games(clear_existing: bool = False, limit: int = None, rand_seed: 
     if isinstance(rand_seed, int):
         my_rand.seed(rand_seed)  # for reproducible debugging only
 
-    tourn = TournInfo.get()
     nfake = 0
     sort_key = lambda x: (x.round_num, x.table_num)
     for game in sorted(SeedGame.iter_games(), key=sort_key):
@@ -323,20 +322,7 @@ def fake_seed_games(clear_existing: bool = False, limit: int = None, rand_seed: 
             log.debug(f"{game.team1_name}: {game.team1_pts}, {game.team2_name}: {game.team2_pts}")
 
         if game.winner:
-            info = {
-                'bracket'      : Bracket.SEED,
-                'game_label'   : game.label,
-                'post_action'  : ScoreAction.POST_FAKE,
-                'action_info'  : None,
-                'team1_pts'    : game.team1_pts,
-                'team2_pts'    : game.team2_pts,
-                'posted_by_num': None,
-                'team_idx'     : None,
-                'ref_score'    : None,
-                'do_push'      : True,  # already pushed, lol
-                'tourn_stage'  : tourn.stage_tag
-            }
-            score = PostScore.create(**info)
+            PostScore.add(game, ScoreAction.POST_FAKE)
             game.update_player_stats()
             game.insert_player_games()
 
@@ -346,7 +332,7 @@ def fake_seed_games(clear_existing: bool = False, limit: int = None, rand_seed: 
             return
 
     compute_player_ranks()
-    tourn.complete_stage(TournStage.SEED_RESULTS)
+    TournInfo.mark_stage_complete(TournStage.SEED_RESULTS)
 
 def validate_seed_round(finalize: bool = False) -> None:
     """Validate player stats against seeding round game records.  In order to finalize the
@@ -746,7 +732,6 @@ def fake_tourn_games(clear_existing: bool = False, limit: int = None, rand_seed:
     if isinstance(rand_seed, int):
         my_rand.seed(rand_seed)  # for reproducible debugging only
 
-    tourn = TournInfo.get()
     nfake = 0
     sort_key = lambda x: (x.round_num, x.table_num)
     for game in sorted(TournGame.iter_games(), key=sort_key):
@@ -763,20 +748,7 @@ def fake_tourn_games(clear_existing: bool = False, limit: int = None, rand_seed:
             log.debug(f"{game.team1_name}: {game.team1_pts}, {game.team2_name}: {game.team2_pts}")
 
         if game.winner:
-            info = {
-                'bracket'      : Bracket.TOURN,
-                'game_label'   : game.label,
-                'post_action'  : ScoreAction.POST_FAKE,
-                'action_info'  : None,
-                'team1_pts'    : game.team1_pts,
-                'team2_pts'    : game.team2_pts,
-                'posted_by_num': None,
-                'team_idx'     : None,
-                'ref_score'    : None,
-                'do_push'      : True,  # already pushed, lol
-                'tourn_stage'  : tourn.stage_tag
-            }
-            score = PostScore.create(**info)
+            PostScore.add(game, ScoreAction.POST_FAKE)
             game.update_team_stats()
             game.insert_team_games()
 
@@ -786,7 +758,7 @@ def fake_tourn_games(clear_existing: bool = False, limit: int = None, rand_seed:
             return
 
     compute_team_ranks()
-    tourn.complete_stage(TournStage.TOURN_RESULTS)
+    TournInfo.mark_stage_complete(TournStage.TOURN_RESULTS)
 
 def validate_tourn(finalize: bool = False) -> None:
     """

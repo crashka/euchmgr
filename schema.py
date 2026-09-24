@@ -216,7 +216,7 @@ class TournInfo(BaseModel):
         """Return short, printable representation of current stage name
         """
         stage = max(self.stage_start, self.stage_compl)
-        return TournStage(stage).name.replace("_", " ").capitalize() + f" ({stage})"
+        return self.cur_stage + f" ({stage})"
 
     @property
     def tourn_data(self) -> dict:
@@ -228,6 +228,11 @@ class TournInfo(BaseModel):
     def save(self, *args, **kwargs):
         """Manage stage changes and associated message text.
         """
+        if 'stage_start' in self._dirty and self.stage_start <= self.stage_compl:
+            stage = TournStage(self.stage_start)
+            TournLog.add(TournEvent.STAGE_START, stage.name, ref_id=stage.value)
+            log.notice(f"Starting stage {stage.name} ({stage.value})")
+
         if 'stage_compl' in self._dirty:
             stage_data = StageData[self.stage_compl]
 
@@ -253,7 +258,13 @@ class TournInfo(BaseModel):
                 else:
                     self.next_action = None
             stage = TournStage(self.stage_compl)
+            TournLog.add(TournEvent.STAGE_COMPL, stage.name, ref_id=stage.value)
             log.notice(f"Completing stage {stage.name} ({stage.value})")
+
+        if 'stage_start' in self._dirty and self.stage_start > self.stage_compl:
+            stage = TournStage(self.stage_start)
+            TournLog.add(TournEvent.STAGE_START, stage.name, ref_id=stage.value)
+            log.notice(f"Starting stage {stage.name} ({stage.value})")
 
         if self.id is None:
             self.__class__.clear_cache()
@@ -1517,6 +1528,8 @@ class StandinGame(BaseModel):
 # PostScore #
 #############
 
+StageGame = SeedGame | TournGame | PlayoffGame
+
 class ScoreAction(StrEnum):
     SUBMIT      = "Submit"
     ACCEPT      = "Accept"
@@ -1527,6 +1540,13 @@ class ScoreAction(StrEnum):
     POST_IMPORT = "Import"
     POST_FAKE   = "Fake Results"
     ADJ_ADMIN   = "Adjust"
+
+ADMIN_ACTIONS = (
+    ScoreAction.POST_ADMIN,
+    ScoreAction.POST_IMPORT,
+    ScoreAction.POST_FAKE,
+    ScoreAction.ADJ_ADMIN
+)
 
 class PostScore(BaseModel):
     """
@@ -1548,6 +1568,26 @@ class PostScore(BaseModel):
         indexes = (
             (('game_label', 'created_at'), False),
         )
+
+    @classmethod
+    def add(cls, game: StageGame, post_action: ScoreAction, action_info: str = None,
+            do_push: bool = True) -> Self:
+        """Convenience method for posting a score--for admin actions only!
+        """
+        assert post_action in ADMIN_ACTIONS
+        tourn = TournInfo.get()
+        info = {
+            'bracket'      : get_bracket(game.label),
+            'game_label'   : game.label,
+            'post_action'  : post_action,
+            'action_info'  : action_info,
+            'team1_pts'    : game.team1_pts,
+            'team2_pts'    : game.team2_pts,
+            'do_push'      : do_push,
+            'tourn_stage'  : tourn.stage_tag
+        }
+        score = cls.create(**info)
+        return score
 
     @classmethod
     def fetch_by_id(cls, id: int) -> Self:
@@ -1663,12 +1703,72 @@ class PostRank(BaseModel):
                  .order_by(cls.id))
         return list(query)
 
+#############
+# Tourn Log #
+#############
+
+class TournEvent(StrEnum):
+    STAGE_START = "Stage start"
+    STAGE_COMPL = "Stage complete"
+    ROUND_START = "Round start"
+    ROUND_COMPL = "Round complete"
+    SCORE_ADJ   = "Score adjust"
+    RANK_ADJ    = "Rank adjust"
+
+class TournLog(BaseModel):
+    """Log of critical tournament-level events, including stage changes and admin overrides.
+    """
+    event_type     = TextField()              # TournEvent
+    event_target   = TextField()              # stage, round, score/rank type, etc.
+    event_info     = TextField(null=True)     # additional info (unstructured)
+    event_data     = JSONField(null=True)     # may be denorm from ref table (see next)
+    ref_id         = IntegerField(null=True)  # ID for type-dependent ref table
+
+    @classmethod
+    def add(cls, ev_type: TournEvent, ev_target: str, ev_info: str = None,
+            ev_data: dict = None, ref_id: int = None) -> Self:
+        """Convenience function for logging with positional arguments.
+        """
+        info = {'event_type'  : ev_type,
+                'event_target': ev_target,
+                'event_info'  : ev_info,
+                'event_data'  : ev_data,
+                'ref_id'      : ref_id}
+        event = cls.create(**info)
+        return event
+
+    @classmethod
+    def addScore(cls, ev_type: TournEvent, score: PostScore) -> Self:
+        """Convenience function for logging posted score adjustments.
+        """
+        info = {'event_type'  : ev_type,
+                'event_target': get_bracket(score.game_label),
+                'event_info'  : score.game_label,
+                'event_data'  : score.__data__,
+                'ref_id'      : score.id}
+        event = cls.create(**info)
+        return event
+
+    @classmethod
+    def addRank(cls, ev_type: TournEvent, rank: PostRank) -> Self:
+        """Convenience function for logging posted rank adjustments.
+        """
+        ev_info = (f"player num {rank.player.player_num}" if rank.player else
+                   f"team id {rank.team.id}")
+        info = {'event_type'  : ev_type,
+                'event_target': rank.rank_type,
+                'event_info'  : ev_info,
+                'event_data'  : rank.__data__,
+                'ref_id'      : rank.id}
+        event = cls.create(**info)
+        return event
+
 #################
 # schema_create #
 #################
 
 ALL_MODELS = [TournInfo, Player, SeedGame, Team, TournGame, PlayoffGame, PlayerGame,
-              TeamGame, StandinPlayer, StandinGame, PostScore, PostRank]
+              TeamGame, StandinPlayer, StandinGame, PostScore, PostRank, TournLog]
 
 def schema_create(models: list[BaseModel | str] | str = None, force = False) -> None:
     """Create tables for specified models (list of objects or comma-separated list of

@@ -12,7 +12,8 @@ from flask import Blueprint, g, request
 from core import log
 from security import login_required
 from database import db_atomic
-from schema import Bracket, TournStage, TournInfo, ScoreAction, RankType, RankAction
+from schema import (Bracket, BRACKET_NAME, TournStage, TournInfo, ScoreAction, RankType,
+                    RankAction, TournEvent, TournLog)
 from euchmgr import (validate_seed_round, compute_player_ranks, validate_tourn,
                      compute_team_ranks, validate_playoffs, compute_playoff_ranks)
 from ui_schema import (Player, PartnerPick, SeedGame, Team, TournGame, PlayoffGame,
@@ -193,6 +194,7 @@ def players_rank_adj(rank_type: str) -> str:
             'tourn_stage' : tourn.stage_tag
         }
         rank = PostRank.create(**info)
+        TournLog.addRank(TournEvent.RANK_ADJ, rank)
         verb = rank_action.capitalize() + "ing"
         log.notice(f"{verb} {rank_type} rank for player {player.id}: {orig_rank} -> {new_rank} "
                    f"[{data['action_info']}]")
@@ -252,28 +254,14 @@ def post_seeding() -> dict:
             game.save()
 
             if game.winner:
-                tourn = TournInfo.get()
-                info = {
-                    'bracket'      : Bracket.SEED,
-                    'game_label'   : game.label,
-                    'post_action'  : ScoreAction.POST_ADMIN,
-                    'action_info'  : 'Seeding View',
-                    'team1_pts'    : team1_pts,
-                    'team2_pts'    : team2_pts,
-                    'posted_by_num': None,
-                    'team_idx'     : None,
-                    'ref_score'    : None,
-                    'do_push'      : True,  # already pushed, lol
-                    'tourn_stage'  : tourn.stage_tag
-                }
-                score = PostScore.create(**info)
+                PostScore.add(game, ScoreAction.POST_ADMIN, 'Seeding View')
                 game.update_player_stats()
                 game.insert_player_games()
                 compute_player_ranks()
                 # see "KINDA HOKEY" comment about this button stuff in post_playoffs() below
                 enable_button = None
                 if SeedGame.current_round() == -1:
-                    tourn.complete_stage(TournStage.SEED_RESULTS)
+                    TournInfo.mark_stage_complete(TournStage.SEED_RESULTS)
                     enable_button = 'tabulate_seed_results'
                 sg_props = {prop: getattr(game, prop) for prop in sg_addl_props}
                 if enable_button:
@@ -309,23 +297,10 @@ def post_seeding_adj() -> str:
             raise RuntimeError("Score unchanged")
         game.add_scores(team1_pts, team2_pts, admin_adj=True)
         game.save()
-        assert game.winner
 
-        tourn = TournInfo.get()
-        info = {
-            'bracket'      : Bracket.SEED,
-            'game_label'   : game.label,
-            'post_action'  : data.get('post_action'),
-            'action_info'  : data.get('action_info'),
-            'team1_pts'    : team1_pts,
-            'team2_pts'    : team2_pts,
-            'posted_by_num': None,
-            'team_idx'     : None,
-            'ref_score'    : None,
-            'do_push'      : True,  # already pushed, lol
-            'tourn_stage'  : tourn.stage_tag
-        }
-        score = PostScore.create(**info)
+        assert game.winner
+        score = PostScore.add(game, data.get('post_action'), data.get('action_info'))
+        TournLog.addScore(TournEvent.SCORE_ADJ, score)
         game.update_player_stats(revert=prev_score)
         game.update_player_stats()
         game.update_player_games()
@@ -547,6 +522,7 @@ def teams_rank_adj(rank_type: str) -> str:
             'tourn_stage' : tourn.stage_tag
         }
         rank = PostRank.create(**info)
+        TournLog.addRank(TournEvent.RANK_ADJ, rank)
         verb = rank_action.capitalize() + "ing"
         log.notice(f"{verb} {rank_type} rank for team {team.id}: {orig_rank} -> {new_rank} "
                    f"[{data['action_info']}]")
@@ -607,28 +583,14 @@ def post_round_robin() -> dict:
             game.save()
 
             if game.winner:
-                tourn = TournInfo.get()
-                info = {
-                    'bracket'      : Bracket.TOURN,
-                    'game_label'   : game.label,
-                    'post_action'  : ScoreAction.POST_ADMIN,
-                    'action_info'  : 'Round Robin View',
-                    'team1_pts'    : team1_pts,
-                    'team2_pts'    : team2_pts,
-                    'posted_by_num': None,
-                    'team_idx'     : None,
-                    'ref_score'    : None,
-                    'do_push'      : True,  # already pushed, lol
-                    'tourn_stage'  : tourn.stage_tag
-                }
-                score = PostScore.create(**info)
+                PostScore.add(game, ScoreAction.POST_ADMIN, 'Round Robin View')
                 game.update_team_stats()
                 game.insert_team_games()
                 compute_team_ranks()
                 # see "KINDA HOKEY" comment about this button stuff in post_playoffs() below
                 enable_button = None
                 if TournGame.current_round() == -1:
-                    tourn.complete_stage(TournStage.TOURN_RESULTS)
+                    TournInfo.mark_stage_complete(TournStage.TOURN_RESULTS)
                     enable_button = 'tabulate_tourn_results'
                 tg_props = {prop: getattr(game, prop) for prop in tg_addl_props}
                 if enable_button:
@@ -663,23 +625,10 @@ def post_round_robin_adj() -> dict:
             raise RuntimeError("Score unchanged")
         game.add_scores(team1_pts, team2_pts, admin_adj=True)
         game.save()
-        assert game.winner
 
-        tourn = TournInfo.get()
-        info = {
-            'bracket'      : Bracket.TOURN,
-            'game_label'   : game.label,
-            'post_action'  : data.get('post_action'),
-            'action_info'  : data.get('action_info'),
-            'team1_pts'    : team1_pts,
-            'team2_pts'    : team2_pts,
-            'posted_by_num': None,
-            'team_idx'     : None,
-            'ref_score'    : None,
-            'do_push'      : True,  # already pushed, lol
-            'tourn_stage'  : tourn.stage_tag
-        }
-        score = PostScore.create(**info)
+        assert game.winner
+        score = PostScore.add(game, data.get('post_action'), data.get('action_info'))
+        TournLog.addScore(TournEvent.SCORE_ADJ, score)
         game.update_team_stats(revert=prev_score)
         game.update_team_stats()
         game.update_team_games()
@@ -814,21 +763,7 @@ def post_playoffs() -> dict:
             game.save()
 
             if game.winner:
-                tourn = TournInfo.get()
-                info = {
-                    'bracket'      : game.bracket,
-                    'game_label'   : game.label,
-                    'post_action'  : ScoreAction.POST_ADMIN,
-                    'action_info'  : 'Playoffs View',
-                    'team1_pts'    : team1_pts,
-                    'team2_pts'    : team2_pts,
-                    'posted_by_num': None,
-                    'team_idx'     : None,
-                    'ref_score'    : None,
-                    'do_push'      : True,  # already pushed, lol
-                    'tourn_stage'  : tourn.stage_tag
-                }
-                score = PostScore.create(**info)
+                PostScore.add(game, ScoreAction.POST_ADMIN, 'Playoffs View')
                 game.update_team_stats()
                 # REVISIT/FIX: commenting this out for now, since we aren't currently managing
                 # the different brackets properly within team_games!!!
@@ -845,11 +780,11 @@ def post_playoffs() -> dict:
                 enable_button = None
                 if PlayoffGame.bracket_complete(game.bracket):
                     if game.bracket == Bracket.SEMIS:
-                        tourn.complete_stage(TournStage.SEMIS_RESULTS)
+                        TournInfo.mark_stage_complete(TournStage.SEMIS_RESULTS)
                         enable_button = 'tabulate_semis_results'
                     else:
                         assert game.bracket == Bracket.FINALS
-                        tourn.complete_stage(TournStage.FINALS_RESULTS)
+                        TournInfo.mark_stage_complete(TournStage.FINALS_RESULTS)
                         enable_button = 'tabulate_finals_results'
                 pg_props = {prop: getattr(game, prop) for prop in pg_addl_props}
                 if enable_button:
@@ -884,23 +819,10 @@ def post_playoffs_adj() -> dict:
             raise RuntimeError("Score unchanged")
         game.add_scores(team1_pts, team2_pts, admin_adj=True)
         game.save()
-        assert game.winner
 
-        tourn = TournInfo.get()
-        info = {
-            'bracket'      : game.bracket,
-            'game_label'   : game.label,
-            'post_action'  : data.get('post_action'),
-            'action_info'  : data.get('action_info'),
-            'team1_pts'    : team1_pts,
-            'team2_pts'    : team2_pts,
-            'posted_by_num': None,
-            'team_idx'     : None,
-            'ref_score'    : None,
-            'do_push'      : True,  # already pushed, lol
-            'tourn_stage'  : tourn.stage_tag
-        }
-        score = PostScore.create(**info)
+        assert game.winner
+        score = PostScore.add(game, data.get('post_action'), data.get('action_info'))
+        TournLog.addScore(TournEvent.SCORE_ADJ, score)
         game.update_team_stats(revert=prev_score)
         game.update_team_stats()
         #game.update_team_games()

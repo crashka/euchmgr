@@ -229,7 +229,7 @@
               {% endfor %}
               <td class="vert_sect">{{fmt_stat(pl.seed_win_pct)|safe}}</td>
               <td>{{fmt_stat(pl.seed_pts_pct)|safe}}</td>
-              <td>{{fmt_stat(pl.player_rank_eff)}}</td>
+              <td>{{fmt_stat(pl.player_rank)}}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -356,9 +356,9 @@
             <tr>
               <td class="team_lbl">{{tm.team_tag_fn|safe}}</td>
               <td class="vert_sect" title="{{tb_crit[tm.id]}}">{{tm.tourn_pos_str}}</td>
-              {% if tm.div_rank in (1, 2) %}
+              {% if tm.div_rank_eff in (1, 2) %}
               <td class="vert_sect">{{tm.div_num}}</td>
-              <td>{{tm.div_rank}}</td>
+              <td>{{tm.div_rank_eff}}</td>
               {% else %}
               <td class="vert_sect"></td>
               <td></td>

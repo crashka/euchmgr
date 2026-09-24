@@ -403,6 +403,8 @@ tm_addl_props = [
     'player_nums',
     'tourn_win_pct_str',
     'tourn_pts_pct_str',
+    'div_rank_eff',
+    'tourn_rank_eff',
     'final_rank_eff'
 ]
 
@@ -419,8 +421,8 @@ tm_layout = [
     ('tourn_pts_for',     "Pts For",     None),
     ('tourn_pts_against', "Pts Against", None),
     ('tourn_pts_pct_str', "Pts Pct",     None),
-    ('div_rank',          "Div Rank",    None),
-    ('tourn_rank',        "Team Rank",   None),
+    ('div_rank_eff',      "Div Rank",    None),
+    ('tourn_rank_eff',    "Team Rank",   None),
     ('final_rank_eff',    "Final Rank",  None)
 ]
 
@@ -647,7 +649,9 @@ def post_round_robin_adj() -> dict:
 ###############
 
 ff_addl_props = [
+    'tourn_rank_eff',
     'playoff_status',
+    'div_rank_eff',
     'playoff_match_rec',
     'playoff_win_rec',
     'playoff_win_pct_str',
@@ -656,11 +660,11 @@ ff_addl_props = [
 
 ff_layout = [
     ('id',                   "ID",           HIDDEN),
-    ('tourn_rank',           "Team Rank",    None),
+    ('tourn_rank_eff',       "Team Rank",    None),
     ('team_name',            "Team",         None),
     ('playoff_status',       "Status",       None),
     ('div_num',              "Div",          None),
-    ('div_rank',             "Div Rank",     None),
+    ('div_rank_eff',         "Div Rank",     None),
     ('playoff_match_rec',    "Match W-L",    CENTERED),
     ('playoff_win_rec',      "Game W-L",     CENTERED),
     ('playoff_win_pct_str',  "Win Pct",      None),

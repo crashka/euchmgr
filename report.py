@@ -76,7 +76,9 @@ def render_popup(context: dict) -> str:
 #############
 
 def rr_tbreak(tourn: TournInfo) -> str:
-    """Render round robin tie-breaker report
+    """Render round robin tie-breaker report, by division.  Note that this report ignores
+    ranking adjustments (if any), since it is intended to elucidate the logic underlying
+    the system's computed rankings.
     """
     # BAD: this has the same name as a different format function in ui_schema.py--we
     # really need to refactor/consolidate all of this!!!
@@ -105,7 +107,7 @@ def rr_tbreak(tourn: TournInfo) -> str:
         div_win_grps[div] = pos_win_grps
         div_idents[div] = pos_idents
 
-        tm_iter = Team.iter_teams(div=div, by_rank=True)
+        tm_iter = Team.iter_teams(div=div, by_rank=True, no_adj=True)
         for k, g in groupby(tm_iter, key=lambda x: x.div_pos):
             cohort = list(g)
             if len(cohort) == 1:
@@ -164,8 +166,10 @@ def rr_tbreak(tourn: TournInfo) -> str:
 ##############
 
 def trn_tbreak(tourn: TournInfo, final_rpt: bool = False) -> str:
-    """Render intermediary tournament tie-breaker report (or final overall report, if
-    specified)
+    """Render either the intermediary tournament or final overall tie-breaker report, as
+    specified.  Both reports ignore ranking adjustments (if any), since they are intended
+    to elucidate the logic underlying the system's computed rankings (as with the round
+    robin report above).
     """
     # see BAD comment (above), and then double the badness
     team_tag = lambda x: f"{x.team_name} [{x.team_seed}]"
@@ -196,7 +200,7 @@ def trn_tbreak(tourn: TournInfo, final_rpt: bool = False) -> str:
     div_idents[div] = pos_idents
 
     # NOTE: huge supporting HACK inside of `iter_teams` (see schema.py)!
-    tm_iter = Team.iter_teams(div=div if final_rpt else None, by_rank=True)
+    tm_iter = Team.iter_teams(div=div if final_rpt else None, by_rank=True, no_adj=True)
     group_key = (lambda x: x.final_pos) if final_rpt else (lambda x: x.tourn_pos)
     for k, g in groupby(tm_iter, key=group_key):
         cohort = list(g)

@@ -127,7 +127,7 @@ RANK_ADJ_ACTION = {
 ##############
 
 def sd_bracket(tourn: TournInfo) -> str:
-    """Render seed round bracket as a chart
+    """Render seed round bracket as a chart.
     """
     rnd_tables = tourn.players // 4
     rnd_byes = tourn.players % 4
@@ -184,7 +184,9 @@ def sd_bracket(tourn: TournInfo) -> str:
 #############
 
 def sd_scores(tourn: TournInfo) -> str:
-    """Render seed round scores as a chart
+    """Render seed round scores as a chart.  Note that this chart ignores ranking
+    adjustments (if any), since it is intended to reflect the active-play results and
+    naive computations.
     """
     pl_list = sorted(Player.iter_players(), key=lambda pl: pl.player_num)
     # sub-dict key is rnd, value is pts
@@ -241,7 +243,7 @@ def sd_scores(tourn: TournInfo) -> str:
 ##############
 
 def rr_brackets(tourn: TournInfo) -> str:
-    """Render round robin brackets as a chart
+    """Render round robin brackets as a chart.
     """
     div_list   = list(range(1, tourn.divisions + 1))
     div_maps   = get_div_maps(tourn)
@@ -308,7 +310,9 @@ def rr_brackets(tourn: TournInfo) -> str:
 #############
 
 def rr_scores(tourn: TournInfo) -> str:
-    """Render round robin scores as a chart
+    """Render round robin scores as a chart.  Note that this chart ignores ranking
+    adjustments (if any), since it is intended to reflect the active-play results and
+    naive computations
     """
     div_list = list(range(1, tourn.divisions + 1))
     tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.team_seed)

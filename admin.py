@@ -113,7 +113,7 @@ VIEW_DEFS = {
         "Partners",
         pt_layout,
         "nick_name",
-        [1],  # player_rank
+        [1],  # player_rank_eff
         3
     ),
     View.TEAMS: ViewInfo(
@@ -134,7 +134,7 @@ VIEW_DEFS = {
         "Final Four",
         ff_layout,
         "team_name",
-        [1],  # tourn_rank
+        [1],  # tourn_rank_eff
         2
     ),
     View.PLAYOFFS: ViewInfo(
@@ -741,7 +741,7 @@ def render_admin(context: dict) -> str:
                 "Players",
                 pl_layout,
                 "nick_name",
-                [11],  # player_rank
+                [11],  # player_rank_eff
                 3
             )
     elif view == View.TEAMS:
@@ -758,7 +758,7 @@ def render_admin(context: dict) -> str:
                 "Teams",
                 tm_layout,
                 "team_name",
-                [13, 12],  # div_rank, tourn_rank
+                [13],  # tourn_rank_eff
                 2
             )
     elif view == View.FINAL_FOUR:
@@ -767,7 +767,7 @@ def render_admin(context: dict) -> str:
                 "Final Four",
                 ff_layout,
                 "team_name",
-                [12, 1],  # playoff_rank, tourn_rank
+                [12, 1],  # playoff_rank, tourn_rank_eff
                 2
             )
 

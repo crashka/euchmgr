@@ -411,7 +411,8 @@ class Player(BaseModel, EuchmgrUser):
         else:
             query = cls.select()
         if by_rank:
-            query = query.order_by(fn.ifnull(cls.player_rank_adj, cls.player_rank).asc(nulls='last'))
+            player_rank_eff = fn.coalesce(cls.player_rank_adj, cls.player_rank)
+            query = query.order_by(player_rank_eff.asc(nulls='last'))
         for p in query:
             player_map[p.player_num] = p
         return player_map
@@ -483,7 +484,8 @@ class Player(BaseModel, EuchmgrUser):
         if no_nums:
             query = query.where(cls.player_num.is_null(True))
         if by_rank:
-            query = query.order_by(fn.ifnull(cls.player_rank_adj, cls.player_rank).asc(nulls='last'))
+            player_rank_eff = fn.coalesce(cls.player_rank_adj, cls.player_rank)
+            query = query.order_by(player_rank_eff.asc(nulls='last'))
         for p in query:
             yield p
 
@@ -861,24 +863,31 @@ class Team(BaseModel):
         )
 
     @classmethod
-    def iter_teams(cls, div: int = None, by_rank: bool = False) -> Iterator[Self]:
+    def iter_teams(cls, div: int = None, by_rank: bool = False,
+                   no_adj: bool = False) -> Iterator[Self]:
         """Iterator for teams (wrap ORM details).
         """
         query = cls.select()
         if div:
             query = query.where(cls.div_num == div)
             if by_rank:
-                query = query.order_by(cls.div_rank.asc(nulls='last'))
+                div_rank_eff = fn.coalesce(cls.div_rank_adj, cls.div_rank)
+                ord_expr = cls.div_rank if no_adj else div_rank_eff
+                query = query.order_by(ord_expr.asc(nulls='last'))
         elif by_rank:
             # HUGE HACK: `div = 0` represents final tournament ranking (no nulls)--should
             # really get rid of this at some point (just too gross)!!!
             if div == 0:
                 tourn = TournInfo.get()
                 assert tourn.stage_compl >= TournStage.SEMIS_BRACKET
-                query = query.order_by(cls.final_rank.asc())
+                final_rank_eff = fn.coalesce(cls.final_rank_adj, cls.final_rank)
+                ord_expr = cls.final_rank if no_adj else final_rank_eff
+                query = query.order_by(ord_expr.asc(nulls='last'))
             else:
                 assert(div is None)
-                query = query.order_by(cls.tourn_rank.asc(nulls='last'))
+                tourn_rank_eff = fn.coalesce(cls.tourn_rank_adj, cls.tourn_rank)
+                ord_expr = cls.tourn_rank if no_adj else tourn_rank_eff
+                query = query.order_by(ord_expr.asc(nulls='last'))
         for t in query:
             yield t
 
@@ -886,9 +895,11 @@ class Team(BaseModel):
     def iter_playoff_teams(cls, by_rank: bool = False) -> Iterator[Self]:
         """Iterator for playoff teams (wrap ORM details).
         """
-        query = cls.select().where(cls.div_rank.in_([1, 2]))
+        div_rank_eff = fn.coalesce(cls.div_rank_adj, cls.div_rank)
+        query = cls.select().where(div_rank_eff.in_([1, 2]))
         if by_rank:
-            query = query.order_by(cls.playoff_rank.asc(nulls='last'), cls.tourn_rank.asc())
+            ord_expr = fn.coalesce(cls.tourn_rank_adj, cls.tourn_rank)
+            query = query.order_by(cls.playoff_rank.asc(nulls='last'), ord_expr.asc())
         for t in query:
             yield t
 
@@ -899,7 +910,8 @@ class Team(BaseModel):
         tourn = TournInfo.get()
         if tourn.playoff_teams == 2:
             assert tourn.divisions == 1
-            query = cls.select().where(cls.div_rank.in_([1, 2]))
+            div_rank_eff = fn.coalesce(cls.div_rank_adj, cls.div_rank)
+            query = cls.select().where(div_rank_eff.in_([1, 2]))
         else:
             assert tourn.playoff_teams == 4
             assert tourn.divisions == 2
@@ -998,7 +1010,7 @@ class Team(BaseModel):
         """Return true if team is playoff-bound, based on current division standings.  Can
         be called before actual playoff teams have been determined.
         """
-        return self.div_rank in (1, 2)
+        return self.div_rank_eff in (1, 2)
 
     @property
     def playoff_team(self) -> bool:
@@ -1008,7 +1020,7 @@ class Team(BaseModel):
         tourn = TournInfo.get()
         if tourn.stage_compl < TournStage.TOURN_RANKS:
             return None
-        return self.div_rank in (1, 2)
+        return self.div_rank_eff in (1, 2)
 
     @property
     def finals_team(self) -> bool:
@@ -1020,7 +1032,7 @@ class Team(BaseModel):
             return None
         if tourn.playoff_teams == 2:
             assert tourn.divisions == 1
-            return self.div_rank in (1, 2)
+            return self.div_rank_eff in (1, 2)
         else:
             assert tourn.playoff_teams == 4
             assert tourn.divisions == 2
@@ -1252,8 +1264,8 @@ class PlayoffGame(BaseModel):
     team2          = ForeignKeyField(Team, column_name='team2_id')
     team1_name     = TextField()              # denorm
     team2_name     = TextField()              # denorm
-    team1_div_rank = IntegerField()
-    team2_div_rank = IntegerField()
+    team1_div_rank = IntegerField()           # denorm (eff)
+    team2_div_rank = IntegerField()           # denorm (eff)
     # results
     team1_pts      = IntegerField(null=True)
     team2_pts      = IntegerField(null=True)

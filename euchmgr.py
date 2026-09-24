@@ -1171,7 +1171,7 @@ def build_playoff_bracket(bracket: Bracket) -> list[PlayoffGame]:
         teams = list(Team.iter_playoff_teams(by_rank=True))
         # make sure best tourn_rank gets top billing here (matchup_num = 1)
         sign = 1 if teams[0].div_num == 1 else -1
-        teams.sort(key=lambda x: (x.div_rank, sign * x.div_num))
+        teams.sort(key=lambda x: (x.div_rank_eff, sign * x.div_num))
         matchups = {
             1: (teams[0], teams[3]),
             2: (teams[1], teams[2])
@@ -1210,8 +1210,8 @@ def build_playoff_bracket(bracket: Bracket) -> list[PlayoffGame]:
                     'team2'         : team2,
                     'team1_name'    : team1.team_name,
                     'team2_name'    : team2.team_name,
-                    'team1_div_rank': team1.div_rank,
-                    'team2_div_rank': team2.div_rank}
+                    'team1_div_rank': team1.div_rank_eff,
+                    'team2_div_rank': team2.div_rank_eff}
             game = PlayoffGame.create(**info)
             games.append(game)
 
@@ -1355,7 +1355,7 @@ def compute_playoff_ranks(bracket: Bracket, finalize: bool = False) -> None:
     playoff_key = lambda x: (x.playoff_match_wins,
                              x.playoff_win_pct or 0.0,
                              x.playoff_pts_pct or 0.0,
-                             -x.tourn_rank)  # <-- reward better round robin play
+                             -x.tourn_rank_eff)  # <-- reward better round robin play
     final_four.sort(key=playoff_key, reverse=True)
     for i, team in enumerate(final_four):
         team.playoff_rank = i + 1

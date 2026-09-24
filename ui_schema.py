@@ -748,9 +748,9 @@ class Team(UIMixin, BaseTeam):
 
     @property
     def team_tag_pl(self) -> str:
-        """Same as `team_tag`, but for playoff bracket (so tourn_rank)
+        """Same as `team_tag`, but for playoff bracket (so tourn_rank_eff)
         """
-        return f"<b>{self.tourn_rank}</b>&nbsp;&nbsp;{self.team_name}"
+        return f"<b>{self.tourn_rank_eff}</b>&nbsp;&nbsp;{self.team_name}"
 
     @property
     def team_tag_fn(self) -> str:
@@ -1265,7 +1265,7 @@ class PlayoffGame(UIMixin, BasePlayoffGame):
     def team_ranks(self) -> str:
         """Show matchup of tournament (after round robin) rankings.
         """
-        tm_ranks = (self.team1.tourn_rank, self.team2.tourn_rank)
+        tm_ranks = (self.team1.tourn_rank_eff, self.team2.tourn_rank_eff)
         return ' vs. '.join(str(x) for x in tm_ranks if x)
 
     @property

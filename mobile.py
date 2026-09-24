@@ -113,7 +113,7 @@ def get_leaderboard(bracket: str, div: int = None) -> tuple[LBHeader, LBData]:
         assert div
         tm_list = list(Team.iter_teams(div=div, by_rank=True))
         data = [(tm.id, tm.team_tag, fmt_rec(tm.tourn_wins, tm.tourn_losses),
-                 fmt_pct(tm.tourn_pts_pct or PTS_PCT_NA), tm.div_rank or "")
+                 fmt_pct(tm.tourn_pts_pct or PTS_PCT_NA), tm.div_rank_eff or "")
                 for tm in tm_list]
         hdr = ("id", "Team (seed)", "W-L", "Pts %", "Rank")
     elif bracket == Bracket.SEMIS:
@@ -836,8 +836,8 @@ def render_mobile(context: dict, view: str) -> str:
                 team.div_seed,
                 win_rec_rr,
                 pts_pct_rr,
-                team.div_rank,
-                team.tourn_rank
+                team.div_rank_eff,
+                team.tourn_rank_eff
             ]
         else:
             fld_data[view] += [None] * 7
@@ -850,7 +850,7 @@ def render_mobile(context: dict, view: str) -> str:
         fld_data[view] = [
             PlayoffGame.phase_status(Bracket.SEMIS),
             team.team_name,
-            team.tourn_rank,
+            team.tourn_rank_eff,
             win_rec_pl,
             pts_pct_pl,
             team.playoff_rank
@@ -865,7 +865,7 @@ def render_mobile(context: dict, view: str) -> str:
         fld_data[view] = [
             PlayoffGame.phase_status(Bracket.FINALS),
             team.team_name,
-            team.tourn_rank,
+            team.tourn_rank_eff,
             win_rec_pl,
             pts_pct_pl,
             team.playoff_rank

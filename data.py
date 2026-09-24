@@ -85,7 +85,8 @@ pl_addl_props = [
     'display_name',
     'champ',
     'seed_win_pct_str',
-    'seed_pts_pct_str'
+    'seed_pts_pct_str',
+    'player_rank_eff'
 ]
 
 pl_layout = [
@@ -100,7 +101,7 @@ pl_layout = [
     ('seed_pts_for',     "Pts For",     None),
     ('seed_pts_against', "Pts Against", None),
     ('seed_pts_pct_str', "Pts Pct",     None),
-    ('player_rank',      "Seed Rank",   None)
+    ('player_rank_eff',  "Seed Rank",   None)
 ]
 
 @data.get("/players/data")
@@ -317,6 +318,7 @@ def post_seeding_adj() -> str:
 #############
 
 pt_addl_props = [
+    'player_rank_eff',
     'full_name',
     'seed_ident',
     'champ',
@@ -326,15 +328,15 @@ pt_addl_props = [
 ]
 
 pt_layout = [
-    ('id',             "ID",         HIDDEN),
-    ('player_rank',    "Seed Rank",  None),
-    ('full_name',      "Player",     None),
-    ('player_num',     "Player Num", None),
-    ('seed_ident',     "Pick Order", None),
-    ('champ',          "Champ?",     CENTERED),
-    ('available',      "Avail?",     CENTERED),
-    ('picks_info',     "Partner(s) (pick by Name or Rank)", EDITABLE),
-    ('picked_by_info', "Picked By",  None)
+    ('id',              "ID",         HIDDEN),
+    ('player_rank_eff', "Seed Rank",  None),
+    ('full_name',       "Player",     None),
+    ('player_num',      "Player Num", None),
+    ('seed_ident',      "Pick Order", None),
+    ('champ',           "Champ?",     CENTERED),
+    ('available',       "Avail?",     CENTERED),
+    ('picks_info',      "Partner(s) (pick by Name or Rank)", EDITABLE),
+    ('picked_by_info',  "Picked By",  None)
 ]
 
 @data.get("/partners/data")

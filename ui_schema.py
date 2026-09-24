@@ -119,9 +119,10 @@ class Player(UIMixin, BasePlayer):
 
     @classmethod
     def fetch_by_rank(cls, player_rank: int) -> Self:
-        """Return player by player_rank, or `None` if not found.
+        """Return player by effective player_rank, or `None` if not found.
         """
-        return cls.get_or_none(cls.player_rank == player_rank)
+        by_adj = cls.get_or_none(cls.player_rank_adj == player_rank)
+        return by_adj or cls.get_or_none(cls.player_rank == player_rank)
 
     @classmethod
     def fetch_by_name(cls, name: str) -> Self:
@@ -178,7 +179,7 @@ class Player(UIMixin, BasePlayer):
     def seed_ident(self) -> str:
         """Player "name (rank)", for partner picking UI
         """
-        return f"{self.name} ({self.player_rank})"
+        return f"{self.name} ({self.player_rank_eff})"
 
     @property
     def picks_info(self) -> str | None:
@@ -306,10 +307,10 @@ class Player(UIMixin, BasePlayer):
         return list(query)
 
     def pick_partners(self, picks_info: int | str) -> tuple[list[Self], list[Self]]:
-        """Pick partner(s) based on `picks_info`, which may represent either player_rank
-        (if specified as int) or a name prefix to match.  Returns partner(s) as a list
-        (even if just a single partner), as well as remaining available players (as a
-        convenience to the caller).
+        """Pick partner(s) based on `picks_info`, which may represent either
+        player_rank_eff (if specified as int) or a name prefix to match.  Returns
+        partner(s) as a list (even if just a single partner), as well as remaining
+        available players (as a convenience to the caller).
 
         Raises `RuntimeError` if specified pick(s) cannot be resolved or made.
         """
@@ -453,7 +454,7 @@ class PartnerPick(UIMixin, BasePlayer):
         if not avail:
             return None
         assert len(avail) > 1
-        return sorted(avail, key=lambda x: x.player_rank)[0]
+        return sorted(avail, key=lambda x: x.player_rank_eff)[0]
 
     @classmethod
     def avail_picks(cls) -> list[Self]:
@@ -498,7 +499,7 @@ class PartnerPick(UIMixin, BasePlayer):
         else:
             includer = lambda x: x.partner
         picks = filter(includer, pl_list)
-        return sorted(picks, key=lambda x: (-x.reigning_champ, x.player_rank))
+        return sorted(picks, key=lambda x: (-x.reigning_champ, x.player_rank_eff))
 
 ############
 # SeedGame #

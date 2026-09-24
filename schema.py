@@ -411,7 +411,7 @@ class Player(BaseModel, EuchmgrUser):
         else:
             query = cls.select()
         if by_rank:
-            query = query.order_by(cls.player_rank.asc(nulls='last'))
+            query = query.order_by(fn.ifnull(cls.player_rank_adj, cls.player_rank).asc(nulls='last'))
         for p in query:
             player_map[p.player_num] = p
         return player_map
@@ -483,7 +483,7 @@ class Player(BaseModel, EuchmgrUser):
         if no_nums:
             query = query.where(cls.player_num.is_null(True))
         if by_rank:
-            query = query.order_by(cls.player_rank.asc(nulls='last'))
+            query = query.order_by(fn.ifnull(cls.player_rank_adj, cls.player_rank).asc(nulls='last'))
         for p in query:
             yield p
 

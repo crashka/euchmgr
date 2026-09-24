@@ -532,7 +532,7 @@ def prepick_champ_partners() -> None:
     """
     pl_iter = Player.iter_players()
     champs = filter(lambda x: x.reigning_champ, pl_iter)
-    by_rank = sorted(champs, key=lambda x: x.player_rank)
+    by_rank = sorted(champs, key=lambda x: x.player_rank_eff)
     if len(by_rank) == 0:
         return
 
@@ -552,7 +552,7 @@ def fake_pick_partners(clear_existing: bool = False, limit: int = None, rand_see
     if clear_existing:
         Player.clear_partner_picks()
 
-    avail = Player.available_players()  # already sorted by player_rank
+    avail = Player.available_players()  # already sorted by player_rank_eff
     assert len(avail) != 1
     nfake = 0
     pickers = list(avail)  # shallow copy
@@ -588,8 +588,8 @@ def build_tourn_teams() -> list[Team]:
         if not pl.partner_num:
             continue
         partner = pl_map[pl.partner_num]
-        seed_sum = pl.player_rank + partner.player_rank
-        min_seed = min(pl.player_rank, partner.player_rank)
+        seed_sum = pl.player_rank_eff + partner.player_rank_eff
+        min_seed = min(pl.player_rank_eff, partner.player_rank_eff)
         if not pl.partner2_num:
             partner2 = None
             is_thm = False
@@ -599,8 +599,8 @@ def build_tourn_teams() -> list[Team]:
             partner2 = pl_map[pl.partner2_num]
             is_thm = True
             team_name = fmt_team_name(pl_map, [pl.player_num, pl.partner_num, pl.partner2_num])
-            seed_sum += partner2.player_rank
-            min_seed = min(min_seed, partner2.player_rank)
+            seed_sum += partner2.player_rank_eff
+            min_seed = min(min_seed, partner2.player_rank_eff)
             avg_seed = rnd_avg(seed_sum / 3.0)
 
         info = {'player1'        : pl,

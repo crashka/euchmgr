@@ -106,7 +106,7 @@ def get_leaderboard(bracket: str, div: int = None) -> tuple[LBHeader, LBData]:
     if bracket == Bracket.SEED:
         pl_list = list(Player.iter_players(by_rank=True))
         data = [(pl.id, pl.player_tag, fmt_rec(pl.seed_wins, pl.seed_losses),
-                 fmt_pct(pl.seed_pts_pct or PTS_PCT_NA), pl.player_rank or "")
+                 fmt_pct(pl.seed_pts_pct or PTS_PCT_NA), pl.player_rank_eff or "")
                 for pl in pl_list]
         hdr = ("id", "Player (num)", "W-L", "Pts %", "Rank")
     elif bracket == Bracket.TOURN:
@@ -621,7 +621,7 @@ def pick_partner(form: dict) -> str:
         partner = Player.fetch_by_num(partner_num)
         if partner:
             # partner is identified, but need to apply validation logic
-            partners, avail = player.pick_partners(partner.player_rank)
+            partners, avail = player.pick_partners(partner.player_rank_eff)
         else:
             if isinstance(picks_info, bool) or picks_info is None:
                 # revert over-aggressive typecasting (could mask viable matches)
@@ -811,15 +811,15 @@ def render_mobile(context: dict, view: str) -> str:
             player.player_num,
             win_rec_sd,
             pts_pct_sd,
-            player.player_rank
+            player.player_rank_eff
         ]
     elif view == View.PARTNERS:
         cur_pick   = PartnerPick.current_pick()
         fld_data[view] = [
             PartnerPick.phase_status(),
-            cur_pick.player_rank if cur_pick else None,
+            cur_pick.player_rank_eff if cur_pick else None,
             player.name,
-            player.player_rank
+            player.player_rank_eff
         ]
     elif view == View.ROUND_ROBIN:
         fld_data[view] = [

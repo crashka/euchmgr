@@ -351,6 +351,7 @@
             </tr>
           </thead>
           <tbody>
+            {% if teams %}
             {% for tm in teams %}
             <tr>
               <td class="team_lbl">{{tm.team_tag_fn|safe}}</td>
@@ -370,6 +371,9 @@
               <td class="vert_sect" title="{{rank_note[tm.id]}}">{{tm.tourn_rank_disp}}</td>
             </tr>
             {% endfor %}
+            {% else %}
+            <td colspan="10"><i>No data</i></td>
+            {% endif %}
           </tbody>
         </table>
       </div>
@@ -417,6 +421,7 @@
               </tr>
             </thead>
             <tbody>
+              {% if teams %}
               {% for tm in teams %}
               <tr class="cmpt">
                 <td class="team_lbl">{{tm.team_tag_fn|safe}}</td>
@@ -469,6 +474,10 @@
                 {% endif %}  {# chart_num #}
               </tr>
               {% endfor %}  {# tm in teams #}
+              {% else %}
+              {% set cols = 11 if chart_num == 5 else (8 if chart_num == 7 else 1) %}
+              <td colspan="{{cols}}"><i>No data</i></td>
+              {% endif %}
             </tbody>
           </table>
         </div>
@@ -517,6 +526,7 @@
               </tr>
             </thead>
             <tbody>
+              {% if players %}
               {% for pl in players %}
               <tr class="cmpt">
                 <td class="plyr_lbl">{{pl.player_tag|safe}}</td>
@@ -542,6 +552,10 @@
                 {% endif %}  {# chart_num #}
               </tr>
               {% endfor %}  {# pl in players #}
+              {% else %}
+              {% set cols = 7 if chart_num == 9 else 1 %}
+              <td colspan="{{cols}}"><i>No data</i></td>
+              {% endif %}
             </tbody>
           </table>
         </div>
@@ -570,7 +584,7 @@
   <script src="/static/jquery-3.7.1.min.js"></script>
   <script>
    $(function() {
-     {% if chart_num == 7 %}
+     {% if chart_num == 7 and other_div %}
      $('.div_toggle').on('click', function(e) {
        window.location.replace("{{other_div}}");
      });

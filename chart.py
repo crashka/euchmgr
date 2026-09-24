@@ -59,7 +59,7 @@ SD_BRACKET   = "Seeding Round Bracket"
 SD_SCORES    = "Seeding Round Scores"
 RR_BRACKETS  = "Round Robin Brackets"
 RR_SCORES    = "Round Robin Scores"
-TRN_RESULTS  = "Team Rank Details (pre-playoff)"
+TRN_RESULTS  = "Team Rank Results (pre-playoff)"
 FNL_RESULTS  = "Final Tournament Results"
 FNL_RANK_ADJ = "Final Tournament Rank Adjustment"
 DIV_RESULTS  = "Division {0} Results"
@@ -377,7 +377,9 @@ def rr_scores(tourn: TournInfo) -> str:
 def trn_results(tourn: TournInfo) -> str:
     """Render intermediary/pre-playoff tournament results as a chart
     """
-    tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.tourn_rank)
+    #tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.tourn_rank_eff)
+    tm_iter  = Team.iter_teams(div=None, by_rank=True)
+    tm_list = list(filter(lambda x: x.tourn_wins + x.tourn_losses, tm_iter))
 
     tb_crit = {}
     rank_note = {}
@@ -409,7 +411,9 @@ def fnl_results(tourn: TournInfo) -> str:
     """Render final tournament results as a chart
     """
     rank_type = RankType.FINAL
-    tm_list = sorted(Team.iter_teams(), key=lambda tm: tm.final_rank_eff)
+    #tm_list = sorted(Team.iter_teams(), key=lambda tm: tm.final_rank_eff)
+    tm_iter  = Team.iter_teams(div=0, by_rank=True)
+    tm_list = list(filter(lambda x: x.tourn_wins + x.tourn_losses, tm_iter))
 
     tb_crit = {}
     rank_note = {}
@@ -484,8 +488,10 @@ def div_results(tourn: TournInfo) -> str:
     rank_type = RankType.DIV
     div_num = typecast(request.args.get('div')) or DIV_DFLT
     assert div_num in (1, 2)
-    other_div = div_num % 2 + 1
-    tm_list = sorted(Team.iter_teams(div=div_num), key=lambda tm: tm.div_rank_eff)
+    other_div = None if tourn.playoff_teams == 2 else (div_num % 2 + 1)
+    #tm_list = sorted(Team.iter_teams(div=div_num), key=lambda tm: tm.div_rank_eff)
+    tm_iter  = Team.iter_teams(div=div_num, by_rank=True)
+    tm_list = list(filter(lambda x: x.tourn_wins + x.tourn_losses, tm_iter))
 
     tb_crit = {}
     rank_note = {}
@@ -565,7 +571,9 @@ def sd_results(tourn: TournInfo) -> str:
     """Render seeding round results as a chart
     """
     rank_type = RankType.SEED
-    pl_list = sorted(Player.iter_players(), key=lambda pl: pl.player_rank_eff)
+    #pl_list = sorted(Player.iter_players(), key=lambda pl: pl.player_rank_eff)
+    pl_iter  = Player.iter_players(by_rank=True)
+    pl_list = list(filter(lambda x: x.seed_wins + x.seed_losses, pl_iter))
 
     tb_crit = {}
     rank_note = {}

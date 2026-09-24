@@ -209,11 +209,11 @@ class Player(UIMixin, BasePlayer):
         return self.picked_by.seed_ident if self.picked_by else None
 
     @property
-    def player_pos_str(self) -> str | None:
+    def player_pos_str(self) -> str:
         """Same as player_pos, except annotated if tied with others
         """
         if self.player_pos is None:
-            return None
+            return ''
         elif not self.seed_tb_crit:
             return str(self.player_pos)
         return f"{self.player_pos}*"
@@ -251,7 +251,7 @@ class Player(UIMixin, BasePlayer):
             #return f"{self.player_rank_adj} ({self.player_rank})"
             return f"{self.player_rank_adj}*"
         else:
-            return str(self.player_rank)
+            return str(self.player_rank) if self.player_rank else ''
 
     @property
     def current_game(self) -> BaseModel:
@@ -758,11 +758,11 @@ class Team(UIMixin, BaseTeam):
         return f"<b>{self.team_seed}</b>&nbsp;&nbsp;{self.team_name}"
 
     @property
-    def tourn_pos_str(self) -> str | None:
+    def tourn_pos_str(self) -> str:
         """Same as tourn_pos, except annotated if tied with others
         """
         if self.tourn_pos is None:
-            return None
+            return ''
         elif not self.tourn_tb_crit:
             return str(self.tourn_pos)
         return f"{self.tourn_pos}*"
@@ -795,14 +795,14 @@ class Team(UIMixin, BaseTeam):
             #return f"{self.tourn_rank_adj} ({self.tourn_rank})"
             return f"{self.tourn_rank_adj}*"
         else:
-            return str(self.tourn_rank)
+            return str(self.tourn_rank) if self.tourn_rank else ''
 
     @property
-    def final_pos_str(self) -> str | None:
+    def final_pos_str(self) -> str:
         """Same as final_pos, except annotated if tied with others
         """
         if self.final_pos is None:
-            return None
+            return ''
         elif not self.final_tb_crit:
             return str(self.final_pos)
         return f"{self.final_pos}*"
@@ -835,7 +835,7 @@ class Team(UIMixin, BaseTeam):
             #return f"{self.final_rank_adj} ({self.final_rank})"
             return f"{self.final_rank_adj}*"
         else:
-            return str(self.final_rank)
+            return str(self.final_rank) if self.final_rank else ''
 
     @property
     def playoff_win_pct_str(self) -> str:
@@ -874,11 +874,11 @@ class Team(UIMixin, BaseTeam):
         return f"{self.tourn_wins}-{self.tourn_losses}"
 
     @property
-    def div_pos_str(self) -> str | None:
+    def div_pos_str(self) -> str:
         """Same as div_pos, except annotated if tied with others
         """
         if self.div_pos is None:
-            return None
+            return ''
         elif not self.div_tb_crit:
             return str(self.div_pos)
         return f"{self.div_pos}*"
@@ -919,7 +919,7 @@ class Team(UIMixin, BaseTeam):
             #return f"{self.div_rank_adj} ({self.div_rank})"
             return f"{self.div_rank_adj}*"
         else:
-            return str(self.div_rank)
+            return str(self.div_rank) if self.div_rank else ''
 
     @property
     def current_game(self) -> BaseModel:

@@ -2,4 +2,4 @@
 
 set -x
 
-docker build -t euchmgr -f Dockerfile --progress plain .
+docker build -t euchmgr:admin-adj -f Dockerfile --progress plain .

@@ -1167,7 +1167,7 @@ class Team(BaseModel):
         old_rank = None
 
         if rank_type == RankType.DIV:
-            if tourn.stage_compl >= TournStage.SEMIS_BRACKET:
+            if tourn.playoffs_started():
                 raise RuntimeError("Cannot adjust div rank after playoff brackets have been created")
             if new_rank == self.div_rank:
                 rank_action = RankAction.REVERT

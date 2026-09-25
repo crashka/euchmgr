@@ -15,7 +15,8 @@ from database import db_atomic
 from schema import (Bracket, BRACKET_NAME, TournStage, TournInfo, ScoreAction, RankType,
                     RankAction, TournEvent, TournLog)
 from euchmgr import (validate_seed_round, compute_player_ranks, validate_tourn,
-                     compute_team_ranks, validate_playoffs, compute_playoff_ranks)
+                     compute_tourn_ranks, compute_team_ranks, validate_playoffs,
+                     compute_playoff_ranks)
 from ui_schema import (Player, PartnerPick, SeedGame, Team, TournGame, PlayoffGame,
                        PostScore, PostRank)
 from ui_common import referrer_path, redirect, render_error
@@ -155,6 +156,7 @@ def players_rank_adj(rank_type: str) -> str:
     assert 'action_info' in data
     assert 'redirect_to' in data
 
+    posts = []
     for field in data:
         # looking for "pl_<id>_rank"
         segs = field.split("_", 2)
@@ -169,36 +171,15 @@ def players_rank_adj(rank_type: str) -> str:
             #log.debug(f"skipping unadjusted {rank_type} rank for player {player.id}")
             continue
 
-        if rank_type == RankType.SEED:
-            if new_rank == player.player_rank:
-                rank_action = RankAction.REVERT
-                assert player.player_rank_adj
-                old_rank = player.player_rank_adj
-                player.player_rank_adj = None
-            else:
-                rank_action = RankAction.ADJUST
-                old_rank = player.player_rank_adj or player.player_rank
-                player.player_rank_adj = new_rank
-        else:
-            raise RuntimeError(f"Rank type '{rank_type}' not supported")
-        assert old_rank == orig_rank
+        post_info = player.adj_rank(rank_type, new_rank, data['action_info'])
+        assert post_info['old_rank'] == orig_rank
         player.save()
 
-        tourn = TournInfo.get()
-        info = {
-            'rank_type'   : rank_type,
-            'player'      : player,
-            'post_action' : rank_action,
-            'action_info' : data['action_info'],
-            'old_rank'    : old_rank,
-            'new_rank'    : new_rank,
-            'tourn_stage' : tourn.stage_tag
-        }
-        rank = PostRank.create(**info)
-        TournLog.addRank(TournEvent.RANK_ADJ, rank)
-        verb = rank_action.capitalize() + "ing"
-        log.notice(f"{verb} {rank_type} rank for player {player.id}: {orig_rank} -> {new_rank} "
-                   f"[{data['action_info']}]")
+        post = PostRank.create(**post_info)
+        TournLog.addRank(TournEvent.RANK_ADJ, post)
+        log.notice(f"{post_info['post_action']} {rank_type} rank for player {player.id}: "
+                   f"{orig_rank} -> {new_rank} [{data['action_info']}]")
+        posts.append(post)
 
     return redirect(data['redirect_to'])
 
@@ -300,8 +281,8 @@ def post_seeding_adj() -> str:
         game.save()
 
         assert game.winner
-        score = PostScore.add(game, data.get('post_action'), data.get('action_info'))
-        TournLog.addScore(TournEvent.SCORE_ADJ, score)
+        post = PostScore.add(game, data.get('post_action'), data.get('action_info'))
+        TournLog.addScore(TournEvent.SCORE_ADJ, post)
         game.update_player_stats(revert=prev_score)
         game.update_player_stats()
         game.update_player_games()
@@ -476,6 +457,7 @@ def teams_rank_adj(rank_type: str) -> str:
     assert 'action_info' in data
     assert 'redirect_to' in data
 
+    posts = []
     for field in data:
         # looking for "tm_<id>_rank"
         segs = field.split("_", 2)
@@ -490,46 +472,28 @@ def teams_rank_adj(rank_type: str) -> str:
             #log.debug(f"skipping unadjusted {rank_type} rank for team {team.id}")
             continue
 
-        if rank_type == RankType.DIV:
-            if new_rank == team.div_rank:
-                rank_action = RankAction.REVERT
-                assert team.div_rank_adj
-                old_rank = team.div_rank_adj
-                team.div_rank_adj = None
-            else:
-                rank_action = RankAction.ADJUST
-                old_rank = team.div_rank_adj or team.div_rank
-                team.div_rank_adj = new_rank
-        elif rank_type == RankType.FINAL:
-            if new_rank == team.final_rank:
-                rank_action = RankAction.REVERT
-                assert team.final_rank_adj
-                old_rank = team.final_rank_adj
-                team.final_rank_adj = None
-            else:
-                rank_action = RankAction.ADJUST
-                old_rank = team.final_rank_adj or team.final_rank
-                team.final_rank_adj = new_rank
-        else:
-            raise RuntimeError(f"Rank type '{rank_type}' not supported")
-        assert old_rank == orig_rank
+        post_info = team.adj_rank(rank_type, new_rank, data['action_info'])
+        assert post_info['old_rank'] == orig_rank
         team.save()
 
-        tourn = TournInfo.get()
-        info = {
-            'rank_type'   : rank_type,
-            'team'        : team,
-            'post_action' : rank_action,
-            'action_info' : data['action_info'],
-            'old_rank'    : old_rank,
-            'new_rank'    : new_rank,
-            'tourn_stage' : tourn.stage_tag
-        }
-        rank = PostRank.create(**info)
-        TournLog.addRank(TournEvent.RANK_ADJ, rank)
-        verb = rank_action.capitalize() + "ing"
-        log.notice(f"{verb} {rank_type} rank for team {team.id}: {orig_rank} -> {new_rank} "
-                   f"[{data['action_info']}]")
+        post = PostRank.create(**post_info)
+        TournLog.addRank(TournEvent.RANK_ADJ, post)
+        log.notice(f"{post_info['post_action']} {rank_type} rank for team {team.id}: "
+                   f"{orig_rank} -> {new_rank} [{data['action_info']}]")
+        posts.append(post)
+
+    if posts and rank_type == RankType.DIV:
+        # NOTE: we recompute tourn_rank so that playoff seeds are correct and the team
+        # ranks chart looks right (fairly minor points, but can help reduce confusion)
+        #
+        # TODOs:
+        #   - we should really do the reranking as an adjustment, rather than a straight
+        #     overwrite (see below)!!!
+        #   - need to enforce constraints (or minimally, proper logging) depending on the
+        #     tournament stage (here and elsewhere)!!!
+        tm_list = list(Team.iter_teams())
+        #compute_tourn_ranks(tm_list, admn_adj=True)
+        compute_tourn_ranks(tm_list)
 
     return redirect(data['redirect_to'])
 
@@ -631,8 +595,8 @@ def post_round_robin_adj() -> dict:
         game.save()
 
         assert game.winner
-        score = PostScore.add(game, data.get('post_action'), data.get('action_info'))
-        TournLog.addScore(TournEvent.SCORE_ADJ, score)
+        post = PostScore.add(game, data.get('post_action'), data.get('action_info'))
+        TournLog.addScore(TournEvent.SCORE_ADJ, post)
         game.update_team_stats(revert=prev_score)
         game.update_team_stats()
         game.update_team_games()
@@ -827,8 +791,8 @@ def post_playoffs_adj() -> dict:
         game.save()
 
         assert game.winner
-        score = PostScore.add(game, data.get('post_action'), data.get('action_info'))
-        TournLog.addScore(TournEvent.SCORE_ADJ, score)
+        post = PostScore.add(game, data.get('post_action'), data.get('action_info'))
+        TournLog.addScore(TournEvent.SCORE_ADJ, post)
         game.update_team_stats(revert=prev_score)
         game.update_team_stats()
         #game.update_team_games()

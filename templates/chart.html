@@ -150,7 +150,7 @@
     <div class="container">
       <h1 class="div_toggle">
         {{tourn.name}} &ndash; {{title}}
-        <span class="h1_info">{{title_note|safe or ''}}</span>
+        <span class="h1_info">{{(title_note or '')|safe}}</span>
       </h1>
       {% if chart_num == 0 %}
       <div class="section seed_bracket">
@@ -586,7 +586,7 @@
    $(function() {
      {% if chart_num == 7 and other_div %}
      $('.div_toggle').on('click', function(e) {
-       window.location.replace("{{other_div}}");
+       window.location.replace("{{switch_divs}}");
      });
      {% endif %}
 

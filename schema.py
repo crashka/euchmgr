@@ -55,6 +55,33 @@ def get_bracket(label: str) -> str:
     assert pfx in Bracket
     return pfx
 
+##############################
+# post scoring/ranking stuff #
+##############################
+
+class ScoreAction(StrEnum):
+    SUBMIT      = "Submit"
+    ACCEPT      = "Accept"
+    CORRECT     = "Correct"
+    IGNORE      = " (ignored)"
+    DISCARD     = " (discarded)"
+    POST_ADMIN  = "Post"
+    POST_IMPORT = "Import"
+    POST_FAKE   = "Fake Results"
+    ADJ_ADMIN   = "Adjust"
+
+class RankType(StrEnum):
+    SEED      = "seed"
+    TOURN     = "tourn"
+    DIV       = "div"
+    FINAL     = "final"
+
+class RankAction(StrEnum):
+    COMPUTE   = "Compute"
+    RECOMPUTE = "Recompute"
+    ADJUST    = "Adjust"
+    REVERT    = "Revert"
+
 ##########################
 # tournament stage stuff #
 ##########################
@@ -554,6 +581,41 @@ class Player(BaseModel, EuchmgrUser):
             self.partner2 = partner2
             partner2.picked_by = self
 
+    def adj_rank(self, rank_type: RankType, new_rank: int, action_info: str = None) -> dict:
+        """Add or remove a ranking adjustment.  Return data structure suitable for
+        creating a PostRank record, including fields for rank_action and old_rank.
+        """
+        if not current_user.is_admin:
+            raise PermissionError("Only admins can adjust rankings")
+        rank_action = None
+        old_rank = None
+
+        if rank_type == RankType.SEED:
+            if new_rank == self.player_rank:
+                rank_action = RankAction.REVERT
+                assert self.player_rank_adj
+                old_rank = self.player_rank_adj
+                self.player_rank_adj = None
+            else:
+                rank_action = RankAction.ADJUST
+                old_rank = self.player_rank_adj or self.player_rank
+                self.player_rank_adj = new_rank
+        else:
+            raise RuntimeError(f"Rank type '{rank_type}' not supported")
+
+        assert rank_action and old_rank
+        tourn = TournInfo.get()
+        post_info = {
+            'rank_type'   : rank_type,
+            'player'      : self,
+            'post_action' : rank_action,
+            'action_info' : action_info,
+            'old_rank'    : old_rank,
+            'new_rank'    : new_rank,
+            'tourn_stage' : tourn.stage_tag
+        }
+        return post_info
+
     def save(self, *args, **kwargs):
         """Ensure that nick_name is not null, since it is used as the display name in
         brackets (defaults to last_name if not otherwise specified).  If `cascade=True` is
@@ -821,6 +883,7 @@ class Team(BaseModel):
     top_player_rank = IntegerField()
     # tournament bracket
     team_seed      = IntegerField(unique=True, null=True)  # 1-based, based on player seeds
+    team_seed_adj  = IntegerField(null=True)               # manual overrides
     div_num        = IntegerField(null=True)
     div_seed       = IntegerField(null=True)
     # tournament play
@@ -1076,6 +1139,51 @@ class Team(BaseModel):
         if self.player3:
             self.player3.team = self
             self.player3.save()
+
+    def adj_rank(self, rank_type: RankType, new_rank: int, action_info: str = None) -> dict:
+        """Add or remove a ranking adjustment.  Return data structure suitable for
+        creating a PostRank record, including fields for rank_action and old_rank.
+        """
+        if not current_user.is_admin:
+            raise PermissionError("Only admins can adjust rankings")
+        rank_action = None
+        old_rank = None
+
+        if rank_type == RankType.DIV:
+            if new_rank == self.div_rank:
+                rank_action = RankAction.REVERT
+                assert self.div_rank_adj
+                old_rank = self.div_rank_adj
+                self.div_rank_adj = None
+            else:
+                rank_action = RankAction.ADJUST
+                old_rank = self.div_rank_adj or self.div_rank
+                self.div_rank_adj = new_rank
+        elif rank_type == RankType.FINAL:
+            if new_rank == self.final_rank:
+                rank_action = RankAction.REVERT
+                assert self.final_rank_adj
+                old_rank = self.final_rank_adj
+                self.final_rank_adj = None
+            else:
+                rank_action = RankAction.ADJUST
+                old_rank = self.final_rank_adj or self.final_rank
+                self.final_rank_adj = new_rank
+        else:
+            raise RuntimeError(f"Rank type '{rank_type}' not supported")
+
+        assert rank_action and old_rank
+        tourn = TournInfo.get()
+        post_info = {
+            'rank_type'   : rank_type,
+            'team'        : self,
+            'post_action' : rank_action,
+            'action_info' : action_info,
+            'old_rank'    : old_rank,
+            'new_rank'    : new_rank,
+            'tourn_stage' : tourn.stage_tag
+        }
+        return post_info
 
 #############
 # TournGame #
@@ -1542,17 +1650,6 @@ class StandinGame(BaseModel):
 
 StageGame = SeedGame | TournGame | PlayoffGame
 
-class ScoreAction(StrEnum):
-    SUBMIT      = "Submit"
-    ACCEPT      = "Accept"
-    CORRECT     = "Correct"
-    IGNORE      = " (ignored)"
-    DISCARD     = " (discarded)"
-    POST_ADMIN  = "Post"
-    POST_IMPORT = "Import"
-    POST_FAKE   = "Fake Results"
-    ADJ_ADMIN   = "Adjust"
-
 ADMIN_ACTIONS = (
     ScoreAction.POST_ADMIN,
     ScoreAction.POST_IMPORT,
@@ -1669,18 +1766,6 @@ class PostScore(BaseModel):
 # PostRank #
 ############
 
-class RankType(StrEnum):
-    SEED      = "seed"
-    TOURN     = "tourn"
-    DIV       = "div"
-    FINAL     = "final"
-
-class RankAction(StrEnum):
-    COMPUTE   = "Compute"
-    RECOMPUTE = "Recompute"
-    ADJUST    = "Adjust"
-    REVERT    = "Revert"
-
 class PostRank(BaseModel):
     """
     """
@@ -1750,28 +1835,28 @@ class TournLog(BaseModel):
         return event
 
     @classmethod
-    def addScore(cls, ev_type: TournEvent, score: PostScore) -> Self:
+    def addScore(cls, ev_type: TournEvent, post: PostScore) -> Self:
         """Convenience function for logging posted score adjustments.
         """
         info = {'event_type'  : ev_type,
-                'event_target': get_bracket(score.game_label),
-                'event_info'  : score.game_label,
-                'event_data'  : score.__data__,
-                'ref_id'      : score.id}
+                'event_target': get_bracket(post.game_label),
+                'event_info'  : post.game_label,
+                'event_data'  : post.__data__,
+                'ref_id'      : post.id}
         event = cls.create(**info)
         return event
 
     @classmethod
-    def addRank(cls, ev_type: TournEvent, rank: PostRank) -> Self:
+    def addRank(cls, ev_type: TournEvent, post: PostRank) -> Self:
         """Convenience function for logging posted rank adjustments.
         """
-        ev_info = (f"player num {rank.player.player_num}" if rank.player else
-                   f"team id {rank.team.id}")
+        ev_info = (f"player num {post.player.player_num}" if post.player else
+                   f"team id {post.team.id}")
         info = {'event_type'  : ev_type,
-                'event_target': rank.rank_type,
+                'event_target': post.rank_type,
                 'event_info'  : ev_info,
-                'event_data'  : rank.__data__,
-                'ref_id'      : rank.id}
+                'event_data'  : post.__data__,
+                'ref_id'      : post.id}
         event = cls.create(**info)
         return event
 

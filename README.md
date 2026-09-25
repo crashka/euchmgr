@@ -270,10 +270,9 @@ tie-breaking rules (just above tournament-level Points Percentage):
 3. **Cohort Points Percentage** &ndash; (Pts For) / (Pts For + Pts Against) for games
    played within the cohort
 
-Note that cohort stats for tie-breaking (other than head-to-head wins) are **currently
-disabled in the application** (but can actually be turned on as an option).  It will be up
-to the rules committee to decide whether&mdash;and/or in what form&mdash;to consider this
-type of notion for tie-breaking.
+UPDATE: the use cohort stats for tie-breaking (after head-to-head wins) has now been
+**enabled in the application** (as described above), with the approval of the rules
+committee (and can actually be turned off as an option, if needed).
 
 ## Tournament Format
 

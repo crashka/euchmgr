@@ -587,10 +587,13 @@ class Player(BaseModel, EuchmgrUser):
         """
         if current_user and not current_user.is_admin:
             raise PermissionError("Only admins can adjust rankings")
+        tourn = TournInfo.get()
         rank_action = None
         old_rank = None
 
         if rank_type == RankType.SEED:
+            if tourn.stage_compl >= TournStage.TEAM_SEEDS:
+                raise RuntimeError("Cannot adjust player rank after team seeds have been computed")
             if new_rank == self.player_rank:
                 rank_action = RankAction.REVERT
                 assert self.player_rank_adj
@@ -604,7 +607,6 @@ class Player(BaseModel, EuchmgrUser):
             raise RuntimeError(f"Rank type '{rank_type}' not supported")
 
         assert rank_action and old_rank
-        tourn = TournInfo.get()
         post_info = {
             'rank_type'   : rank_type,
             'player'      : self,
@@ -1090,6 +1092,16 @@ class Team(BaseModel):
         return self.div_rank_eff in (1, 2)
 
     @property
+    def playoff_games(self) -> bool:
+        """Return true if team has played any playoff games.  `None` returned if called
+        before playoff teams have been determined.
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.TOURN_RANKS:
+            return None
+        return bool(self.playoff_wins + self.playoff_losses)
+
+    @property
     def finals_team(self) -> bool:
         """Return true if team is in the playoff finals round.  `None` returned if called
         before finals teams have been determined.
@@ -1150,10 +1162,13 @@ class Team(BaseModel):
         """
         if current_user and not current_user.is_admin:
             raise PermissionError("Only admins can adjust rankings")
+        tourn = TournInfo.get()
         rank_action = None
         old_rank = None
 
         if rank_type == RankType.DIV:
+            if tourn.stage_compl >= TournStage.SEMIS_BRACKET:
+                raise RuntimeError("Cannot adjust div rank after playoff brackets have been created")
             if new_rank == self.div_rank:
                 rank_action = RankAction.REVERT
                 assert self.div_rank_adj
@@ -1187,7 +1202,6 @@ class Team(BaseModel):
             raise RuntimeError(f"Rank type '{rank_type}' not supported")
 
         assert rank_action and old_rank
-        tourn = TournInfo.get()
         post_info = {
             'rank_type'   : rank_type,
             'team'        : self,

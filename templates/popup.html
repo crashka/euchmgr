@@ -208,7 +208,7 @@
           <span>{{team.tourn_pts_pct_str}}</span>
         </p>
         </div>
-        {% if team.playoff_team %}
+        {% if team.playoff_games %}
         <div class="playoff_info">
         <p>
           <label>Playoff Record</label>:
@@ -223,7 +223,7 @@
           <span>{{team.playoff_pts_pct_str}}</span>
         </p>
         </div>
-        {% endif %}  {# tean.playoff_team #}
+        {% endif %}  {# tean.playoff_games #}
       </section>
       {% elif popup_num == 4 %}
       <section class="player_info">

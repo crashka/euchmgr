@@ -1025,13 +1025,12 @@ def elevate_winners(ranked: list[Team]) -> tuple[list[Team], Elevs, TeamGrps, Te
 
     return reranked, elevs, win_grps, team_wins
 
-def compute_tourn_ranks(active_teams: list[Team], admin_adj: bool = False,
-                        reason: str = None) -> None:
-    """This is similar to `compute_team_ranks`, except we disregard division assignments.
-    Note that playoff teams are determined by division rankings, and may not be the same
-    as the top 4 teams here.
+def compute_tourn_ranks(teams: list[Team], admin_adj: bool = False, reason: str = None) -> None:
+    """This is similar to `compute_div_ranks`, except we disregard division assignments.
+    Note that playoff teams are determined by division rankings, so that must be done
+    (either through `compute_div_ranks` or admin adjustment) prior to this.
     """
-    tm_list = list(active_teams)  # make a shallow copy, since we will sort in-place
+    tm_list = list(teams)  # make a shallow copy, since we will sort in-place
 
     # here is the dependency on div_rank
     rank_key = lambda x: (x.playoff_bound, x.tourn_win_pct)
@@ -1047,15 +1046,16 @@ def compute_tourn_ranks(active_teams: list[Team], admin_adj: bool = False,
         cohort = list(g)
         if len(cohort) == 1:
             tm = cohort[0]
+            new_rank = tm.tourn_pos
             if admin_adj:
                 orig_rank = tm.tourn_rank_eff
-                if tm.tourn_pos == orig_rank:
+                if new_rank == orig_rank:
                     continue
-                post_info = tm.adj_rank(RankType.TOURN, tm.tourn_pos, reason)
+                post_info = tm.adj_rank(RankType.TOURN, new_rank, reason)
                 assert post_info['old_rank'] == orig_rank
                 post = PostRank.create(**post_info)
             else:
-                tm.tourn_rank = tm.tourn_pos
+                tm.tourn_rank = new_rank
                 tm.tourn_tb_crit = None
                 tm.tourn_tb_data = None
             tm.save()
@@ -1074,20 +1074,21 @@ def compute_tourn_ranks(active_teams: list[Team], admin_adj: bool = False,
                 log.info(f"Cyclic win group for tourn rank, pos {cohort_pos}, "
                          f"seeds {grp_seeds}")
         for i, tm in enumerate(ranked):
+            new_rank = cohort_pos + i
             if admin_adj:
                 orig_rank = tm.tourn_rank_eff
-                if cohort_pos + i == orig_rank:
+                if new_rank == orig_rank:
                     continue
-                post_info = tm.adj_rank(RankType.TOURN, cohort_pos + i, reason)
+                post_info = tm.adj_rank(RankType.TOURN, new_rank, reason)
                 assert post_info['old_rank'] == orig_rank
                 post = PostRank.create(**post_info)
             else:
-                tm.tourn_rank = cohort_pos + i
+                tm.tourn_rank = new_rank
                 tm.tourn_tb_crit = stats[tm.team_seed]
                 tm.tourn_tb_data = data[tm.team_seed]
             tm.save()
 
-def compute_div_ranks(active_teams: list[Team]) -> None:
+def compute_div_ranks(tourn_teams: list[Team]) -> None:
     """Note that we use `rankdata` to identify cohorts (same win percentage), and then
     `rank_team_cohort` to do the actual tie-breaking (which includes head-to-head game
     considerations).
@@ -1095,7 +1096,7 @@ def compute_div_ranks(active_teams: list[Team]) -> None:
     tourn = TournInfo.get()
     div_iter = range(1, tourn.divisions + 1)
     div_teams = {div: [] for div in div_iter}
-    for tm in active_teams:
+    for tm in tourn_teams:
         div_teams[tm.div_num].append(tm)
 
     rank_key = lambda x: x.tourn_win_pct

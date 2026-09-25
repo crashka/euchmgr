@@ -855,7 +855,7 @@ class Team(UIMixin, BaseTeam):
         """Return playoff match record (W-L) as a string
         """
         tourn = TournInfo.get()
-        if not tourn.playoffs_started() or not self.playoff_team:
+        if not tourn.playoffs_started() or not self.playoff_games:
             return None
         return f"{self.playoff_match_wins}-{self.playoff_match_losses}"
 
@@ -864,7 +864,7 @@ class Team(UIMixin, BaseTeam):
         """Return playoff game win record (W-L) as a string
         """
         tourn = TournInfo.get()
-        if not tourn.playoffs_started() or not self.playoff_team:
+        if not tourn.playoffs_started() or not self.playoff_games:
             return None
         return f"{self.playoff_wins}-{self.playoff_losses}"
 

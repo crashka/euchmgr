@@ -523,7 +523,7 @@ def compute_player_ranks(finalize: bool = False) -> None:
                 'new_rank'    : pl.player_rank,
                 'tourn_stage' : tourn.stage_tag
             }
-            rank = PostRank.create(**info)
+            post = PostRank.create(**info)
         tourn.complete_stage(TournStage.SEED_RANKS)
 
 def prepick_champ_partners() -> None:
@@ -1025,7 +1025,8 @@ def elevate_winners(ranked: list[Team]) -> tuple[list[Team], Elevs, TeamGrps, Te
 
     return reranked, elevs, win_grps, team_wins
 
-def compute_tourn_ranks(active_teams: list[Team]) -> None:
+def compute_tourn_ranks(active_teams: list[Team], admin_adj: bool = False,
+                        reason: str = None) -> None:
     """This is similar to `compute_team_ranks`, except we disregard division assignments.
     Note that playoff teams are determined by division rankings, and may not be the same
     as the top 4 teams here.
@@ -1046,9 +1047,17 @@ def compute_tourn_ranks(active_teams: list[Team]) -> None:
         cohort = list(g)
         if len(cohort) == 1:
             tm = cohort[0]
-            tm.tourn_rank = tm.tourn_pos
-            tm.tourn_tb_crit = None
-            tm.tourn_tb_data = None
+            if admin_adj:
+                orig_rank = tm.tourn_rank_eff
+                if tm.tourn_pos == orig_rank:
+                    continue
+                post_info = tm.adj_rank(RankType.TOURN, tm.tourn_pos, reason)
+                assert post_info['old_rank'] == orig_rank
+                post = PostRank.create(**post_info)
+            else:
+                tm.tourn_rank = tm.tourn_pos
+                tm.tourn_tb_crit = None
+                tm.tourn_tb_data = None
             tm.save()
             continue
         cohort_pos = cohort[0].tourn_pos
@@ -1065,9 +1074,17 @@ def compute_tourn_ranks(active_teams: list[Team]) -> None:
                 log.info(f"Cyclic win group for tourn rank, pos {cohort_pos}, "
                          f"seeds {grp_seeds}")
         for i, tm in enumerate(ranked):
-            tm.tourn_rank = cohort_pos + i
-            tm.tourn_tb_crit = stats[tm.team_seed]
-            tm.tourn_tb_data = data[tm.team_seed]
+            if admin_adj:
+                orig_rank = tm.tourn_rank_eff
+                if cohort_pos + i == orig_rank:
+                    continue
+                post_info = tm.adj_rank(RankType.TOURN, cohort_pos + i, reason)
+                assert post_info['old_rank'] == orig_rank
+                post = PostRank.create(**post_info)
+            else:
+                tm.tourn_rank = cohort_pos + i
+                tm.tourn_tb_crit = stats[tm.team_seed]
+                tm.tourn_tb_data = data[tm.team_seed]
             tm.save()
 
 def compute_div_ranks(active_teams: list[Team]) -> None:
@@ -1141,7 +1158,16 @@ def compute_team_ranks(finalize: bool = False) -> None:
                 'new_rank'    : tm.div_rank,
                 'tourn_stage' : tourn.stage_tag
             }
-            rank = PostRank.create(**info)
+            div_post = PostRank.create(**info)
+
+            info = {
+                'rank_type'   : RankType.TOURN,
+                'team'        : tm,
+                'post_action' : rank_action,
+                'new_rank'    : tm.tourn_rank,
+                'tourn_stage' : tourn.stage_tag
+            }
+            tourn_post = PostRank.create(**info)
 
         if tourn.playoff_teams == 2:
             # REVISIT: this is a little hacky, since there aren't really any semifinal
@@ -1427,7 +1453,7 @@ def compute_final_ranks(finalize: bool = False) -> None:
                 'new_rank'    : tm.final_rank,
                 'tourn_stage' : tourn.stage_tag
             }
-            rank = PostRank.create(**info)
+            post = PostRank.create(**info)
         tourn.complete_stage(TournStage.TOURN_FINAL)
 
 ########

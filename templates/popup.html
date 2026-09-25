@@ -183,7 +183,7 @@
       </section>
       {% endif %}  {# popup_num in (0, 1) #}
 
-      {% if popup_num in (2, 3) %}
+      {% if popup_num in (2, 3, 5) %}
       <section class="team_info">
         <h2>Team Info</h2>
         <p>
@@ -248,7 +248,7 @@
         </div>
       </section>
       {% endif %}
-      {% if popup_num in (2, 3, 4) %}
+      {% if popup_num in (2, 3, 4, 5) %}
       <section class="posts">
         <h2>Rank History</h2>
         {% if posts %}
@@ -284,7 +284,7 @@
         </p>
         {% endif %}  {# posts #}
       </section>
-      {% endif %}  {# popup_num in (2, 3) #}
+      {% endif %}  {# popup_num in (2, 3, 4, 5) #}
     </main>
     <p class="actions">
       {% if popup_num == 0 %}

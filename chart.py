@@ -113,7 +113,8 @@ def render_chart(context: dict) -> str:
 RANK_HIST_REPORT = {
     RankType.SEED : '/report/seed_rank_hist',
     RankType.DIV  : '/report/div_rank_hist',
-    RankType.FINAL: '/report/final_rank_hist'
+    RankType.FINAL: '/report/final_rank_hist',
+    RankType.TOURN: '/report/tourn_rank_hist'
 }
 
 RANK_ADJ_ACTION = {
@@ -381,6 +382,7 @@ def rr_scores(tourn: TournInfo) -> str:
 def trn_results(tourn: TournInfo) -> str:
     """Render intermediary/pre-playoff tournament results as a chart
     """
+    rank_type = RankType.TOURN
     #tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.tourn_rank_eff)
     tm_iter  = Team.iter_teams(div=None, by_rank=True)
     tm_list = list(filter(lambda x: x.tourn_wins + x.tourn_losses, tm_iter))
@@ -402,6 +404,7 @@ def trn_results(tourn: TournInfo) -> str:
         'teams'       : tm_list,
         'tb_crit'     : tb_crit,
         'rank_note'   : rank_note,
+        'hist_rpt'    : RANK_HIST_REPORT[rank_type],
         'fmt_stat'    : fmt_stat,
         'bold_color'  : '#555555'
     }

@@ -29,6 +29,7 @@ SCORE_ADJUST = "Admin Score Adjustment"
 FINAL_RANK_HIST = "Final Rank History"
 DIV_RANK_HIST = "Division Rank History"
 SEED_RANK_HIST = "Seeding Rank History"
+TOURN_RANK_HIST = "Tourn Rank History"
 
 REPORT_FUNCS = [
     'rr_tbreak',
@@ -38,7 +39,8 @@ REPORT_FUNCS = [
     'score_adjust',
     'final_rank_hist',
     'div_rank_hist',
-    'seed_rank_hist'
+    'seed_rank_hist',
+    'tourn_rank_hist'
 ]
 
 @report.get("/<report>")
@@ -388,6 +390,28 @@ def seed_rank_hist(target: str, tourn: TournInfo) -> str:
         'user'      : current_user,
         'tourn'     : tourn,
         'player'    : player,
+        'posts'     : posts
+    }
+    return render_popup(context)
+
+###################
+# tourn_rank_hist #
+###################
+
+def tourn_rank_hist(target: str, tourn: TournInfo) -> str:
+    """Render rank posting report (as a popup), where `target` is tm_<id>
+    """
+    segs = target.split("_", 1)
+    assert len(segs) == 2 and segs[0] == 'tm'
+    team = Team[typecast(segs[1])]
+    posts = PostRank.get_posts(RankType.TOURN, team)
+
+    context = {
+        'popup_num' : 5,
+        'title'     : TOURN_RANK_HIST,
+        'user'      : current_user,
+        'tourn'     : tourn,
+        'team'      : team,
         'posts'     : posts
     }
     return render_popup(context)

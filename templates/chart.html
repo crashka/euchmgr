@@ -368,7 +368,9 @@
               <td>{{fmt_stat(tm.tourn_pts_pct)|safe}}</td>
               <td class="vert_sect">{{fmt_stat(tm.tourn_tb_win_rec)}}</td>
               <td>{{fmt_stat(tm.tourn_tb_pts_pct)|safe}}</td>
-              <td class="vert_sect" title="{{rank_note[tm.id]}}">{{tm.tourn_rank_disp}}</td>
+              <td class="rank vert_sect" id="tm_{{tm.id}}" title="{{rank_note[tm.id]}}">
+                {{tm.tourn_rank_disp}}
+              </td>
             </tr>
             {% endfor %}
             {% else %}
@@ -599,7 +601,7 @@
        const specs = "popup,width=900,height=600,top=200,left=200";
        popupWin = window.open('/report/score_posting/' + this.id, "_blank", specs);
      });
-     {% elif chart_num in (5, 7, 9) %}
+     {% elif chart_num in (4, 5, 7, 9) %}
      $('td.rank').on('click', function(e) {
        if (popupWin && !popupWin.closed) {
          popupWin.close();

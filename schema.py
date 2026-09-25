@@ -1163,6 +1163,16 @@ class Team(BaseModel):
                 rank_action = RankAction.ADJUST
                 old_rank = self.div_rank_adj or self.div_rank
                 self.div_rank_adj = new_rank
+        elif rank_type == RankType.TOURN:
+            if new_rank == self.tourn_rank:
+                rank_action = RankAction.REVERT
+                assert self.tourn_rank_adj
+                old_rank = self.tourn_rank_adj
+                self.tourn_rank_adj = None
+            else:
+                rank_action = RankAction.ADJUST
+                old_rank = self.tourn_rank_adj or self.tourn_rank
+                self.tourn_rank_adj = new_rank
         elif rank_type == RankType.FINAL:
             if new_rank == self.final_rank:
                 rank_action = RankAction.REVERT

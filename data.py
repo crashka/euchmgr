@@ -488,14 +488,11 @@ def teams_rank_adj(rank_type: str) -> str:
             # NOTE: we recompute tourn_rank so that playoff seeds are correct and the team
             # ranks chart looks right (fairly minor points, but can help reduce confusion)
             #
-            # TODOs:
-            #   - we should really do the reranking as an adjustment, rather than a straight
-            #     overwrite (see below)!!!
+            # TODO:
             #   - need to enforce constraints (or minimally, proper logging) depending on the
             #     tournament stage (here and elsewhere)!!!
             tm_list = list(Team.iter_teams())
-            #compute_tourn_ranks(tm_list, admn_adj=True)
-            compute_tourn_ranks(tm_list)
+            compute_tourn_ranks(tm_list, admin_adj=True, reason="Div rank adjustment")
 
     return redirect(data['redirect_to'])
 

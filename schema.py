@@ -729,6 +729,9 @@ class SeedGame(BaseModel):
         that score updates come through here (since denorms are now managed elsewhere),
         but there is a little bit of integrity checking here that is slightly useful
         """
+        if not self.table_num:
+            assert self.bye_players
+            raise RuntimeError(f"Scores may not be added for bye rounds")
         if self.winner:
             if admin_adj:
                 assert current_user.is_admin
@@ -1232,6 +1235,9 @@ class TournGame(BaseModel):
         that score updates come through here (since denorms are now managed elsewhere),
         but there is a little bit of integrity checking here that is slightly useful
         """
+        if not self.table_num:
+            assert self.bye_team
+            raise RuntimeError(f"Scores may not be added for bye rounds")
         if self.winner:
             if admin_adj:
                 assert current_user.is_admin

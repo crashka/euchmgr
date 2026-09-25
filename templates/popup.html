@@ -74,10 +74,10 @@
        width: 2.0rem;
      }
      td.act_info {
-       width: 10.5rem;
+       width: 11.5rem;
      }
      .act_info input {
-       width: 10.0rem;
+       width: 11.0rem;
      }
      input::-webkit-outer-spin-button,
      input::-webkit-inner-spin-button {
@@ -313,17 +313,18 @@
      });
 
      $('.adjust input').on('change', function() {
-       let actionInfo = $('input[name="action_info"]').val();
-       let team1Pts = $('input[name="team1_pts"]').val();
-       let team2Pts = $('input[name="team2_pts"]').val();
+       const actionInfo = $('input[name="action_info"]').val();
+       const team1Pts = $('input[name="team1_pts"]').val();
+       const team2Pts = $('input[name="team2_pts"]').val();
+       const winner = (team1Pts == "10" || team2Pts == "10");
 
-       if (actionInfo && team1Pts && team2Pts) {
+       if (actionInfo && team1Pts && team2Pts && winner) {
          $('button[type="submit"]').prop('disabled', false);
        }
        else {
          $('button[type="submit"]').prop('disabled', true);
        }
-     });
+   });
 
      // we do this so we can tab over to the submit button from the
      // last form input (if it becomes enabled)

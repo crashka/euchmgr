@@ -13,7 +13,7 @@ from core import log
 from security import login_required
 from database import db_atomic
 from schema import (Bracket, BRACKET_NAME, TournStage, TournInfo, ScoreAction, RankType,
-                    RankAction, TournEvent, TournLog)
+                    TournEvent, TournLog)
 from euchmgr import (validate_seed_round, compute_player_ranks, validate_tourn,
                      compute_tourn_ranks, compute_team_ranks, validate_playoffs,
                      compute_playoff_ranks)

@@ -585,7 +585,7 @@ class Player(BaseModel, EuchmgrUser):
         """Add or remove a ranking adjustment.  Return data structure suitable for
         creating a PostRank record, including fields for rank_action and old_rank.
         """
-        if not current_user.is_admin:
+        if current_user and not current_user.is_admin:
             raise PermissionError("Only admins can adjust rankings")
         rank_action = None
         old_rank = None
@@ -734,7 +734,8 @@ class SeedGame(BaseModel):
             raise RuntimeError(f"Scores may not be added for bye rounds")
         if self.winner:
             if admin_adj:
-                assert current_user.is_admin
+                if current_user and not current_user.is_admin:
+                    raise PermissionError("Only admins can adjust scores")
             else:
                 raise RuntimeError("Completed game score cannot be overwritten")
         if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
@@ -1147,7 +1148,7 @@ class Team(BaseModel):
         """Add or remove a ranking adjustment.  Return data structure suitable for
         creating a PostRank record, including fields for rank_action and old_rank.
         """
-        if not current_user.is_admin:
+        if current_user and not current_user.is_admin:
             raise PermissionError("Only admins can adjust rankings")
         rank_action = None
         old_rank = None
@@ -1240,7 +1241,8 @@ class TournGame(BaseModel):
             raise RuntimeError(f"Scores may not be added for bye rounds")
         if self.winner:
             if admin_adj:
-                assert current_user.is_admin
+                if current_user and not current_user.is_admin:
+                    raise PermissionError("Only admins can adjust scores")
             else:
                 raise RuntimeError("Completed game score cannot be overwritten")
         if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
@@ -1432,7 +1434,8 @@ class PlayoffGame(BaseModel):
         """
         if self.winner:
             if admin_adj:
-                assert current_user.is_admin
+                if current_user and not current_user.is_admin:
+                    raise PermissionError("Only admins can adjust scores")
             else:
                 raise RuntimeError("Completed game score cannot be overwritten")
         if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):

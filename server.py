@@ -388,6 +388,14 @@ help_txt = {
 # __main__ #
 ############
 
+import sys
+
+from ckautils import parse_argv
+
 if __name__ == "__main__":
-    app = create_app()
+    args, kwargs = parse_argv(sys.argv[1:])
+    if args:
+        sys.exit(f"unexpected args: {args}")
+
+    app = create_app(**kwargs)
     app.run(debug=True, host='0.0.0.0', port=5050)

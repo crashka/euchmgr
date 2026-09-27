@@ -122,11 +122,15 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
                 try:
                     db_connect(tourn_name)
                 except ConnectionError as e:
-                    if "does not match db_name()" not in str(e):
+                    pattern = r"does not match db_name\(\) \('(.*)'\)$"
+                    if not (m := re.search(pattern, str(e))):
                         raise
-                    # session has gone away (likely another admin)
+                    # database connection for the session has been changed out from under
+                    # us (presumably by another admin)--OPEN ISSUE: is it better to clear
+                    # out the session info (as we are doing now), or just realign it with
+                    # the current database connection?
                     session.pop('tourn', None)
-                    flash(f"Note: the active tournament has been changed")
+                    flash(f"Note: the active tournament has been changed to \"{m[1]}\"")
                     log.error(str(e))
 
     @app.teardown_request

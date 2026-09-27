@@ -114,7 +114,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         """
         if ignore_path(request.path):
             return
-        log.debug(f"@app.before_request: {request.method} {request.path}")
+        log.trace(f"@app.before_request: {request.method} {request.path}")
         tourn_name = session.get('tourn')
         assert not (tourn_name and g.mobile)
         if tourn_name != SEL_NEW:
@@ -130,8 +130,9 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
                     # out the session info (as we are doing now), or just realign it with
                     # the current database connection?
                     session.pop('tourn', None)
-                    flash(f"Note: the active tournament has been changed to \"{m[1]}\"")
-                    log.error(str(e))
+                    msg = f"active tournament has been changed to \"{m[1]}\""
+                    log.error(f"{msg} (expected \"{tourn_name}\")")
+                    flash(f"Note: {msg}")
 
     @app.teardown_request
     def _db_close(exc) -> None:
@@ -141,7 +142,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         """
         if ignore_path(request.path):
             return
-        log.debug(f"@app.teardown_request: {request.method} {request.path}")
+        log.trace(f"@app.teardown_request: {request.method} {request.path}")
         db_close()
 
     @app.errorhandler(HTTPException)

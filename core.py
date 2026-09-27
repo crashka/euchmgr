@@ -73,8 +73,8 @@ if DEBUG:
     log.setLevel(logging.DEBUG)
     if DEBUG > 1:
         log.addHandler(dbg_hand)
-    if DEBUG > 2:
-        log.setLevel(TRACE)
+        if DEBUG > 2:
+            log.setLevel(TRACE)
 
 ##############
 # exceptions #

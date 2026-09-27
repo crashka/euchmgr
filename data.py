@@ -35,6 +35,8 @@ CLICKABLE = 'clickable'  # see NOTE in admin.html
 
 Layout = list[tuple[str, str, str]]
 
+HIT_BACK_ARROW = "Hit back arrow to continue..."
+
 ##########
 # /tourn #
 ##########
@@ -157,30 +159,34 @@ def players_rank_adj(rank_type: str) -> str:
     assert 'redirect_to' in data
 
     with db_atomic() as txn:
-        posts = []
-        for field in data:
-            # looking for "pl_<id>_rank"
-            segs = field.split("_", 2)
-            if len(segs) != 3 or (segs[0], segs[2]) != ('pl', 'rank'):
-                continue
-            player = Player[typecast(segs[1])]
-            new_rank = typecast(data[field])
-            orig_field = field.replace('rank', 'orig_rank', 1)
-            assert orig_field != field
-            orig_rank = typecast(data[orig_field])
-            if new_rank == orig_rank:
-                #log.debug(f"skipping unadjusted {rank_type} rank for player {player.id}")
-                continue
+        try:
+            posts = []
+            for field in data:
+                # looking for "pl_<id>_rank"
+                segs = field.split("_", 2)
+                if len(segs) != 3 or (segs[0], segs[2]) != ('pl', 'rank'):
+                    continue
+                player = Player[typecast(segs[1])]
+                new_rank = typecast(data[field])
+                orig_field = field.replace('rank', 'orig_rank', 1)
+                assert orig_field != field
+                orig_rank = typecast(data[orig_field])
+                if new_rank == orig_rank:
+                    #log.debug(f"skipping unadjusted {rank_type} rank for player {player.id}")
+                    continue
 
-            post_info = player.adj_rank(rank_type, new_rank, data['action_info'])
-            assert post_info['old_rank'] == orig_rank
-            player.save()
+                post_info = player.adj_rank(rank_type, new_rank, data['action_info'])
+                assert post_info['old_rank'] == orig_rank
+                player.save()
 
-            post = PostRank.create(**post_info)
-            TournLog.addRank(TournEvent.RANK_ADJ, post)
-            log.notice(f"{post_info['post_action']} {rank_type} rank for player {player.id}: "
-                       f"{orig_rank} -> {new_rank} [{data['action_info']}]")
-            posts.append(post)
+                post = PostRank.create(**post_info)
+                TournLog.addRank(TournEvent.RANK_ADJ, post)
+                log.notice(f"{post_info['post_action']} {rank_type} rank for player {player.id}: "
+                           f"{orig_rank} -> {new_rank} [{data['action_info']}]")
+                posts.append(post)
+        except RuntimeError as e:
+            txn.rollback()
+            return render_error(400, str(e), HIT_BACK_ARROW)
 
     return redirect(data['redirect_to'])
 
@@ -271,24 +277,28 @@ def post_seeding_adj() -> str:
     assert 'redirect_to' in data
 
     with db_atomic() as txn:
-        game = SeedGame[typecast(data.get('id'))]
-        prev_score = (game.team1_pts, game.team2_pts)
-        team1_pts = typecast(data.get('team1_pts'))
-        team2_pts = typecast(data.get('team2_pts'))
-        assert None not in (team1_pts, team2_pts)
-        if (team1_pts, team2_pts) == prev_score:
-            raise RuntimeError("Score unchanged")
-        game.add_scores(team1_pts, team2_pts, admin_adj=True)
-        game.save()
+        try:
+            game = SeedGame[typecast(data.get('id'))]
+            prev_score = (game.team1_pts, game.team2_pts)
+            team1_pts = typecast(data.get('team1_pts'))
+            team2_pts = typecast(data.get('team2_pts'))
+            assert None not in (team1_pts, team2_pts)
+            if (team1_pts, team2_pts) == prev_score:
+                raise RuntimeError("Score unchanged")
+            game.add_scores(team1_pts, team2_pts, admin_adj=True)
+            game.save()
 
-        assert game.winner
-        post = PostScore.add(game, data.get('post_action'), data.get('action_info'))
-        TournLog.addScore(TournEvent.SCORE_ADJ, post)
-        game.update_player_stats(revert=prev_score)
-        game.update_player_stats()
-        game.update_player_games()
-        compute_player_ranks()
-        validate_seed_round()
+            assert game.winner
+            post = PostScore.add(game, data.get('post_action'), data.get('action_info'))
+            TournLog.addScore(TournEvent.SCORE_ADJ, post)
+            game.update_player_stats(revert=prev_score)
+            game.update_player_stats()
+            game.update_player_games()
+            compute_player_ranks()
+            validate_seed_round()
+        except RuntimeError as e:
+            txn.rollback()
+            return render_error(400, str(e), HIT_BACK_ARROW)
 
     new_score = (team1_pts, team2_pts)
     log.notice(f"Adjusting score for seed game {game.label}: {prev_score} -> {new_score} "
@@ -459,40 +469,44 @@ def teams_rank_adj(rank_type: str) -> str:
     assert 'redirect_to' in data
 
     with db_atomic() as txn:
-        posts = []
-        for field in data:
-            # looking for "tm_<id>_rank"
-            segs = field.split("_", 2)
-            if len(segs) != 3 or (segs[0], segs[2]) != ('tm', 'rank'):
-                continue
-            team = Team[typecast(segs[1])]
-            new_rank = typecast(data[field])
-            orig_field = field.replace('rank', 'orig_rank', 1)
-            assert orig_field != field
-            orig_rank = typecast(data[orig_field])
-            if new_rank == orig_rank:
-                #log.debug(f"skipping unadjusted {rank_type} rank for team {team.id}")
-                continue
+        try:
+            posts = []
+            for field in data:
+                # looking for "tm_<id>_rank"
+                segs = field.split("_", 2)
+                if len(segs) != 3 or (segs[0], segs[2]) != ('tm', 'rank'):
+                    continue
+                team = Team[typecast(segs[1])]
+                new_rank = typecast(data[field])
+                orig_field = field.replace('rank', 'orig_rank', 1)
+                assert orig_field != field
+                orig_rank = typecast(data[orig_field])
+                if new_rank == orig_rank:
+                    #log.debug(f"skipping unadjusted {rank_type} rank for team {team.id}")
+                    continue
 
-            post_info = team.adj_rank(rank_type, new_rank, data['action_info'])
-            assert post_info['old_rank'] == orig_rank
-            team.save()
+                post_info = team.adj_rank(rank_type, new_rank, data['action_info'])
+                assert post_info['old_rank'] == orig_rank
+                team.save()
 
-            post = PostRank.create(**post_info)
-            TournLog.addRank(TournEvent.RANK_ADJ, post)
-            log.notice(f"{post_info['post_action']} {rank_type} rank for team {team.id}: "
-                       f"{orig_rank} -> {new_rank} [{data['action_info']}]")
-            posts.append(post)
+                post = PostRank.create(**post_info)
+                TournLog.addRank(TournEvent.RANK_ADJ, post)
+                log.notice(f"{post_info['post_action']} {rank_type} rank for team {team.id}: "
+                           f"{orig_rank} -> {new_rank} [{data['action_info']}]")
+                posts.append(post)
 
-        if posts and rank_type == RankType.DIV:
-            # NOTE: we recompute tourn_rank so that playoff seeds are correct and the team
-            # ranks chart looks right (fairly minor points, but can help reduce confusion)
-            #
-            # TODO:
-            #   - need to enforce constraints (or minimally, proper logging) depending on the
-            #     tournament stage (here and elsewhere)!!!
-            tm_list = list(Team.iter_teams())
-            compute_tourn_ranks(tm_list, admin_adj=True, reason="Div rank adjustment")
+            if posts and rank_type == RankType.DIV:
+                # NOTE: we recompute tourn_rank so that playoff seeds are correct and the team
+                # ranks chart looks right (fairly minor points, but can help reduce confusion)
+                #
+                # TODO:
+                #   - need to enforce constraints (or minimally, proper logging) depending on the
+                #     tournament stage (here and elsewhere)!!!
+                tm_list = list(Team.iter_teams())
+                compute_tourn_ranks(tm_list, admin_adj=True, reason="Div rank adjustment")
+        except RuntimeError as e:
+            txn.rollback()
+            return render_error(400, str(e), HIT_BACK_ARROW)
 
     return redirect(data['redirect_to'])
 
@@ -583,24 +597,28 @@ def post_round_robin_adj() -> dict:
     assert 'redirect_to' in data
 
     with db_atomic() as txn:
-        game = TournGame[typecast(data.get('id'))]
-        prev_score = (game.team1_pts, game.team2_pts)
-        team1_pts = typecast(data.get('team1_pts'))
-        team2_pts = typecast(data.get('team2_pts'))
-        assert None not in (team1_pts, team2_pts)
-        if (team1_pts, team2_pts) == prev_score:
-            raise RuntimeError("Score unchanged")
-        game.add_scores(team1_pts, team2_pts, admin_adj=True)
-        game.save()
+        try:
+            game = TournGame[typecast(data.get('id'))]
+            prev_score = (game.team1_pts, game.team2_pts)
+            team1_pts = typecast(data.get('team1_pts'))
+            team2_pts = typecast(data.get('team2_pts'))
+            assert None not in (team1_pts, team2_pts)
+            if (team1_pts, team2_pts) == prev_score:
+                raise RuntimeError("Score unchanged")
+            game.add_scores(team1_pts, team2_pts, admin_adj=True)
+            game.save()
 
-        assert game.winner
-        post = PostScore.add(game, data.get('post_action'), data.get('action_info'))
-        TournLog.addScore(TournEvent.SCORE_ADJ, post)
-        game.update_team_stats(revert=prev_score)
-        game.update_team_stats()
-        game.update_team_games()
-        compute_team_ranks()
-        validate_tourn()
+            assert game.winner
+            post = PostScore.add(game, data.get('post_action'), data.get('action_info'))
+            TournLog.addScore(TournEvent.SCORE_ADJ, post)
+            game.update_team_stats(revert=prev_score)
+            game.update_team_stats()
+            game.update_team_games()
+            compute_team_ranks()
+            validate_tourn()
+        except RuntimeError as e:
+            txn.rollback()
+            return render_error(400, str(e), HIT_BACK_ARROW)
 
     new_score = (team1_pts, team2_pts)
     log.notice(f"Adjusting score for tourn game {game.label}: {prev_score} -> {new_score} "
@@ -779,24 +797,34 @@ def post_playoffs_adj() -> dict:
     assert 'redirect_to' in data
 
     with db_atomic() as txn:
-        game = PlayoffGame[typecast(data.get('id'))]
-        prev_score = (game.team1_pts, game.team2_pts)
-        team1_pts = typecast(data.get('team1_pts'))
-        team2_pts = typecast(data.get('team2_pts'))
-        assert None not in (team1_pts, team2_pts)
-        if (team1_pts, team2_pts) == prev_score:
-            raise RuntimeError("Score unchanged")
-        game.add_scores(team1_pts, team2_pts, admin_adj=True)
-        game.save()
+        try:
+            game = PlayoffGame[typecast(data.get('id'))]
+            # TEMP: currently do not support adjustments for second-level playoff rounds,
+            # due to limitations in playoff team stats reversion!!!
+            if game.bracket == Bracket.FINALS:
+                tourn = TournInfo.get()
+                if tourn.playoff_teams == 4:
+                    raise RuntimeError("Cannot currently adjust score for playoff finals game (coming soon...)")
+            prev_score = (game.team1_pts, game.team2_pts)
+            team1_pts = typecast(data.get('team1_pts'))
+            team2_pts = typecast(data.get('team2_pts'))
+            assert None not in (team1_pts, team2_pts)
+            if (team1_pts, team2_pts) == prev_score:
+                raise RuntimeError("Score unchanged")
+            game.add_scores(team1_pts, team2_pts, admin_adj=True)
+            game.save()
 
-        assert game.winner
-        post = PostScore.add(game, data.get('post_action'), data.get('action_info'))
-        TournLog.addScore(TournEvent.SCORE_ADJ, post)
-        game.update_team_stats(revert=prev_score)
-        game.update_team_stats()
-        #game.update_team_games()
-        compute_playoff_ranks(game.bracket)
-        validate_playoffs(game.bracket)
+            assert game.winner
+            post = PostScore.add(game, data.get('post_action'), data.get('action_info'))
+            TournLog.addScore(TournEvent.SCORE_ADJ, post)
+            game.update_team_stats(revert=prev_score)
+            game.update_team_stats()
+            #game.update_team_games()
+            compute_playoff_ranks(game.bracket)
+            validate_playoffs(game.bracket)
+        except RuntimeError as e:
+            txn.rollback()
+            return render_error(400, str(e), HIT_BACK_ARROW)
 
     new_score = (team1_pts, team2_pts)
     log.notice(f"Adjusting score for playoff game {game.label}: {prev_score} -> {new_score} "

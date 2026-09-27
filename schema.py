@@ -53,6 +53,7 @@ def get_bracket(label: str) -> str:
     """
     pfx = label.split('-', 1)[0]
     assert pfx in Bracket
+    #return Bracket(pfx)  <-- should be this, need verify that it doesn't break any current callers
     return pfx
 
 ##############################
@@ -356,6 +357,12 @@ class TournInfo(BaseModel):
         else:
             assert self.playoff_teams == 4
             return self.stage_compl >= TournStage.SEMIS_BRACKET
+
+    def semifinals_done(self) -> bool:
+        """Official way to check if semifinals are complete (scores validated and interim
+        playoff rankings computed).
+        """
+        return self.stage_compl >= TournStage.SEMIS_RANKS
 
     def playoffs_done(self) -> bool:
         """Official way to check if playoffs are complete (scores validated and playoff
@@ -738,8 +745,11 @@ class SeedGame(BaseModel):
             if admin_adj:
                 if current_user and not current_user.is_admin:
                     raise PermissionError("Only admins can adjust scores")
+                tourn = TournInfo.get()
+                if tourn.seeding_done():
+                    raise RuntimeError("Cannot adjust game scores after seeding ranks have been computed")
             else:
-                raise RuntimeError("Completed game score cannot be overwritten")
+                raise RuntimeError("Cannot overwrite completed game scores")
         if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
             raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points)")
 
@@ -1168,7 +1178,7 @@ class Team(BaseModel):
 
         if rank_type == RankType.DIV:
             if tourn.playoffs_started():
-                raise RuntimeError("Cannot adjust div rank after playoff brackets have been created")
+                raise RuntimeError("Cannot adjust division rank after playoff brackets have been created")
             if new_rank == self.div_rank:
                 rank_action = RankAction.REVERT
                 assert self.div_rank_adj
@@ -1179,6 +1189,9 @@ class Team(BaseModel):
                 old_rank = self.div_rank_adj or self.div_rank
                 self.div_rank_adj = new_rank
         elif rank_type == RankType.TOURN:
+            # this should only be done as a consequence of div-level adjustments, so we'll
+            # assert the same stage constraint as (right) above
+            assert not tourn.playoffs_started()
             if new_rank == self.tourn_rank:
                 rank_action = RankAction.REVERT
                 assert self.tourn_rank_adj
@@ -1189,6 +1202,8 @@ class Team(BaseModel):
                 old_rank = self.tourn_rank_adj or self.tourn_rank
                 self.tourn_rank_adj = new_rank
         elif rank_type == RankType.FINAL:
+            # REVISIT: we may want to put a stage constraint here if we ever introduce the
+            # notion of indelibly finalizing tournament results
             if new_rank == self.final_rank:
                 rank_action = RankAction.REVERT
                 assert self.final_rank_adj
@@ -1267,8 +1282,11 @@ class TournGame(BaseModel):
             if admin_adj:
                 if current_user and not current_user.is_admin:
                     raise PermissionError("Only admins can adjust scores")
+                tourn = TournInfo.get()
+                if tourn.round_robin_done():
+                    raise RuntimeError("Cannot adjust game scores after division ranks have been computed")
             else:
-                raise RuntimeError("Completed game score cannot be overwritten")
+                raise RuntimeError("Cannot overwrite completed game scores")
         if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
             raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points)")
 
@@ -1460,8 +1478,13 @@ class PlayoffGame(BaseModel):
             if admin_adj:
                 if current_user and not current_user.is_admin:
                     raise PermissionError("Only admins can adjust scores")
+                tourn = TournInfo.get()
+                if self.bracket == Bracket.SEMIS and tourn.semifinals_done():
+                    raise RuntimeError("Cannot adjust game scores after semifinals results have been tabulated")
+                if self.bracket == Bracket.FINALS and tourn.playoffs_done():
+                    raise RuntimeError("Cannot adjust game scores after final playoff results have been tabulated")
             else:
-                raise RuntimeError("Completed game score cannot be overwritten")
+                raise RuntimeError("Cannot overwrite completed game scores")
         if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
             raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points)")
 
@@ -1489,11 +1512,17 @@ class PlayoffGame(BaseModel):
             opp_pts  = team_scores[op_idx]
 
             if revert:
+                if self.bracket == Bracket.FINALS:
+                    tourn = TournInfo.get()
+                    # TEMP: only allow if this is the only playoff round (see BROKEN
+                    # below)!!!
+                    assert tourn.playoff_teams == 2
                 team.playoff_wins        -= int(team_pts > opp_pts)
                 team.playoff_losses      -= int(team_pts < opp_pts)
                 team.playoff_pts_for     -= team_pts
                 team.playoff_pts_against -= opp_pts
                 # just hard-reset match stats (don't muck with matchup_winner here)
+                # BROKEN: this doesn't work for second-level playoff rounds!!!
                 team.playoff_match_wins   = 0
                 team.playoff_match_losses = 0
             else:

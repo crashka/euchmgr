@@ -119,7 +119,15 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         assert not (tourn_name and g.mobile)
         if tourn_name != SEL_NEW:
             if not app.testing or db_is_closed():
-                db_connect(tourn_name)
+                try:
+                    db_connect(tourn_name)
+                except ConnectionError as e:
+                    if "does not match db_name()" not in str(e):
+                        raise
+                    # session has gone away (likely another admin)
+                    session.pop('tourn', None)
+                    flash(f"Note: the active tournament has been changed")
+                    log.error(str(e))
 
     @app.teardown_request
     def _db_close(exc) -> None:
@@ -260,8 +268,13 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         tourn = TournInfo.get()
         tourn_name = session.get('tourn')
         if not tourn_name:
-            # our session information has been cleared out somehow (should only happen in
-            # testing)--let's just re-set it and log this as an event of interest
+            # REVISIT: this can happen if another admin has switched tournaments out from
+            # under us (and the mismatched session info is then cleared).  Interestingly
+            # enough, we can remain in this state for quite a while, until we try and hit
+            # up either `/` (here) or `/tourn` (in admin.py).  We should really fix this,
+            # since it clearly wasn't meant to be this way, but things seem to be working
+            # okay, so for now we'll just re-set the session info and log this as an event
+            # of interest.
             session['tourn'] = tourn.name
             log.info(f"re-setting tourn = '{tourn.name}' in session state")
 

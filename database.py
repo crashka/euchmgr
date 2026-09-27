@@ -7,7 +7,7 @@ import os.path
 from peewee import SqliteDatabase, Model, DateTimeField
 from playhouse.cysqlite_ext import CySqliteDatabase
 
-from core import DataFile, log, DEBUG, LogicError
+from core import DataFile, log, DEBUG
 
 #####################
 # utility functions #
@@ -156,7 +156,7 @@ def db_connect(name: str | None = None) -> bool:
             log.debug(f"db_connect({name}), cur_db empty, called db_init")
             return True
         elif cur_db != name:
-            raise LogicError(f"name ('{name}') does not match db_name() ('{cur_db}')")
+            raise ConnectionError(f"name ('{name}') does not match db_name() ('{cur_db}')")
         else:
             # TODO: log this condition for better understanding (we get here as part of
             # the ugly recursion, mentioned above--but what else?)!!!

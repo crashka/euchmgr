@@ -214,9 +214,7 @@ def tourn() -> str:
 
     tourn = TournInfo() if create_new else None
     if db_is_initialized():
-        # our session information has been cleared out somehow (should only happen in
-        # testing)--let's just re-set it and log this as an event of interest (same as
-        # for `index` above)
+        # see REVISIT comment for the `index` route (in server.py)
         tourn = TournInfo.get()
         session['tourn'] = tourn.name
         log.info(f"re-setting tourn = '{tourn.name}' in session state")

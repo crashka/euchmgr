@@ -149,7 +149,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
     def handle_http_exception(e) -> tuple[dict, int] | HTTPException:
         """Return appropropiate exception format based on `g.api_call`.
         """
-        log.debug(f"handle_http_exception {e.code} ({e.name}), \"{e.description}\"")
+        log.info(f"handle_http_exception {e.code} ({e.name}), \"{e.description}\"")
         if g.api_call:
             return {
                 'succ': False,
@@ -163,7 +163,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
     def handle_exception(e) -> tuple[dict, int] | Exception:
         """Return appropropiate exception format based on `g.api_call`.
         """
-        log.debug(f"handle_exception \"{str(e)}\"")
+        log.info(f"handle_exception \"{str(e)}\"")
         if g.api_call:
             tb = traceback.format_exception(e)
             return {

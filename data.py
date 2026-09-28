@@ -35,7 +35,7 @@ CLICKABLE = 'clickable'  # see NOTE in admin.html
 
 Layout = list[tuple[str, str, str]]
 
-HIT_BACK_ARROW = "Hit back arrow to continue..."
+BACK_BUTTON = "hit browser \"Back\" button [or Alt+Left Arrow] to continue"
 
 ##########
 # /tourn #
@@ -186,7 +186,7 @@ def players_rank_adj(rank_type: str) -> str:
                 posts.append(post)
         except RuntimeError as e:
             txn.rollback()
-            return render_error(400, str(e), HIT_BACK_ARROW)
+            return render_error(400, str(e), BACK_BUTTON)
 
     return redirect(data['redirect_to'])
 
@@ -298,7 +298,7 @@ def post_seeding_adj() -> str:
             validate_seed_round()
         except RuntimeError as e:
             txn.rollback()
-            return render_error(400, str(e), HIT_BACK_ARROW)
+            return render_error(400, str(e), BACK_BUTTON)
 
     new_score = (team1_pts, team2_pts)
     log.notice(f"Adjusting score for seed game {game.label}: {prev_score} -> {new_score} "
@@ -506,7 +506,7 @@ def teams_rank_adj(rank_type: str) -> str:
                 compute_tourn_ranks(tm_list, admin_adj=True, reason="Div rank adjustment")
         except RuntimeError as e:
             txn.rollback()
-            return render_error(400, str(e), HIT_BACK_ARROW)
+            return render_error(400, str(e), BACK_BUTTON)
 
     return redirect(data['redirect_to'])
 
@@ -618,7 +618,7 @@ def post_round_robin_adj() -> dict:
             validate_tourn()
         except RuntimeError as e:
             txn.rollback()
-            return render_error(400, str(e), HIT_BACK_ARROW)
+            return render_error(400, str(e), BACK_BUTTON)
 
     new_score = (team1_pts, team2_pts)
     log.notice(f"Adjusting score for tourn game {game.label}: {prev_score} -> {new_score} "
@@ -824,7 +824,7 @@ def post_playoffs_adj() -> dict:
             validate_playoffs(game.bracket)
         except RuntimeError as e:
             txn.rollback()
-            return render_error(400, str(e), HIT_BACK_ARROW)
+            return render_error(400, str(e), BACK_BUTTON)
 
     new_score = (team1_pts, team2_pts)
     log.notice(f"Adjusting score for playoff game {game.label}: {prev_score} -> {new_score} "

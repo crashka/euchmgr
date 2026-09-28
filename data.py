@@ -139,10 +139,12 @@ def post_players() -> dict:
             pl_data = player.player_data | pl_props
     except TypeError as e:
         return ajax_error("Invalid type specified")
-    except (IntegrityError, ValueError) as e:
+    except IntegrityError as e:
         if "UNIQUE constraint failed: player.player_num" in str(e):
             return ajax_error("Player Num already in use")
-        raise
+        return ajax_error(str(e))
+    except ValueError as e:
+        return ajax_error(str(e))
     except RuntimeError as e:
         return ajax_error(str(e))
 

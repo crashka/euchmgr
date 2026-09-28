@@ -18,10 +18,11 @@ import os
 from ckautils import rankdata
 
 from core import BASE_DIR, BracketsFile, log
-from database import db_init, db_close, db_name
-from schema import (rnd_pct, rnd_avg, Bracket, TournStage, TournInfo, Player, SeedGame,
-                    Team, TournGame, PlayoffGame, PlayerGame, TeamGame, ScoreAction,
-                    PostScore, RankType, RankAction, PostRank, schema_create)
+from database import db_init, db_close, db_name, db_atomic
+from schema import (rnd_pct, rnd_avg, clear_schema_cache, Bracket, TournStage, TournInfo,
+                    Player, SeedGame, Team, TournGame, PlayoffGame, PlayerGame, TeamGame,
+                    ScoreAction, PostScore, RankType, RankAction, PostRank, TournEvent,
+                    TournLog, schema_create)
 
 #####################
 # utility functions #
@@ -217,6 +218,7 @@ def upload_roster(csv_path: str) -> None:
     tourn.players = nplayers
     tourn.teams = nteams
     tourn.thm_teams = thm_teams
+    tourn.has_champ = bool(nchamps)
     tourn.stage_compl = TournStage.PLAYER_ROSTER
     tourn.save()
 
@@ -1457,6 +1459,54 @@ def compute_final_ranks(finalize: bool = False) -> None:
             post = PostRank.create(**info)
         tourn.complete_stage(TournStage.TOURN_FINAL)
 
+###################
+# admin functions #
+###################
+
+def reset_seed_round(reason: str = None) -> None:
+    """Reset tournament data back to start of the seeding round (just after brackets have
+    been created).
+    """
+    tourn = TournInfo.get()
+    if tourn.partner_picks_started():
+        raise RuntimeError("cannot reset seed round once partner picks have started")
+
+    with db_atomic() as txn:
+        TournLog.add(TournEvent.ADMIN_ACTION, "Reset Seed Round", reason)
+
+        # reset tourn stage back to end of seed bracket creation; the subsequent calls all
+        # revert tables back their original state for this stage
+        tourn.reset_stage(TournStage.SEED_BRACKET)
+
+        # clear out results from seed_game records
+        for game in SeedGame.iter_games():
+            game.team1_pts = None
+            game.team2_pts = None
+            game.winner = None
+            game.save()
+
+        # delete player_game denorm records (not including pre-created bye entries)
+        PlayerGame.delete_games()
+
+        # player: clear out seed_wins/lossses, seed_pf/pa, win/pts_pct, player_pos,
+        for pl in Player.iter_players():
+            pl.seed_wins        = 0
+            pl.seed_losses      = 0
+            pl.seed_win_pct     = None
+            pl.seed_pts_for     = 0
+            pl.seed_pts_against = 0
+            pl.seed_pts_pct     = None
+            pl.player_pos       = None
+            pl.seed_tb_crit     = None
+            pl.seed_tb_data     = None
+            pl.player_rank      = None
+            pl.player_rank_adj  = None
+            pl.save()
+
+        # TODO: we should really add reset records for both post_score (games) and
+        # post_rank (players), otherwise the posting reports look weird!!!
+        pass
+
 ########
 # main #
 ########
@@ -1484,7 +1534,8 @@ MOD_FUNCS = [
     'compute_team_ranks',
     'build_playoff_bracket',
     'validate_playoffs',
-    'compute_playoff_ranks'
+    'compute_playoff_ranks',
+    'reset_seed_round'
 ]
 
 def main() -> int:
@@ -1510,23 +1561,34 @@ def main() -> int:
       - compute_team_ranks
       - build_playoff_bracket
       - validate_playoffs
-      - compute_playoff_ranks'
+      - compute_playoff_ranks
+      - reset_seed_round
     """
+    usage = lambda x: x + "\n\n" + main.__doc__
     if len(sys.argv) < 2:
-        print(main.__doc__)
-        print(f"Tournament name not specified", file=sys.stderr)
-        return -1
+        return usage("Tournament name not specified")
     if len(sys.argv) < 3:
-        print(main.__doc__)
-        print(f"Module function not specified", file=sys.stderr)
-        return -1
-    elif sys.argv[2] not in MOD_FUNCS:
-        print(f"Unknown module function '{sys.argv[2]}'", file=sys.stderr)
-        return -1
+        return usage("Euchmgr function (or \"list\") not specified")
 
     tourn_name = sys.argv[1]
-    mod_func = globals()[sys.argv[2]]
+    func_name = sys.argv[2]
+
+    if func_name == 'list':
+        print("Functions (by number)")
+        for i, func in enumerate(MOD_FUNCS):
+            print(f"{i:2d} - {func}")
+        return 0
+    elif func_name.isdigit():
+        func = MOD_FUNCS[int(func_name)]
+        mod_func = globals()[func]
+    elif func_name not in MOD_FUNCS:
+        return usage(f"Unknown function '{func_name}'")
+    else:
+        mod_func = globals()[func_name]
+
     args, kwargs = parse_argv(sys.argv[3:])
+    if args:
+        return usage("Unknown args: " + ' '.join(args))
 
     db_init(tourn_name, force=True)
     mod_func(*args, **kwargs)  # will throw exceptions on error

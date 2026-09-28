@@ -189,12 +189,13 @@ class TournInfo(BaseModel):
     players        = IntegerField(null=True)
     teams          = IntegerField(null=True)
     thm_teams      = IntegerField(null=True)
+    has_champ      = BooleanField(null=True)  # just a boolean, as a convenience
     seed_rounds    = IntegerField(null=True)
     tourn_rounds   = IntegerField(null=True)
     divisions      = IntegerField(null=True)
     playoff_teams  = IntegerField(null=True)
-    dflt_pw_hash   = TextField(null=True)  # initial/default pw_hash for players
-    import_path    = TextField(null=True)  # enables re-importing
+    dflt_pw_hash   = TextField(null=True)     # initial/default pw_hash for players
+    import_path    = TextField(null=True)     # enables re-importing
     stage_start    = IntegerField()
     stage_compl    = IntegerField()
     cur_stage      = TextField()
@@ -256,10 +257,13 @@ class TournInfo(BaseModel):
     def save(self, *args, **kwargs):
         """Manage stage changes and associated message text.
         """
+        reset_stage = kwargs.pop('reset_stage', None)
+
         if 'stage_start' in self._dirty and self.stage_start <= self.stage_compl:
-            stage = TournStage(self.stage_start)
-            TournLog.add(TournEvent.STAGE_START, stage.name, ref_id=stage.value)
-            log.notice(f"Starting stage {stage.name} ({stage.value})")
+            if not reset_stage:
+                stage = TournStage(self.stage_start)
+                TournLog.add(TournEvent.STAGE_START, stage.name, ref_id=stage.value)
+                log.notice(f"Starting stage {stage.name} ({stage.value})")
 
         if 'stage_compl' in self._dirty:
             stage_data = StageData[self.stage_compl]
@@ -285,11 +289,14 @@ class TournInfo(BaseModel):
                     self.next_action = StageData[stage_next].start_msg
                 else:
                     self.next_action = None
-            stage = TournStage(self.stage_compl)
-            TournLog.add(TournEvent.STAGE_COMPL, stage.name, ref_id=stage.value)
-            log.notice(f"Completing stage {stage.name} ({stage.value})")
+            if not reset_stage:
+                stage = TournStage(self.stage_compl)
+                TournLog.add(TournEvent.STAGE_COMPL, stage.name, ref_id=stage.value)
+                log.notice(f"Completing stage {stage.name} ({stage.value})")
 
         if 'stage_start' in self._dirty and self.stage_start > self.stage_compl:
+            # note, we do this even in the case of a stage reset (unlike above), since we
+            # would like to see the evidence of a stage auto-advance
             stage = TournStage(self.stage_start)
             TournLog.add(TournEvent.STAGE_START, stage.name, ref_id=stage.value)
             log.notice(f"Starting stage {stage.name} ({stage.value})")
@@ -311,6 +318,16 @@ class TournInfo(BaseModel):
         self.stage_compl = stage
         if auto_save:
             self.save()
+
+    def reset_stage(self, stage: TournStage, auto_save: bool = True) -> None:
+        """Reset tournament to the specified stage (and save, by default).
+        """
+        self.stage_start = stage
+        self.stage_compl = stage
+        TournLog.add(TournEvent.STAGE_RESET, stage.name, ref_id=stage.value)
+        log.notice(f"Resetting stage {stage.name} ({stage.value})")
+        if auto_save:
+            self.save(reset_stage=True)
 
     def show_stage(self, stage: TournStage, auto_save: bool = True) -> None:
         """Show specified stage in the display fields (and save, by default).  Note that
@@ -335,6 +352,22 @@ class TournInfo(BaseModel):
         rankings computed).
         """
         return self.stage_compl >= TournStage.SEED_RANKS
+
+    def partner_picks_started(self) -> bool:
+        """Official way to check if partner picking has started (first pick has been made
+        in the PARTNER_PICK stage).
+        """
+        cur_round = Player.current_round()
+        if cur_round == 0:
+            assert self.stage_start < TournStage.PARTNER_PICK
+            return False
+        elif cur_round == -1:
+            assert self.stage_start >= TournStage.PARTNER_PICK
+            return True
+        else:
+            assert self.stage_start == TournStage.PARTNER_PICK
+            tourn = TournInfo.get()
+            return cur_round > int(tourn.has_champ or False) + 1
 
     def partner_picks_done(self) -> bool:
         """Official way to check if partner picking is complete (all picks made and teams
@@ -491,6 +524,24 @@ class Player(BaseModel, EuchmgrUser):
         tourn = TournInfo.get()
         all_nums = range(1, tourn.players + 1)
         return sorted(set(all_nums) - set(cls.nums_used(player)))
+
+    @classmethod
+    def current_round(cls) -> int:
+        """Return the current round for partner picking, with the special values of `0` to
+        indicate that the seeding stage rankings have not yet been determined, and `-1` to
+        indicate that the partner picking stage is complete.
+        """
+        tourn = TournInfo.get()
+        if not tourn.seeding_done():
+            return 0
+
+        query = (cls
+                 .select(fn.count())
+                 .where(cls.partner.is_null(False)))
+        npicks = query.scalar()
+        if npicks < tourn.teams:
+            return npicks + 1
+        return -1
 
     @classmethod
     def clear_partner_picks(cls, ids: list[int] = None) -> int:
@@ -732,6 +783,32 @@ class SeedGame(BaseModel):
             query = query.where(cls.winner.is_null(False))
         for t in query:
             yield t
+
+    @classmethod
+    def current_round(cls) -> int:
+        """Return the current round of play, with the special values of `0` to indicate
+        that the seeding bracket has not yet been created, and `-1` to indicate that the
+        seeding stage is complete.
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.SEED_BRACKET:
+            return 0
+
+        round_games = tourn.players // 4
+        query = (cls
+                 .select(cls.round_num, fn.count(cls.id))
+                 .where(cls.winner.is_null(False))
+                 .group_by(cls.round_num)
+                 .order_by(cls.round_num.desc()))
+        if not query:
+            return 1  # no games yet played
+        round_num, ngames = query.scalar(as_tuple=True)
+
+        if ngames < round_games:
+            return round_num
+        if round_num < tourn.seed_rounds:
+            return round_num + 1
+        return -1
 
     def add_scores(self, team1_pts: int, team2_pts: int, admin_adj: bool = False) -> None:
         """Record scores for completed (or incomplete) game.  It is no longer required
@@ -1270,6 +1347,32 @@ class TournGame(BaseModel):
         for t in query:
             yield t
 
+    @classmethod
+    def current_round(cls) -> int:
+        """Return the current round of play, with the special values of `0` to indicate
+        that the round robin brackets have not yet been created, and `-1` to indicate that
+        the round robin stage is complete.
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.TOURN_BRACKET:
+            return 0
+
+        round_games = tourn.teams // 2
+        query = (cls
+                 .select(cls.round_num, fn.count(cls.id))
+                 .where(cls.winner.is_null(False))
+                 .group_by(cls.round_num)
+                 .order_by(cls.round_num.desc()))
+        if not query:
+            return 1  # no games yet played
+        round_num, ngames = query.scalar(as_tuple=True)
+
+        if ngames < round_games:
+            return round_num
+        if round_num < tourn.tourn_rounds:
+            return round_num + 1
+        return -1
+
     def add_scores(self, team1_pts: int, team2_pts: int, admin_adj: bool = False) -> None:
         """Record scores for completed (or incomplete) game.  It is no longer required
         that score updates come through here (since denorms are now managed elsewhere),
@@ -1599,6 +1702,15 @@ class PlayerGame(BaseModel):
             yield t
 
     @classmethod
+    def delete_games(cls, include_byes: bool = False) -> int:
+        """Delete player_games (wrap ORM details); return number of records deleted.
+        """
+        del_stmt = cls.delete()
+        if not include_byes:
+            del_stmt = del_stmt.where(cls.is_bye == False)
+        return del_stmt.execute()
+
+    @classmethod
     def get_game_map(cls, label: str) -> dict[int, Self]:
         """Return map of player_game records for the specified game label, index by
         player_num.
@@ -1610,6 +1722,29 @@ class PlayerGame(BaseModel):
 
         assert len(pg_map) == 4
         return pg_map
+
+    @classmethod
+    def current_round(cls, bracket: Bracket) -> int:
+        """Return the current round of play, with the special values of `0` to indicate
+        that the specified playoff bracket has not yet been created, and `-1` to indicate
+        that the associated playoff stage is complete.  Note that "round", for playoff
+        brackets, means the lowest active game number for any matchup in the stage.
+        """
+        compl = cls.bracket_complete(bracket)
+        if compl is None:
+            return 0
+        elif compl:
+            return -1
+
+        query = (cls
+                 .select(cls.matchup_num, fn.count(cls.winner))
+                 .where(cls.bracket == bracket)
+                 .group_by(cls.matchup_num)
+                 .order_by(fn.count(cls.winner).asc()))
+        matchup_num, ngames = query.scalar(as_tuple=True)
+
+        assert ngames < 3
+        return ngames + 1
 
     def save(self, *args, **kwargs):
         """Set player name (denorm field) as player's nick name
@@ -1867,12 +2002,14 @@ class PostRank(BaseModel):
 #############
 
 class TournEvent(StrEnum):
-    STAGE_START = "Stage start"
-    STAGE_COMPL = "Stage complete"
-    ROUND_START = "Round start"
-    ROUND_COMPL = "Round complete"
-    SCORE_ADJ   = "Score adjust"
-    RANK_ADJ    = "Rank adjust"
+    STAGE_START  = "Stage start"
+    STAGE_COMPL  = "Stage complete"
+    STAGE_RESET  = "Stage reset"
+    ROUND_START  = "Round start"
+    ROUND_COMPL  = "Round complete"
+    SCORE_ADJ    = "Score adjust"
+    RANK_ADJ     = "Rank adjust"
+    ADMIN_ACTION = "Admin action"
 
 class TournLog(BaseModel):
     """Log of critical tournament-level events, including stage changes and admin overrides.

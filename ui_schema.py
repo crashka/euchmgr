@@ -405,24 +405,6 @@ class PartnerPick(UIMixin, BasePlayer):
         table_name = BasePlayer._meta.table_name
 
     @classmethod
-    def current_round(cls) -> int:
-        """Return the current round for partner picking, with the special values of `0` to
-        indicate that the seeding stage rankings have not yet been determined, and `-1` to
-        indicate that the partner picking stage is complete.
-        """
-        tourn = TournInfo.get()
-        if not tourn.seeding_done():
-            return 0
-
-        query = (cls
-                 .select(fn.count())
-                 .where(cls.partner.is_null(False)))
-        npicks = query.scalar()
-        if npicks < tourn.teams:
-            return npicks + 1
-        return -1
-
-    @classmethod
     def phase_status(cls) -> str:
         """Return current status of the partner picking phase (for mobile UI).
         """
@@ -432,11 +414,13 @@ class PartnerPick(UIMixin, BasePlayer):
         elif cur_round == -1:
             return "Done"
         else:
-            if cur_round == 2:
-                # ignore the reigning champ(s) pre-selected team
+            tourn = TournInfo.get()
+            # accounting for reigning champ(s) pre-selected team, if any
+            offset = int(tourn.has_champ or False)
+            if cur_round == offset + 1:
                 npicks = "no"
             else:
-                npicks = cur_round - 2
+                npicks = cur_round - offset - 1
             return f"{npicks} picks made"
 
     @classmethod
@@ -516,32 +500,6 @@ class SeedGame(UIMixin, BaseSeedGame):
 
     class Meta:
         table_name = BaseSeedGame._meta.table_name
-
-    @classmethod
-    def current_round(cls) -> int:
-        """Return the current round of play, with the special values of `0` to indicate
-        that the seeding bracket has not yet been created, and `-1` to indicate that the
-        seeding stage is complete.
-        """
-        tourn = TournInfo.get()
-        if tourn.stage_compl < TournStage.SEED_BRACKET:
-            return 0
-
-        round_games = tourn.players // 4
-        query = (cls
-                 .select(cls.round_num, fn.count(cls.id))
-                 .where(cls.winner.is_null(False))
-                 .group_by(cls.round_num)
-                 .order_by(cls.round_num.desc()))
-        if not query:
-            return 1  # no games yet played
-        round_num, ngames = query.scalar(as_tuple=True)
-
-        if ngames < round_games:
-            return round_num
-        if round_num < tourn.seed_rounds:
-            return round_num + 1
-        return -1
 
     @classmethod
     def phase_status(cls) -> str:
@@ -1051,32 +1009,6 @@ class TournGame(UIMixin, BaseTournGame):
         table_name = BaseTournGame._meta.table_name
 
     @classmethod
-    def current_round(cls) -> int:
-        """Return the current round of play, with the special values of `0` to indicate
-        that the round robin brackets have not yet been created, and `-1` to indicate that
-        the round robin stage is complete.
-        """
-        tourn = TournInfo.get()
-        if tourn.stage_compl < TournStage.TOURN_BRACKET:
-            return 0
-
-        round_games = tourn.teams // 2
-        query = (cls
-                 .select(cls.round_num, fn.count(cls.id))
-                 .where(cls.winner.is_null(False))
-                 .group_by(cls.round_num)
-                 .order_by(cls.round_num.desc()))
-        if not query:
-            return 1  # no games yet played
-        round_num, ngames = query.scalar(as_tuple=True)
-
-        if ngames < round_games:
-            return round_num
-        if round_num < tourn.tourn_rounds:
-            return round_num + 1
-        return -1
-
-    @classmethod
     def phase_status(cls) -> str:
         """Return current status of the round robin phase (for mobile UI).
         """
@@ -1179,29 +1111,6 @@ class PlayoffGame(UIMixin, BasePlayoffGame):
 
     class Meta:
         table_name = BasePlayoffGame._meta.table_name
-
-    @classmethod
-    def current_round(cls, bracket: Bracket) -> int:
-        """Return the current round of play, with the special values of `0` to indicate
-        that the specified playoff bracket has not yet been created, and `-1` to indicate
-        that the associated playoff stage is complete.  Note that "round", for playoff
-        brackets, means the lowest active game number for any matchup in the stage.
-        """
-        compl = cls.bracket_complete(bracket)
-        if compl is None:
-            return 0
-        elif compl:
-            return -1
-
-        query = (cls
-                 .select(cls.matchup_num, fn.count(cls.winner))
-                 .where(cls.bracket == bracket)
-                 .group_by(cls.matchup_num)
-                 .order_by(fn.count(cls.winner).asc()))
-        matchup_num, ngames = query.scalar(as_tuple=True)
-
-        assert ngames < 3
-        return ngames + 1
 
     @classmethod
     def phase_status(cls, bracket: Bracket) -> str:

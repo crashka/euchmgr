@@ -1495,6 +1495,25 @@ def reset_seed_round(reason: str = None) -> None:
         # post_rank (players), otherwise the posting reports look weird!!!
         pass
 
+def reset_partner_picks(reason: str = None) -> None:
+    """Reset tournament data back to start of the seeding round (just after brackets have
+    been created).
+    """
+    tourn = TournInfo.get()
+    if tourn.stage_compl >= TournStage.TOURN_BRACKET:
+        raise RuntimeError("cannot reset partner picks once round robin brackets have been created")
+
+    with db_atomic() as txn:
+        TournLog.add(TournEvent.ADMIN_ACTION, "Reset Partner Picks", reason)
+
+        # reset tourn stage back to end of seed bracket creation; the subsequent calls all
+        # revert tables back their original state for this stage
+        tourn.reset_stage(TournStage.SEED_RANKS)
+
+        # clear out partner pick information, as well as all team records (if any)
+        Player.clear_partner_picks()
+        Team.delete_teams()
+
 ########
 # main #
 ########
@@ -1523,7 +1542,8 @@ MOD_FUNCS = [
     'build_playoff_bracket',
     'validate_playoffs',
     'compute_playoff_ranks',
-    'reset_seed_round'
+    'reset_seed_round',
+    'reset_partner_picks'
 ]
 
 def main() -> int:
@@ -1551,6 +1571,7 @@ def main() -> int:
       - validate_playoffs
       - compute_playoff_ranks
       - reset_seed_round
+      - reset_partner_picks
     """
     usage = lambda x: x + "\n\n" + main.__doc__
     if len(sys.argv) < 2:

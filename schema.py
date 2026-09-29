@@ -189,13 +189,13 @@ class TournInfo(BaseModel):
     players        = IntegerField(null=True)
     teams          = IntegerField(null=True)
     thm_teams      = IntegerField(null=True)
-    has_champ      = BooleanField(null=True)  # just a boolean, as a convenience
+    has_champ      = BooleanField(default=False)  # just a boolean (quick convenience)
     seed_rounds    = IntegerField(null=True)
     tourn_rounds   = IntegerField(null=True)
     divisions      = IntegerField(null=True)
     playoff_teams  = IntegerField(null=True)
-    dflt_pw_hash   = TextField(null=True)     # initial/default pw_hash for players
-    import_path    = TextField(null=True)     # enables re-importing
+    dflt_pw_hash   = TextField(null=True)  # initial/default pw_hash for players
+    import_path    = TextField(null=True)  # enables re-importing
     stage_start    = IntegerField()
     stage_compl    = IntegerField()
     cur_stage      = TextField()
@@ -367,7 +367,7 @@ class TournInfo(BaseModel):
         else:
             assert self.stage_start == TournStage.PARTNER_PICK
             tourn = TournInfo.get()
-            return cur_round > int(tourn.has_champ or False) + 1
+            return cur_round > int(tourn.has_champ) + 1
 
     def partner_picks_done(self) -> bool:
         """Official way to check if partner picking is complete (all picks made and teams
@@ -497,8 +497,8 @@ class Player(BaseModel, EuchmgrUser):
         """
         if ids is not None:
             raise ImplementationError("list of IDs not yet supported")
-        upd = Player.update(player_num=None)
-        return upd.execute()
+        upd_stmt = Player.update(player_num=None)
+        return upd_stmt.execute()
 
     @classmethod
     def nums_used(cls, player: Self = None) -> Iterator[int]:
@@ -560,15 +560,19 @@ class Player(BaseModel, EuchmgrUser):
             'player_rank'     : None,
             'player_rank_adj' : None
         }
-        upd = cls.update(**field_vals)
-        return upd.execute()
+        upd_stmt = cls.update(**field_vals)
+        return upd_stmt.execute()
 
     @classmethod
-    def clear_partner_picks(cls) -> int:
+    def clear_partner_picks(cls, include_champs: bool = False) -> int:
         """Clear out partner pick info for all players; return number of records updated.
+        Note that we implicitly clear out the team association as well (can be considered
+        to be a cascade of sorts).
         """
-        upd = cls.update(partner=None, partner2=None, picked_by=None)
-        return upd.execute()
+        upd_stmt = cls.update(partner=None, partner2=None, picked_by=None, team=None)
+        if not include_champs:
+            upd_stmt = upd_stmt.where(cls.reigning_champ == False)
+        return upd_stmt.execute()
 
     @classmethod
     def available_players(cls) -> list[Self]:
@@ -805,8 +809,8 @@ class SeedGame(BaseModel):
         """Clear out score and winner info for all games in the round; return number of
         records updated.
         """
-        upd = cls.update(team1_pts=None, team2_pts=None, winner=None)
-        return upd.execute()
+        upd_stmt = cls.update(team1_pts=None, team2_pts=None, winner=None)
+        return upd_stmt.execute()
 
     @classmethod
     def current_round(cls) -> int:
@@ -1101,6 +1105,13 @@ class Team(BaseModel):
             query = query.order_by(cls.playoff_rank.asc())
         for t in query:
             yield t
+
+    @classmethod
+    def delete_teams(cls) -> int:
+        """Delete team records (wrap ORM details); return number of records deleted.
+        """
+        del_stmt = cls.delete()
+        return del_stmt.execute()
 
     @classmethod
     def ident_final_tbs(cls, final_pos: int) -> list[list[Self]]:

@@ -416,7 +416,7 @@ class PartnerPick(UIMixin, BasePlayer):
         else:
             tourn = TournInfo.get()
             # accounting for reigning champ(s) pre-selected team, if any
-            offset = int(tourn.has_champ or False)
+            offset = int(tourn.has_champ)
             if cur_round == offset + 1:
                 npicks = "no"
             else:

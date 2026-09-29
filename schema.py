@@ -498,8 +498,7 @@ class Player(BaseModel, EuchmgrUser):
         if ids is not None:
             raise ImplementationError("list of IDs not yet supported")
         upd = Player.update(player_num=None)
-        res = upd.execute()
-        return res
+        return upd.execute()
 
     @classmethod
     def nums_used(cls, player: Self = None) -> Iterator[int]:
@@ -544,15 +543,32 @@ class Player(BaseModel, EuchmgrUser):
         return -1
 
     @classmethod
-    def clear_partner_picks(cls, ids: list[int] = None) -> int:
-        """Delete partner_picks for all rows (or specified IDs); return number of records
-        updated.
+    def clear_seeding_data(cls) -> int:
+        """Clear all player data related to seeding round games and scores, as well as
+        consequent player position/rank determinations; return number of records updated.
         """
-        if ids is not None:
-            raise ImplementationError("list of IDs not yet supported")
-        upd = Player.update(partner=None, partner2=None, picked_by=None)
-        res = upd.execute()
-        return res
+        field_vals = {
+            'seed_wins'       : 0,
+            'seed_losses'     : 0,
+            'seed_win_pct'    : None,
+            'seed_pts_for'    : 0,
+            'seed_pts_against': 0,
+            'seed_pts_pct'    : None,
+            'player_pos'      : None,
+            'seed_tb_crit'    : None,
+            'seed_tb_data'    : None,
+            'player_rank'     : None,
+            'player_rank_adj' : None
+        }
+        upd = cls.update(**field_vals)
+        return upd.execute()
+
+    @classmethod
+    def clear_partner_picks(cls) -> int:
+        """Clear out partner pick info for all players; return number of records updated.
+        """
+        upd = cls.update(partner=None, partner2=None, picked_by=None)
+        return upd.execute()
 
     @classmethod
     def available_players(cls) -> list[Self]:
@@ -783,6 +799,14 @@ class SeedGame(BaseModel):
             query = query.where(cls.winner.is_null(False))
         for t in query:
             yield t
+
+    @classmethod
+    def clear_game_scores(cls) -> int:
+        """Clear out score and winner info for all games in the round; return number of
+        records updated.
+        """
+        upd = cls.update(team1_pts=None, team2_pts=None, winner=None)
+        return upd.execute()
 
     @classmethod
     def current_round(cls) -> int:

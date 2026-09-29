@@ -1479,29 +1479,17 @@ def reset_seed_round(reason: str = None) -> None:
         tourn.reset_stage(TournStage.SEED_BRACKET)
 
         # clear out results from seed_game records
-        for game in SeedGame.iter_games():
-            game.team1_pts = None
-            game.team2_pts = None
-            game.winner = None
-            game.save()
+        SeedGame.clear_game_scores()
 
         # delete player_game denorm records (not including pre-created bye entries)
         PlayerGame.delete_games()
 
-        # player: clear out seed_wins/lossses, seed_pf/pa, win/pts_pct, player_pos,
-        for pl in Player.iter_players():
-            pl.seed_wins        = 0
-            pl.seed_losses      = 0
-            pl.seed_win_pct     = None
-            pl.seed_pts_for     = 0
-            pl.seed_pts_against = 0
-            pl.seed_pts_pct     = None
-            pl.player_pos       = None
-            pl.seed_tb_crit     = None
-            pl.seed_tb_data     = None
-            pl.player_rank      = None
-            pl.player_rank_adj  = None
-            pl.save()
+        # clear out player data related to seeding round and partner picks (the latter,
+        # really only needed for champ pre-picks, but doesn't hurt [much] to just do this
+        # sweepingly--only downside: discluding the opportunity for a detailed integrity
+        # check)
+        Player.clear_seeding_data()
+        Player.clear_partner_picks()
 
         # TODO: we should really add reset records for both post_score (games) and
         # post_rank (players), otherwise the posting reports look weird!!!

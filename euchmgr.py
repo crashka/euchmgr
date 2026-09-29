@@ -1514,6 +1514,47 @@ def reset_partner_picks(reason: str = None) -> None:
         Player.clear_partner_picks()
         Team.delete_teams()
 
+def reset_playoffs(reason: str = None) -> None:
+    """Reset tournament data back to start of the first playoff round (just after the
+    bracket has been created).
+    """
+    tourn = TournInfo.get()
+    if tourn.playoff_teams == 2:
+        reset_stg = TournStage.SEMIS_RANKS
+        brckts = (Bracket.FINALS, None)
+    else:
+        assert tourn.playoff_teams == 4
+        reset_stg = TournStage.TOURN_RANKS
+        brckts = (Bracket.SEMIS, Bracket.FINALS)
+
+    with db_atomic() as txn:
+        TournLog.add(TournEvent.ADMIN_ACTION, "Reset Playoffs", reason)
+
+        # note that this is different than resetting seeding or tournament rounds, since
+        # we need to actually rebuild the brackets (since unnecessary games may have been
+        # deleted); so we take it back an additional stage here, and then do the explicit
+        # bracket rebuild at the bottom of this sequence
+        tourn.reset_stage(reset_stg)
+
+        # delete *all* playoff round games (no need to clear out selected fields, since we
+        # will be rebuilding everything)
+        PlayoffGame.delete_games()
+
+        # delete team_game denorm records (not currently existent for playoff brackets)
+        #TeamGame.delete_games(brckts[0])
+        #if brckts[1]:
+        #    TeamGame.delete_games(brckts[1])
+
+        # clear out team data related to the playoff round
+        Team.clear_playoff_data()
+
+        # TODO: we should really add reset records for both post_score (games) and
+        # post_rank (teams), otherwise the posting reports look weird!!!
+        pass
+
+        # now we rebuild the level-1 playoff bracket
+        build_playoff_bracket(brckts[0])
+
 ########
 # main #
 ########
@@ -1543,7 +1584,8 @@ MOD_FUNCS = [
     'validate_playoffs',
     'compute_playoff_ranks',
     'reset_seed_round',
-    'reset_partner_picks'
+    'reset_partner_picks',
+    'reset_playoffs'
 ]
 
 def main() -> int:
@@ -1572,6 +1614,7 @@ def main() -> int:
       - compute_playoff_ranks
       - reset_seed_round
       - reset_partner_picks
+      - reset_playoffs
     """
     usage = lambda x: x + "\n\n" + main.__doc__
     if len(sys.argv) < 2:

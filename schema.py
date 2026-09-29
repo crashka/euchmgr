@@ -1114,6 +1114,31 @@ class Team(BaseModel):
         return del_stmt.execute()
 
     @classmethod
+    def clear_playoff_data(cls) -> int:
+        """Clear all team data related to playoff round games and scores, as well as
+        consequent position/rank determinations (including those at the "final" overall
+        tournament level); return number of records updated.
+        """
+        field_vals = {
+            'playoff_match_wins'  : 0,
+            'playoff_match_losses': 0,
+            'playoff_wins'        : 0,
+            'playoff_losses'      : 0,
+            'playoff_win_pct'     : None,
+            'playoff_pts_for'     : 0,
+            'playoff_pts_against' : 0,
+            'playoff_pts_pct'     : None,
+            'playoff_rank'        : None,
+            'final_pos'           : None,
+            'final_tb_crit'       : None,
+            'final_tb_data'       : None,
+            'final_rank'          : None,
+            'final_rank_adj'      : None
+        }
+        upd_stmt = cls.update(**field_vals)
+        return upd_stmt.execute()
+
+    @classmethod
     def ident_final_tbs(cls, final_pos: int) -> list[list[Self]]:
         """Report teams with identical tie-break criteria for a final tournament result
         cohort (identical overall win percentage)
@@ -1583,6 +1608,25 @@ class PlayoffGame(BaseModel):
             query = query.order_by(cls.bracket, cls.matchup_num, cls.round_num)
         for t in query:
             yield t
+
+    @classmethod
+    def clear_game_scores(cls, bracket: Bracket = None) -> int:
+        """Clear out score and winner info for all games in the round; return number of
+        records updated.
+        """
+        upd_stmt = cls.update(team1_pts=None, team2_pts=None, winner=None)
+        if bracket:
+            upd_stmt = upd_stmt.where(cls.bracket == bracket)
+        return upd_stmt.execute()
+
+    @classmethod
+    def delete_games(cls, bracket: Bracket = None) -> int:
+        """Delete team records (wrap ORM details); return number of records deleted.
+        """
+        del_stmt = cls.delete()
+        if bracket:
+            upd_stmt = upd_stmt.where(cls.bracket == bracket)
+        return del_stmt.execute()
 
     @property
     def matchup_winner(self) -> Team | None:

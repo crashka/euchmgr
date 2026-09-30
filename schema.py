@@ -572,7 +572,7 @@ class Player(BaseModel, EuchmgrUser):
                 'rank_type'   : RankType.SEED,
                 'post_action' : RankAction.CLEAR,
                 'action_info' : action_info,
-                'old_rank'    : -1,  # secret code for `<prev>`
+                'old_rank'    : -1,  # secret code for `[obs]` (obsolete)
                 'new_rank'    : 0,   # secret code for `None`
                 'tourn_stage' : tourn.stage_tag
             }

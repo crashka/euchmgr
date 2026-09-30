@@ -278,6 +278,7 @@ def fnl_tbreak(tourn: TournInfo) -> str:
 # score_posting #
 #################
 
+# `-1` is secret code for `None` (at least for NOT NULL integer columns)
 fmt_pts = lambda x: str(x) if x > -1 else '-'
 
 def score_posting(game_label: str, tourn: TournInfo) -> str:

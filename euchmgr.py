@@ -1568,8 +1568,7 @@ def reset_playoffs(reason: str = None) -> None:
         tourn.reset_stage(reset_stg)
 
         # delete *all* playoff round games (no need to clear out selected fields, since we
-        # will be rebuilding everything)--TODO: delete post_score records associated with
-        # deleted games (which is the same as all playoff games)!!!
+        # will be rebuilding everything)
         PlayoffGame.delete_games()
         PostScore.delete_posts((Bracket.SEMIS, Bracket.FINALS))  # 2-tuple arg
 
@@ -1581,7 +1580,7 @@ def reset_playoffs(reason: str = None) -> None:
         # clear out team data related to the playoff round
         Team.clear_playoff_data(do_logging=True, action_info=action)
 
-        # now we rebuild the level-1 playoff bracket
+        # now we rebuild the first level playoff bracket
         build_playoff_bracket(brckts[0])
 
 ########

@@ -1739,6 +1739,29 @@ class PlayoffGame(BaseModel):
             del_stmt = del_stmt.where(cls.bracket == bracket)
         return del_stmt.execute()
 
+    @classmethod
+    def current_round(cls, bracket: Bracket) -> int:
+        """Return the current round of play, with the special values of `0` to indicate
+        that the specified playoff bracket has not yet been created, and `-1` to indicate
+        that the associated playoff stage is complete.  Note that "round", for playoff
+        brackets, means the lowest active game number for any matchup in the stage.
+        """
+        compl = cls.bracket_complete(bracket)
+        if compl is None:
+            return 0
+        elif compl:
+            return -1
+
+        query = (cls
+                 .select(cls.matchup_num, fn.count(cls.winner))
+                 .where(cls.bracket == bracket)
+                 .group_by(cls.matchup_num)
+                 .order_by(fn.count(cls.winner).asc()))
+        matchup_num, ngames = query.scalar(as_tuple=True)
+
+        assert ngames < 3
+        return ngames + 1
+
     @property
     def matchup_winner(self) -> Team | None:
         """Return name of winner (if any) for the current matchup.  This is currently
@@ -1912,29 +1935,6 @@ class PlayerGame(BaseModel):
 
         assert len(pg_map) == 4
         return pg_map
-
-    @classmethod
-    def current_round(cls, bracket: Bracket) -> int:
-        """Return the current round of play, with the special values of `0` to indicate
-        that the specified playoff bracket has not yet been created, and `-1` to indicate
-        that the associated playoff stage is complete.  Note that "round", for playoff
-        brackets, means the lowest active game number for any matchup in the stage.
-        """
-        compl = cls.bracket_complete(bracket)
-        if compl is None:
-            return 0
-        elif compl:
-            return -1
-
-        query = (cls
-                 .select(cls.matchup_num, fn.count(cls.winner))
-                 .where(cls.bracket == bracket)
-                 .group_by(cls.matchup_num)
-                 .order_by(fn.count(cls.winner).asc()))
-        matchup_num, ngames = query.scalar(as_tuple=True)
-
-        assert ngames < 3
-        return ngames + 1
 
     def save(self, *args, **kwargs):
         """Set player name (denorm field) as player's nick name

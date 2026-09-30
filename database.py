@@ -7,7 +7,7 @@ import os.path
 from peewee import SqliteDatabase, Model, DateTimeField
 from playhouse.cysqlite_ext import CySqliteDatabase
 
-from core import DataFile, log, DEBUG, LogicError
+from core import DataFile, log, DEBUG
 
 #####################
 # utility functions #
@@ -153,20 +153,20 @@ def db_connect(name: str | None = None) -> bool:
         cur_db = db_name()
         if not cur_db:
             db_init(name, force=True)  # FIX: ugly recursion here!!!
-            log.debug(f"db_connect({name}), cur_db empty, called db_init")
+            log.trace(f"db_connect({name}), cur_db empty, called db_init")
             return True
         elif cur_db != name:
-            raise LogicError(f"name ('{name}') does not match db_name() ('{cur_db}')")
+            raise ConnectionError(f"name ('{name}') does not match db_name() ('{cur_db}')")
         else:
             # TODO: log this condition for better understanding (we get here as part of
             # the ugly recursion, mentioned above--but what else?)!!!
-            log.debug(f"db_connect({name}), cur_db = {cur_db}")
+            log.trace(f"db_connect({name}), cur_db = {cur_db}")
             pass
     elif not db_is_initialized():
-        log.debug(f"db_connect({name}), db not initialized")
+        log.trace(f"db_connect({name}), db not initialized")
         return False
     db.connect(reuse_if_open=shared_conn)
-    log.debug(f"db_connect({name}), db connected")
+    log.trace(f"db_connect({name}), db connected")
     return True
 
 def db_close() -> SqliteDatabase:
@@ -176,10 +176,10 @@ def db_close() -> SqliteDatabase:
     """
     if not db.is_closed():
         db.close()
-        log.debug("db_close()")
+        log.trace("db_close()")
     else:
         # TODO: log this condition (understand when/why it happens)!!!
-        log.debug("db_close(), already closed")
+        log.trace("db_close(), already closed")
     return db
 
 def db_is_closed() -> bool:

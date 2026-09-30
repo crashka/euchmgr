@@ -18,10 +18,11 @@ import os
 from ckautils import rankdata
 
 from core import BASE_DIR, BracketsFile, log
-from database import db_init, db_close, db_name
-from schema import (rnd_pct, rnd_avg, Bracket, TournStage, TournInfo, Player, SeedGame,
-                    Team, TournGame, PlayoffGame, PlayerGame, TeamGame, ScoreAction,
-                    PostScore, schema_create)
+from database import db_init, db_close, db_name, db_atomic
+from schema import (rnd_pct, rnd_avg, clear_schema_cache, Bracket, TournStage, TournInfo,
+                    Player, SeedGame, Team, TournGame, PlayoffGame, PlayerGame, TeamGame,
+                    ScoreAction, PostScore, RankType, RankAction, PostRank, TournEvent,
+                    TournLog, schema_create)
 
 #####################
 # utility functions #
@@ -217,6 +218,7 @@ def upload_roster(csv_path: str) -> None:
     tourn.players = nplayers
     tourn.teams = nteams
     tourn.thm_teams = thm_teams
+    tourn.has_champ = bool(nchamps)
     tourn.stage_compl = TournStage.PLAYER_ROSTER
     tourn.save()
 
@@ -322,19 +324,7 @@ def fake_seed_games(clear_existing: bool = False, limit: int = None, rand_seed: 
             log.debug(f"{game.team1_name}: {game.team1_pts}, {game.team2_name}: {game.team2_pts}")
 
         if game.winner:
-            info = {
-                'bracket'      : Bracket.SEED,
-                'game_label'   : game.label,
-                'post_action'  : ScoreAction.POST_FAKE,
-                'action_info'  : None,
-                'team1_pts'    : game.team1_pts,
-                'team2_pts'    : game.team2_pts,
-                'posted_by_num': None,
-                'team_idx'     : None,
-                'ref_score'    : None,
-                'do_push'      : True  # already pushed, lol
-            }
-            score = PostScore.create(**info)
+            PostScore.add(game, ScoreAction.POST_FAKE)
             game.update_player_stats()
             game.insert_player_games()
 
@@ -525,7 +515,18 @@ def compute_player_ranks(finalize: bool = False) -> None:
             pl.save()
 
     if finalize:
-        TournInfo.mark_stage_complete(TournStage.SEED_RANKS)
+        tourn = TournInfo.get()
+        rank_action = RankAction.COMPUTE if not tourn.seeding_done() else RankAction.RECOMPUTE
+        for pl in played:
+            info = {
+                'rank_type'   : RankType.SEED,
+                'player'      : pl,
+                'post_action' : rank_action,
+                'new_rank'    : pl.player_rank,
+                'tourn_stage' : tourn.stage_tag
+            }
+            post = PostRank.create(**info)
+        tourn.complete_stage(TournStage.SEED_RANKS)
 
 def prepick_champ_partners() -> None:
     """Reigning champs get paired (or tripled) as a team before general partner picking
@@ -533,7 +534,7 @@ def prepick_champ_partners() -> None:
     """
     pl_iter = Player.iter_players()
     champs = filter(lambda x: x.reigning_champ, pl_iter)
-    by_rank = sorted(champs, key=lambda x: x.player_rank)
+    by_rank = sorted(champs, key=lambda x: x.player_rank_eff)
     if len(by_rank) == 0:
         return
 
@@ -553,7 +554,7 @@ def fake_pick_partners(clear_existing: bool = False, limit: int = None, rand_see
     if clear_existing:
         Player.clear_partner_picks()
 
-    avail = Player.available_players()  # already sorted by player_rank
+    avail = Player.available_players()  # already sorted by player_rank_eff
     assert len(avail) != 1
     nfake = 0
     pickers = list(avail)  # shallow copy
@@ -589,8 +590,8 @@ def build_tourn_teams() -> list[Team]:
         if not pl.partner_num:
             continue
         partner = pl_map[pl.partner_num]
-        seed_sum = pl.player_rank + partner.player_rank
-        min_seed = min(pl.player_rank, partner.player_rank)
+        seed_sum = pl.player_rank_eff + partner.player_rank_eff
+        min_seed = min(pl.player_rank_eff, partner.player_rank_eff)
         if not pl.partner2_num:
             partner2 = None
             is_thm = False
@@ -600,8 +601,8 @@ def build_tourn_teams() -> list[Team]:
             partner2 = pl_map[pl.partner2_num]
             is_thm = True
             team_name = fmt_team_name(pl_map, [pl.player_num, pl.partner_num, pl.partner2_num])
-            seed_sum += partner2.player_rank
-            min_seed = min(min_seed, partner2.player_rank)
+            seed_sum += partner2.player_rank_eff
+            min_seed = min(min_seed, partner2.player_rank_eff)
             avg_seed = rnd_avg(seed_sum / 3.0)
 
         info = {'player1'        : pl,
@@ -749,19 +750,7 @@ def fake_tourn_games(clear_existing: bool = False, limit: int = None, rand_seed:
             log.debug(f"{game.team1_name}: {game.team1_pts}, {game.team2_name}: {game.team2_pts}")
 
         if game.winner:
-            info = {
-                'bracket'      : Bracket.TOURN,
-                'game_label'   : game.label,
-                'post_action'  : ScoreAction.POST_FAKE,
-                'action_info'  : None,
-                'team1_pts'    : game.team1_pts,
-                'team2_pts'    : game.team2_pts,
-                'posted_by_num': None,
-                'team_idx'     : None,
-                'ref_score'    : None,
-                'do_push'      : True  # already pushed, lol
-            }
-            score = PostScore.create(**info)
+            PostScore.add(game, ScoreAction.POST_FAKE)
             game.update_team_stats()
             game.insert_team_games()
 
@@ -1038,13 +1027,14 @@ def elevate_winners(ranked: list[Team]) -> tuple[list[Team], Elevs, TeamGrps, Te
 
     return reranked, elevs, win_grps, team_wins
 
-def compute_tourn_ranks(active_teams: list[Team]) -> None:
-    """This is similar to `compute_team_ranks`, except we disregard division assignments.
-    Note that playoff teams are determined by division rankings, and may not be the same
-    as the top 4 teams here.
+def compute_tourn_ranks(teams: list[Team], admin_adj: bool = False, reason: str = None) -> None:
+    """This is similar to `compute_div_ranks`, except we disregard division assignments.
+    Note that playoff teams are determined by division rankings, so that must be done
+    (either through `compute_div_ranks` or admin adjustment) prior to this.
     """
-    tm_list = list(active_teams)  # make a shallow copy, since we will sort in-place
+    tm_list = list(teams)  # make a shallow copy, since we will sort in-place
 
+    # here is the dependency on div_rank
     rank_key = lambda x: (x.playoff_bound, x.tourn_win_pct)
     team_rank_data = [rank_key(tm) for tm in tm_list]
     tourn_ranks = rankdata(team_rank_data, method='min')
@@ -1058,9 +1048,18 @@ def compute_tourn_ranks(active_teams: list[Team]) -> None:
         cohort = list(g)
         if len(cohort) == 1:
             tm = cohort[0]
-            tm.tourn_rank = tm.tourn_pos
-            tm.tourn_tb_crit = None
-            tm.tourn_tb_data = None
+            new_rank = tm.tourn_pos
+            if admin_adj:
+                orig_rank = tm.tourn_rank_eff
+                if new_rank == orig_rank:
+                    continue
+                post_info = tm.adj_rank(RankType.TOURN, new_rank, reason)
+                assert post_info['old_rank'] == orig_rank
+                post = PostRank.create(**post_info)
+            else:
+                tm.tourn_rank = new_rank
+                tm.tourn_tb_crit = None
+                tm.tourn_tb_data = None
             tm.save()
             continue
         cohort_pos = cohort[0].tourn_pos
@@ -1077,12 +1076,21 @@ def compute_tourn_ranks(active_teams: list[Team]) -> None:
                 log.info(f"Cyclic win group for tourn rank, pos {cohort_pos}, "
                          f"seeds {grp_seeds}")
         for i, tm in enumerate(ranked):
-            tm.tourn_rank = cohort_pos + i
-            tm.tourn_tb_crit = stats[tm.team_seed]
-            tm.tourn_tb_data = data[tm.team_seed]
+            new_rank = cohort_pos + i
+            if admin_adj:
+                orig_rank = tm.tourn_rank_eff
+                if new_rank == orig_rank:
+                    continue
+                post_info = tm.adj_rank(RankType.TOURN, new_rank, reason)
+                assert post_info['old_rank'] == orig_rank
+                post = PostRank.create(**post_info)
+            else:
+                tm.tourn_rank = new_rank
+                tm.tourn_tb_crit = stats[tm.team_seed]
+                tm.tourn_tb_data = data[tm.team_seed]
             tm.save()
 
-def compute_div_ranks(active_teams: list[Team]) -> None:
+def compute_div_ranks(tourn_teams: list[Team]) -> None:
     """Note that we use `rankdata` to identify cohorts (same win percentage), and then
     `rank_team_cohort` to do the actual tie-breaking (which includes head-to-head game
     considerations).
@@ -1090,7 +1098,7 @@ def compute_div_ranks(active_teams: list[Team]) -> None:
     tourn = TournInfo.get()
     div_iter = range(1, tourn.divisions + 1)
     div_teams = {div: [] for div in div_iter}
-    for tm in active_teams:
+    for tm in tourn_teams:
         div_teams[tm.div_num].append(tm)
 
     rank_key = lambda x: x.tourn_win_pct
@@ -1144,6 +1152,26 @@ def compute_team_ranks(finalize: bool = False) -> None:
 
     if finalize:
         tourn = TournInfo.get()
+        rank_action = RankAction.COMPUTE if not tourn.round_robin_done() else RankAction.RECOMPUTE
+        for tm in played:
+            info = {
+                'rank_type'   : RankType.DIV,
+                'team'        : tm,
+                'post_action' : rank_action,
+                'new_rank'    : tm.div_rank,
+                'tourn_stage' : tourn.stage_tag
+            }
+            div_post = PostRank.create(**info)
+
+            info = {
+                'rank_type'   : RankType.TOURN,
+                'team'        : tm,
+                'post_action' : rank_action,
+                'new_rank'    : tm.tourn_rank,
+                'tourn_stage' : tourn.stage_tag
+            }
+            tourn_post = PostRank.create(**info)
+
         if tourn.playoff_teams == 2:
             # REVISIT: this is a little hacky, since there aren't really any semifinal
             # stages at all (with the `show_stage` part being even more hacky, but note
@@ -1172,7 +1200,7 @@ def build_playoff_bracket(bracket: Bracket) -> list[PlayoffGame]:
         teams = list(Team.iter_playoff_teams(by_rank=True))
         # make sure best tourn_rank gets top billing here (matchup_num = 1)
         sign = 1 if teams[0].div_num == 1 else -1
-        teams.sort(key=lambda x: (x.div_rank, sign * x.div_num))
+        teams.sort(key=lambda x: (x.div_rank_eff, sign * x.div_num))
         matchups = {
             1: (teams[0], teams[3]),
             2: (teams[1], teams[2])
@@ -1211,8 +1239,8 @@ def build_playoff_bracket(bracket: Bracket) -> list[PlayoffGame]:
                     'team2'         : team2,
                     'team1_name'    : team1.team_name,
                     'team2_name'    : team2.team_name,
-                    'team1_div_rank': team1.div_rank,
-                    'team2_div_rank': team2.div_rank}
+                    'team1_div_rank': team1.div_rank_eff,
+                    'team2_div_rank': team2.div_rank_eff}
             game = PlayoffGame.create(**info)
             games.append(game)
 
@@ -1356,7 +1384,7 @@ def compute_playoff_ranks(bracket: Bracket, finalize: bool = False) -> None:
     playoff_key = lambda x: (x.playoff_match_wins,
                              x.playoff_win_pct or 0.0,
                              x.playoff_pts_pct or 0.0,
-                             -x.tourn_rank)  # <-- reward better round robin play
+                             -x.tourn_rank_eff)  # <-- reward better round robin play
     final_four.sort(key=playoff_key, reverse=True)
     for i, team in enumerate(final_four):
         team.playoff_rank = i + 1
@@ -1418,7 +1446,142 @@ def compute_final_ranks(finalize: bool = False) -> None:
             tm.save()
 
     if finalize:
-        TournInfo.mark_stage_complete(TournStage.TOURN_FINAL)
+        tourn = TournInfo.get()
+        rank_action = RankAction.COMPUTE if not tourn.tournament_done() else RankAction.RECOMPUTE
+        for tm in tm_list:
+            info = {
+                'rank_type'   : RankType.FINAL,
+                'team'        : tm,
+                'post_action' : rank_action,
+                'new_rank'    : tm.final_rank,
+                'tourn_stage' : tourn.stage_tag
+            }
+            post = PostRank.create(**info)
+        tourn.complete_stage(TournStage.TOURN_FINAL)
+
+###################
+# admin functions #
+###################
+
+def reset_seed_round(reason: str = None) -> None:
+    """Reset tournament data back to start of the seeding round (just after brackets have
+    been created).
+    """
+    tourn = TournInfo.get()
+    if tourn.stage_compl < TournStage.SEED_BRACKET:
+        raise RuntimeError("cannot reset seed round before bracket has been created")
+    if tourn.partner_picks_started():
+        raise RuntimeError("cannot reset seed round once partner picks have started")
+
+    action = "Reset seed round"
+    with db_atomic() as txn:
+        TournLog.add(TournEvent.ADMIN_ACTION, action, reason)
+
+        # reset tourn stage back to end of seed bracket creation; the subsequent calls all
+        # revert tables back their original state for this stage
+        tourn.reset_stage(TournStage.SEED_BRACKET)
+
+        # clear out results from seed_game records
+        SeedGame.clear_game_scores(do_logging=True, action_info=action)
+
+        # delete player_game denorm records (not including pre-created bye entries)
+        PlayerGame.delete_games()
+
+        # clear out player data related to seeding round and partner picks (the latter,
+        # really only needed for champ pre-picks, but doesn't hurt [much] to just do this
+        # sweepingly--only downside: discluding the opportunity for a detailed integrity
+        # check)
+        Player.clear_seeding_data(do_logging=True, action_info=action)
+        Player.clear_partner_picks()
+
+def reset_partner_picks(reason: str = None) -> None:
+    """Reset tournament data back to start of the seeding round (just after brackets have
+    been created).
+    """
+    tourn = TournInfo.get()
+    if not tourn.seeding_done():
+        raise RuntimeError("cannot reset partner picks before seeding round is complete")
+    if tourn.stage_compl >= TournStage.TOURN_BRACKET:
+        raise RuntimeError("cannot reset partner picks once round robin brackets have been created")
+
+    with db_atomic() as txn:
+        TournLog.add(TournEvent.ADMIN_ACTION, "Reset Partner Picks", reason)
+
+        # reset tourn stage back to end of seed bracket creation; the subsequent calls all
+        # revert tables back their original state for this stage
+        tourn.reset_stage(TournStage.SEED_RANKS)
+
+        # clear out partner pick information, as well as all team records (if any)
+        Player.clear_partner_picks()
+        Team.delete_teams()
+
+def reset_tourn(reason: str = None) -> None:
+    """Reset tournament data back to start of the primary round robin play (just after
+    brackets have been created).
+    """
+    tourn = TournInfo.get()
+    if tourn.stage_compl < TournStage.TOURN_BRACKET:
+        raise RuntimeError("cannot reset tourn before brackets have been created")
+    if tourn.playoffs_started():
+        raise RuntimeError("cannot reset tourn once playoffs have started")
+
+    action = "Reset round robin"
+    with db_atomic() as txn:
+        TournLog.add(TournEvent.ADMIN_ACTION, action, reason)
+
+        # reset tourn stage back to end of seed bracket creation; the subsequent calls all
+        # revert tables back their original state for this stage
+        tourn.reset_stage(TournStage.TOURN_BRACKET)
+
+        # clear out results from seed_game records
+        TournGame.clear_game_scores(do_logging=True, action_info=action)
+
+        # delete team_game denorm records (not including pre-created bye entries)
+        TeamGame.delete_games()
+
+        # clear out team data related to primary round robin play
+        Team.clear_tourn_data(do_logging=True, action_info=action)
+
+def reset_playoffs(reason: str = None) -> None:
+    """Reset tournament data back to start of the first playoff round (just after the
+    bracket has been created).
+    """
+    tourn = TournInfo.get()
+    if not tourn.playoffs_started():
+        raise RuntimeError("cannot reset playoffs before bracket has been created")
+    if tourn.playoff_teams == 2:
+        reset_stg = TournStage.FINALS_BRACKET - 1
+        brckts = (Bracket.FINALS, None)
+    else:
+        assert tourn.playoff_teams == 4
+        reset_stg = TournStage.SEMIS_BRACKET - 1
+        brckts = (Bracket.SEMIS, Bracket.FINALS)
+
+    action = "Reset playoffs"
+    with db_atomic() as txn:
+        TournLog.add(TournEvent.ADMIN_ACTION, action, reason)
+
+        # note that this is different than resetting seeding or tournament rounds, since
+        # we need to actually rebuild the brackets (since unnecessary games may have been
+        # deleted); so we take it back an additional stage here, and then do the explicit
+        # bracket rebuild at the bottom of this sequence
+        tourn.reset_stage(reset_stg)
+
+        # delete *all* playoff round games (no need to clear out selected fields, since we
+        # will be rebuilding everything)
+        PlayoffGame.delete_games()
+        PostScore.delete_posts((Bracket.SEMIS, Bracket.FINALS))  # 2-tuple arg
+
+        # delete team_game denorm records (not currently existent for playoff brackets)
+        #TeamGame.delete_games(brckts[0])
+        #if brckts[1]:
+        #    TeamGame.delete_games(brckts[1])
+
+        # clear out team data related to the playoff round
+        Team.clear_playoff_data(do_logging=True, action_info=action)
+
+        # now we rebuild the first level playoff bracket
+        build_playoff_bracket(brckts[0])
 
 ########
 # main #
@@ -1447,7 +1610,11 @@ MOD_FUNCS = [
     'compute_team_ranks',
     'build_playoff_bracket',
     'validate_playoffs',
-    'compute_playoff_ranks'
+    'compute_playoff_ranks',
+    'reset_seed_round',
+    'reset_partner_picks',
+    'reset_tourn',
+    'reset_playoffs'
 ]
 
 def main() -> int:
@@ -1473,23 +1640,37 @@ def main() -> int:
       - compute_team_ranks
       - build_playoff_bracket
       - validate_playoffs
-      - compute_playoff_ranks'
+      - compute_playoff_ranks
+      - reset_seed_round
+      - reset_partner_picks
+      - reset_tourn
+      - reset_playoffs
     """
+    usage = lambda x: x + "\n\n" + main.__doc__
     if len(sys.argv) < 2:
-        print(main.__doc__)
-        print(f"Tournament name not specified", file=sys.stderr)
-        return -1
+        return usage("Tournament name not specified")
     if len(sys.argv) < 3:
-        print(main.__doc__)
-        print(f"Module function not specified", file=sys.stderr)
-        return -1
-    elif sys.argv[2] not in MOD_FUNCS:
-        print(f"Unknown module function '{sys.argv[2]}'", file=sys.stderr)
-        return -1
+        return usage("Euchmgr function (or \"list\") not specified")
 
     tourn_name = sys.argv[1]
-    mod_func = globals()[sys.argv[2]]
+    func_name = sys.argv[2]
+
+    if func_name == 'list':
+        print("Functions (by number)")
+        for i, func in enumerate(MOD_FUNCS):
+            print(f"{i:2d} - {func}")
+        return 0
+    elif func_name.isdigit():
+        func = MOD_FUNCS[int(func_name)]
+        mod_func = globals()[func]
+    elif func_name not in MOD_FUNCS:
+        return usage(f"Unknown function '{func_name}'")
+    else:
+        mod_func = globals()[func_name]
+
     args, kwargs = parse_argv(sys.argv[3:])
+    if args:
+        return usage("Unknown args: " + ' '.join(args))
 
     db_init(tourn_name, force=True)
     mod_func(*args, **kwargs)  # will throw exceptions on error

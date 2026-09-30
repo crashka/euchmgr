@@ -7,7 +7,8 @@ if [[ "$#" -gt 1 ]] ; then
     exit 1
 fi
 
-IMAGE=euchmgr
+IMAGE=euchmgr:admin-adj
+IMAGE_BASE=${IMAGE%:*}
 BASE_PORT=5050
 
 if [[ "$#" -eq 1 ]] ; then
@@ -27,8 +28,8 @@ fi
 
 set -x
 
-docker run --name "${IMAGE}${SFX}" -d -p ${PORT}:5050 \
-       --hostname "${IMAGE}${SFX}" \
+docker run --name "${IMAGE_BASE}${SFX}" -d -p ${PORT}:5050 \
+       --hostname "${IMAGE_BASE}${SFX}" \
        --mount type=bind,src=/var/docker/app/config,dst=/app/config \
        --mount type=bind,src=/var/docker/app${INST}/data,dst=/app/data \
        --mount type=bind,src=/var/docker/app${INST}/log,dst=/app/log \

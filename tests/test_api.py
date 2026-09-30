@@ -271,7 +271,7 @@ def test_seeding_data(api_client):
     assert resp.status_code == 400
     api_resp = json.loads(resp.text)
     assert not api_resp['succ']
-    assert api_resp['err'] == "Completed game score cannot be overwritten"
+    assert api_resp['err'] == "Cannot overwrite completed game scores"
 
 def test_fake_seed_results(api_client):
     """

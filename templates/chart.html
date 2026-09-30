@@ -4,28 +4,45 @@
     <title>{{title}}</title>
 
     <style>
-     .red {
-       background-color: #FFECEC;
+     h1 {
+       display: inline-block;
+       font-size: 1.5rem;
+       margin-top: 0.125rem;
+       margin-bottom: 0.0rem;
+     }
+     .h1_info {
+       font-size: 1.125rem;
+       font-weight: normal;
+     }
+     h2 {
+       display: inline-block;
+       font-size: 1.125rem;
+       margin-top: 0.0rem;
+       margin-bottom: 0.0rem;
      }
      .container {
        margin-top: 1.0rem;
        overflow-x: auto;
        white-space: nowrap;
      }
-     .container_lbl {
-       font-size: x-large;
-       font-weight: bold;
-     }
      .section {
-       margin-top: 2.0rem;
-       margin-bottom: 2.0rem;
+       margin-top: 1.5rem;
+       margin-bottom: 1.75rem;
      }
-     .section_lbl {
-       font-size: large;
-       font-weight: bold;
+     .actions {
+       margin-top: 2.0rem;
+     }
+     .actions button {
+       margin-left: 0.5rem;
+       margin-right: 0.8rem;
+       padding: 0.2rem 0.5rem;
+     }
+     .actions a {
+       margin-right: 0.3rem;
+       padding: 0.0rem 0.2rem;
      }
      table {
-       margin-top: 1.5rem;
+       margin-top: 1.25rem;
        border: 2px solid darkgrey;
        border-collapse: collapse;
      }
@@ -51,12 +68,46 @@
        border-left: 2px solid darkgrey;
      }
      .plyr_lbl,
-     .team_lbl{
+     .team_lbl {
        text-align: left;
-       width: 10em;
+       width: 14rem;
+     }
+     .pos_lbl,
+     .rank_lbl {
+       width: 3.25rem;
      }
      .tally {
        vertical-align: bottom;
+     }
+     .rank input {
+       font-family: ui-serif;
+       font-size: 1.0rem;
+       text-align: center;
+       width: 2.0rem;
+       padding: 0;
+       margin: 0;
+       border: 0;
+       background: #f0f0f0;
+     }
+     input::-webkit-outer-spin-button,
+     input::-webkit-inner-spin-button {
+       -webkit-appearance: none;
+     }
+     input[type='number'] {
+       -moz-appearance:textfield;
+     }
+     input.reason {
+       font-size: 0.92rem;
+       width: 15rem;
+       margin-left: 0.8rem;
+       margin-right: 0.8rem;
+       padding: 0.0rem 0.4rem;
+       display: none;
+     }
+     input.dummy {
+       width: 0;
+       padding: 0;
+       border: 0;
      }
      b {
        font-weight: bold;
@@ -68,13 +119,39 @@
      .u2 {
        text-decoration: solid underline grey 2px;
      }
+     .red_fg {
+       color: #D70000;
+     }
+     .grn_fg {
+       color: #108810;
+     }
+     .highlight1 {
+       background-color: #ffffdd;
+     }
+     .highlight2 {
+       background-color: #ddffff;
+     }
+     .highlight3 {
+       background-color: #ffecff;
+     }
+     .highlight4 {
+       background-color: #ddffdd;
+     }
+     .highlight5 {
+       background-color: #ececff;
+     }
+     .highlight6 {
+       background-color: #ffecec;
+     }
     </style>
   </head>
 
   <body>
     <div class="container">
-      <span class="container_lbl">{{tourn.name}} &ndash; {{title}}</span>
-
+      <h1 class="div_toggle">
+        {{tourn.name}} &ndash; {{title}}
+        <span class="h1_info">{{(title_note or '')|safe}}</span>
+      </h1>
       {% if chart_num == 0 %}
       <div class="section seed_bracket">
         <table>
@@ -152,7 +229,7 @@
               {% endfor %}
               <td class="vert_sect">{{fmt_stat(pl.seed_win_pct)|safe}}</td>
               <td>{{fmt_stat(pl.seed_pts_pct)|safe}}</td>
-              <td>{{fmt_stat(pl.player_rank)|safe}}</td>
+              <td>{{fmt_stat(pl.player_rank)}}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -163,7 +240,7 @@
       {% if chart_num == 2 %}
       {% for div in div_list %}
       <div class="section rr_brackets">
-        <span class="section_lbl">Division {{div}}</span>
+        <h2>Division {{div}}</h2>
         <table>
           <thead>
             <tr>
@@ -202,11 +279,11 @@
       {% if chart_num == 3 %}
       {% for div in div_list %}
       <div class="section rr_scores">
-        <span class="section_lbl">Division {{div}}</span>
+        <h2>Division {{div}}</h2>
         <table>
           <thead>
             <tr>
-              <th class="plyr_lbl hor_sect" rowspan="2">Team (by Div Seed)</th>
+              <th class="team_lbl hor_sect" rowspan="2">Team (by Div Seed)</th>
               <th class="hor_sect" rowspan="2">Wins</th>
               <th class="hor_sect" rowspan=2>Losses</th>
               <th class="vert_sect" colspan="{{rnds}}">Points For (by Round)</th>
@@ -242,7 +319,7 @@
               {% endfor %}
               <td class="vert_sect">{{fmt_stat(tm.tourn_win_pct)|safe}}</td>
               <td>{{fmt_stat(tm.tourn_pts_pct)|safe}}</td>
-              <td>{{fmt_stat(tm.div_rank)|safe}}</td>
+              <td>{{fmt_stat(tm.div_rank)}}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -256,100 +333,477 @@
         <table>
           <thead>
             <tr>
-              <th class="plyr_lbl hor_sect" rowspan="2">Team (by Team Seed)</th>
+              <th class="team_lbl hor_sect" rowspan="2">Team (by Team Seed)</th>
               <th class="hor_sect vert_sect" rowspan="2">Team Pos</th>
               <th class="vert_sect" colspan="2">Div Info</th>
-              <th class="vert_sect" colspan="2">Round Robin</th>
+              <th class="vert_sect" colspan="3">Round Robin</th>
               <th class="vert_sect" colspan="2">Head-to-Head</th>
               <th class="hor_sect vert_sect" rowspan="2">Team Rank</th>
             </tr>
             <tr>
               <th class="hor_sect vert_sect">Num</th>
               <th class="hor_sect">Rank</th>
-              <th class="hor_sect vert_sect">Win Pct</th>
+              <th class="hor_sect vert_sect">W-L</th>
+              <th class="hor_sect">Win Pct</th>
               <th class="hor_sect">Pts Pct</th>
               <th class="hor_sect vert_sect">W-L</th>
               <th class="hor_sect">Pts Pct</th>
             </tr>
           </thead>
           <tbody>
+            {% if teams %}
             {% for tm in teams %}
             <tr>
               <td class="team_lbl">{{tm.team_tag_fn|safe}}</td>
-              <td class="vert_sect">{{tm.tourn_pos_str}}</td>
-              {% if tm.div_rank in (1, 2) %}
+              <td class="vert_sect" title="{{tb_crit[tm.id]}}">{{tm.tourn_pos_str}}</td>
+              {% if tm.div_rank_eff in (1, 2) %}
               <td class="vert_sect">{{tm.div_num}}</td>
-              <td>{{tm.div_rank}}</td>
+              <td>{{tm.div_rank_eff}}</td>
               {% else %}
               <td class="vert_sect"></td>
               <td></td>
               {% endif %}
-              <td class="vert_sect">{{fmt_stat(tm.tourn_win_pct)|safe}}</td>
+              <td class="vert_sect">{{fmt_stat(tm.tourn_win_rec)}}</td>
+              <td>{{fmt_stat(tm.tourn_win_pct)|safe}}</td>
               <td>{{fmt_stat(tm.tourn_pts_pct)|safe}}</td>
               <td class="vert_sect">{{fmt_stat(tm.tourn_tb_win_rec)}}</td>
               <td>{{fmt_stat(tm.tourn_tb_pts_pct)|safe}}</td>
-              <td class="vert_sect">{{tm.tourn_rank}}</td>
+              <td class="rank vert_sect" id="tm_{{tm.id}}" title="{{rank_note[tm.id]}}">
+                {{tm.tourn_rank_disp}}
+              </td>
             </tr>
             {% endfor %}
+            {% else %}
+            <td colspan="10"><i>No data</i></td>
+            {% endif %}
           </tbody>
         </table>
       </div>
       {% endif %}
 
-      {% if chart_num == 5 %}
-      <div class="section fnl_results">
-        <table>
-          <thead>
-            <tr>
-              <th class="plyr_lbl hor_sect" rowspan="2">Team (by Overall Seed)</th>
-              <th class="hor_sect vert_sect" rowspan="2">Final Pos</th>
-              <th class="vert_sect" colspan="3">Playoffs</th>
-              <th class="vert_sect" colspan="2">Round Robin</th>
-              <th class="vert_sect" colspan="2">Head-to-Head</th>
-              <th class="hor_sect vert_sect" rowspan="2">Final Rank</th>
-            </tr>
-            <tr>
-              <th class="hor_sect vert_sect">Matches</th>
-              <th class="hor_sect">Games</th>
-              <th class="hor_sect">Pts Pct</th>
-              <th class="hor_sect vert_sect">Win Pct</th>
-              <th class="hor_sect">Pts Pct</th>
-              <th class="hor_sect vert_sect">W-L</th>
-              <th class="hor_sect">Pts Pct</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for tm in teams %}
-            <tr>
-              <td class="team_lbl">{{tm.team_tag_fn|safe}}</td>
-              <td class="vert_sect">{{tm.final_pos_str}}</td>
-              <td class="vert_sect">{{fmt_stat(tm.playoff_match_rec)}}</td>
-              <td>{{fmt_stat(tm.playoff_win_rec)|safe}}</td>
-              <td>{{fmt_stat(tm.playoff_pts_pct)|safe}}</td>
-              <td class="vert_sect">{{fmt_stat(tm.tourn_win_pct)|safe}}</td>
-              <td>{{fmt_stat(tm.tourn_pts_pct)|safe}}</td>
-              <td class="vert_sect">{{fmt_stat(tm.final_tb_win_rec)}}</td>
-              <td>{{fmt_stat(tm.final_tb_pts_pct)|safe}}</td>
-              <td class="vert_sect">{{tm.final_rank}}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% endif %}
+      {% if chart_num in (5, 6, 7, 8) %}
+      <form action="{{action}}" method="post">
+        <input name="redirect_to" type="hidden" value="{{redirect_to}}">
+        <div class="section team_results">
+          <table class="ranks">
+            <thead>
+              <tr>
+                <th class="team_lbl hor_sect" rowspan="2">Team (by Overall Seed)</th>
+                {% if chart_num in (5, 6) %}
+                <th class="pos_lbl hor_sect vert_sect" rowspan="2">Final<br>Pos</th>
+                <th class="vert_sect" colspan="3">Playoffs</th>
+                {% elif chart_num in (7, 8) %}
+                <th class="pos_lbl hor_sect vert_sect" rowspan="2">Div<br>Pos</th>
+                {% endif %}
+                <th class="vert_sect" colspan="3">Round Robin</th>
+                <th class="vert_sect" colspan="2">Head-to-Head</th>
+                {% if chart_num == 5 %}
+                <th class="rank_lbl hor_sect vert_sect" rowspan="2">Final<br>Rank</th>
+                {% elif chart_num == 7 %}
+                <th class="rank_lbl hor_sect vert_sect" rowspan="2">Div<br>Rank</th>
+                {% elif chart_num in (6, 8) %}
+                {% set adj_txt = "Enter new rankings, or use up/down arrows to move" %}
+                <th class="rank_lbl hor_sect vert_sect" rowspan="2" title="{{adj_txt}}">
+                  Adjst<br>Rank
+                </th>
+                <th class="rank_lbl hor_sect vert_sect" rowspan="2">Rank<br>Mvmt</th>
+                {% endif %}
+              </tr>
+              <tr>
+                {% if chart_num in (5, 6) %}
+                <th class="hor_sect vert_sect">Matches</th>
+                <th class="hor_sect">Games</th>
+                <th class="hor_sect">Pts Pct</th>
+                {% endif %}
+                <th class="hor_sect vert_sect">W-L</th>
+                <th class="hor_sect">Win Pct</th>
+                <th class="hor_sect">Pts Pct</th>
+                <th class="hor_sect vert_sect">W-L</th>
+                <th class="hor_sect">Pts Pct</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if teams %}
+              {% for tm in teams %}
+              <tr class="cmpt">
+                <td class="team_lbl">{{tm.team_tag_fn|safe}}</td>
+                {% if chart_num in (5, 6) %}
+                <td class="vert_sect" title="{{tb_crit[tm.id]}}">{{tm.final_pos_str}}</td>
+                <td class="vert_sect">{{fmt_stat(tm.playoff_match_rec)}}</td>
+                <td>{{fmt_stat(tm.playoff_win_rec)}}</td>
+                <td>{{fmt_stat(tm.playoff_pts_pct)|safe}}</td>
+                {% elif chart_num in (7, 8) %}
+                <td class="vert_sect" title="{{tb_crit[tm.id]}}">{{tm.div_pos_str}}</td>
+                {% endif %}
+                <td class="vert_sect">{{fmt_stat(tm.tourn_win_rec)}}</td>
+                <td>{{fmt_stat(tm.tourn_win_pct)|safe}}</td>
+                <td>{{fmt_stat(tm.tourn_pts_pct)|safe}}</td>
+                {% if chart_num in (5, 6) %}
+                <td class="vert_sect">{{fmt_stat(tm.final_tb_win_rec)}}</td>
+                <td>{{fmt_stat(tm.final_tb_pts_pct)|safe}}</td>
+                {% elif chart_num in (7, 8) %}
+                <td class="vert_sect">{{fmt_stat(tm.div_tb_win_rec)}}</td>
+                <td>{{fmt_stat(tm.div_tb_pts_pct)|safe}}</td>
+                {% endif %}
+                {% if chart_num == 5 %}
+                <td class="rank vert_sect" id="tm_{{tm.id}}" title="{{rank_note[tm.id]}}">
+                  {{tm.final_rank_disp}}
+                </td>
+                {% elif chart_num == 6 %}
+                <td class="rank vert_sect" id="tm_{{tm.id}}" title="{{rank_note[tm.id]}}">
+                  <input class="orig" name="tm_{{tm.id}}_orig_rank" type="hidden"
+                         value="{{tm.final_rank_eff}}">
+                  <input class="prev" name="tm_{{tm.id}}_prev_rank" type="hidden"
+                         value="{{tm.final_rank_eff}}">
+                  <input class="cur" name="tm_{{tm.id}}_rank" type="number"
+                         min="1" max="{{nteams}}" value="{{tm.final_rank_eff}}">
+                </td>
+                <td class="mvmt vert_sect">-</td>
+                {% elif chart_num == 7 %}
+                <td class="rank vert_sect" id="tm_{{tm.id}}" title="{{rank_note[tm.id]}}">
+                  {{tm.div_rank_disp}}
+                </td>
+                {% elif chart_num == 8 %}
+                <td class="rank vert_sect" id="tm_{{tm.id}}" title="{{rank_note[tm.id]}}">
+                  <input class="orig" name="tm_{{tm.id}}_orig_rank" type="hidden"
+                         value="{{tm.div_rank_eff}}">
+                  <input class="prev" name="tm_{{tm.id}}_prev_rank" type="hidden"
+                         value="{{tm.div_rank_eff}}">
+                  <input class="cur" name="tm_{{tm.id}}_rank" type="number"
+                         min="1" max="{{nteams}}" value="{{tm.div_rank_eff}}">
+                </td>
+                <td class="mvmt vert_sect">-</td>
+                {% endif %}  {# chart_num #}
+              </tr>
+              {% endfor %}  {# tm in teams #}
+              {% else %}
+              {% set cols = 11 if chart_num == 5 else (8 if chart_num == 7 else 1) %}
+              <td colspan="{{cols}}"><i>No data</i></td>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+        <p class="actions">
+          {% if chart_num in (5, 7) %}
+          <input name="dummy" class="dummy">
+          {% if user.is_admin %}
+          <button class="adj_ranks" type="button">Adjust rankings</button>
+          {% endif %}
+          {% elif chart_num in (6, 8) %}
+          <input class="reason" name="action_info" type="text" placeholder="indicate reason"
+                 required>
+          <input name="dummy" class="dummy">
+          {% if user.is_admin %}
+          <button type="submit" disabled>Save adjustments</button>
+          {% endif %}
+          <a class="reset">[reset]</a>
+          <a class="cancel" href="{{cancel_url}}">[cancel]</a>
+          {% endif %}  {# chart_num #}
+        </p>
+      </form>
+      {% endif %}  {# chart_num in (5, 6, 7, 8) #}
+
+      {% if chart_num in (9, 10) %}
+      <form action="{{action}}" method="post">
+        <input name="redirect_to" type="hidden" value="{{redirect_to}}">
+        <div class="section player_results">
+          <table class="ranks">
+            <thead>
+              <tr>
+                <th class="plyr_lbl hor_sect">Player (by Player Num)</th>
+                <th class="pos_lbl hor_sect vert_sect">Seed<br>Pos</th>
+                <th class="hor_sect vert_sect">W-L</th>
+                <th class="hor_sect">Win Pct</th>
+                <th class="hor_sect vert_sect">PF-PA</th>
+                <th class="hor_sect">Pts Pct</th>
+                {% if chart_num == 9 %}
+                <th class="rank_lbl hor_sect vert_sect">Seed<br>Rank</th>
+                {% elif chart_num == 10 %}
+                {% set adj_txt = "Enter new rankings, or use up/down arrows to move" %}
+                <th class="rank_lbl hor_sect vert_sect" title="{{adj_txt}}">
+                  Adjst<br>Rank
+                </th>
+                <th class="rank_lbl hor_sect vert_sect">Rank<br>Mvmt</th>
+                {% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% if players %}
+              {% for pl in players %}
+              <tr class="cmpt">
+                <td class="plyr_lbl">{{pl.player_tag|safe}}</td>
+                <td class="vert_sect" title="{{tb_crit[pl.id]}}">{{pl.player_pos_str}}</td>
+                <td class="vert_sect">{{fmt_stat(pl.seed_win_rec)}}</td>
+                <td>{{fmt_stat(pl.seed_win_pct)|safe}}</td>
+                <td class="vert_sect">{{pl.seed_pts_rec}}</td>
+                <td>{{fmt_stat(pl.seed_pts_pct)|safe}}</td>
+                {% if chart_num == 9 %}
+                <td class="rank vert_sect" id="pl_{{pl.id}}" title="{{rank_note[pl.id]}}">
+                  {{pl.player_rank_disp}}
+                </td>
+                {% elif chart_num == 10 %}
+                <td class="rank vert_sect" id="pl_{{pl.id}}" title="{{rank_note[pl.id]}}">
+                  <input class="orig" name="pl_{{pl.id}}_orig_rank" type="hidden"
+                         value="{{pl.player_rank_eff}}">
+                  <input class="prev" name="pl_{{pl.id}}_prev_rank" type="hidden"
+                         value="{{pl.player_rank_eff}}">
+                  <input class="cur" name="pl_{{pl.id}}_rank" type="number"
+                         min="1" max="{{nplayers}}" value="{{pl.player_rank_eff}}">
+                </td>
+                <td class="mvmt vert_sect">-</td>
+                {% endif %}  {# chart_num #}
+              </tr>
+              {% endfor %}  {# pl in players #}
+              {% else %}
+              {% set cols = 7 if chart_num == 9 else 1 %}
+              <td colspan="{{cols}}"><i>No data</i></td>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+        <p class="actions">
+          {% if chart_num == 9 %}
+          <input name="dummy" class="dummy">
+          {% if user.is_admin %}
+          <button class="adj_ranks" type="button">Adjust rankings</button>
+          {% endif %}
+          {% elif chart_num == 10 %}
+          <input class="reason" name="action_info" type="text" placeholder="indicate reason"
+                 required>
+          <input name="dummy" class="dummy">
+          {% if user.is_admin %}
+          <button type="submit" disabled>Save adjustments</button>
+          {% endif %}
+          <a class="reset">[reset]</a>
+          <a class="cancel" href="{{cancel_url}}">[cancel]</a>
+          {% endif %}  {# chart_num #}
+        </p>
+      </form>
+      {% endif %}  {# chart_num in (9, 10) #}
     </div>
   </body>
 
   <script src="/static/jquery-3.7.1.min.js"></script>
   <script>
    $(function() {
+     {% if chart_num == 7 and other_div %}
+     $('.div_toggle').on('click', function(e) {
+       window.location.replace("{{switch_divs}}");
+     });
+     {% endif %}
+
      let popupWin;
+     {% if chart_num in (0, 2) %}
      $('td.matchup.compl').on('click', function(e) {
        if (popupWin && !popupWin.closed) {
          popupWin.close();
        }
        const specs = "popup,width=900,height=600,top=200,left=200";
        popupWin = window.open('/report/score_posting/' + this.id, "_blank", specs);
+     });
+     {% elif chart_num in (4, 5, 7, 9) %}
+     $('td.rank').on('click', function(e) {
+       if (popupWin && !popupWin.closed) {
+         popupWin.close();
+       }
+       const specs = "popup,width=900,height=600,top=200,left=200";
+       popupWin = window.open('{{hist_rpt}}/' + this.id, "_blank", specs);
+     });
+     {% endif %}  {# chart_num #}
+
+     {% if chart_num in (5, 7, 9) %}
+     $('button.adj_ranks').on('click', function() {
+       window.location.href = "{{adjust_url}}";
+     });
+     {% endif %}
+
+     {% if chart_num in (6, 8, 10) %}
+     {% set nrecs = nplayers if chart_num == 10 else nteams %}
+     //const hlClasses = Array("highlight1", "highlight2", "highlight3",
+     //                        "highlight4", "highlight5", "highlight6");
+     const hlClasses = Array("highlight1");
+     let iHighlight = -1;
+
+     function assert(condition, message) {
+       if (!condition) {
+         throw message || "Assertion failed";
+       }
+     }
+
+     function changed() {
+       $changed = $('input.cur').filter(function() {
+         $origRank = $(this).siblings('.orig');
+         return $(this).val() != $origRank.val();
+       });
+       return $changed.length;
+     }
+
+     function updateBtnState() {
+       if (changed()) {
+         $('input.reason').css('display', 'inline-block');
+         $('button[type="submit"]').prop('disabled', false);
+         $('a.reset').attr('href', "javascript:void(0);");
+       }
+       else {
+         $('input.reason').css('display', 'none');
+         $('button[type="submit"]').prop('disabled', true);
+         $('a.reset').removeAttr('href');
+       }
+     }
+
+     function byRankVal(a, b) {
+       const aRank = $(a).find('td.rank input.cur');
+       const bRank = $(b).find('td.rank input.cur');
+       return parseInt(aRank.val() || 0) > parseInt(bRank.val() || 0) ? 1 : -1;
+     }
+
+     function setMvmt($cur) {
+       assert($cur.hasClass('cur'));
+       const curVal = parseInt($cur.val());
+       const $orig = $cur.siblings('.orig');
+       const origVal = parseInt($orig.val());
+       const $mvmt = $cur.parent('td.rank').next();
+       assert($mvmt.hasClass('mvmt'));
+       const colClasses = Array("grn_fg", "red_fg");
+
+       let mvmtStr;
+       let colCls;
+       if (curVal < origVal) {  // moved up
+         mvmtStr = "+" + String(origVal - curVal);
+         colCls = colClasses[0];
+       }
+       else if (curVal > origVal) {  // moved down
+         mvmtStr = String(origVal - curVal);
+         colCls = colClasses[1];
+       }
+       else {
+         mvmtStr = "-";
+         colCls = null;
+       }
+
+       $mvmt.text(mvmtStr);
+       $mvmt.removeClass(colClasses);
+       if (colCls) {
+         $mvmt.addClass(colCls)
+       }
+     }
+
+     // override arrow behavior for rank input fields (more intuitive, I think)
+     $('td.rank input.cur').on('keydown', function(event) {
+       if (event.which == 38) {
+         const val = parseInt($(this).val());
+         if (val > 1) {
+           $(this).val(val - 1);
+           $(this).trigger('change', [0]);
+         }
+         event.preventDefault();
+       }
+       else if (event.which == 40) {
+         const val = parseInt($(this).val());
+         if (val < {{nrecs}}) {
+           $(this).val(val + 1);
+           $(this).trigger('change', [0]);
+         }
+         event.preventDefault();
+       }
+       else if (event.which == 13) {
+         const val = parseInt($(this).val());
+         $(this).trigger('change');
+
+         const $nextRow = $(this).parents('tr.cmpt').next();
+         if ($nextRow.length) {
+           $nextRow.find('td.rank input.cur').focus().select();
+         }
+         else {
+           $('.actions input.dummy').focus();
+         }
+         event.preventDefault();
+       }
+     });
+
+     // on-change for rank input field
+     $('td.rank input.cur').on('change', function(e, resortDelay) {
+       console.log("changed: ", $(this), this);
+       const $curRank = $(this);
+       const $prevRank = $(this).siblings('.prev');
+       const $origRank = $(this).siblings('.orig');
+       const myNewVal = parseInt($curRank.val());
+       const myPrevVal = parseInt($prevRank.val());
+       const myOrigVal = parseInt($origRank.val());
+
+       if (myNewVal == myPrevVal) {
+         return false;
+       }
+       else if (myNewVal < 1 || myNewVal > {{nrecs}}) {
+         $curRank.val(myPrevVal);
+         return false;
+       }
+       else if (myNewVal == null || isNaN(myNewVal)) {
+         $curRank.val(myPrevVal);
+         return false;
+       }
+
+       const highlight = hlClasses[(++iHighlight) % hlClasses.length];
+       $('tr.' + highlight).removeClass(highlight);
+
+       const incr = myNewVal < myPrevVal ? 1 : -1;
+       let newVal = myNewVal;
+       let $found = $('input.prev').filter((idx, node) => node.value == newVal);
+       console.log("found: ", $found, $found[0]);
+       $found.parents('tr.cmpt').removeClass(hlClasses).addClass(highlight);
+       // TODO: probably want to put some protection against an infinite loop here,
+       // since this is not the most robust way to propagate the change!!!
+       while ($found.is($prevRank) == false) {
+         const $fndPrev = $found;
+         const $fndCur = $fndPrev.next();
+         assert($fndCur.hasClass('cur'));
+
+         newVal += incr;
+         $found = $('input.prev').filter((idx, node) => node.value == newVal);
+         console.log("found: ", $found, $found[0]);
+         $found.parents('tr.cmpt').removeClass(hlClasses).addClass(highlight);
+         $fndPrev.val(newVal);
+         $fndCur.val(newVal);
+         setMvmt($fndCur);
+       }
+       assert(newVal == myPrevVal);
+       $prevRank.val(myNewVal);
+       setMvmt($curRank);
+
+       window.setTimeout(function() {
+         const $curFocus = $('input:focus, button:focus, a:focus');
+         $('table.ranks tr.cmpt').sort(byRankVal).appendTo('table.ranks');
+         $curFocus.focus();
+       }, resortDelay != null ? resortDelay : 1000);
+
+       updateBtnState();
+     });
+
+     // reset link
+     $('a.reset').on('click', function() {
+       $('table.ranks tr.cmpt').each(function() {
+         const $curRank  = $(this).find('td.rank input.cur');
+         const $prevRank = $(this).find('td.rank input.prev');
+         const $origRank = $(this).find('td.rank input.orig');
+
+         $curRank.val($origRank.val());
+         $prevRank.val($origRank.val());
+       });
+       $('tr.cmpt').removeClass(hlClasses);
+       $('td.mvmt').text("-");
+       $('input.reason').val('');
+
+       $('table.ranks tr.cmpt').sort(byRankVal).appendTo('table.ranks');
+       updateBtnState();
+       iHighlight = -1;
+       return false;
+     });
+     {% endif %}  {# chart_num in (6, 8, 10) #}
+
+     // we do this so we can tab over to the submit button from the
+     // last form input (if it becomes enabled)
+     $('input.dummy').on("focus", function() {
+       $(this).nextAll('button:enabled, a[href]').first().focus();
      });
    });
   </script>

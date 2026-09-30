@@ -14,7 +14,7 @@ from schema import (rnd_pct, Bracket, BRACKET_NAME, get_bracket, TournStage, Tou
                     Player as BasePlayer, SeedGame as BaseSeedGame, Team as BaseTeam,
                     TournGame as BaseTournGame, PlayoffGame as BasePlayoffGame,
                     PlayerGame as BasePlayerGame, TeamGame as BaseTeamGame,
-                    PostScore as BasePostScore)
+                    PostScore as BasePostScore, PostRank as BasePostRank)
 
 #################
 # utility stuff #
@@ -119,9 +119,10 @@ class Player(UIMixin, BasePlayer):
 
     @classmethod
     def fetch_by_rank(cls, player_rank: int) -> Self:
-        """Return player by player_rank, or `None` if not found.
+        """Return player by effective player_rank, or `None` if not found.
         """
-        return cls.get_or_none(cls.player_rank == player_rank)
+        by_adj = cls.get_or_none(cls.player_rank_adj == player_rank)
+        return by_adj or cls.get_or_none(cls.player_rank == player_rank)
 
     @classmethod
     def fetch_by_name(cls, name: str) -> Self:
@@ -178,7 +179,7 @@ class Player(UIMixin, BasePlayer):
     def seed_ident(self) -> str:
         """Player "name (rank)", for partner picking UI
         """
-        return f"{self.name} ({self.player_rank})"
+        return f"{self.name} ({self.player_rank_eff})"
 
     @property
     def picks_info(self) -> str | None:
@@ -209,14 +210,20 @@ class Player(UIMixin, BasePlayer):
         return self.picked_by.seed_ident if self.picked_by else None
 
     @property
-    def player_pos_str(self) -> str | None:
+    def player_pos_str(self) -> str:
         """Same as player_pos, except annotated if tied with others
         """
         if self.player_pos is None:
-            return None
+            return ''
         elif not self.seed_tb_crit:
             return str(self.player_pos)
         return f"{self.player_pos}*"
+
+    @property
+    def seed_win_rec(self) -> str:
+        """Return seed game win record (W-L) as a string.
+        """
+        return f"{self.seed_wins}-{self.seed_losses}"
 
     @property
     def seed_win_pct_str(self) -> str:
@@ -225,24 +232,27 @@ class Player(UIMixin, BasePlayer):
         return fmt_pct(self.seed_win_pct)
 
     @property
+    def seed_pts_rec(self) -> str:
+        """Return seed game points record (PF-PA) as a string.
+        """
+        return f"{self.seed_pts_for}-{self.seed_pts_against}"
+
+    @property
     def seed_pts_pct_str(self) -> str:
         """Return seed_pts_pct formatted as a string.
         """
         return fmt_pct(self.seed_pts_pct)
 
     @property
-    def player_rank_final(self, annotated: bool = False) -> int | str:
-        """The official value for player ranking (defaults to player_rank, with override
-        from player_rank_adj).  String value is returned if `annotated` is specified as
-        True, with override indicated (if present).
+    def player_rank_disp(self) -> str:
+        """The display value for player ranking (defaults to player_rank, with override
+        from player_rank_adj).
         """
-        if annotated:
-            if self.player_rank_adj:
-                return f"{self.player_rank_adj} ({self.player_rank})"
-            else:
-                return str(self.player_rank)
-
-        return self.player_rank_adj or self.player_rank
+        if self.player_rank_adj:
+            #return f"{self.player_rank_adj} ({self.player_rank})"
+            return f"{self.player_rank_adj}*"
+        else:
+            return str(self.player_rank) if self.player_rank else ''
 
     @property
     def current_game(self) -> BaseModel:
@@ -297,10 +307,10 @@ class Player(UIMixin, BasePlayer):
         return list(query)
 
     def pick_partners(self, picks_info: int | str) -> tuple[list[Self], list[Self]]:
-        """Pick partner(s) based on `picks_info`, which may represent either player_rank
-        (if specified as int) or a name prefix to match.  Returns partner(s) as a list
-        (even if just a single partner), as well as remaining available players (as a
-        convenience to the caller).
+        """Pick partner(s) based on `picks_info`, which may represent either
+        player_rank_eff (if specified as int) or a name prefix to match.  Returns
+        partner(s) as a list (even if just a single partner), as well as remaining
+        available players (as a convenience to the caller).
 
         Raises `RuntimeError` if specified pick(s) cannot be resolved or made.
         """
@@ -395,24 +405,6 @@ class PartnerPick(UIMixin, BasePlayer):
         table_name = BasePlayer._meta.table_name
 
     @classmethod
-    def current_round(cls) -> int:
-        """Return the current round for partner picking, with the special values of `0` to
-        indicate that the seeding stage rankings have not yet been determined, and `-1` to
-        indicate that the partner picking stage is complete.
-        """
-        tourn = TournInfo.get()
-        if not tourn.seeding_done():
-            return 0
-
-        query = (cls
-                 .select(fn.count())
-                 .where(cls.partner.is_null(False)))
-        npicks = query.scalar()
-        if npicks < tourn.teams:
-            return npicks + 1
-        return -1
-
-    @classmethod
     def phase_status(cls) -> str:
         """Return current status of the partner picking phase (for mobile UI).
         """
@@ -422,11 +414,13 @@ class PartnerPick(UIMixin, BasePlayer):
         elif cur_round == -1:
             return "Done"
         else:
-            if cur_round == 2:
-                # ignore the reigning champ(s) pre-selected team
+            tourn = TournInfo.get()
+            # accounting for reigning champ(s) pre-selected team, if any
+            offset = int(tourn.has_champ)
+            if cur_round == offset + 1:
                 npicks = "no"
             else:
-                npicks = cur_round - 2
+                npicks = cur_round - offset - 1
             return f"{npicks} picks made"
 
     @classmethod
@@ -444,7 +438,7 @@ class PartnerPick(UIMixin, BasePlayer):
         if not avail:
             return None
         assert len(avail) > 1
-        return sorted(avail, key=lambda x: x.player_rank)[0]
+        return sorted(avail, key=lambda x: x.player_rank_eff)[0]
 
     @classmethod
     def avail_picks(cls) -> list[Self]:
@@ -489,7 +483,7 @@ class PartnerPick(UIMixin, BasePlayer):
         else:
             includer = lambda x: x.partner
         picks = filter(includer, pl_list)
-        return sorted(picks, key=lambda x: (-x.reigning_champ, x.player_rank))
+        return sorted(picks, key=lambda x: (-x.reigning_champ, x.player_rank_eff))
 
 ############
 # SeedGame #
@@ -506,32 +500,6 @@ class SeedGame(UIMixin, BaseSeedGame):
 
     class Meta:
         table_name = BaseSeedGame._meta.table_name
-
-    @classmethod
-    def current_round(cls) -> int:
-        """Return the current round of play, with the special values of `0` to indicate
-        that the seeding bracket has not yet been created, and `-1` to indicate that the
-        seeding stage is complete.
-        """
-        tourn = TournInfo.get()
-        if tourn.stage_compl < TournStage.SEED_BRACKET:
-            return 0
-
-        round_games = tourn.players // 4
-        query = (cls
-                 .select(cls.round_num, fn.count(cls.id))
-                 .where(cls.winner.is_null(False))
-                 .group_by(cls.round_num)
-                 .order_by(cls.round_num.desc()))
-        if not query:
-            return 1  # no games yet played
-        round_num, ngames = query.scalar(as_tuple=True)
-
-        if ngames < round_games:
-            return round_num
-        if round_num < tourn.seed_rounds:
-            return round_num + 1
-        return -1
 
     @classmethod
     def phase_status(cls) -> str:
@@ -738,9 +706,9 @@ class Team(UIMixin, BaseTeam):
 
     @property
     def team_tag_pl(self) -> str:
-        """Same as `team_tag`, but for playoff bracket (so tourn_rank)
+        """Same as `team_tag`, but for playoff bracket (so tourn_rank_eff)
         """
-        return f"<b>{self.tourn_rank}</b>&nbsp;&nbsp;{self.team_name}"
+        return f"<b>{self.tourn_rank_eff}</b>&nbsp;&nbsp;{self.team_name}"
 
     @property
     def team_tag_fn(self) -> str:
@@ -749,11 +717,11 @@ class Team(UIMixin, BaseTeam):
         return f"<b>{self.team_seed}</b>&nbsp;&nbsp;{self.team_name}"
 
     @property
-    def tourn_pos_str(self) -> str | None:
+    def tourn_pos_str(self) -> str:
         """Same as tourn_pos, except annotated if tied with others
         """
         if self.tourn_pos is None:
-            return None
+            return ''
         elif not self.tourn_tb_crit:
             return str(self.tourn_pos)
         return f"{self.tourn_pos}*"
@@ -778,11 +746,22 @@ class Team(UIMixin, BaseTeam):
         return rnd_pct(self.tourn_tb_data['pts_for'] / tb_pts_tot)
 
     @property
-    def final_pos_str(self) -> str | None:
+    def tourn_rank_disp(self) -> str:
+        """The display value for (pre-playoff) tournament ranking (defaults to tourn_rank,
+        with override from tourn_rank_adj).
+        """
+        if self.tourn_rank_adj:
+            #return f"{self.tourn_rank_adj} ({self.tourn_rank})"
+            return f"{self.tourn_rank_adj}*"
+        else:
+            return str(self.tourn_rank) if self.tourn_rank else ''
+
+    @property
+    def final_pos_str(self) -> str:
         """Same as final_pos, except annotated if tied with others
         """
         if self.final_pos is None:
-            return None
+            return ''
         elif not self.final_tb_crit:
             return str(self.final_pos)
         return f"{self.final_pos}*"
@@ -807,6 +786,17 @@ class Team(UIMixin, BaseTeam):
         return rnd_pct(self.final_tb_data['pts_for'] / tb_pts_tot)
 
     @property
+    def final_rank_disp(self) -> str:
+        """The display value for final ranking (defaults to final_rank, with override from
+        final_rank_adj).
+        """
+        if self.final_rank_adj:
+            #return f"{self.final_rank_adj} ({self.final_rank})"
+            return f"{self.final_rank_adj}*"
+        else:
+            return str(self.final_rank) if self.final_rank else ''
+
+    @property
     def playoff_win_pct_str(self) -> str:
         """Return playoff_win_pct formatted as a string.
         """
@@ -823,7 +813,7 @@ class Team(UIMixin, BaseTeam):
         """Return playoff match record (W-L) as a string
         """
         tourn = TournInfo.get()
-        if not tourn.playoffs_started() or not self.playoff_team:
+        if not tourn.playoffs_started() or not self.playoff_games:
             return None
         return f"{self.playoff_match_wins}-{self.playoff_match_losses}"
 
@@ -832,7 +822,7 @@ class Team(UIMixin, BaseTeam):
         """Return playoff game win record (W-L) as a string
         """
         tourn = TournInfo.get()
-        if not tourn.playoffs_started() or not self.playoff_team:
+        if not tourn.playoffs_started() or not self.playoff_games:
             return None
         return f"{self.playoff_wins}-{self.playoff_losses}"
 
@@ -843,11 +833,11 @@ class Team(UIMixin, BaseTeam):
         return f"{self.tourn_wins}-{self.tourn_losses}"
 
     @property
-    def div_pos_str(self) -> str | None:
+    def div_pos_str(self) -> str:
         """Same as div_pos, except annotated if tied with others
         """
         if self.div_pos is None:
-            return None
+            return ''
         elif not self.div_tb_crit:
             return str(self.div_pos)
         return f"{self.div_pos}*"
@@ -880,18 +870,15 @@ class Team(UIMixin, BaseTeam):
         return rnd_pct(self.div_tb_data['pts_for'] / tb_pts_tot)
 
     @property
-    def div_rank_final(self, annotated: bool = False) -> int | str:
-        """The official value for division ranking (defaults to div_rank, with override
-        from div_rank_adj).  String value is returned if `annotated` is specified as True,
-        with override indicated (if present).
+    def div_rank_disp(self) -> str:
+        """The display value for division ranking (defaults to div_rank, with override
+        from div_rank_adj).
         """
-        if annotated:
-            if self.div_rank_adj:
-                return f"{self.div_rank_adj} ({self.div_rank})"
-            else:
-                return str(self.div_rank)
-
-        return self.div_rank_adj or self.div_rank
+        if self.div_rank_adj:
+            #return f"{self.div_rank_adj} ({self.div_rank})"
+            return f"{self.div_rank_adj}*"
+        else:
+            return str(self.div_rank) if self.div_rank else ''
 
     @property
     def current_game(self) -> BaseModel:
@@ -1022,32 +1009,6 @@ class TournGame(UIMixin, BaseTournGame):
         table_name = BaseTournGame._meta.table_name
 
     @classmethod
-    def current_round(cls) -> int:
-        """Return the current round of play, with the special values of `0` to indicate
-        that the round robin brackets have not yet been created, and `-1` to indicate that
-        the round robin stage is complete.
-        """
-        tourn = TournInfo.get()
-        if tourn.stage_compl < TournStage.TOURN_BRACKET:
-            return 0
-
-        round_games = tourn.teams // 2
-        query = (cls
-                 .select(cls.round_num, fn.count(cls.id))
-                 .where(cls.winner.is_null(False))
-                 .group_by(cls.round_num)
-                 .order_by(cls.round_num.desc()))
-        if not query:
-            return 1  # no games yet played
-        round_num, ngames = query.scalar(as_tuple=True)
-
-        if ngames < round_games:
-            return round_num
-        if round_num < tourn.tourn_rounds:
-            return round_num + 1
-        return -1
-
-    @classmethod
     def phase_status(cls) -> str:
         """Return current status of the round robin phase (for mobile UI).
         """
@@ -1152,29 +1113,6 @@ class PlayoffGame(UIMixin, BasePlayoffGame):
         table_name = BasePlayoffGame._meta.table_name
 
     @classmethod
-    def current_round(cls, bracket: Bracket) -> int:
-        """Return the current round of play, with the special values of `0` to indicate
-        that the specified playoff bracket has not yet been created, and `-1` to indicate
-        that the associated playoff stage is complete.  Note that "round", for playoff
-        brackets, means the lowest active game number for any matchup in the stage.
-        """
-        compl = cls.bracket_complete(bracket)
-        if compl is None:
-            return 0
-        elif compl:
-            return -1
-
-        query = (cls
-                 .select(cls.matchup_num, fn.count(cls.winner))
-                 .where(cls.bracket == bracket)
-                 .group_by(cls.matchup_num)
-                 .order_by(fn.count(cls.winner).asc()))
-        matchup_num, ngames = query.scalar(as_tuple=True)
-
-        assert ngames < 3
-        return ngames + 1
-
-    @classmethod
     def phase_status(cls, bracket: Bracket) -> str:
         """Return current status of the playoff round phase (for mobile UI).
         """
@@ -1186,39 +1124,6 @@ class PlayoffGame(UIMixin, BasePlayoffGame):
         else:
             # see docheader for `current_round()` on terminology here
             return f"Game {cur_round}"
-
-    @classmethod
-    def bracket_complete(cls, bracket: Bracket) -> bool:
-        """Check if all play associated with the specified bracket is complete.  `None`
-        indicates that the bracket has not started, whereas `False` indicates that play
-        has started but not yet complete.
-
-        Must be called after `update_team_stats()` for the most recent game.
-        """
-        tourn = TournInfo.get()
-        if bracket == Bracket.SEMIS:
-            if tourn.stage_compl < TournStage.SEMIS_BRACKET:
-                return None
-        else:
-            assert bracket == Bracket.FINALS
-            if tourn.stage_compl < TournStage.FINALS_BRACKET:
-                return None
-
-        query = Team.select(fn.sum(Team.playoff_match_wins))
-        match_wins = query.scalar()
-        if match_wins > 3:
-            raise DataError(f"too many playoff match wins ({match_wins})")
-
-        if bracket == Bracket.SEMIS:
-            return match_wins >= 2
-        else:
-            assert bracket == Bracket.FINALS
-            if tourn.playoff_teams == 2:
-                assert match_wins in (0, 1)
-                return match_wins == 1
-            else:
-                assert tourn.playoff_teams == 4
-                return match_wins == 3
 
     @property
     def bracket_ident(self) -> str:
@@ -1236,7 +1141,7 @@ class PlayoffGame(UIMixin, BasePlayoffGame):
     def team_ranks(self) -> str:
         """Show matchup of tournament (after round robin) rankings.
         """
-        tm_ranks = (self.team1.tourn_rank, self.team2.tourn_rank)
+        tm_ranks = (self.team1.tourn_rank_eff, self.team2.tourn_rank_eff)
         return ' vs. '.join(str(x) for x in tm_ranks if x)
 
     @property
@@ -1293,6 +1198,21 @@ class PostScore(UIMixin, BasePostScore):
 
     class Meta:
         table_name = BasePostScore._meta.table_name
+
+############
+# PostRank #
+############
+
+class PostRank(UIMixin, BasePostRank):
+    """
+    """
+    player         = ForeignKeyField(Player, field='player_num', column_name='player_num',
+                                     null=True)
+    team           = ForeignKeyField(Team, null=True)
+    ref_rank       = ForeignKeyField('self', null=True)
+
+    class Meta:
+        table_name = BasePostRank._meta.table_name
 
 ######################
 # more utility stuff #

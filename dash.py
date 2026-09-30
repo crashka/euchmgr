@@ -157,7 +157,7 @@ def sd_dash(tourn: TournInfo) -> str:
     update_int = DASH_UPDATE_INT - SD_UPDATE_ADJ
     done = tourn.seeding_done()
 
-    sort_key = lambda pl: pl.player_rank_final or tourn.players
+    sort_key = lambda pl: pl.player_rank_eff or tourn.players
     pl_list  = sorted(Player.iter_players(), key=sort_key)
     # inner dict represents points by round {rnd: pts}
     team_pts = {pl.player_num: {} for pl in pl_list}
@@ -251,7 +251,7 @@ def sd_dash(tourn: TournInfo) -> str:
                     pl.seed_win_pct,
                     pl.player_pos_str,
                     pl.seed_pts_pct,
-                    pl.player_rank_final
+                    pl.player_rank_eff
                 )
                 stats_fmt[pl_num] = (
                     fmt_dash_stat(stats[pl_num][0], prev_stats[pl_num][0], no_style=True),
@@ -264,7 +264,7 @@ def sd_dash(tourn: TournInfo) -> str:
                 mvmt[pl_num] = prev_mvmt.get(pl_num, '')
                 colcls[pl_num] = prev_colcls.get(pl_num, '')
             elif prev_stats[pl_num][3]:
-                rank_diff = (prev_stats[pl_num][3] or 0) - (pl.player_rank_final or 0)
+                rank_diff = (prev_stats[pl_num][3] or 0) - (pl.player_rank_eff or 0)
                 if rank_diff > 0:
                     mvmt[pl_num] = f'+{rank_diff}'
                     colcls[pl_num] = COLCLS_UP
@@ -284,7 +284,7 @@ def sd_dash(tourn: TournInfo) -> str:
                 pl.seed_win_pct,
                 pl.player_pos_str,
                 pl.seed_pts_pct,
-                pl.player_rank_final
+                pl.player_rank_eff
             )
             stats_fmt[pl_num] = (
                 fmt_dash_stat(stats[pl_num][0], no_style=True),
@@ -342,7 +342,7 @@ def rr_dash(tourn: TournInfo) -> str:
     done = tourn.round_robin_done()
 
     div_list = list(range(1, tourn.divisions + 1))
-    sort_key = lambda tm: tm.div_rank_final or tourn.teams
+    sort_key = lambda tm: tm.div_rank_eff or tourn.teams
     tm_list  = sorted(Team.iter_teams(), key=sort_key)
     # inner dict represents points by round {rnd: pts}
     team_pts = {tm.id: {} for tm in tm_list}
@@ -442,7 +442,7 @@ def rr_dash(tourn: TournInfo) -> str:
                     tm.tourn_pts_pct,
                     tm.div_tb_win_rec,
                     tm.div_tb_pts_pct,
-                    tm.div_rank_final
+                    tm.div_rank_eff
                 )
                 stats_fmt[tm_id] = (
                     fmt_dash_stat(stats[tm_id][0], prev_stats[tm_id][0], no_style=True),
@@ -457,7 +457,7 @@ def rr_dash(tourn: TournInfo) -> str:
                 mvmt[tm_id] = prev_mvmt.get(tm_id, '')
                 colcls[tm_id] = prev_colcls.get(tm_id, '')
             elif prev_stats[tm_id][5]:
-                rank_diff = (prev_stats[tm_id][5] or 0) - (tm.div_rank_final or 0)
+                rank_diff = (prev_stats[tm_id][5] or 0) - (tm.div_rank_eff or 0)
                 if rank_diff > 0:
                     mvmt[tm_id] = f'+{rank_diff}'
                     colcls[tm_id] = COLCLS_UP
@@ -479,7 +479,7 @@ def rr_dash(tourn: TournInfo) -> str:
                 tm.tourn_pts_pct,
                 tm.div_tb_win_rec,
                 tm.div_tb_pts_pct,
-                tm.div_rank_final
+                tm.div_rank_eff
             )
             stats_fmt[tm_id] = (
                 fmt_dash_stat(stats[tm_id][0], no_style=True),

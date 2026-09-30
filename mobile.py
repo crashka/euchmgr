@@ -106,14 +106,14 @@ def get_leaderboard(bracket: str, div: int = None) -> tuple[LBHeader, LBData]:
     if bracket == Bracket.SEED:
         pl_list = list(Player.iter_players(by_rank=True))
         data = [(pl.id, pl.player_tag, fmt_rec(pl.seed_wins, pl.seed_losses),
-                 fmt_pct(pl.seed_pts_pct or PTS_PCT_NA), pl.player_rank or "")
+                 fmt_pct(pl.seed_pts_pct or PTS_PCT_NA), pl.player_rank_eff or "")
                 for pl in pl_list]
         hdr = ("id", "Player (num)", "W-L", "Pts %", "Rank")
     elif bracket == Bracket.TOURN:
         assert div
         tm_list = list(Team.iter_teams(div=div, by_rank=True))
         data = [(tm.id, tm.team_tag, fmt_rec(tm.tourn_wins, tm.tourn_losses),
-                 fmt_pct(tm.tourn_pts_pct or PTS_PCT_NA), tm.div_rank or "")
+                 fmt_pct(tm.tourn_pts_pct or PTS_PCT_NA), tm.div_rank_eff or "")
                 for tm in tm_list]
         hdr = ("id", "Team (seed)", "W-L", "Pts %", "Rank")
     elif bracket == Bracket.SEMIS:
@@ -422,6 +422,7 @@ def submit_score(form: dict) -> str:
             action_info = "Conflicting submission"
             flash(f"err=Discarding {lc_first(action_info)} ({post_info(latest, team_idx)})")
 
+    tourn = TournInfo.get()
     info = {
         'bracket'      : bracket,
         'game_label'   : game_label,
@@ -432,7 +433,8 @@ def submit_score(form: dict) -> str:
         'posted_by_num': player_num,
         'team_idx'     : team_idx,
         'ref_score'    : None,
-        'do_push'      : False
+        'do_push'      : False,
+        'tourn_stage'  : tourn.stage_tag
     }
     score = PostScore.create(**info)
     if score_pushed:
@@ -495,6 +497,7 @@ def accept_score(form: dict, ref_score: PostScore = None) -> str:
                   f"({post_info(latest, team_idx)})")
 
     with db_atomic() as txn:
+        tourn = TournInfo.get()
         do_push = (post_action == ScoreAction.ACCEPT)
         info = {
             'bracket'      : bracket,
@@ -506,7 +509,8 @@ def accept_score(form: dict, ref_score: PostScore = None) -> str:
             'posted_by_num': player_num,
             'team_idx'     : team_idx,
             'ref_score'    : ref_score,
-            'do_push'      : do_push
+            'do_push'      : do_push,
+            'tourn_stage'  : tourn.stage_tag
         }
         score = PostScore.create(**info)
         if do_push:
@@ -586,6 +590,7 @@ def correct_score(form: dict, ref_score: PostScore = None) -> str:
         action_info = "Unchanged score correction"
         log.info(f"Ignoring {lc_first(action_info)}")
 
+    tourn = TournInfo.get()
     info = {
         'bracket'      : bracket,
         'game_label'   : game_label,
@@ -596,7 +601,8 @@ def correct_score(form: dict, ref_score: PostScore = None) -> str:
         'posted_by_num': player_num,
         'team_idx'     : team_idx,
         'ref_score'    : ref_score,
-        'do_push'      : False
+        'do_push'      : False,
+        'tourn_stage'  : tourn.stage_tag
     }
     score = PostScore.create(**info)
     if score_pushed:
@@ -615,7 +621,7 @@ def pick_partner(form: dict) -> str:
         partner = Player.fetch_by_num(partner_num)
         if partner:
             # partner is identified, but need to apply validation logic
-            partners, avail = player.pick_partners(partner.player_rank)
+            partners, avail = player.pick_partners(partner.player_rank_eff)
         else:
             if isinstance(picks_info, bool) or picks_info is None:
                 # revert over-aggressive typecasting (could mask viable matches)
@@ -805,15 +811,15 @@ def render_mobile(context: dict, view: str) -> str:
             player.player_num,
             win_rec_sd,
             pts_pct_sd,
-            player.player_rank
+            player.player_rank_eff
         ]
     elif view == View.PARTNERS:
         cur_pick   = PartnerPick.current_pick()
         fld_data[view] = [
             PartnerPick.phase_status(),
-            cur_pick.player_rank if cur_pick else None,
+            cur_pick.player_rank_eff if cur_pick else None,
             player.name,
-            player.player_rank
+            player.player_rank_eff
         ]
     elif view == View.ROUND_ROBIN:
         fld_data[view] = [
@@ -830,8 +836,8 @@ def render_mobile(context: dict, view: str) -> str:
                 team.div_seed,
                 win_rec_rr,
                 pts_pct_rr,
-                team.div_rank,
-                team.tourn_rank
+                team.div_rank_eff,
+                team.tourn_rank_eff
             ]
         else:
             fld_data[view] += [None] * 7
@@ -844,7 +850,7 @@ def render_mobile(context: dict, view: str) -> str:
         fld_data[view] = [
             PlayoffGame.phase_status(Bracket.SEMIS),
             team.team_name,
-            team.tourn_rank,
+            team.tourn_rank_eff,
             win_rec_pl,
             pts_pct_pl,
             team.playoff_rank
@@ -859,7 +865,7 @@ def render_mobile(context: dict, view: str) -> str:
         fld_data[view] = [
             PlayoffGame.phase_status(Bracket.FINALS),
             team.team_name,
-            team.tourn_rank,
+            team.tourn_rank_eff,
             win_rec_pl,
             pts_pct_pl,
             team.playoff_rank

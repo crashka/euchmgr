@@ -25,7 +25,8 @@ from ckautils import parse_argv, typecast
 from core import log
 from database import db_init, db_close
 from schema import (rnd_pct, Bracket, TournStage, TournInfo, Player, SeedGame, Team,
-                    TournGame, ScoreAction, PostScore)
+                    TournGame, ScoreAction, PostScore, RankType, PostRank, TournEvent,
+                    TournLog)
 import euchmgr
 from euchmgr import (get_div_maps, fmt_team_name, fmt_player_list, compute_player_ranks,
                      compute_team_seeds, compute_team_ranks, build_playoff_bracket,
@@ -203,24 +204,12 @@ def load_seed_games(csv_file: str) -> None:
         game.save()
 
         if game.winner:
-            info = {
-                'bracket'      : Bracket.SEED,
-                'game_label'   : game.label,
-                'post_action'  : ScoreAction.POST_IMPORT,
-                'action_info'  : 'Seed Scores',
-                'team1_pts'    : game.team1_pts,
-                'team2_pts'    : game.team2_pts,
-                'posted_by_num': None,
-                'team_idx'     : None,
-                'ref_score'    : None,
-                'do_push'      : True  # already pushed, lol
-            }
-            score = PostScore.create(**info)
+            PostScore.add(game, ScoreAction.POST_IMPORT, 'Seed Scores')
             game.update_player_stats()
             game.insert_player_games()
 
     compute_player_ranks()
-    TournInfo.mark_stage_complete(TournStage.SEED_RESULTS)
+    tourn.complete_stage(TournStage.SEED_RESULTS)
 
 def validate_player_ranks(csv_file: str) -> None:
     """Check computed results against spreadsheet results.  Flag any field discrepancies
@@ -234,7 +223,7 @@ def validate_player_ranks(csv_file: str) -> None:
                'Player' : 'name',
                'Win Pct': 'seed_win_pct',
                'Pts Pct': 'seed_pts_pct'}
-    COL_FIX = ['player_rank']
+    COL_ADJ = ['player_rank']
     with open(os.path.join(FILE_DIR, csv_file), newline='') as f:
         reader = csv.reader(f)
         header = next(reader)
@@ -250,17 +239,26 @@ def validate_player_ranks(csv_file: str) -> None:
                 elif pl_res[col] == getattr(pl, col):
                     continue
 
-                if col in COL_FIX:
-                    log.notice(f"Reverting mismatch for {pl.name}: "
-                               f"{col} = {pl_res[col]} ({getattr(pl, col)})")
-                    # FIX: for now, we are always just doing the adjustment in-place; for
-                    # rankings, we will want to do this in the associated "_adj" column
-                    # instead!!!
-                    setattr(pl, col, pl_res[col])
+                if col in COL_ADJ:
+                    # TEMP/FIX: right now only `player_rank` may be adjusted here, so we
+                    # make the assertion and hard-wire the implemention--later, we can get
+                    # fancier (or not)!!!
+                    assert col == 'player_rank'
+                    rank_type = RankType.SEED
+                    orig_rank = getattr(pl, col)
+                    new_rank = pl_res[col]
+                    action_info = "Revert to import value"
+                    post_info = pl.adj_rank(rank_type, new_rank, action_info)
+                    assert post_info['old_rank'] == orig_rank
                     pl.save()
+
+                    post = PostRank.create(**post_info)
+                    TournLog.addRank(TournEvent.RANK_ADJ, post)
+                    log.notice(f"{post_info['post_action']} {col} for {pl.name}: "
+                               f"{orig_rank} -> {new_rank} [{action_info}]")
                 else:
-                    log.notice(f"Mismatch for {pl.name}: "
-                               f"{col} = {pl_res[col]} ({getattr(pl, col)})")
+                    log.notice(f"Mismatched {col} for {pl.name}: "
+                               f"{pl_res[col]} (computed: {getattr(pl, col)})")
 
 def load_partner_picks(csv_file: str) -> None:
     """Assumes champ team is properly specified in the CSV file (in that we don't do any
@@ -342,8 +340,8 @@ def load_team_seeds(csv_file: str) -> None:
 
             for col in COL_FIX:
                 if tm_res[col] != getattr(tm, col):
-                    log.notice(f"Reverting mismatch for {tm.team_name}: "
-                               f"{col} = {tm_res[col]} ({getattr(tm, col)})")
+                    log.notice(f"Reverting mismatched {col} for {tm.team_name}: "
+                               f"{getattr(tm, col)} -> {tm_res[col]}")
                     setattr(tm, col, tm_res[col])
 
             # ATTN: have to save, even if no fix-ups!
@@ -484,24 +482,12 @@ def load_tourn_games(csv_file: str) -> None:
         game.save()
 
         if game.winner:
-            info = {
-                'bracket'      : Bracket.TOURN,
-                'game_label'   : game.label,
-                'post_action'  : ScoreAction.POST_IMPORT,
-                'action_info'  : 'Team Scores',
-                'team1_pts'    : game.team1_pts,
-                'team2_pts'    : game.team2_pts,
-                'posted_by_num': None,
-                'team_idx'     : None,
-                'ref_score'    : None,
-                'do_push'      : True  # already pushed, lol
-            }
-            score = PostScore.create(**info)
+            PostScore.add(game, ScoreAction.POST_IMPORT, 'Team Scores')
             game.update_team_stats()
             game.insert_team_games()
 
     compute_team_ranks()
-    TournInfo.mark_stage_complete(TournStage.TOURN_RESULTS)
+    tourn.complete_stage(TournStage.TOURN_RESULTS)
 
 def validate_team_ranks(csv_file: str) -> None:
     """Check computed results against spreadsheet results.  Flag any field discrepancies
@@ -543,6 +529,7 @@ def validate_team_ranks(csv_file: str) -> None:
 def load_playoff_games(csv_file: str) -> None:
     """Load playoff game results from CSV file.
     """
+    tourn = TournInfo.get()
     nteams = 4
     nrounds = 6  # 3 semis + 3 finals
 
@@ -589,22 +576,10 @@ def load_playoff_games(csv_file: str) -> None:
         game.save()
 
         if game.winner:
-            info = {
-                'bracket'      : game.bracket,
-                'game_label'   : game.label,
-                'post_action'  : ScoreAction.POST_IMPORT,
-                'action_info'  : 'Playoff Scores',
-                'team1_pts'    : game.team1_pts,
-                'team2_pts'    : game.team2_pts,
-                'posted_by_num': None,
-                'team_idx'     : None,
-                'ref_score'    : None,
-                'do_push'      : True  # already pushed, lol
-            }
-            score = PostScore.create(**info)
+            PostScore.add(game, ScoreAction.POST_IMPORT, 'Playoff Scores')
             game.update_team_stats()
 
-    TournInfo.mark_stage_complete(TournStage.SEMIS_RESULTS)
+    tourn.complete_stage(TournStage.SEMIS_RESULTS)
     validate_playoffs(Bracket.SEMIS, finalize=True)
     compute_playoff_ranks(Bracket.SEMIS, finalize=True)
 
@@ -623,22 +598,10 @@ def load_playoff_games(csv_file: str) -> None:
         game.save()
 
         if game.winner:
-            info = {
-                'bracket'      : game.bracket,
-                'game_label'   : game.label,
-                'post_action'  : ScoreAction.POST_IMPORT,
-                'action_info'  : 'Playoff Scores',
-                'team1_pts'    : game.team1_pts,
-                'team2_pts'    : game.team2_pts,
-                'posted_by_num': None,
-                'team_idx'     : None,
-                'ref_score'    : None,
-                'do_push'      : True  # already pushed, lol
-            }
-            score = PostScore.create(**info)
+            PostScore.add(game, ScoreAction.POST_IMPORT, 'Playoff Scores')
             game.update_team_stats()
 
-    TournInfo.mark_stage_complete(TournStage.FINALS_RESULTS)
+    tourn.complete_stage(TournStage.FINALS_RESULTS)
     validate_playoffs(Bracket.FINALS, finalize=True)
     compute_playoff_ranks(Bracket.FINALS, finalize=True)
     compute_final_ranks(finalize=True)
@@ -661,6 +624,7 @@ def validate_final_ranks(csv_file: str) -> None:
                'FF Pts Pct': 'playoff_pts_pct'}
     COL_CHK = ['final_rank', 'tourn_win_pct', 'tourn_pts_pct', 'playoff_match_wins',
                'playoff_win_pct', 'playoff_pts_pct']
+    COL_ADJ = ['final_rank']
     mismatch = []
     with open(os.path.join(FILE_DIR, csv_file), newline='') as f:
         reader = csv.reader(f)
@@ -679,8 +643,26 @@ def validate_final_ranks(csv_file: str) -> None:
                 elif tm_res[col] == getattr(tm, col):
                     continue
 
-                log.notice(f"Mismatch for {tm.team_name}: "
-                           f"{col} = {tm_res[col]} ({getattr(tm, col)})")
+                if col in COL_ADJ:
+                    # TEMP/FIX: right now only `final_rank` may be adjusted here, so we
+                    # make the assertion and hard-wire the implemention--later, we can get
+                    # fancier (or not)!!!
+                    assert col == 'final_rank'
+                    rank_type = RankType.FINAL
+                    orig_rank = getattr(tm, col)
+                    new_rank = tm_res[col]
+                    action_info = "Revert to import value"
+                    post_info = tm.adj_rank(rank_type, new_rank, action_info)
+                    assert post_info['old_rank'] == orig_rank
+                    tm.save()
+
+                    post = PostRank.create(**post_info)
+                    TournLog.addRank(TournEvent.RANK_ADJ, post)
+                    log.notice(f"{post_info['post_action']} {col} for {tm.team_name}: "
+                               f"{orig_rank} -> {new_rank} [{action_info}]")
+                else:
+                    log.notice(f"Mismatched {col} for {tm.team_name}: "
+                               f"{tm_res[col]} (computed: {getattr(tm, col)})")
 
 ########
 # main #

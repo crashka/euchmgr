@@ -25,7 +25,11 @@ if PROFILE:
 
 EXCLUDE_FUNCS = [
     'validate_playoffs',
-    'compute_playoff_ranks'
+    'compute_playoff_ranks',
+    'reset_seed_round',
+    'reset_partner_picks',
+    'reset_tourn',
+    'reset_playoffs'
 ]
 
 ALL_FUNCS = list(filter(lambda x: x not in EXCLUDE_FUNCS, euchmgr.MOD_FUNCS))

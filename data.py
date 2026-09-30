@@ -12,10 +12,13 @@ from flask import Blueprint, g, request
 from core import log
 from security import login_required
 from database import db_atomic
-from schema import Bracket, TournStage, TournInfo, ScoreAction
+from schema import (Bracket, BRACKET_NAME, TournStage, TournInfo, ScoreAction, RankType,
+                    TournEvent, TournLog)
 from euchmgr import (validate_seed_round, compute_player_ranks, validate_tourn,
-                     compute_team_ranks, validate_playoffs, compute_playoff_ranks)
-from ui_schema import Player, PartnerPick, SeedGame, Team, TournGame, PlayoffGame, PostScore
+                     compute_tourn_ranks, compute_team_ranks, validate_playoffs,
+                     compute_playoff_ranks)
+from ui_schema import (Player, PartnerPick, SeedGame, Team, TournGame, PlayoffGame,
+                       PostScore, PostRank)
 from ui_common import referrer_path, redirect, render_error
 
 ###################
@@ -31,6 +34,8 @@ EDITABLE  = 'editable'
 CLICKABLE = 'clickable'  # see NOTE in admin.html
 
 Layout = list[tuple[str, str, str]]
+
+BACK_BUTTON = "hit browser \"Back\" button [or Alt+Left Arrow] to continue"
 
 ##########
 # /tourn #
@@ -83,7 +88,8 @@ pl_addl_props = [
     'display_name',
     'champ',
     'seed_win_pct_str',
-    'seed_pts_pct_str'
+    'seed_pts_pct_str',
+    'player_rank_eff'
 ]
 
 pl_layout = [
@@ -98,7 +104,7 @@ pl_layout = [
     ('seed_pts_for',     "Pts For",     None),
     ('seed_pts_against', "Pts Against", None),
     ('seed_pts_pct_str', "Pts Pct",     None),
-    ('player_rank',      "Seed Rank",   None)
+    ('player_rank_eff',  "Seed Rank",   None)
 ]
 
 @data.get("/players/data")
@@ -133,14 +139,58 @@ def post_players() -> dict:
             pl_data = player.player_data | pl_props
     except TypeError as e:
         return ajax_error("Invalid type specified")
-    except (IntegrityError, ValueError) as e:
+    except IntegrityError as e:
         if "UNIQUE constraint failed: player.player_num" in str(e):
             return ajax_error("Player Num already in use")
-        raise
+        return ajax_error(str(e))
+    except ValueError as e:
+        return ajax_error(str(e))
     except RuntimeError as e:
         return ajax_error(str(e))
 
     return ajax_data(pl_data)
+
+@data.post("/players/rank_adj/<rank_type>")
+@login_required
+def players_rank_adj(rank_type: str) -> str:
+    """
+    """
+    assert rank_type in RankType
+    data = request.form
+    assert 'action_info' in data
+    assert 'redirect_to' in data
+
+    with db_atomic() as txn:
+        try:
+            posts = []
+            for field in data:
+                # looking for "pl_<id>_rank"
+                segs = field.split("_", 2)
+                if len(segs) != 3 or (segs[0], segs[2]) != ('pl', 'rank'):
+                    continue
+                player = Player[typecast(segs[1])]
+                new_rank = typecast(data[field])
+                orig_field = field.replace('rank', 'orig_rank', 1)
+                assert orig_field != field
+                orig_rank = typecast(data[orig_field])
+                if new_rank == orig_rank:
+                    #log.debug(f"skipping unadjusted {rank_type} rank for player {player.id}")
+                    continue
+
+                post_info = player.adj_rank(rank_type, new_rank, data['action_info'])
+                assert post_info['old_rank'] == orig_rank
+                player.save()
+
+                post = PostRank.create(**post_info)
+                TournLog.addRank(TournEvent.RANK_ADJ, post)
+                log.notice(f"{post_info['post_action']} {rank_type} rank for player {player.id}: "
+                           f"{orig_rank} -> {new_rank} [{data['action_info']}]")
+                posts.append(post)
+        except RuntimeError as e:
+            txn.rollback()
+            return render_error(400, str(e), BACK_BUTTON)
+
+    return redirect(data['redirect_to'])
 
 ############
 # /seeding #
@@ -195,19 +245,7 @@ def post_seeding() -> dict:
             game.save()
 
             if game.winner:
-                info = {
-                    'bracket'      : Bracket.SEED,
-                    'game_label'   : game.label,
-                    'post_action'  : ScoreAction.POST_ADMIN,
-                    'action_info'  : 'Seeding View',
-                    'team1_pts'    : team1_pts,
-                    'team2_pts'    : team2_pts,
-                    'posted_by_num': None,
-                    'team_idx'     : None,
-                    'ref_score'    : None,
-                    'do_push'      : True  # already pushed, lol
-                }
-                score = PostScore.create(**info)
+                PostScore.add(game, ScoreAction.POST_ADMIN, 'Seeding view')
                 game.update_player_stats()
                 game.insert_player_games()
                 compute_player_ranks()
@@ -231,7 +269,7 @@ def post_seeding() -> dict:
 
 @data.post("/seeding/score_adj")
 @login_required
-def post_seeding_adj() -> dict:
+def post_seeding_adj() -> str:
     """Post score adjustment to seeding round game.
     """
     # REVISIT: this is a currently hacked up integrity/security check, need to make this
@@ -241,35 +279,28 @@ def post_seeding_adj() -> dict:
     assert 'redirect_to' in data
 
     with db_atomic() as txn:
-        game = SeedGame[typecast(data.get('id'))]
-        prev_score = (game.team1_pts, game.team2_pts)
-        team1_pts = typecast(data.get('team1_pts'))
-        team2_pts = typecast(data.get('team2_pts'))
-        assert None not in (team1_pts, team2_pts)
-        if (team1_pts, team2_pts) == prev_score:
-            raise RuntimeError("Score unchanged")
-        game.add_scores(team1_pts, team2_pts, admin_adj=True)
-        game.save()
-        assert game.winner
+        try:
+            game = SeedGame[typecast(data.get('id'))]
+            prev_score = (game.team1_pts, game.team2_pts)
+            team1_pts = typecast(data.get('team1_pts'))
+            team2_pts = typecast(data.get('team2_pts'))
+            assert None not in (team1_pts, team2_pts)
+            if (team1_pts, team2_pts) == prev_score:
+                raise RuntimeError("Score unchanged")
+            game.add_scores(team1_pts, team2_pts, admin_adj=True)
+            game.save()
 
-        info = {
-            'bracket'      : Bracket.SEED,
-            'game_label'   : game.label,
-            'post_action'  : data.get('post_action'),
-            'action_info'  : data.get('action_info'),
-            'team1_pts'    : team1_pts,
-            'team2_pts'    : team2_pts,
-            'posted_by_num': None,
-            'team_idx'     : None,
-            'ref_score'    : None,
-            'do_push'      : True  # already pushed, lol
-        }
-        score = PostScore.create(**info)
-        game.update_player_stats(revert=prev_score)
-        game.update_player_stats()
-        game.update_player_games()
-        compute_player_ranks()
-        validate_seed_round()
+            assert game.winner
+            post = PostScore.add(game, data.get('post_action'), data.get('action_info'))
+            TournLog.addScore(TournEvent.SCORE_ADJ, post)
+            game.update_player_stats(revert=prev_score)
+            game.update_player_stats()
+            game.update_player_games()
+            compute_player_ranks()
+            validate_seed_round()
+        except RuntimeError as e:
+            txn.rollback()
+            return render_error(400, str(e), BACK_BUTTON)
 
     new_score = (team1_pts, team2_pts)
     log.notice(f"Adjusting score for seed game {game.label}: {prev_score} -> {new_score} "
@@ -281,6 +312,7 @@ def post_seeding_adj() -> dict:
 #############
 
 pt_addl_props = [
+    'player_rank_eff',
     'full_name',
     'seed_ident',
     'champ',
@@ -290,15 +322,15 @@ pt_addl_props = [
 ]
 
 pt_layout = [
-    ('id',             "ID",         HIDDEN),
-    ('player_rank',    "Seed Rank",  None),
-    ('full_name',      "Player",     None),
-    ('player_num',     "Player Num", None),
-    ('seed_ident',     "Pick Order", None),
-    ('champ',          "Champ?",     CENTERED),
-    ('available',      "Avail?",     CENTERED),
-    ('picks_info',     "Partner(s) (pick by Name or Rank)", EDITABLE),
-    ('picked_by_info', "Picked By",  None)
+    ('id',              "ID",         HIDDEN),
+    ('player_rank_eff', "Seed Rank",  None),
+    ('full_name',       "Player",     None),
+    ('player_num',      "Player Num", None),
+    ('seed_ident',      "Pick Order", None),
+    ('champ',           "Champ?",     CENTERED),
+    ('available',       "Avail?",     CENTERED),
+    ('picks_info',      "Partner(s) (pick by Name or Rank)", EDITABLE),
+    ('picked_by_info',  "Picked By",  None)
 ]
 
 @data.get("/partners/data")
@@ -364,7 +396,10 @@ def post_partners() -> dict:
 tm_addl_props = [
     'player_nums',
     'tourn_win_pct_str',
-    'tourn_pts_pct_str'
+    'tourn_pts_pct_str',
+    'div_rank_eff',
+    'tourn_rank_eff',
+    'final_rank_eff'
 ]
 
 tm_layout = [
@@ -380,9 +415,9 @@ tm_layout = [
     ('tourn_pts_for',     "Pts For",     None),
     ('tourn_pts_against', "Pts Against", None),
     ('tourn_pts_pct_str', "Pts Pct",     None),
-    ('div_rank',          "Div Rank",    None),
-    ('tourn_rank',        "Team Rank",   None),
-    ('final_rank',        "Final Rank",  None)
+    ('div_rank_eff',      "Div Rank",    None),
+    ('tourn_rank_eff',    "Team Rank",   None),
+    ('final_rank_eff',    "Final Rank",  None)
 ]
 
 @data.get("/teams/data")
@@ -424,6 +459,58 @@ def post_teams() -> dict:
         return ajax_error(str(e))
 
     return ajax_data(tm_data)
+
+@data.post("/teams/rank_adj/<rank_type>")
+@login_required
+def teams_rank_adj(rank_type: str) -> str:
+    """
+    """
+    assert rank_type in RankType
+    data = request.form
+    assert 'action_info' in data
+    assert 'redirect_to' in data
+
+    with db_atomic() as txn:
+        try:
+            posts = []
+            for field in data:
+                # looking for "tm_<id>_rank"
+                segs = field.split("_", 2)
+                if len(segs) != 3 or (segs[0], segs[2]) != ('tm', 'rank'):
+                    continue
+                team = Team[typecast(segs[1])]
+                new_rank = typecast(data[field])
+                orig_field = field.replace('rank', 'orig_rank', 1)
+                assert orig_field != field
+                orig_rank = typecast(data[orig_field])
+                if new_rank == orig_rank:
+                    #log.debug(f"skipping unadjusted {rank_type} rank for team {team.id}")
+                    continue
+
+                post_info = team.adj_rank(rank_type, new_rank, data['action_info'])
+                assert post_info['old_rank'] == orig_rank
+                team.save()
+
+                post = PostRank.create(**post_info)
+                TournLog.addRank(TournEvent.RANK_ADJ, post)
+                log.notice(f"{post_info['post_action']} {rank_type} rank for team {team.id}: "
+                           f"{orig_rank} -> {new_rank} [{data['action_info']}]")
+                posts.append(post)
+
+            if posts and rank_type == RankType.DIV:
+                # NOTE: we recompute tourn_rank so that playoff seeds are correct and the team
+                # ranks chart looks right (fairly minor points, but can help reduce confusion)
+                #
+                # TODO:
+                #   - need to enforce constraints (or minimally, proper logging) depending on the
+                #     tournament stage (here and elsewhere)!!!
+                tm_list = list(Team.iter_teams())
+                compute_tourn_ranks(tm_list, admin_adj=True, reason="Div rank adjustment")
+        except RuntimeError as e:
+            txn.rollback()
+            return render_error(400, str(e), BACK_BUTTON)
+
+    return redirect(data['redirect_to'])
 
 ################
 # /round_robin #
@@ -479,19 +566,7 @@ def post_round_robin() -> dict:
             game.save()
 
             if game.winner:
-                info = {
-                    'bracket'      : Bracket.TOURN,
-                    'game_label'   : game.label,
-                    'post_action'  : ScoreAction.POST_ADMIN,
-                    'action_info'  : 'Round Robin View',
-                    'team1_pts'    : team1_pts,
-                    'team2_pts'    : team2_pts,
-                    'posted_by_num': None,
-                    'team_idx'     : None,
-                    'ref_score'    : None,
-                    'do_push'      : True  # already pushed, lol
-                }
-                score = PostScore.create(**info)
+                PostScore.add(game, ScoreAction.POST_ADMIN, 'Round robin view')
                 game.update_team_stats()
                 game.insert_team_games()
                 compute_team_ranks()
@@ -524,35 +599,28 @@ def post_round_robin_adj() -> dict:
     assert 'redirect_to' in data
 
     with db_atomic() as txn:
-        game = TournGame[typecast(data.get('id'))]
-        prev_score = (game.team1_pts, game.team2_pts)
-        team1_pts = typecast(data.get('team1_pts'))
-        team2_pts = typecast(data.get('team2_pts'))
-        assert None not in (team1_pts, team2_pts)
-        if (team1_pts, team2_pts) == prev_score:
-            raise RuntimeError("Score unchanged")
-        game.add_scores(team1_pts, team2_pts, admin_adj=True)
-        game.save()
-        assert game.winner
+        try:
+            game = TournGame[typecast(data.get('id'))]
+            prev_score = (game.team1_pts, game.team2_pts)
+            team1_pts = typecast(data.get('team1_pts'))
+            team2_pts = typecast(data.get('team2_pts'))
+            assert None not in (team1_pts, team2_pts)
+            if (team1_pts, team2_pts) == prev_score:
+                raise RuntimeError("Score unchanged")
+            game.add_scores(team1_pts, team2_pts, admin_adj=True)
+            game.save()
 
-        info = {
-            'bracket'      : Bracket.TOURN,
-            'game_label'   : game.label,
-            'post_action'  : data.get('post_action'),
-            'action_info'  : data.get('action_info'),
-            'team1_pts'    : team1_pts,
-            'team2_pts'    : team2_pts,
-            'posted_by_num': None,
-            'team_idx'     : None,
-            'ref_score'    : None,
-            'do_push'      : True  # already pushed, lol
-        }
-        score = PostScore.create(**info)
-        game.update_team_stats(revert=prev_score)
-        game.update_team_stats()
-        game.update_team_games()
-        compute_team_ranks()
-        validate_tourn()
+            assert game.winner
+            post = PostScore.add(game, data.get('post_action'), data.get('action_info'))
+            TournLog.addScore(TournEvent.SCORE_ADJ, post)
+            game.update_team_stats(revert=prev_score)
+            game.update_team_stats()
+            game.update_team_games()
+            compute_team_ranks()
+            validate_tourn()
+        except RuntimeError as e:
+            txn.rollback()
+            return render_error(400, str(e), BACK_BUTTON)
 
     new_score = (team1_pts, team2_pts)
     log.notice(f"Adjusting score for tourn game {game.label}: {prev_score} -> {new_score} "
@@ -564,7 +632,9 @@ def post_round_robin_adj() -> dict:
 ###############
 
 ff_addl_props = [
+    'tourn_rank_eff',
     'playoff_status',
+    'div_rank_eff',
     'playoff_match_rec',
     'playoff_win_rec',
     'playoff_win_pct_str',
@@ -573,11 +643,11 @@ ff_addl_props = [
 
 ff_layout = [
     ('id',                   "ID",           HIDDEN),
-    ('tourn_rank',           "Team Rank",    None),
+    ('tourn_rank_eff',       "Team Rank",    None),
     ('team_name',            "Team",         None),
     ('playoff_status',       "Status",       None),
     ('div_num',              "Div",          None),
-    ('div_rank',             "Div Rank",     None),
+    ('div_rank_eff',         "Div Rank",     None),
     ('playoff_match_rec',    "Match W-L",    CENTERED),
     ('playoff_win_rec',      "Game W-L",     CENTERED),
     ('playoff_win_pct_str',  "Win Pct",      None),
@@ -682,19 +752,7 @@ def post_playoffs() -> dict:
             game.save()
 
             if game.winner:
-                info = {
-                    'bracket'      : game.bracket,
-                    'game_label'   : game.label,
-                    'post_action'  : ScoreAction.POST_ADMIN,
-                    'action_info'  : 'Playoffs View',
-                    'team1_pts'    : team1_pts,
-                    'team2_pts'    : team2_pts,
-                    'posted_by_num': None,
-                    'team_idx'     : None,
-                    'ref_score'    : None,
-                    'do_push'      : True  # already pushed, lol
-                }
-                score = PostScore.create(**info)
+                PostScore.add(game, ScoreAction.POST_ADMIN, 'Playoffs view')
                 game.update_team_stats()
                 # REVISIT/FIX: commenting this out for now, since we aren't currently managing
                 # the different brackets properly within team_games!!!
@@ -741,35 +799,34 @@ def post_playoffs_adj() -> dict:
     assert 'redirect_to' in data
 
     with db_atomic() as txn:
-        game = PlayoffGame[typecast(data.get('id'))]
-        prev_score = (game.team1_pts, game.team2_pts)
-        team1_pts = typecast(data.get('team1_pts'))
-        team2_pts = typecast(data.get('team2_pts'))
-        assert None not in (team1_pts, team2_pts)
-        if (team1_pts, team2_pts) == prev_score:
-            raise RuntimeError("Score unchanged")
-        game.add_scores(team1_pts, team2_pts, admin_adj=True)
-        game.save()
-        assert game.winner
+        try:
+            game = PlayoffGame[typecast(data.get('id'))]
+            # TEMP: currently do not support adjustments for second-level playoff rounds,
+            # due to limitations in playoff team stats reversion!!!
+            if game.bracket == Bracket.FINALS:
+                tourn = TournInfo.get()
+                if tourn.playoff_teams == 4:
+                    raise RuntimeError("Cannot currently adjust score for playoff finals game (coming soon...)")
+            prev_score = (game.team1_pts, game.team2_pts)
+            team1_pts = typecast(data.get('team1_pts'))
+            team2_pts = typecast(data.get('team2_pts'))
+            assert None not in (team1_pts, team2_pts)
+            if (team1_pts, team2_pts) == prev_score:
+                raise RuntimeError("Score unchanged")
+            game.add_scores(team1_pts, team2_pts, admin_adj=True)
+            game.save()
 
-        info = {
-            'bracket'      : game.bracket,
-            'game_label'   : game.label,
-            'post_action'  : data.get('post_action'),
-            'action_info'  : data.get('action_info'),
-            'team1_pts'    : team1_pts,
-            'team2_pts'    : team2_pts,
-            'posted_by_num': None,
-            'team_idx'     : None,
-            'ref_score'    : None,
-            'do_push'      : True  # already pushed, lol
-        }
-        score = PostScore.create(**info)
-        game.update_team_stats(revert=prev_score)
-        game.update_team_stats()
-        #game.update_team_games()
-        compute_playoff_ranks(game.bracket)
-        validate_playoffs(game.bracket)
+            assert game.winner
+            post = PostScore.add(game, data.get('post_action'), data.get('action_info'))
+            TournLog.addScore(TournEvent.SCORE_ADJ, post)
+            game.update_team_stats(revert=prev_score)
+            game.update_team_stats()
+            #game.update_team_games()
+            compute_playoff_ranks(game.bracket)
+            validate_playoffs(game.bracket)
+        except RuntimeError as e:
+            txn.rollback()
+            return render_error(400, str(e), BACK_BUTTON)
 
     new_score = (team1_pts, team2_pts)
     log.notice(f"Adjusting score for playoff game {game.label}: {prev_score} -> {new_score} "

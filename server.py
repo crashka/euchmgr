@@ -114,12 +114,25 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         """
         if ignore_path(request.path):
             return
-        log.debug(f"@app.before_request: {request.method} {request.path}")
+        log.trace(f"@app.before_request: {request.method} {request.path}")
         tourn_name = session.get('tourn')
         assert not (tourn_name and g.mobile)
         if tourn_name != SEL_NEW:
             if not app.testing or db_is_closed():
-                db_connect(tourn_name)
+                try:
+                    db_connect(tourn_name)
+                except ConnectionError as e:
+                    pattern = r"does not match db_name\(\) \('(.*)'\)$"
+                    if not (m := re.search(pattern, str(e))):
+                        raise
+                    # database connection for the session has been changed out from under
+                    # us (presumably by another admin)--OPEN ISSUE: is it better to clear
+                    # out the session info (as we are doing now), or just realign it with
+                    # the current database connection?
+                    session.pop('tourn', None)
+                    msg = f"active tournament has been changed to \"{m[1]}\""
+                    log.error(f"{msg} (expected \"{tourn_name}\")")
+                    flash(f"Note: {msg}")
 
     @app.teardown_request
     def _db_close(exc) -> None:
@@ -129,14 +142,14 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         """
         if ignore_path(request.path):
             return
-        log.debug(f"@app.teardown_request: {request.method} {request.path}")
+        log.trace(f"@app.teardown_request: {request.method} {request.path}")
         db_close()
 
     @app.errorhandler(HTTPException)
     def handle_http_exception(e) -> tuple[dict, int] | HTTPException:
         """Return appropropiate exception format based on `g.api_call`.
         """
-        log.debug(f"handle_http_exception {e.code} ({e.name}), \"{e.description}\"")
+        log.info(f"handle_http_exception {e.code} ({e.name}), \"{e.description}\"")
         if g.api_call:
             return {
                 'succ': False,
@@ -150,7 +163,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
     def handle_exception(e) -> tuple[dict, int] | Exception:
         """Return appropropiate exception format based on `g.api_call`.
         """
-        log.debug(f"handle_exception \"{str(e)}\"")
+        log.info(f"handle_exception \"{str(e)}\"")
         if g.api_call:
             tb = traceback.format_exception(e)
             return {
@@ -260,8 +273,13 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         tourn = TournInfo.get()
         tourn_name = session.get('tourn')
         if not tourn_name:
-            # our session information has been cleared out somehow (should only happen in
-            # testing)--let's just re-set it and log this as an event of interest
+            # REVISIT: this can happen if another admin has switched tournaments out from
+            # under us (and the mismatched session info is then cleared).  Interestingly
+            # enough, we can remain in this state for quite a while, until we try and hit
+            # up either `/` (here) or `/tourn` (in admin.py).  We should really fix this,
+            # since it clearly wasn't meant to be this way, but things seem to be working
+            # okay, so for now we'll just re-set the session info and log this as an event
+            # of interest.
             session['tourn'] = tourn.name
             log.info(f"re-setting tourn = '{tourn.name}' in session state")
 
@@ -388,6 +406,14 @@ help_txt = {
 # __main__ #
 ############
 
+import sys
+
+from ckautils import parse_argv
+
 if __name__ == "__main__":
-    app = create_app()
+    args, kwargs = parse_argv(sys.argv[1:])
+    if args:
+        sys.exit(f"unexpected args: {args}")
+
+    app = create_app(**kwargs)
     app.run(debug=True, host='0.0.0.0', port=5050)

@@ -2,6 +2,7 @@
 
 from enum import IntEnum, StrEnum
 from typing import ClassVar, Self, Iterator, NamedTuple
+from collections.abc import Iterable
 import re
 
 from ckautils import typecast
@@ -53,7 +54,37 @@ def get_bracket(label: str) -> str:
     """
     pfx = label.split('-', 1)[0]
     assert pfx in Bracket
+    #return Bracket(pfx)  <-- should be this, need verify that it doesn't break any current callers
     return pfx
+
+##############################
+# post scoring/ranking stuff #
+##############################
+
+class ScoreAction(StrEnum):
+    SUBMIT      = "Submit"
+    ACCEPT      = "Accept"
+    CORRECT     = "Correct"
+    IGNORE      = " (ignored)"
+    DISCARD     = " (discarded)"
+    POST_ADMIN  = "Post"
+    POST_IMPORT = "Import"
+    POST_FAKE   = "Fake Results"
+    ADJ_ADMIN   = "Adjust"
+    CLR_ADMIN   = "Clear"
+
+class RankType(StrEnum):
+    SEED        = "seed"
+    TOURN       = "tourn"
+    DIV         = "div"
+    FINAL       = "final"
+
+class RankAction(StrEnum):
+    COMPUTE     = "Compute"
+    RECOMPUTE   = "Recompute"
+    ADJUST      = "Adjust"
+    REVERT      = "Revert"
+    CLEAR       = "Clear"
 
 ##########################
 # tournament stage stuff #
@@ -161,6 +192,7 @@ class TournInfo(BaseModel):
     players        = IntegerField(null=True)
     teams          = IntegerField(null=True)
     thm_teams      = IntegerField(null=True)
+    has_champ      = BooleanField(default=False)  # just a boolean (quick convenience)
     seed_rounds    = IntegerField(null=True)
     tourn_rounds   = IntegerField(null=True)
     divisions      = IntegerField(null=True)
@@ -212,6 +244,13 @@ class TournInfo(BaseModel):
         tourn.complete_stage(stage)
 
     @property
+    def stage_tag(self) -> str:
+        """Return short, printable representation of current stage name
+        """
+        stage = max(self.stage_start, self.stage_compl)
+        return self.cur_stage + f" ({stage})"
+
+    @property
     def tourn_data(self) -> dict:
         """Return tournament data as a dict, removing hidden values.
         """
@@ -221,6 +260,14 @@ class TournInfo(BaseModel):
     def save(self, *args, **kwargs):
         """Manage stage changes and associated message text.
         """
+        reset_stage = kwargs.pop('reset_stage', None)
+
+        if 'stage_start' in self._dirty and self.stage_start <= self.stage_compl:
+            if not reset_stage:
+                stage = TournStage(self.stage_start)
+                TournLog.add(TournEvent.STAGE_START, stage.name, ref_id=stage.value)
+                log.notice(f"Starting stage {stage.name} ({stage.value})")
+
         if 'stage_compl' in self._dirty:
             stage_data = StageData[self.stage_compl]
 
@@ -245,8 +292,17 @@ class TournInfo(BaseModel):
                     self.next_action = StageData[stage_next].start_msg
                 else:
                     self.next_action = None
-            stage = TournStage(self.stage_compl)
-            log.notice(f"Completing stage {stage.name} ({stage.value})")
+            if not reset_stage:
+                stage = TournStage(self.stage_compl)
+                TournLog.add(TournEvent.STAGE_COMPL, stage.name, ref_id=stage.value)
+                log.notice(f"Completing stage {stage.name} ({stage.value})")
+
+        if 'stage_start' in self._dirty and self.stage_start > self.stage_compl:
+            # note, we do this even in the case of a stage reset (unlike above), since we
+            # would like to see the evidence of a stage auto-advance
+            stage = TournStage(self.stage_start)
+            TournLog.add(TournEvent.STAGE_START, stage.name, ref_id=stage.value)
+            log.notice(f"Starting stage {stage.name} ({stage.value})")
 
         if self.id is None:
             self.__class__.clear_cache()
@@ -265,6 +321,18 @@ class TournInfo(BaseModel):
         self.stage_compl = stage
         if auto_save:
             self.save()
+
+    def reset_stage(self, stage: TournStage, auto_save: bool = True) -> None:
+        """Reset tournament to the specified stage (and save, by default).
+        """
+        self.stage_start = stage
+        self.stage_compl = stage
+        if isinstance(stage, int):
+            stage = TournStage(stage)
+        TournLog.add(TournEvent.STAGE_RESET, stage.name, ref_id=stage.value)
+        log.notice(f"Resetting stage {stage.name} ({stage.value})")
+        if auto_save:
+            self.save(reset_stage=True)
 
     def show_stage(self, stage: TournStage, auto_save: bool = True) -> None:
         """Show specified stage in the display fields (and save, by default).  Note that
@@ -290,6 +358,22 @@ class TournInfo(BaseModel):
         """
         return self.stage_compl >= TournStage.SEED_RANKS
 
+    def partner_picks_started(self) -> bool:
+        """Official way to check if partner picking has started (first pick has been made
+        in the PARTNER_PICK stage).
+        """
+        cur_round = Player.current_round()
+        if cur_round == 0:
+            assert self.stage_start < TournStage.PARTNER_PICK
+            return False
+        elif cur_round == -1:
+            assert self.stage_start >= TournStage.PARTNER_PICK
+            return True
+        else:
+            assert self.stage_start == TournStage.PARTNER_PICK
+            tourn = TournInfo.get()
+            return cur_round > int(tourn.has_champ) + 1
+
     def partner_picks_done(self) -> bool:
         """Official way to check if partner picking is complete (all picks made and teams
         determined).
@@ -312,11 +396,23 @@ class TournInfo(BaseModel):
             assert self.playoff_teams == 4
             return self.stage_compl >= TournStage.SEMIS_BRACKET
 
+    def semifinals_done(self) -> bool:
+        """Official way to check if semifinals are complete (scores validated and interim
+        playoff rankings computed).
+        """
+        return self.stage_compl >= TournStage.SEMIS_RANKS
+
     def playoffs_done(self) -> bool:
-        """Official way to check if playoffs (and hence the tournament) is complete
-        (scores validated and final team rankings computed).
+        """Official way to check if playoffs are complete (scores validated and playoff
+        rankings computed).
         """
         return self.stage_compl >= TournStage.FINALS_RANKS
+
+    def tournament_done(self) -> bool:
+        """Official way to check if the overall tournament is complete (final team
+        rankings computed).
+        """
+        return self.stage_compl >= TournStage.TOURN_FINAL
 
 ##########
 # Player #
@@ -387,7 +483,8 @@ class Player(BaseModel, EuchmgrUser):
         else:
             query = cls.select()
         if by_rank:
-            query = query.order_by(cls.player_rank.asc(nulls='last'))
+            player_rank_eff = fn.coalesce(cls.player_rank_adj, cls.player_rank)
+            query = query.order_by(player_rank_eff.asc(nulls='last'))
         for p in query:
             player_map[p.player_num] = p
         return player_map
@@ -405,9 +502,8 @@ class Player(BaseModel, EuchmgrUser):
         """
         if ids is not None:
             raise ImplementationError("list of IDs not yet supported")
-        upd = Player.update(player_num=None)
-        res = upd.execute()
-        return res
+        upd_stmt = Player.update(player_num=None)
+        return upd_stmt.execute()
 
     @classmethod
     def nums_used(cls, player: Self = None) -> Iterator[int]:
@@ -434,15 +530,70 @@ class Player(BaseModel, EuchmgrUser):
         return sorted(set(all_nums) - set(cls.nums_used(player)))
 
     @classmethod
-    def clear_partner_picks(cls, ids: list[int] = None) -> int:
-        """Delete partner_picks for all rows (or specified IDs); return number of records
-        updated.
+    def current_round(cls) -> int:
+        """Return the current round for partner picking, with the special values of `0` to
+        indicate that the seeding stage rankings have not yet been determined, and `-1` to
+        indicate that the partner picking stage is complete.
         """
-        if ids is not None:
-            raise ImplementationError("list of IDs not yet supported")
-        upd = Player.update(partner=None, partner2=None, picked_by=None)
-        res = upd.execute()
-        return res
+        tourn = TournInfo.get()
+        if not tourn.seeding_done():
+            return 0
+
+        query = (cls
+                 .select(fn.count())
+                 .where(cls.partner.is_null(False)))
+        npicks = query.scalar()
+        if npicks < tourn.teams:
+            return npicks + 1
+        return -1
+
+    @classmethod
+    def clear_seeding_data(cls, do_logging: bool = False, action_info: str = None) -> int:
+        """Clear all player data related to seeding round games and scores, as well as
+        consequent player position/rank determinations; return number of records updated.
+        """
+        field_vals = {
+            'seed_wins'       : 0,
+            'seed_losses'     : 0,
+            'seed_win_pct'    : None,
+            'seed_pts_for'    : 0,
+            'seed_pts_against': 0,
+            'seed_pts_pct'    : None,
+            'player_pos'      : None,
+            'seed_tb_crit'    : None,
+            'seed_tb_data'    : None,
+            'player_rank'     : None,
+            'player_rank_adj' : None
+        }
+
+        if do_logging:
+            tourn = TournInfo.get()
+            post_info = {
+                'rank_type'   : RankType.SEED,
+                'post_action' : RankAction.CLEAR,
+                'action_info' : action_info,
+                'old_rank'    : -1,  # secret code for `[obs]` (obsolete)
+                'new_rank'    : 0,   # secret code for `None`
+                'tourn_stage' : tourn.stage_tag
+            }
+            upd_stmt = cls.update(**field_vals).returning(cls)
+            for idx, pl in enumerate(upd_stmt):
+                PostRank.create(**(post_info | {'player': pl}))
+            return idx + 1
+
+        upd_stmt = cls.update(**field_vals)
+        return upd_stmt.execute()
+
+    @classmethod
+    def clear_partner_picks(cls, include_champs: bool = False) -> int:
+        """Clear out partner pick info for all players; return number of records updated.
+        Note that we implicitly clear out the team association as well (can be considered
+        to be a cascade of sorts).
+        """
+        upd_stmt = cls.update(partner=None, partner2=None, picked_by=None, team=None)
+        if not include_champs:
+            upd_stmt = upd_stmt.where(cls.reigning_champ == False)
+        return upd_stmt.execute()
 
     @classmethod
     def available_players(cls) -> list[Self]:
@@ -459,7 +610,8 @@ class Player(BaseModel, EuchmgrUser):
         if no_nums:
             query = query.where(cls.player_num.is_null(True))
         if by_rank:
-            query = query.order_by(cls.player_rank.asc(nulls='last'))
+            player_rank_eff = fn.coalesce(cls.player_rank_adj, cls.player_rank)
+            query = query.order_by(player_rank_eff.asc(nulls='last'))
         for p in query:
             yield p
 
@@ -474,6 +626,12 @@ class Player(BaseModel, EuchmgrUser):
         """For UI support ('y' or empty)
         """
         return 'y' if self.reigning_champ else None
+
+    @property
+    def player_rank_eff(self) -> int:
+        """Effective player_rank (used in determining partner pick order)
+        """
+        return self.player_rank_adj or self.player_rank
 
     @property
     def available(self) -> str | None:
@@ -521,6 +679,43 @@ class Player(BaseModel, EuchmgrUser):
             assert partner2.picked_by is None
             self.partner2 = partner2
             partner2.picked_by = self
+
+    def adj_rank(self, rank_type: RankType, new_rank: int, action_info: str = None) -> dict:
+        """Add or remove a ranking adjustment.  Return data structure suitable for
+        creating a PostRank record, including fields for rank_action and old_rank.
+        """
+        if current_user and not current_user.is_admin:
+            raise PermissionError("Only admins can adjust rankings")
+        tourn = TournInfo.get()
+        rank_action = None
+        old_rank = None
+
+        if rank_type == RankType.SEED:
+            if tourn.stage_compl >= TournStage.TEAM_SEEDS:
+                raise RuntimeError("Cannot adjust player rank after team seeds have been computed")
+            if new_rank == self.player_rank:
+                rank_action = RankAction.REVERT
+                assert self.player_rank_adj
+                old_rank = self.player_rank_adj
+                self.player_rank_adj = None
+            else:
+                rank_action = RankAction.ADJUST
+                old_rank = self.player_rank_adj or self.player_rank
+                self.player_rank_adj = new_rank
+        else:
+            raise RuntimeError(f"Rank type '{rank_type}' not supported")
+
+        assert rank_action and old_rank
+        post_info = {
+            'rank_type'   : rank_type,
+            'player'      : self,
+            'post_action' : rank_action,
+            'action_info' : action_info,
+            'old_rank'    : old_rank,
+            'new_rank'    : new_rank,
+            'tourn_stage' : tourn.stage_tag
+        }
+        return post_info
 
     def save(self, *args, **kwargs):
         """Ensure that nick_name is not null, since it is used as the display name in
@@ -630,16 +825,69 @@ class SeedGame(BaseModel):
         for t in query:
             yield t
 
+    @classmethod
+    def clear_game_scores(cls, do_logging: bool = False, action_info: str = None) -> int:
+        """Clear out score and winner info for all games in the round; return number of
+        records updated.
+        """
+        if do_logging:
+            upd_stmt = (cls
+                        .update(team1_pts=None, team2_pts=None, winner=None)
+                        .where(cls.table_num.is_null(False) &  # always skip byes
+                               (cls.team1_pts.is_null(False) |
+                                cls.team2_pts.is_null(False) |
+                                cls.winner.is_null(False)))
+                        .returning(cls))
+            for idx, game in enumerate(upd_stmt):
+                PostScore.add(game, ScoreAction.CLR_ADMIN, action_info)
+            return idx + 1
+
+        upd_stmt = cls.update(team1_pts=None, team2_pts=None, winner=None)
+        return upd_stmt.execute()
+
+    @classmethod
+    def current_round(cls) -> int:
+        """Return the current round of play, with the special values of `0` to indicate
+        that the seeding bracket has not yet been created, and `-1` to indicate that the
+        seeding stage is complete.
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.SEED_BRACKET:
+            return 0
+
+        round_games = tourn.players // 4
+        query = (cls
+                 .select(cls.round_num, fn.count(cls.id))
+                 .where(cls.winner.is_null(False))
+                 .group_by(cls.round_num)
+                 .order_by(cls.round_num.desc()))
+        if not query:
+            return 1  # no games yet played
+        round_num, ngames = query.scalar(as_tuple=True)
+
+        if ngames < round_games:
+            return round_num
+        if round_num < tourn.seed_rounds:
+            return round_num + 1
+        return -1
+
     def add_scores(self, team1_pts: int, team2_pts: int, admin_adj: bool = False) -> None:
         """Record scores for completed (or incomplete) game.  It is no longer required
         that score updates come through here (since denorms are now managed elsewhere),
         but there is a little bit of integrity checking here that is slightly useful
         """
+        if not self.table_num:
+            assert self.bye_players
+            raise RuntimeError(f"Scores may not be added for bye rounds")
         if self.winner:
             if admin_adj:
-                assert current_user.is_admin
+                if current_user and not current_user.is_admin:
+                    raise PermissionError("Only admins can adjust scores")
+                tourn = TournInfo.get()
+                if tourn.seeding_done():
+                    raise RuntimeError("Cannot adjust game scores after seeding ranks have been computed")
             else:
-                raise RuntimeError("Completed game score cannot be overwritten")
+                raise RuntimeError("Cannot overwrite completed game scores")
         if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
             raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points)")
 
@@ -789,6 +1037,7 @@ class Team(BaseModel):
     top_player_rank = IntegerField()
     # tournament bracket
     team_seed      = IntegerField(unique=True, null=True)  # 1-based, based on player seeds
+    team_seed_adj  = IntegerField(null=True)               # manual overrides
     div_num        = IntegerField(null=True)
     div_seed       = IntegerField(null=True)
     # tournament play
@@ -831,24 +1080,31 @@ class Team(BaseModel):
         )
 
     @classmethod
-    def iter_teams(cls, div: int = None, by_rank: bool = False) -> Iterator[Self]:
+    def iter_teams(cls, div: int = None, by_rank: bool = False,
+                   no_adj: bool = False) -> Iterator[Self]:
         """Iterator for teams (wrap ORM details).
         """
         query = cls.select()
         if div:
             query = query.where(cls.div_num == div)
             if by_rank:
-                query = query.order_by(cls.div_rank.asc(nulls='last'))
+                div_rank_eff = fn.coalesce(cls.div_rank_adj, cls.div_rank)
+                ord_expr = cls.div_rank if no_adj else div_rank_eff
+                query = query.order_by(ord_expr.asc(nulls='last'))
         elif by_rank:
             # HUGE HACK: `div = 0` represents final tournament ranking (no nulls)--should
             # really get rid of this at some point (just too gross)!!!
             if div == 0:
                 tourn = TournInfo.get()
                 assert tourn.stage_compl >= TournStage.SEMIS_BRACKET
-                query = query.order_by(cls.final_rank.asc())
+                final_rank_eff = fn.coalesce(cls.final_rank_adj, cls.final_rank)
+                ord_expr = cls.final_rank if no_adj else final_rank_eff
+                query = query.order_by(ord_expr.asc(nulls='last'))
             else:
                 assert(div is None)
-                query = query.order_by(cls.tourn_rank.asc(nulls='last'))
+                tourn_rank_eff = fn.coalesce(cls.tourn_rank_adj, cls.tourn_rank)
+                ord_expr = cls.tourn_rank if no_adj else tourn_rank_eff
+                query = query.order_by(ord_expr.asc(nulls='last'))
         for t in query:
             yield t
 
@@ -856,9 +1112,11 @@ class Team(BaseModel):
     def iter_playoff_teams(cls, by_rank: bool = False) -> Iterator[Self]:
         """Iterator for playoff teams (wrap ORM details).
         """
-        query = cls.select().where(cls.div_rank.in_([1, 2]))
+        div_rank_eff = fn.coalesce(cls.div_rank_adj, cls.div_rank)
+        query = cls.select().where(div_rank_eff.in_([1, 2]))
         if by_rank:
-            query = query.order_by(cls.playoff_rank.asc(nulls='last'), cls.tourn_rank.asc())
+            ord_expr = fn.coalesce(cls.tourn_rank_adj, cls.tourn_rank)
+            query = query.order_by(cls.playoff_rank.asc(nulls='last'), ord_expr.asc())
         for t in query:
             yield t
 
@@ -869,7 +1127,8 @@ class Team(BaseModel):
         tourn = TournInfo.get()
         if tourn.playoff_teams == 2:
             assert tourn.divisions == 1
-            query = cls.select().where(cls.div_rank.in_([1, 2]))
+            div_rank_eff = fn.coalesce(cls.div_rank_adj, cls.div_rank)
+            query = cls.select().where(div_rank_eff.in_([1, 2]))
         else:
             assert tourn.playoff_teams == 4
             assert tourn.divisions == 2
@@ -879,6 +1138,96 @@ class Team(BaseModel):
             query = query.order_by(cls.playoff_rank.asc())
         for t in query:
             yield t
+
+    @classmethod
+    def delete_teams(cls) -> int:
+        """Delete team records (wrap ORM details); return number of records deleted.
+        """
+        del_stmt = cls.delete()
+        return del_stmt.execute()
+
+    @classmethod
+    def clear_tourn_data(cls, do_logging: bool = False, action_info: str = None) -> int:
+        """Clear all team data related to tournament round robin games and scores, as well
+        as consequent position/rank determinations (at both tourn- and div-levels); return
+        number of records updated.
+        """
+        field_vals = {
+            'tourn_wins'       : 0,
+            'tourn_losses'     : 0,
+            'tourn_win_pct'    : None,
+            'tourn_pts_for'    : 0,
+            'tourn_pts_against': 0,
+            'tourn_pts_pct'    : None,
+            'tourn_pos'        : None,
+            'tourn_tb_crit'    : None,
+            'tourn_tb_data'    : None,
+            'tourn_rank'       : None,
+            'tourn_rank_adj'   : None,
+            'div_pos'          : None,
+            'div_tb_crit'      : None,
+            'div_tb_data'      : None,
+            'div_rank'         : None,
+            'div_rank_adj'     : None
+        }
+
+        if do_logging:
+            tourn = TournInfo.get()
+            post_info = {
+                'post_action' : RankAction.CLEAR,
+                'action_info' : action_info,
+                'old_rank'    : -1,  # secret code for `<prev>`
+                'new_rank'    : 0,   # secret code for `None`
+                'tourn_stage' : tourn.stage_tag
+            }
+            upd_stmt = cls.update(**field_vals).returning(cls)
+            for idx, tm in enumerate(upd_stmt):
+                PostRank.create(**(post_info | {'team': tm, 'rank_type': RankType.TOURN}))
+                PostRank.create(**(post_info | {'team': tm, 'rank_type': RankType.DIV}))
+            return idx + 1
+
+        upd_stmt = cls.update(**field_vals)
+        return upd_stmt.execute()
+
+    @classmethod
+    def clear_playoff_data(cls, do_logging: bool = False, action_info: str = None) -> int:
+        """Clear all team data related to playoff round games and scores, as well as
+        consequent position/rank determinations (including those at the "final" overall
+        tournament level); return number of records updated.
+        """
+        field_vals = {
+            'playoff_match_wins'  : 0,
+            'playoff_match_losses': 0,
+            'playoff_wins'        : 0,
+            'playoff_losses'      : 0,
+            'playoff_win_pct'     : None,
+            'playoff_pts_for'     : 0,
+            'playoff_pts_against' : 0,
+            'playoff_pts_pct'     : None,
+            'playoff_rank'        : None,
+            'final_pos'           : None,
+            'final_tb_crit'       : None,
+            'final_tb_data'       : None,
+            'final_rank'          : None,
+            'final_rank_adj'      : None
+        }
+
+        if do_logging:
+            tourn = TournInfo.get()
+            post_info = {
+                'post_action' : RankAction.CLEAR,
+                'action_info' : action_info,
+                'old_rank'    : -1,  # secret code for `<prev>`
+                'new_rank'    : 0,   # secret code for `None`
+                'tourn_stage' : tourn.stage_tag
+            }
+            upd_stmt = cls.update(**field_vals).returning(cls)
+            for idx, tm in enumerate(upd_stmt):
+                PostRank.create(**(post_info | {'team': tm, 'rank_type': RankType.FINAL}))
+            return idx + 1
+
+        upd_stmt = cls.update(**field_vals)
+        return upd_stmt.execute()
 
     @classmethod
     def ident_final_tbs(cls, final_pos: int) -> list[list[Self]]:
@@ -937,6 +1286,24 @@ class Team(BaseModel):
         return tbs
 
     @property
+    def tourn_rank_eff(self) -> int:
+        """Effective tourn_rank (not currently used!)
+        """
+        return self.tourn_rank_adj or self.tourn_rank
+
+    @property
+    def div_rank_eff(self) -> int:
+        """Effective div_rank (used in computing playoff-bound teams)
+        """
+        return self.div_rank_adj or self.div_rank
+
+    @property
+    def final_rank_eff(self) -> int:
+        """Effective final_rank (used for final overall tournament results)
+        """
+        return self.final_rank_adj or self.final_rank
+
+    @property
     def is_champ(self) -> bool:
         """Note that the property (i.e. return) value is different than Player.champ
         """
@@ -950,7 +1317,7 @@ class Team(BaseModel):
         """Return true if team is playoff-bound, based on current division standings.  Can
         be called before actual playoff teams have been determined.
         """
-        return self.div_rank in (1, 2)
+        return self.div_rank_eff in (1, 2)
 
     @property
     def playoff_team(self) -> bool:
@@ -960,7 +1327,17 @@ class Team(BaseModel):
         tourn = TournInfo.get()
         if tourn.stage_compl < TournStage.TOURN_RANKS:
             return None
-        return self.div_rank in (1, 2)
+        return self.div_rank_eff in (1, 2)
+
+    @property
+    def playoff_games(self) -> bool:
+        """Return true if team has played any playoff games.  `None` returned if called
+        before playoff teams have been determined.
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.TOURN_RANKS:
+            return None
+        return bool(self.playoff_wins + self.playoff_losses)
 
     @property
     def finals_team(self) -> bool:
@@ -972,7 +1349,7 @@ class Team(BaseModel):
             return None
         if tourn.playoff_teams == 2:
             assert tourn.divisions == 1
-            return self.div_rank in (1, 2)
+            return self.div_rank_eff in (1, 2)
         else:
             assert tourn.playoff_teams == 4
             assert tourn.divisions == 2
@@ -1017,6 +1394,68 @@ class Team(BaseModel):
             self.player3.team = self
             self.player3.save()
 
+    def adj_rank(self, rank_type: RankType, new_rank: int, action_info: str = None) -> dict:
+        """Add or remove a ranking adjustment.  Return data structure suitable for
+        creating a PostRank record, including fields for rank_action and old_rank.
+        """
+        if current_user and not current_user.is_admin:
+            raise PermissionError("Only admins can adjust rankings")
+        tourn = TournInfo.get()
+        rank_action = None
+        old_rank = None
+
+        if rank_type == RankType.DIV:
+            if tourn.playoffs_started():
+                raise RuntimeError("Cannot adjust division rank after playoff brackets have been created")
+            if new_rank == self.div_rank:
+                rank_action = RankAction.REVERT
+                assert self.div_rank_adj
+                old_rank = self.div_rank_adj
+                self.div_rank_adj = None
+            else:
+                rank_action = RankAction.ADJUST
+                old_rank = self.div_rank_adj or self.div_rank
+                self.div_rank_adj = new_rank
+        elif rank_type == RankType.TOURN:
+            # this should only be done as a consequence of div-level adjustments, so we'll
+            # assert the same stage constraint as (right) above
+            assert not tourn.playoffs_started()
+            if new_rank == self.tourn_rank:
+                rank_action = RankAction.REVERT
+                assert self.tourn_rank_adj
+                old_rank = self.tourn_rank_adj
+                self.tourn_rank_adj = None
+            else:
+                rank_action = RankAction.ADJUST
+                old_rank = self.tourn_rank_adj or self.tourn_rank
+                self.tourn_rank_adj = new_rank
+        elif rank_type == RankType.FINAL:
+            # REVISIT: we may want to put a stage constraint here if we ever introduce the
+            # notion of indelibly finalizing tournament results
+            if new_rank == self.final_rank:
+                rank_action = RankAction.REVERT
+                assert self.final_rank_adj
+                old_rank = self.final_rank_adj
+                self.final_rank_adj = None
+            else:
+                rank_action = RankAction.ADJUST
+                old_rank = self.final_rank_adj or self.final_rank
+                self.final_rank_adj = new_rank
+        else:
+            raise RuntimeError(f"Rank type '{rank_type}' not supported")
+
+        assert rank_action and old_rank
+        post_info = {
+            'rank_type'   : rank_type,
+            'team'        : self,
+            'post_action' : rank_action,
+            'action_info' : action_info,
+            'old_rank'    : old_rank,
+            'new_rank'    : new_rank,
+            'tourn_stage' : tourn.stage_tag
+        }
+        return post_info
+
 #############
 # TournGame #
 #############
@@ -1059,16 +1498,69 @@ class TournGame(BaseModel):
         for t in query:
             yield t
 
+    @classmethod
+    def clear_game_scores(cls, do_logging: bool = False, action_info: str = None) -> int:
+        """Clear out score and winner info for all games in the round; return number of
+        records updated.
+        """
+        if do_logging:
+            upd_stmt = (cls
+                        .update(team1_pts=None, team2_pts=None, winner=None)
+                        .where(cls.table_num.is_null(False) &  # always skip byes
+                               (cls.team1_pts.is_null(False) |
+                                cls.team2_pts.is_null(False) |
+                                cls.winner.is_null(False)))
+                        .returning(cls))
+            for idx, game in enumerate(upd_stmt):
+                PostScore.add(game, ScoreAction.CLR_ADMIN, action_info)
+            return idx + 1
+
+        upd_stmt = cls.update(team1_pts=None, team2_pts=None, winner=None)
+        return upd_stmt.execute()
+
+    @classmethod
+    def current_round(cls) -> int:
+        """Return the current round of play, with the special values of `0` to indicate
+        that the round robin brackets have not yet been created, and `-1` to indicate that
+        the round robin stage is complete.
+        """
+        tourn = TournInfo.get()
+        if tourn.stage_compl < TournStage.TOURN_BRACKET:
+            return 0
+
+        round_games = tourn.teams // 2
+        query = (cls
+                 .select(cls.round_num, fn.count(cls.id))
+                 .where(cls.winner.is_null(False))
+                 .group_by(cls.round_num)
+                 .order_by(cls.round_num.desc()))
+        if not query:
+            return 1  # no games yet played
+        round_num, ngames = query.scalar(as_tuple=True)
+
+        if ngames < round_games:
+            return round_num
+        if round_num < tourn.tourn_rounds:
+            return round_num + 1
+        return -1
+
     def add_scores(self, team1_pts: int, team2_pts: int, admin_adj: bool = False) -> None:
         """Record scores for completed (or incomplete) game.  It is no longer required
         that score updates come through here (since denorms are now managed elsewhere),
         but there is a little bit of integrity checking here that is slightly useful
         """
+        if not self.table_num:
+            assert self.bye_team
+            raise RuntimeError(f"Scores may not be added for bye rounds")
         if self.winner:
             if admin_adj:
-                assert current_user.is_admin
+                if current_user and not current_user.is_admin:
+                    raise PermissionError("Only admins can adjust scores")
+                tourn = TournInfo.get()
+                if tourn.round_robin_done():
+                    raise RuntimeError("Cannot adjust game scores after division ranks have been computed")
             else:
-                raise RuntimeError("Completed game score cannot be overwritten")
+                raise RuntimeError("Cannot overwrite completed game scores")
         if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
             raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points)")
 
@@ -1204,8 +1696,8 @@ class PlayoffGame(BaseModel):
     team2          = ForeignKeyField(Team, column_name='team2_id')
     team1_name     = TextField()              # denorm
     team2_name     = TextField()              # denorm
-    team1_div_rank = IntegerField()
-    team2_div_rank = IntegerField()
+    team1_div_rank = IntegerField()           # denorm (eff)
+    team2_div_rank = IntegerField()           # denorm (eff)
     # results
     team1_pts      = IntegerField(null=True)
     team2_pts      = IntegerField(null=True)
@@ -1227,6 +1719,81 @@ class PlayoffGame(BaseModel):
             query = query.order_by(cls.bracket, cls.matchup_num, cls.round_num)
         for t in query:
             yield t
+
+    @classmethod
+    def clear_game_scores(cls, bracket: Bracket = None) -> int:
+        """Clear out score and winner info for all games in the round; return number of
+        records updated.
+        """
+        upd_stmt = cls.update(team1_pts=None, team2_pts=None, winner=None)
+        if bracket:
+            upd_stmt = upd_stmt.where(cls.bracket == bracket)
+        return upd_stmt.execute()
+
+    @classmethod
+    def delete_games(cls, bracket: Bracket = None) -> int:
+        """Delete team records (wrap ORM details); return number of records deleted.
+        """
+        del_stmt = cls.delete()
+        if bracket:
+            del_stmt = del_stmt.where(cls.bracket == bracket)
+        return del_stmt.execute()
+
+    @classmethod
+    def bracket_complete(cls, bracket: Bracket) -> bool:
+        """Check if all play associated with the specified bracket is complete.  `None`
+        indicates that the bracket has not started, whereas `False` indicates that play
+        has started but not yet complete.
+
+        Must be called after `update_team_stats()` for the most recent game.
+        """
+        tourn = TournInfo.get()
+        if bracket == Bracket.SEMIS:
+            if tourn.stage_compl < TournStage.SEMIS_BRACKET:
+                return None
+        else:
+            assert bracket == Bracket.FINALS
+            if tourn.stage_compl < TournStage.FINALS_BRACKET:
+                return None
+
+        query = Team.select(fn.sum(Team.playoff_match_wins))
+        match_wins = query.scalar()
+        if match_wins > 3:
+            raise DataError(f"too many playoff match wins ({match_wins})")
+
+        if bracket == Bracket.SEMIS:
+            return match_wins >= 2
+        else:
+            assert bracket == Bracket.FINALS
+            if tourn.playoff_teams == 2:
+                assert match_wins in (0, 1)
+                return match_wins == 1
+            else:
+                assert tourn.playoff_teams == 4
+                return match_wins == 3
+
+    @classmethod
+    def current_round(cls, bracket: Bracket) -> int:
+        """Return the current round of play, with the special values of `0` to indicate
+        that the specified playoff bracket has not yet been created, and `-1` to indicate
+        that the associated playoff stage is complete.  Note that "round", for playoff
+        brackets, means the lowest active game number for any matchup in the stage.
+        """
+        compl = cls.bracket_complete(bracket)
+        if compl is None:
+            return 0
+        elif compl:
+            return -1
+
+        query = (cls
+                 .select(cls.matchup_num, fn.count(cls.winner))
+                 .where(cls.bracket == bracket)
+                 .group_by(cls.matchup_num)
+                 .order_by(fn.count(cls.winner).asc()))
+        matchup_num, ngames = query.scalar(as_tuple=True)
+
+        assert ngames < 3
+        return ngames + 1
 
     @property
     def matchup_winner(self) -> Team | None:
@@ -1258,9 +1825,15 @@ class PlayoffGame(BaseModel):
         """
         if self.winner:
             if admin_adj:
-                assert current_user.is_admin
+                if current_user and not current_user.is_admin:
+                    raise PermissionError("Only admins can adjust scores")
+                tourn = TournInfo.get()
+                if self.bracket == Bracket.SEMIS and tourn.semifinals_done():
+                    raise RuntimeError("Cannot adjust game scores after semifinals results have been tabulated")
+                if self.bracket == Bracket.FINALS and tourn.playoffs_done():
+                    raise RuntimeError("Cannot adjust game scores after final playoff results have been tabulated")
             else:
-                raise RuntimeError("Completed game score cannot be overwritten")
+                raise RuntimeError("Cannot overwrite completed game scores")
         if not (0 <= (team1_pts or 0) <= GAME_PTS and 0 <= (team2_pts or 0) <= GAME_PTS):
             raise RuntimeError(f"Invalid score specified (must be between 0 and {GAME_PTS} points)")
 
@@ -1288,11 +1861,17 @@ class PlayoffGame(BaseModel):
             opp_pts  = team_scores[op_idx]
 
             if revert:
+                if self.bracket == Bracket.FINALS:
+                    tourn = TournInfo.get()
+                    # TEMP: only allow if this is the only playoff round (see BROKEN
+                    # below)!!!
+                    assert tourn.playoff_teams == 2
                 team.playoff_wins        -= int(team_pts > opp_pts)
                 team.playoff_losses      -= int(team_pts < opp_pts)
                 team.playoff_pts_for     -= team_pts
                 team.playoff_pts_against -= opp_pts
                 # just hard-reset match stats (don't muck with matchup_winner here)
+                # BROKEN: this doesn't work for second-level playoff rounds!!!
                 team.playoff_match_wins   = 0
                 team.playoff_match_losses = 0
             else:
@@ -1369,6 +1948,15 @@ class PlayerGame(BaseModel):
             yield t
 
     @classmethod
+    def delete_games(cls, include_byes: bool = False) -> int:
+        """Delete player_games (wrap ORM details); return number of records deleted.
+        """
+        del_stmt = cls.delete()
+        if not include_byes:
+            del_stmt = del_stmt.where(cls.is_bye == False)
+        return del_stmt.execute()
+
+    @classmethod
     def get_game_map(cls, label: str) -> dict[int, Self]:
         """Return map of player_game records for the specified game label, index by
         player_num.
@@ -1426,6 +2014,15 @@ class TeamGame(BaseModel):
             yield t
 
     @classmethod
+    def delete_games(cls, include_byes: bool = False) -> int:
+        """Delete team_games (wrap ORM details); return number of records deleted.
+        """
+        del_stmt = cls.delete()
+        if not include_byes:
+            del_stmt = del_stmt.where(cls.is_bye == False)
+        return del_stmt.execute()
+
+    @classmethod
     def get_game_map(cls, label: str) -> dict[int, Self]:
         """Return map of team_game records for the specified game label, index by
         team_id.
@@ -1480,16 +2077,15 @@ class StandinGame(BaseModel):
 # PostScore #
 #############
 
-class ScoreAction(StrEnum):
-    SUBMIT      = "Submit"
-    ACCEPT      = "Accept"
-    CORRECT     = "Correct"
-    IGNORE      = " (ignored)"
-    DISCARD     = " (discarded)"
-    POST_ADMIN  = "Post"
-    POST_IMPORT = "Import"
-    POST_FAKE   = "Fake Results"
-    ADJ_ADMIN   = "Adjust"
+StageGame = SeedGame | TournGame | PlayoffGame
+
+ADMIN_ACTIONS = (
+    ScoreAction.POST_ADMIN,
+    ScoreAction.POST_IMPORT,
+    ScoreAction.POST_FAKE,
+    ScoreAction.ADJ_ADMIN,
+    ScoreAction.CLR_ADMIN
+)
 
 class PostScore(BaseModel):
     """
@@ -1505,11 +2101,42 @@ class PostScore(BaseModel):
     team_idx       = IntegerField(null=True)  # for `posted_by` (`0` - team1, `1` - team2)
     ref_score      = ForeignKeyField('self', null=True)
     do_push        = BooleanField(null=True)
+    tourn_stage    = TextField()
 
     class Meta:
         indexes = (
             (('game_label', 'created_at'), False),
         )
+
+    @classmethod
+    def add(cls, game: StageGame, post_action: ScoreAction, action_info: str = None,
+            do_push: bool = True) -> Self:
+        """Convenience method for posting a score--for admin actions only!
+        """
+        assert post_action in ADMIN_ACTIONS
+        tourn = TournInfo.get()
+        info = {
+            'bracket'      : get_bracket(game.label),
+            'game_label'   : game.label,
+            'post_action'  : post_action,
+            'action_info'  : action_info,
+            'team1_pts'    : game.team1_pts if game.team1_pts is not None else -1,
+            'team2_pts'    : game.team2_pts if game.team2_pts is not None else -1,
+            'do_push'      : do_push,
+            'tourn_stage'  : tourn.stage_tag
+        }
+        score = cls.create(**info)
+        return score
+
+    @classmethod
+    def delete_posts(cls, bracket: Bracket | Iterable[Bracket]) -> int:
+        """Delete post_score records (wrap ORM details); return number of records deleted.
+        """
+        if isinstance(bracket, Iterable):
+            del_stmt = cls.delete().where(cls.bracket.in_(bracket))
+        else:
+            del_stmt = cls.delete().where(cls.bracket == bracket)
+        return del_stmt.execute()
 
     @classmethod
     def fetch_by_id(cls, id: int) -> Self:
@@ -1575,12 +2202,112 @@ class PostScore(BaseModel):
         else:
             raise LogicError(f"Invalid bracket '{self.bracket}'")
 
+############
+# PostRank #
+############
+
+class PostRank(BaseModel):
+    """
+    """
+    rank_type      = TextField()
+    div_num        = IntegerField(null=True)
+    player         = ForeignKeyField(Player, field='player_num', column_name='player_num',
+                                     null=True)
+    team           = ForeignKeyField(Team, null=True)
+    post_action    = TextField()
+    action_info    = TextField(null=True)
+    old_rank       = IntegerField(null=True)
+    new_rank       = IntegerField()
+    ref_rank       = ForeignKeyField('self', null=True)
+    tourn_stage    = TextField()
+
+    class Meta:
+        indexes = (
+            (('rank_type', 'player', 'created_at'), False),
+            (('rank_type', 'div_num', 'team', 'created_at'), False)
+        )
+
+    @classmethod
+    def get_posts(cls, rank_type: RankType, target: Player | Team) -> list[Self]:
+        """Return PostRank records for specified ranking type and target (player or team),
+        in chronological orde
+        """
+        cls_target = cls.player if rank_type == RankType.SEED else cls.team
+        query = (cls
+                 .select()
+                 .where(cls.rank_type == rank_type,
+                        cls_target == target)
+                 .order_by(cls.id))
+        return list(query)
+
+#############
+# Tourn Log #
+#############
+
+class TournEvent(StrEnum):
+    STAGE_START  = "Stage start"
+    STAGE_COMPL  = "Stage complete"
+    STAGE_RESET  = "Stage reset"
+    ROUND_START  = "Round start"
+    ROUND_COMPL  = "Round complete"
+    SCORE_ADJ    = "Score adjust"
+    RANK_ADJ     = "Rank adjust"
+    ADMIN_ACTION = "Admin action"
+
+class TournLog(BaseModel):
+    """Log of critical tournament-level events, including stage changes and admin overrides.
+    """
+    event_type     = TextField()              # TournEvent
+    event_target   = TextField()              # stage, round, score/rank type, etc.
+    event_info     = TextField(null=True)     # additional info (unstructured)
+    event_data     = JSONField(null=True)     # may be denorm from ref table (see next)
+    ref_id         = IntegerField(null=True)  # ID for type-dependent ref table
+
+    @classmethod
+    def add(cls, ev_type: TournEvent, ev_target: str, ev_info: str = None,
+            ev_data: dict = None, ref_id: int = None) -> Self:
+        """Convenience function for logging with positional arguments.
+        """
+        info = {'event_type'  : ev_type,
+                'event_target': ev_target,
+                'event_info'  : ev_info,
+                'event_data'  : ev_data,
+                'ref_id'      : ref_id}
+        event = cls.create(**info)
+        return event
+
+    @classmethod
+    def addScore(cls, ev_type: TournEvent, post: PostScore) -> Self:
+        """Convenience function for logging posted score adjustments.
+        """
+        info = {'event_type'  : ev_type,
+                'event_target': get_bracket(post.game_label),
+                'event_info'  : post.game_label,
+                'event_data'  : post.__data__,
+                'ref_id'      : post.id}
+        event = cls.create(**info)
+        return event
+
+    @classmethod
+    def addRank(cls, ev_type: TournEvent, post: PostRank) -> Self:
+        """Convenience function for logging posted rank adjustments.
+        """
+        ev_info = (f"player num {post.player.player_num}" if post.player else
+                   f"team id {post.team.id}")
+        info = {'event_type'  : ev_type,
+                'event_target': post.rank_type,
+                'event_info'  : ev_info,
+                'event_data'  : post.__data__,
+                'ref_id'      : post.id}
+        event = cls.create(**info)
+        return event
+
 #################
 # schema_create #
 #################
 
 ALL_MODELS = [TournInfo, Player, SeedGame, Team, TournGame, PlayoffGame, PlayerGame,
-              TeamGame, StandinPlayer, StandinGame, PostScore]
+              TeamGame, StandinPlayer, StandinGame, PostScore, PostRank, TournLog]
 
 def schema_create(models: list[BaseModel | str] | str = None, force = False) -> None:
     """Create tables for specified models (list of objects or comma-separated list of

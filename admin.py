@@ -113,7 +113,7 @@ VIEW_DEFS = {
         "Partners",
         pt_layout,
         "nick_name",
-        [1],  # player_rank
+        [1],  # player_rank_eff
         3
     ),
     View.TEAMS: ViewInfo(
@@ -134,7 +134,7 @@ VIEW_DEFS = {
         "Final Four",
         ff_layout,
         "team_name",
-        [1],  # tourn_rank
+        [1],  # tourn_rank_eff
         2
     ),
     View.PLAYOFFS: ViewInfo(
@@ -214,9 +214,7 @@ def tourn() -> str:
 
     tourn = TournInfo() if create_new else None
     if db_is_initialized():
-        # our session information has been cleared out somehow (should only happen in
-        # testing)--let's just re-set it and log this as an event of interest (same as
-        # for `index` above)
+        # see REVISIT comment for the `index` route (in server.py)
         tourn = TournInfo.get()
         session['tourn'] = tourn.name
         log.info(f"re-setting tourn = '{tourn.name}' in session state")
@@ -646,19 +644,21 @@ LINK_INFO = {
     View.SEEDING: [
         ('/chart/sd_bracket',   "Seeding Round Bracket", TournStage.SEED_BRACKET),
         ('/chart/sd_scores',    "Seeding Round Scores",  TournStage.SEED_BRACKET),
-        ('/dash/sd_dash',       "Live Dashboard",        TournStage.SEED_BRACKET)
+        ('/dash/sd_dash',       "Live Dashboard",        TournStage.SEED_BRACKET),
+        ('/chart/sd_results',   "Seeding Round Results", TournStage.SEED_RANKS)
     ],
     View.PARTNERS: [
         ('/dash/pt_dash',       "Live Dashboard",        TournStage.SEED_RANKS)
     ],
     View.TEAMS: [
-        ('/chart/trn_results',  "Team Rank Details",     TournStage.TOURN_BRACKET),
+        ('/chart/trn_results',  "Team Rank Results",     TournStage.TOURN_RANKS),
         ('/report/trn_tbreak',  "Tie-Breaker Report",    TournStage.TOURN_RANKS)
     ],
     View.ROUND_ROBIN: [
         ('/chart/rr_brackets',  "Round Robin Brackets",  TournStage.TOURN_BRACKET),
         ('/chart/rr_scores',    "Round Robin Scores",    TournStage.TOURN_BRACKET),
         ('/dash/rr_dash',       "Live Dashboard",        TournStage.TOURN_BRACKET),
+        ('/chart/div_results',  "Round Robin Results",   TournStage.TOURN_RANKS),
         ('/report/rr_tbreak',   "Tie-Breaker Report",    TournStage.TOURN_RANKS)
     ],
     View.FINAL_FOUR: [
@@ -739,7 +739,7 @@ def render_admin(context: dict) -> str:
                 "Players",
                 pl_layout,
                 "nick_name",
-                [11],  # player_rank
+                [11],  # player_rank_eff
                 3
             )
     elif view == View.TEAMS:
@@ -748,7 +748,7 @@ def render_admin(context: dict) -> str:
                 "Teams",
                 tm_layout,
                 "team_name",
-                [14],  # final_rank
+                [14],  # final_rank_eff
                 2
             )
         elif stage_compl >= TournStage.TOURN_RANKS:
@@ -756,7 +756,7 @@ def render_admin(context: dict) -> str:
                 "Teams",
                 tm_layout,
                 "team_name",
-                [13, 12],  # div_rank, tourn_rank
+                [13],  # tourn_rank_eff
                 2
             )
     elif view == View.FINAL_FOUR:
@@ -765,7 +765,7 @@ def render_admin(context: dict) -> str:
                 "Final Four",
                 ff_layout,
                 "team_name",
-                [12, 1],  # playoff_rank, tourn_rank
+                [12, 1],  # playoff_rank, tourn_rank_eff
                 2
             )
 

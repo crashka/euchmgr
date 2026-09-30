@@ -4,10 +4,12 @@
 """
 from itertools import groupby
 
+from ckautils import typecast
 from flask import Blueprint, session, request, render_template, abort
 
-from schema import GAME_PTS, Bracket, get_bracket, ScoreAction
-from ui_schema import fmt_pct, TournInfo, Player, Team, PostScore, get_game_by_label
+from security import current_user
+from schema import GAME_PTS, Bracket, get_bracket, ScoreAction, RankType
+from ui_schema import fmt_pct, TournInfo, Player, Team, PostScore, PostRank, get_game_by_label
 from ui_common import referrer_path
 from euchmgr import Elevs, TeamGrps, rank_team_cohort, elevate_winners
 
@@ -24,13 +26,21 @@ TRN_TBREAK = "Team Rank Tie-Breaker Report (pre-playoff)"
 FNL_TBREAK = "Final Tournament Tie-Breaker Report"
 SCORE_POSTING = "Score Posting Report"
 SCORE_ADJUST = "Admin Score Adjustment"
+FINAL_RANK_HIST = "Final Rank History"
+DIV_RANK_HIST = "Division Rank History"
+SEED_RANK_HIST = "Seeding Rank History"
+TOURN_RANK_HIST = "Tourn Rank History"
 
 REPORT_FUNCS = [
     'rr_tbreak',
     'trn_tbreak',
     'fnl_tbreak',
     'score_posting',
-    'score_adjust'
+    'score_adjust',
+    'final_rank_hist',
+    'div_rank_hist',
+    'seed_rank_hist',
+    'tourn_rank_hist'
 ]
 
 @report.get("/<report>")
@@ -51,7 +61,7 @@ def get_report_targ(report: str, target: str) -> str:
         abort(404, f"Invalid report func '{report}'")
 
     tourn = TournInfo.get(requery=True)
-    return globals()[report](target, tourn)
+    return globals()[report](typecast(target), tourn)
 
 def render_report(context: dict) -> str:
     """Render full-sized report
@@ -68,7 +78,9 @@ def render_popup(context: dict) -> str:
 #############
 
 def rr_tbreak(tourn: TournInfo) -> str:
-    """Render round robin tie-breaker report
+    """Render round robin tie-breaker report, by division.  Note that this report ignores
+    ranking adjustments (if any), since it is intended to elucidate the logic underlying
+    the system's computed rankings.
     """
     # BAD: this has the same name as a different format function in ui_schema.py--we
     # really need to refactor/consolidate all of this!!!
@@ -97,7 +109,7 @@ def rr_tbreak(tourn: TournInfo) -> str:
         div_win_grps[div] = pos_win_grps
         div_idents[div] = pos_idents
 
-        tm_iter = Team.iter_teams(div=div, by_rank=True)
+        tm_iter = Team.iter_teams(div=div, by_rank=True, no_adj=True)
         for k, g in groupby(tm_iter, key=lambda x: x.div_pos):
             cohort = list(g)
             if len(cohort) == 1:
@@ -156,8 +168,10 @@ def rr_tbreak(tourn: TournInfo) -> str:
 ##############
 
 def trn_tbreak(tourn: TournInfo, final_rpt: bool = False) -> str:
-    """Render intermediary tournament tie-breaker report (or final overall report, if
-    specified)
+    """Render either the intermediary tournament or final overall tie-breaker report, as
+    specified.  Both reports ignore ranking adjustments (if any), since they are intended
+    to elucidate the logic underlying the system's computed rankings (as with the round
+    robin report above).
     """
     # see BAD comment (above), and then double the badness
     team_tag = lambda x: f"{x.team_name} [{x.team_seed}]"
@@ -188,7 +202,7 @@ def trn_tbreak(tourn: TournInfo, final_rpt: bool = False) -> str:
     div_idents[div] = pos_idents
 
     # NOTE: huge supporting HACK inside of `iter_teams` (see schema.py)!
-    tm_iter = Team.iter_teams(div=div if final_rpt else None, by_rank=True)
+    tm_iter = Team.iter_teams(div=div if final_rpt else None, by_rank=True, no_adj=True)
     group_key = (lambda x: x.final_pos) if final_rpt else (lambda x: x.tourn_pos)
     for k, g in groupby(tm_iter, key=group_key):
         cohort = list(g)
@@ -264,6 +278,9 @@ def fnl_tbreak(tourn: TournInfo) -> str:
 # score_posting #
 #################
 
+# `-1` is secret code for `None` (at least for NOT NULL integer columns)
+fmt_pts = lambda x: str(x) if x > -1 else '-'
+
 def score_posting(game_label: str, tourn: TournInfo) -> str:
     """Render score posting report (as a popup)
     """
@@ -273,9 +290,11 @@ def score_posting(game_label: str, tourn: TournInfo) -> str:
     context = {
         'popup_num' : 0,
         'title'     : SCORE_POSTING,
+        'user'      : current_user,
         'tourn'     : tourn,
         'game'      : game,
         'posts'     : posts,
+        'fmt_pts'   : fmt_pts,
         'adjust_url': '/report/score_adjust/' + game.label
     }
     return render_popup(context)
@@ -302,12 +321,113 @@ def score_adjust(game_label: str, tourn: TournInfo) -> str:
     context = {
         'popup_num'  : 1,
         'title'      : SCORE_ADJUST,
+        'user'       : current_user,
         'tourn'      : tourn,
         'game'       : game,
         'posts'      : posts,
+        'fmt_pts'    : fmt_pts,
         'post_action': ScoreAction.ADJ_ADMIN,
         'action'     : BRACKET_ADJ_ACTION[bracket],
         'cancel_url' : parent_url,
         'redirect_to': parent_url
+    }
+    return render_popup(context)
+
+###################
+# final_rank_hist #
+###################
+
+def fmt_rank(rank: int | None) -> str:
+    """Format rank for hsitory reports (requires |safe filter on template).
+    """
+    if not rank:
+        return '-'
+    return str(rank) if rank > 0 else '<i>[obs]</i>'  # "obs" = obsolete
+
+def final_rank_hist(target: str, tourn: TournInfo) -> str:
+    """Render rank posting report (as a popup), where `target` is tm_<id>
+    """
+    segs = target.split("_", 1)
+    assert len(segs) == 2 and segs[0] == 'tm'
+    team = Team[typecast(segs[1])]
+    posts = PostRank.get_posts(RankType.FINAL, team)
+
+    context = {
+        'popup_num' : 2,
+        'title'     : FINAL_RANK_HIST,
+        'user'      : current_user,
+        'tourn'     : tourn,
+        'team'      : team,
+        'posts'     : posts,
+        'fmt_rank'  : fmt_rank
+    }
+    return render_popup(context)
+
+#################
+# div_rank_hist #
+#################
+
+def div_rank_hist(target: str, tourn: TournInfo) -> str:
+    """Render rank posting report (as a popup), where `target` is tm_<id>
+    """
+    segs = target.split("_", 1)
+    assert len(segs) == 2 and segs[0] == 'tm'
+    team = Team[typecast(segs[1])]
+    posts = PostRank.get_posts(RankType.DIV, team)
+
+    context = {
+        'popup_num' : 3,
+        'title'     : DIV_RANK_HIST,
+        'user'      : current_user,
+        'tourn'     : tourn,
+        'team'      : team,
+        'posts'     : posts,
+        'fmt_rank'  : fmt_rank
+    }
+    return render_popup(context)
+
+##################
+# seed_rank_hist #
+##################
+
+def seed_rank_hist(target: str, tourn: TournInfo) -> str:
+    """Render rank posting report (as a popup), where `target` is pl_<id>
+    """
+    segs = target.split("_", 1)
+    assert len(segs) == 2 and segs[0] == 'pl'
+    player = Player[typecast(segs[1])]
+    posts = PostRank.get_posts(RankType.SEED, player)
+
+    context = {
+        'popup_num' : 4,
+        'title'     : SEED_RANK_HIST,
+        'user'      : current_user,
+        'tourn'     : tourn,
+        'player'    : player,
+        'posts'     : posts,
+        'fmt_rank'  : fmt_rank
+    }
+    return render_popup(context)
+
+###################
+# tourn_rank_hist #
+###################
+
+def tourn_rank_hist(target: str, tourn: TournInfo) -> str:
+    """Render rank posting report (as a popup), where `target` is tm_<id>
+    """
+    segs = target.split("_", 1)
+    assert len(segs) == 2 and segs[0] == 'tm'
+    team = Team[typecast(segs[1])]
+    posts = PostRank.get_posts(RankType.TOURN, team)
+
+    context = {
+        'popup_num' : 5,
+        'title'     : TOURN_RANK_HIST,
+        'user'      : current_user,
+        'tourn'     : tourn,
+        'team'      : team,
+        'posts'     : posts,
+        'fmt_rank'  : fmt_rank
     }
     return render_popup(context)

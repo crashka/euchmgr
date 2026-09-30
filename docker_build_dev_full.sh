@@ -2,4 +2,4 @@
 
 set -x
 
-docker build -t euchmgr-dev -f Dockerfile.dev --no-cache --progress plain .
+docker build -t euchmgr-dev:admin-adj -f Dockerfile.dev --no-cache --progress plain .

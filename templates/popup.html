@@ -12,7 +12,9 @@
        font-size: 1.125rem;
        margin-bottom: 0.5rem;
      }
-     .game_info p {
+     .game_info p,
+     .team_info p,
+     .player_info p {
        margin: 0.25rem 0.0rem;
      }
      .game_info label {
@@ -20,8 +22,28 @@
        text-align: right;
        min-width: 3.5rem;
      }
-     .game_info span {
+     .team_info label,
+     .player_info label {
+       display: inline-block;
+       text-align: right;
+       min-width: 6.5rem;
+     }
+     .game_info span,
+     .team_info span,
+     .player_info span {
        font-weight: bold;
+     }
+     .tourn_info,
+     .seeding_info {
+       display: inline-block;
+       width: 17rem;
+       vertical-align: top;
+       padding-top: 0.5rem;
+     }
+     .playoff_info {
+       display: inline-block;
+       vertical-align: top;
+       padding-top: 0.5rem;
      }
      .posts p {
        margin: 0.5rem 0.0rem;
@@ -44,7 +66,7 @@
        border-collapse: collapse;
        padding: 0.2rem 0.5rem;
      }
-     .team, .pts, .chk {
+     .team, .pts, .chk, .rank {
        text-align: center;
      }
      .pts input {
@@ -52,10 +74,10 @@
        width: 2.0rem;
      }
      td.act_info {
-       width: 10.5rem;
+       width: 11.5rem;
      }
      .act_info input {
-       width: 10.0rem;
+       width: 11.0rem;
      }
      input::-webkit-outer-spin-button,
      input::-webkit-inner-spin-button {
@@ -105,10 +127,10 @@
               <th>Player</th>
               <th>Post Action</th>
               <th>Detail</th>
-              <th>Team 1 Pts</th>
-              <th>Team 2 Pts</th>
-              <th>Pushed</th>
-              <th>Timestamp</th>
+              <th class="pts">Team 1<br>Pts</th>
+              <th class="pts">Team 2<br>Pts</th>
+              <th>Push</th>
+              <th>Time</th>
             </tr>
           </thead>
           <tbody>
@@ -124,10 +146,10 @@
               <td>{{posted_by}}</td>
               <td>{{post.post_action}}</td>
               <td class="act_info">{{post.action_info or ""}}</td>
-              <td class="pts">{{post.team1_pts}}</td>
-              <td class="pts">{{post.team2_pts}}</td>
+              <td class="pts">{{fmt_pts(post.team1_pts)}}</td>
+              <td class="pts">{{fmt_pts(post.team2_pts)}}</td>
               <td class="chk">{{"&#x2714;"|safe if post.do_push else ""}}</td>
-              <td>{{post.created_at.strftime('%H:%M:%S')}}</td>
+              <td title="Stage: {{post.tourn_stage}}">{{post.created_at.strftime('%H:%M:%S')}}</td>
             </tr>
             {% endfor %}
             {% if popup_num == 1 %}
@@ -159,15 +181,124 @@
         </p>
         {% endif %}  {# posts #}
       </section>
+      {% endif %}  {# popup_num in (0, 1) #}
+
+      {% if popup_num in (2, 3, 5) %}
+      <section class="team_info">
+        <h2>Team Info</h2>
+        <p>
+          <label>Team Name</label>:
+          <span>{{team.team_name}}</span>
+        </p>
+        <p>
+          <label>Team Seed</label>:
+          <span>{{team.team_seed}}</span>
+        </p>
+        <p>
+          <label>Div/Rank</label>:
+          <span>{{team.div_num}} / {{team.div_rank_disp}}</span>
+        </p>
+        <div class="tourn_info">
+        <p>
+          <label>Tourn Record</label>:
+          <span>{{team.tourn_win_rec}} ({{team.tourn_win_pct_str}})</span>
+        </p>
+        <p>
+          <label>[pts pct]</label>:
+          <span>{{team.tourn_pts_pct_str}}</span>
+        </p>
+        </div>
+        {% if team.playoff_games %}
+        <div class="playoff_info">
+        <p>
+          <label>Playoff Record</label>:
+          <span>{{team.playoff_match_rec}}</span>
+        </p>
+        <p>
+          <label>[games]</label>:
+          <span>{{team.playoff_win_rec}} ({{team.playoff_win_pct_str}})</span>
+        </p>
+        <p>
+          <label>[pts ptc]</label>:
+          <span>{{team.playoff_pts_pct_str}}</span>
+        </p>
+        </div>
+        {% endif %}  {# tean.playoff_games #}
+      </section>
+      {% elif popup_num == 4 %}
+      <section class="player_info">
+        <h2>Player Info</h2>
+        <p>
+          <label>Player Name</label>:
+          <span>{{player.display_name}}</span>
+        </p>
+        <p>
+          <label>Player Num</label>:
+          <span>{{player.player_num}}</span>
+        </p>
+        <div class="seeding_info">
+          <p>
+            <label>Seeding Record</label>:
+            <span>{{player.seed_win_rec}} ({{player.seed_win_pct_str}})</span>
+          </p>
+          <p>
+            <label>[pts pct]</label>:
+            <span>{{player.seed_pts_pct_str}}</span>
+          </p>
+        </div>
+      </section>
       {% endif %}
+      {% if popup_num in (2, 3, 4, 5) %}
+      <section class="posts">
+        <h2>Rank History</h2>
+        {% if posts %}
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>Action</th>
+              <th>Reason</th>
+              <th class="rank">Prev<br>Rank</th>
+              <th class="rank">New<br>Rank</th>
+              <th>Stage</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for post in posts %}
+            <tr>
+              <td>{{loop.index}}</td>
+              <td>{{post.post_action}}</td>
+              <td class="act_info">{{post.action_info or ""}}</td>
+              <td class="rank">{{fmt_rank(post.old_rank)|safe}}</td>
+              <td class="rank">{{fmt_rank(post.new_rank)|safe}}</td>
+              <td>{{post.tourn_stage}}</td>
+              <td>{{post.created_at.strftime('%H:%M:%S')}}</td>
+            </tr>
+            {% endfor %}  {# posts #}
+          </tbody>
+        </table>
+        {% else %}  {# posts #}
+        <p>
+          <i>No data</i>
+        </p>
+        {% endif %}  {# posts #}
+      </section>
+      {% endif %}  {# popup_num in (2, 3, 4, 5) #}
     </main>
     <p class="actions">
-      {% if popup_num == 1 %}
+      {% if popup_num == 0 %}
+      {% if user.is_admin %}
+      <button class="adj_score" type="button">Adjust score</button>
+      {% endif %}
+      <button type="button" onclick="window.close();">Close window</button>
+      {% elif popup_num == 1 %}
       <input name="dummy" class="dummy">
-      <button type="submit" disabled>Adjust score</button>
+      {% if user.is_admin %}
+      <button type="submit" disabled>Save adjustment</button>
+      {% endif %}
       <a class="cancel" href="{{cancel_url}}">[cancel]</a>
       {% else %}
-      <button class="adj_score" type="button">Adjust score</button>
       <button type="button" onclick="window.close();">Close window</button>
       {% endif %}
     </p>
@@ -182,17 +313,18 @@
      });
 
      $('.adjust input').on('change', function() {
-       let actionInfo = $('input[name="action_info"]').val();
-       let team1Pts = $('input[name="team1_pts"]').val();
-       let team2Pts = $('input[name="team2_pts"]').val();
+       const actionInfo = $('input[name="action_info"]').val();
+       const team1Pts = $('input[name="team1_pts"]').val();
+       const team2Pts = $('input[name="team2_pts"]').val();
+       const winner = (team1Pts == "10" || team2Pts == "10");
 
-       if (actionInfo && team1Pts && team2Pts) {
+       if (actionInfo && team1Pts && team2Pts && winner) {
          $('button[type="submit"]').prop('disabled', false);
        }
        else {
          $('button[type="submit"]').prop('disabled', true);
        }
-     });
+   });
 
      // we do this so we can tab over to the submit button from the
      // last form input (if it becomes enabled)

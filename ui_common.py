@@ -166,10 +166,13 @@ def redirect(location: str) -> str:
 
 def render_error(code: int, name: str = None, desc: str = None) -> str:
     """Mobile-adjusted error page (replacement for `flask.abort`).  This mechanism is used
-    for errors rendered outside of the application UI framework.
+    for errors rendered outside of the admin UI framework.
+
+    TEMP: this currently also covers errors thrown in charts and reports--TODO: we should
+    get those to render more nicely using the same simple error dialog as in `admin`!!!
     """
     if not g.mobile:
-        abort(code, description=desc)
+        abort(code, description=f"{name}\n({desc})")
 
     err = HTTPStatus(code)
     err_msg = name or err.phrase

@@ -7,7 +7,7 @@ from os import makedirs, environ, rename
 import os.path
 from datetime import datetime
 
-from ckautils import logging
+from ckautils import logging, TRACE
 import logging.handlers
 
 #####################
@@ -59,11 +59,11 @@ LOG_FILE_MAX = 50000000
 LOG_FILE_NUM = 50
 
 dflt_hand = logging.handlers.RotatingFileHandler(LOG_PATH, 'a', LOG_FILE_MAX, LOG_FILE_NUM)
-dflt_hand.setLevel(logging.DEBUG)
+dflt_hand.setLevel(TRACE)
 dflt_hand.setFormatter(LOG_FMTR)
 
 dbg_hand = logging.StreamHandler()
-dbg_hand.setLevel(logging.DEBUG)
+dbg_hand.setLevel(TRACE)
 dbg_hand.setFormatter(LOG_FMTR)
 
 log = logging.getLogger(LOGGER_NAME)
@@ -73,6 +73,8 @@ if DEBUG:
     log.setLevel(logging.DEBUG)
     if DEBUG > 1:
         log.addHandler(dbg_hand)
+        if DEBUG > 2:
+            log.setLevel(TRACE)
 
 ##############
 # exceptions #

@@ -1125,39 +1125,6 @@ class PlayoffGame(UIMixin, BasePlayoffGame):
             # see docheader for `current_round()` on terminology here
             return f"Game {cur_round}"
 
-    @classmethod
-    def bracket_complete(cls, bracket: Bracket) -> bool:
-        """Check if all play associated with the specified bracket is complete.  `None`
-        indicates that the bracket has not started, whereas `False` indicates that play
-        has started but not yet complete.
-
-        Must be called after `update_team_stats()` for the most recent game.
-        """
-        tourn = TournInfo.get()
-        if bracket == Bracket.SEMIS:
-            if tourn.stage_compl < TournStage.SEMIS_BRACKET:
-                return None
-        else:
-            assert bracket == Bracket.FINALS
-            if tourn.stage_compl < TournStage.FINALS_BRACKET:
-                return None
-
-        query = Team.select(fn.sum(Team.playoff_match_wins))
-        match_wins = query.scalar()
-        if match_wins > 3:
-            raise DataError(f"too many playoff match wins ({match_wins})")
-
-        if bracket == Bracket.SEMIS:
-            return match_wins >= 2
-        else:
-            assert bracket == Bracket.FINALS
-            if tourn.playoff_teams == 2:
-                assert match_wins in (0, 1)
-                return match_wins == 1
-            else:
-                assert tourn.playoff_teams == 4
-                return match_wins == 3
-
     @property
     def bracket_ident(self) -> str:
         """Display name for the bracket

@@ -7,7 +7,7 @@ if [[ "$#" -gt 1 ]] ; then
     exit 1
 fi
 
-IMAGE=euchmgr-dev:admin-adj
+IMAGE=euchmgr-dev
 IMAGE_BASE=${IMAGE%:*}
 BASE_PORT=5050
 

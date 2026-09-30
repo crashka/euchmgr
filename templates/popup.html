@@ -146,8 +146,8 @@
               <td>{{posted_by}}</td>
               <td>{{post.post_action}}</td>
               <td class="act_info">{{post.action_info or ""}}</td>
-              <td class="pts">{{post.team1_pts}}</td>
-              <td class="pts">{{post.team2_pts}}</td>
+              <td class="pts">{{fmt_pts(post.team1_pts)}}</td>
+              <td class="pts">{{fmt_pts(post.team2_pts)}}</td>
               <td class="chk">{{"&#x2714;"|safe if post.do_push else ""}}</td>
               <td title="Stage: {{post.tourn_stage}}">{{post.created_at.strftime('%H:%M:%S')}}</td>
             </tr>
@@ -270,8 +270,8 @@
               <td>{{loop.index}}</td>
               <td>{{post.post_action}}</td>
               <td class="act_info">{{post.action_info or ""}}</td>
-              <td class="rank">{{post.old_rank or "-"}}</td>
-              <td class="rank">{{post.new_rank}}</td>
+              <td class="rank">{{fmt_rank(post.old_rank)|safe}}</td>
+              <td class="rank">{{fmt_rank(post.new_rank)|safe}}</td>
               <td>{{post.tourn_stage}}</td>
               <td>{{post.created_at.strftime('%H:%M:%S')}}</td>
             </tr>

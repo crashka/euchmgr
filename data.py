@@ -245,7 +245,7 @@ def post_seeding() -> dict:
             game.save()
 
             if game.winner:
-                PostScore.add(game, ScoreAction.POST_ADMIN, 'Seeding View')
+                PostScore.add(game, ScoreAction.POST_ADMIN, 'Seeding view')
                 game.update_player_stats()
                 game.insert_player_games()
                 compute_player_ranks()
@@ -566,7 +566,7 @@ def post_round_robin() -> dict:
             game.save()
 
             if game.winner:
-                PostScore.add(game, ScoreAction.POST_ADMIN, 'Round Robin View')
+                PostScore.add(game, ScoreAction.POST_ADMIN, 'Round robin view')
                 game.update_team_stats()
                 game.insert_team_games()
                 compute_team_ranks()
@@ -752,7 +752,7 @@ def post_playoffs() -> dict:
             game.save()
 
             if game.winner:
-                PostScore.add(game, ScoreAction.POST_ADMIN, 'Playoffs View')
+                PostScore.add(game, ScoreAction.POST_ADMIN, 'Playoffs view')
                 game.update_team_stats()
                 # REVISIT/FIX: commenting this out for now, since we aren't currently managing
                 # the different brackets properly within team_games!!!

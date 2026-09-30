@@ -278,6 +278,8 @@ def fnl_tbreak(tourn: TournInfo) -> str:
 # score_posting #
 #################
 
+fmt_pts = lambda x: str(x) if x > -1 else '-'
+
 def score_posting(game_label: str, tourn: TournInfo) -> str:
     """Render score posting report (as a popup)
     """
@@ -291,6 +293,7 @@ def score_posting(game_label: str, tourn: TournInfo) -> str:
         'tourn'     : tourn,
         'game'      : game,
         'posts'     : posts,
+        'fmt_pts'   : fmt_pts,
         'adjust_url': '/report/score_adjust/' + game.label
     }
     return render_popup(context)
@@ -321,6 +324,7 @@ def score_adjust(game_label: str, tourn: TournInfo) -> str:
         'tourn'      : tourn,
         'game'       : game,
         'posts'      : posts,
+        'fmt_pts'    : fmt_pts,
         'post_action': ScoreAction.ADJ_ADMIN,
         'action'     : BRACKET_ADJ_ACTION[bracket],
         'cancel_url' : parent_url,
@@ -331,6 +335,13 @@ def score_adjust(game_label: str, tourn: TournInfo) -> str:
 ###################
 # final_rank_hist #
 ###################
+
+def fmt_rank(rank: int | None) -> str:
+    """Format rank for hsitory reports (requires |safe filter on template).
+    """
+    if not rank:
+        return '-'
+    return str(rank) if rank > 0 else '<i>[obs]</i>'  # "obs" = obsolete
 
 def final_rank_hist(target: str, tourn: TournInfo) -> str:
     """Render rank posting report (as a popup), where `target` is tm_<id>
@@ -346,7 +357,8 @@ def final_rank_hist(target: str, tourn: TournInfo) -> str:
         'user'      : current_user,
         'tourn'     : tourn,
         'team'      : team,
-        'posts'     : posts
+        'posts'     : posts,
+        'fmt_rank'  : fmt_rank
     }
     return render_popup(context)
 
@@ -368,7 +380,8 @@ def div_rank_hist(target: str, tourn: TournInfo) -> str:
         'user'      : current_user,
         'tourn'     : tourn,
         'team'      : team,
-        'posts'     : posts
+        'posts'     : posts,
+        'fmt_rank'  : fmt_rank
     }
     return render_popup(context)
 
@@ -390,7 +403,8 @@ def seed_rank_hist(target: str, tourn: TournInfo) -> str:
         'user'      : current_user,
         'tourn'     : tourn,
         'player'    : player,
-        'posts'     : posts
+        'posts'     : posts,
+        'fmt_rank'  : fmt_rank
     }
     return render_popup(context)
 
@@ -412,6 +426,7 @@ def tourn_rank_hist(target: str, tourn: TournInfo) -> str:
         'user'      : current_user,
         'tourn'     : tourn,
         'team'      : team,
-        'posts'     : posts
+        'posts'     : posts,
+        'fmt_rank'  : fmt_rank
     }
     return render_popup(context)

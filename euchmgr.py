@@ -1468,18 +1468,21 @@ def reset_seed_round(reason: str = None) -> None:
     been created).
     """
     tourn = TournInfo.get()
+    if tourn.stage_compl < TournStage.SEED_BRACKET:
+        raise RuntimeError("cannot reset seed round before bracket has been created")
     if tourn.partner_picks_started():
         raise RuntimeError("cannot reset seed round once partner picks have started")
 
+    action = "Reset seed round"
     with db_atomic() as txn:
-        TournLog.add(TournEvent.ADMIN_ACTION, "Reset Seed Round", reason)
+        TournLog.add(TournEvent.ADMIN_ACTION, action, reason)
 
         # reset tourn stage back to end of seed bracket creation; the subsequent calls all
         # revert tables back their original state for this stage
         tourn.reset_stage(TournStage.SEED_BRACKET)
 
         # clear out results from seed_game records
-        SeedGame.clear_game_scores()
+        SeedGame.clear_game_scores(do_logging=True, action_info=action)
 
         # delete player_game denorm records (not including pre-created bye entries)
         PlayerGame.delete_games()
@@ -1488,18 +1491,16 @@ def reset_seed_round(reason: str = None) -> None:
         # really only needed for champ pre-picks, but doesn't hurt [much] to just do this
         # sweepingly--only downside: discluding the opportunity for a detailed integrity
         # check)
-        Player.clear_seeding_data()
+        Player.clear_seeding_data(do_logging=True, action_info=action)
         Player.clear_partner_picks()
-
-        # TODO: we should really add reset records for both post_score (games) and
-        # post_rank (players), otherwise the posting reports look weird!!!
-        pass
 
 def reset_partner_picks(reason: str = None) -> None:
     """Reset tournament data back to start of the seeding round (just after brackets have
     been created).
     """
     tourn = TournInfo.get()
+    if not tourn.seeding_done():
+        raise RuntimeError("cannot reset partner picks before seeding round is complete")
     if tourn.stage_compl >= TournStage.TOURN_BRACKET:
         raise RuntimeError("cannot reset partner picks once round robin brackets have been created")
 
@@ -1514,21 +1515,51 @@ def reset_partner_picks(reason: str = None) -> None:
         Player.clear_partner_picks()
         Team.delete_teams()
 
+def reset_tourn(reason: str = None) -> None:
+    """Reset tournament data back to start of the primary round robin play (just after
+    brackets have been created).
+    """
+    tourn = TournInfo.get()
+    if tourn.stage_compl < TournStage.TOURN_BRACKET:
+        raise RuntimeError("cannot reset tourn before brackets have been created")
+    if tourn.playoffs_started():
+        raise RuntimeError("cannot reset tourn once playoffs have started")
+
+    action = "Reset round robin"
+    with db_atomic() as txn:
+        TournLog.add(TournEvent.ADMIN_ACTION, action, reason)
+
+        # reset tourn stage back to end of seed bracket creation; the subsequent calls all
+        # revert tables back their original state for this stage
+        tourn.reset_stage(TournStage.TOURN_BRACKET)
+
+        # clear out results from seed_game records
+        TournGame.clear_game_scores(do_logging=True, action_info=action)
+
+        # delete team_game denorm records (not including pre-created bye entries)
+        TeamGame.delete_games()
+
+        # clear out team data related to primary round robin play
+        Team.clear_tourn_data(do_logging=True, action_info=action)
+
 def reset_playoffs(reason: str = None) -> None:
     """Reset tournament data back to start of the first playoff round (just after the
     bracket has been created).
     """
     tourn = TournInfo.get()
+    if not tourn.playoffs_started():
+        raise RuntimeError("cannot reset playoffs before bracket has been created")
     if tourn.playoff_teams == 2:
-        reset_stg = TournStage.SEMIS_RANKS
+        reset_stg = TournStage.FINALS_BRACKET - 1
         brckts = (Bracket.FINALS, None)
     else:
         assert tourn.playoff_teams == 4
-        reset_stg = TournStage.TOURN_RANKS
+        reset_stg = TournStage.SEMIS_BRACKET - 1
         brckts = (Bracket.SEMIS, Bracket.FINALS)
 
+    action = "Reset playoffs"
     with db_atomic() as txn:
-        TournLog.add(TournEvent.ADMIN_ACTION, "Reset Playoffs", reason)
+        TournLog.add(TournEvent.ADMIN_ACTION, action, reason)
 
         # note that this is different than resetting seeding or tournament rounds, since
         # we need to actually rebuild the brackets (since unnecessary games may have been
@@ -1537,8 +1568,10 @@ def reset_playoffs(reason: str = None) -> None:
         tourn.reset_stage(reset_stg)
 
         # delete *all* playoff round games (no need to clear out selected fields, since we
-        # will be rebuilding everything)
+        # will be rebuilding everything)--TODO: delete post_score records associated with
+        # deleted games (which is the same as all playoff games)!!!
         PlayoffGame.delete_games()
+        PostScore.delete_posts((Bracket.SEMIS, Bracket.FINALS))  # 2-tuple arg
 
         # delete team_game denorm records (not currently existent for playoff brackets)
         #TeamGame.delete_games(brckts[0])
@@ -1546,11 +1579,7 @@ def reset_playoffs(reason: str = None) -> None:
         #    TeamGame.delete_games(brckts[1])
 
         # clear out team data related to the playoff round
-        Team.clear_playoff_data()
-
-        # TODO: we should really add reset records for both post_score (games) and
-        # post_rank (teams), otherwise the posting reports look weird!!!
-        pass
+        Team.clear_playoff_data(do_logging=True, action_info=action)
 
         # now we rebuild the level-1 playoff bracket
         build_playoff_bracket(brckts[0])
@@ -1585,6 +1614,7 @@ MOD_FUNCS = [
     'compute_playoff_ranks',
     'reset_seed_round',
     'reset_partner_picks',
+    'reset_tourn',
     'reset_playoffs'
 ]
 
@@ -1614,6 +1644,7 @@ def main() -> int:
       - compute_playoff_ranks
       - reset_seed_round
       - reset_partner_picks
+      - reset_tourn
       - reset_playoffs
     """
     usage = lambda x: x + "\n\n" + main.__doc__

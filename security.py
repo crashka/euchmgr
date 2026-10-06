@@ -1,13 +1,40 @@
 # -*- coding: utf-8 -*-
 
+from functools import wraps
 import os.path
 import os
 
+from flask import current_app, request
 from flask_login import (LoginManager, UserMixin, AnonymousUserMixin, current_user,
                          login_user, logout_user, login_required)
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from core import DataFile, log
+
+##############
+# decorators #
+##############
+
+EXEMPT_METHODS = {"OPTIONS"}
+
+def admin_required(func):
+    """Based on `flask_login.login_required` (with one-line change).  Note that this does
+    not need to be coupled with `login_required` (authentication is implicitly required).
+    """
+    @wraps(func)
+    def decorated_view(*args, **kwargs):
+        if request.method in EXEMPT_METHODS or current_app.config.get("LOGIN_DISABLED"):
+            pass
+        elif not (current_user.is_authenticated and current_user.is_admin):
+            return current_app.login_manager.unauthorized()
+
+        # flask 1.x compatibility
+        # current_app.ensure_sync is only available in Flask >= 2.0
+        if callable(getattr(current_app, "ensure_sync", None)):
+            return current_app.ensure_sync(func)(*args, **kwargs)
+        return func(*args, **kwargs)
+
+    return decorated_view
 
 ##############
 # exceptions #

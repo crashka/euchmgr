@@ -10,7 +10,7 @@ from peewee import IntegrityError
 from flask import Blueprint, g, request
 
 from core import log
-from security import login_required
+from security import login_required, admin_required
 from database import db_atomic
 from schema import (Bracket, BRACKET_NAME, TournStage, TournInfo, ScoreAction, RankType,
                     TournEvent, TournLog)
@@ -56,7 +56,7 @@ def get_tourn() -> dict:
     return ajax_data(tn_data)
 
 @data.post("/tourn/data")
-@login_required
+@admin_required
 def post_tourn() -> dict:
     """Update TournInfo data.
     """
@@ -121,7 +121,7 @@ def get_players() -> dict:
     return ajax_data(pl_data)
 
 @data.post("/players/data")
-@login_required
+@admin_required
 def post_players() -> dict:
     """
     """
@@ -151,7 +151,7 @@ def post_players() -> dict:
     return ajax_data(pl_data)
 
 @data.post("/players/rank_adj/<rank_type>")
-@login_required
+@admin_required
 def players_rank_adj(rank_type: str) -> str:
     """
     """
@@ -227,7 +227,7 @@ def get_seeding() -> dict:
     return ajax_data(sg_data)
 
 @data.post("/seeding/data")
-@login_required
+@admin_required
 def post_seeding() -> dict:
     """Post scores to seeding round game.
     """
@@ -268,8 +268,8 @@ def post_seeding() -> dict:
     return ajax_data(sg_data)
 
 @data.post("/seeding/score_adj")
-@login_required
-def post_seeding_adj() -> str:
+@admin_required
+def seeding_score_adj() -> str:
     """Post score adjustment to seeding round game.
     """
     # REVISIT: this is a currently hacked up integrity/security check, need to make this
@@ -351,7 +351,7 @@ def get_partners() -> dict:
     return ajax_data(pt_data)
 
 @data.post("/partners/data")
-@login_required
+@admin_required
 def post_partners() -> dict:
     """Handle POST of partner pick data--the entire row is submitted, but we only look at
     the `id` and `picks_info` fields.
@@ -434,7 +434,7 @@ def get_teams() -> dict:
     return ajax_data(tm_data)
 
 @data.post("/teams/data")
-@login_required
+@admin_required
 def post_teams() -> dict:
     """
     """
@@ -461,7 +461,7 @@ def post_teams() -> dict:
     return ajax_data(tm_data)
 
 @data.post("/teams/rank_adj/<rank_type>")
-@login_required
+@admin_required
 def teams_rank_adj(rank_type: str) -> str:
     """
     """
@@ -548,7 +548,7 @@ def get_round_robin() -> dict:
     return ajax_data(tg_data)
 
 @data.post("/round_robin/data")
-@login_required
+@admin_required
 def post_round_robin() -> dict:
     """
     """
@@ -589,8 +589,8 @@ def post_round_robin() -> dict:
     return ajax_data(tg_data)
 
 @data.post("/round_robin/score_adj")
-@login_required
-def post_round_robin_adj() -> dict:
+@admin_required
+def round_robin_score_adj() -> dict:
     """Post score adjustment to tournament round robin game.
     """
     # see REVISIT for `post_seeding_adj` (above)
@@ -671,7 +671,7 @@ def get_final_four() -> dict:
     return ajax_data(ff_data)
 
 @data.post("/final_four/data")
-@login_required
+@admin_required
 def post_final_four() -> dict:
     """
     """
@@ -734,7 +734,7 @@ def get_playoffs() -> dict:
     return ajax_data(pg_data)
 
 @data.post("/playoffs/data")
-@login_required
+@admin_required
 def post_playoffs() -> dict:
     """
     """
@@ -789,8 +789,8 @@ def post_playoffs() -> dict:
     return ajax_data(pg_data)
 
 @data.post("/playoffs/score_adj")
-@login_required
-def post_playoffs_adj() -> dict:
+@admin_required
+def playoffs_score_adj() -> dict:
     """Post score adjustment to tournament round robin game.
     """
     # see REVISIT for `post_seeding_adj` (above)

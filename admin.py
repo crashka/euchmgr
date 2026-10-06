@@ -16,7 +16,7 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash
 
 from core import DATA_DIR, UPLOAD_DIR, log, ImplementationError
-from security import current_user, DUMMY_PW_STR
+from security import current_user, admin_required, DUMMY_PW_STR
 from database import DB_FILETYPE, db_init, db_name, db_reset, db_is_initialized
 from schema import (clear_schema_cache, Bracket, TournStage, TOURN_INIT, ALL_STAGES,
                     PRELIM_STAGES, ACTIVE_STAGES, TournInfo)
@@ -331,6 +331,7 @@ ACTION_INFO = {
 @admin.post("/round_robin/<action>")
 @admin.post("/final_four/<action>")
 @admin.post("/playoffs/<action>")
+@admin_required
 def view_action(action: str) -> str:
     """Process submitted form, switch on ``action``, which is validated against paths and
     values in ``VIEW_ACTIONS``

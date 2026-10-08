@@ -2,6 +2,7 @@
 
 """Blueprint for report rendering
 """
+import re
 from itertools import groupby
 
 from ckautils import typecast
@@ -9,7 +10,8 @@ from flask import Blueprint, session, request, render_template, abort
 
 from security import current_user
 from schema import GAME_PTS, Bracket, get_bracket, ScoreAction, RankType
-from ui_schema import fmt_pct, TournInfo, Player, Team, PostScore, PostRank, get_game_by_label
+from ui_schema import (fmt_pct, TournInfo, Player, PartnerPick, Team, PostScore, PostRank,
+                       get_game_by_label)
 from ui_common import referrer_path
 from euchmgr import Elevs, TeamGrps, rank_team_cohort, elevate_winners
 
@@ -30,6 +32,7 @@ FINAL_RANK_HIST = "Final Rank History"
 DIV_RANK_HIST = "Division Rank History"
 SEED_RANK_HIST = "Seeding Rank History"
 TOURN_RANK_HIST = "Tourn Rank History"
+PICK_REVERT = "Revert Partner Pick"
 
 REPORT_FUNCS = [
     'rr_tbreak',
@@ -40,7 +43,8 @@ REPORT_FUNCS = [
     'final_rank_hist',
     'div_rank_hist',
     'seed_rank_hist',
-    'tourn_rank_hist'
+    'tourn_rank_hist',
+    'pick_revert'
 ]
 
 @report.get("/<report>")
@@ -429,5 +433,40 @@ def tourn_rank_hist(target: str, tourn: TournInfo) -> str:
         'team'      : team,
         'posts'     : posts,
         'fmt_rank'  : fmt_rank
+    }
+    return render_popup(context)
+
+###############
+# pick_revert #
+###############
+
+def pick_revert(target: str, tourn: TournInfo) -> str:
+    """Render admin pick revert window (as a popup), where `target` is the `seed_ident`
+    string for the pick: "<name> (<rank>)".
+    """
+    m = re.fullmatch(r'(.+) \((\d+)\)', target)
+    assert m                        # FIX: handle this correctly!!!
+    pick_name = m[1]
+    pick_rank = int(m[2])
+    pick = Player.fetch_by_rank(pick_rank)
+    assert pick                     # FIX: handle this correctly!!!
+    assert pick.name == pick_name   # ditto
+    assert not pick.reigning_champ  # ditto
+    assert pick.picked_by
+
+    picker = pick.picked_by
+    subseq = lambda x: x.player_rank_eff >= picker.player_rank and not x.reigning_champ
+    # note that list of affected picks includes the target pick
+    aff_picks = list(filter(subseq, PartnerPick.get_picks()))
+    parent_url = referrer_path(request)
+
+    context = {
+        'popup_num'  : 6,
+        'title'      : PICK_REVERT,
+        'user'       : current_user,
+        'tourn'      : tourn,
+        'picker'     : picker,
+        'aff_picks'  : aff_picks,
+        'action'     : "/partners/pick_revert"
     }
     return render_popup(context)

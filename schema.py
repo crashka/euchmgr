@@ -464,6 +464,25 @@ class Player(BaseModel, EuchmgrUser):
         )
 
     @classmethod
+    def fetch_by_num(cls, player_num: int) -> Self:
+        """Return player by player_num, or `None` if not found.
+        """
+        return cls.get_or_none(cls.player_num == player_num)
+
+    @classmethod
+    def fetch_by_rank(cls, player_rank: int) -> Self:
+        """Return player by effective player_rank, or `None` if not found.
+        """
+        by_adj = cls.get_or_none(cls.player_rank_adj == player_rank)
+        return by_adj or cls.get_or_none(cls.player_rank == player_rank)
+
+    @classmethod
+    def fetch_by_name(cls, name: str) -> Self:
+        """Return player by name (same as nick_name), or `None` if not found.
+        """
+        return cls.get_or_none(cls.nick_name == name)
+
+    @classmethod
     def get_player_map(cls, join_partners: bool = False, by_rank: bool = False) -> dict[int, Self]:
         """Return dict of all players, indexed by player_num.
         """
@@ -601,6 +620,51 @@ class Player(BaseModel, EuchmgrUser):
         """
         pl_iter = cls.iter_players(by_rank=True)
         return list(filter(lambda x: x.available, pl_iter))
+
+    @classmethod
+    def revert_pick(cls, player_rank: int, include_subseq: bool = True) -> list[Self]:
+        """Revert partner pick made by the specified player.  By default, we also revert
+        all subsequent ("affected") picks in the round (this should only be overridden for
+        testing).  Return list of pickers (primary + affected) whose picks were reverted.
+        """
+        player = cls.fetch_by_rank(player_rank)
+        if not player.partner:
+            raise RuntimeError("Specified player has not made a pick")
+        partner = player.partner
+        partner2 = player.partner2
+        assert partner.picked_by == player
+        assert not partner2 or partner2.picked_by == player
+        player.partner = None
+        partner.picked_by = None
+        partner.save()
+        if partner2:
+            player.partner2 = None
+            partner2.picked_by = None
+            partner2.save()
+        player.save()
+
+        player_rank_eff = fn.coalesce(cls.player_rank_adj, cls.player_rank)
+        upd_stmt = (cls
+                    .update(partner=None, partner2=None)
+                    .where(cls.partner.is_null(False),
+                           player_rank_eff > player.player_rank_eff,
+                           cls.reigning_champ == False)
+                    .returning(cls))
+        aff_picks = upd_stmt.execute()
+        if aff_picks:
+            picker_nums = [x.player_num for x in aff_picks]
+            upd2_stmt = (cls
+                         .update(picked_by=None)
+                         .where(cls.picked_by.in_(picker_nums))
+                         .returning(cls))
+            aff_picked = upd2_stmt.execute()
+            if len(aff_picked) not in (len(aff_picks), len(aff_picks) + 1):
+                picks_ranks = [x.player_rank for x in aff_picks]
+                picked_ranks = [x.player_rank for x in aff_picked]
+                raise DataError("Integrity error for affected picks/picked: "
+                                f"{picks_ranks}, {picked_ranks}")
+
+        return [player] + list(aff_picks)
 
     @classmethod
     def iter_players(cls, by_rank: bool = False, no_nums: bool = False) -> Iterator[Self]:

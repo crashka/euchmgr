@@ -112,25 +112,6 @@ class Player(UIMixin, BasePlayer):
         table_name = BasePlayer._meta.table_name
 
     @classmethod
-    def fetch_by_num(cls, player_num: int) -> Self:
-        """Return player by player_num, or `None` if not found.
-        """
-        return cls.get_or_none(cls.player_num == player_num)
-
-    @classmethod
-    def fetch_by_rank(cls, player_rank: int) -> Self:
-        """Return player by effective player_rank, or `None` if not found.
-        """
-        by_adj = cls.get_or_none(cls.player_rank_adj == player_rank)
-        return by_adj or cls.get_or_none(cls.player_rank == player_rank)
-
-    @classmethod
-    def fetch_by_name(cls, name: str) -> Self:
-        """Return player by name (same as nick_name), or `None` if not found.
-        """
-        return cls.get_or_none(cls.nick_name == name)
-
-    @classmethod
     def find_by_name_pfx(cls, name_pfx: str) -> Iterator[Self]:
         """Iterator returning players matching the specified (nick) name prefix.
         """
@@ -424,7 +405,7 @@ class PartnerPick(UIMixin, BasePlayer):
             return f"{npicks} picks made"
 
     @classmethod
-    def current_pick(cls) -> Self:
+    def current_pick(cls) -> Player:
         """Return top seeded player currently available, which equates to the player
         currently picking during the partner selection process.
         """
@@ -441,7 +422,7 @@ class PartnerPick(UIMixin, BasePlayer):
         return sorted(avail, key=lambda x: x.player_rank_eff)[0]
 
     @classmethod
-    def avail_picks(cls) -> list[Self]:
+    def avail_picks(cls) -> list[Player]:
         """Strangely (and rather unfortunately) similar to `Player.available_players`,
         except that we stay away from the cached player map here and exclude the current
         picker.  It would be nice to clean things up and eliminate some redundancy (also
@@ -461,7 +442,7 @@ class PartnerPick(UIMixin, BasePlayer):
         return avail[1:]
 
     @classmethod
-    def get_picks(cls, all_picks: bool = False) -> list[Self]:
+    def get_picks(cls, all_picks: bool = False) -> list[Player]:
         """Get completed "PartnerPick" records (corresponding to players that have made a
         pick), in order of pick position (i.e. seeding rank), with reigning champs always
         listed first.  `all_picks` indicates that players yet to pick (and not already

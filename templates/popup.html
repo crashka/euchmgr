@@ -12,9 +12,26 @@
        font-size: 1.125rem;
        margin-bottom: 0.5rem;
      }
+     .h2_info {
+       font-size: 1.0rem;
+       font-weight: normal;
+       margin-left: 0.35rem;
+     }
+     .err_dlg {
+       padding: 1.1rem 1.4rem;
+     }
+     .err_dlg div {
+       width: 22rem;
+       color: #D10000;
+       overflow: auto;
+     }
+     .err_dlg button {
+       margin-top: 1.2rem;
+     }
      .game_info p,
      .team_info p,
-     .player_info p {
+     .player_info p,
+     .pick_info p {
        margin: 0.25rem 0.0rem;
      }
      .game_info label {
@@ -23,14 +40,16 @@
        min-width: 3.5rem;
      }
      .team_info label,
-     .player_info label {
+     .player_info label,
+     .pick_info label {
        display: inline-block;
        text-align: right;
        min-width: 6.5rem;
      }
      .game_info span,
      .team_info span,
-     .player_info span {
+     .player_info span,
+     .pick_info span {
        font-weight: bold;
      }
      .tourn_info,
@@ -45,7 +64,8 @@
        vertical-align: top;
        padding-top: 0.5rem;
      }
-     .posts p {
+     .posts p,
+     .picks p {
        margin: 0.5rem 0.0rem;
      }
      .actions {
@@ -66,15 +86,31 @@
        border-collapse: collapse;
        padding: 0.2rem 0.5rem;
      }
-     .team, .pts, .chk, .rank {
+     .team, .pts, .chk, .rank, .num {
        text-align: center;
      }
      .pts input {
        text-align: center;
        width: 2.0rem;
      }
+     tr.tgt_pick {
+       background-color: #F0F0F0;
+     }
+     tr.reverted {
+       font-style: italic;
+       color: #696969;
+     }
+     tr.rvt_error {
+       color: #D10000;
+     }
      td.act_info {
        width: 11.5rem;
+     }
+     td.pl_name {
+       width: 10.0rem;
+     }
+     td.pl_ident {
+       width: 8.0rem;
      }
      .act_info input {
        width: 11.0rem;
@@ -90,10 +126,19 @@
        border: 0;
        width: 0;
      }
+     {% if popup_num == 6 %}
+     button.close {
+       display: none;
+     }
+     {% endif %}
     </style>
   </head>
 
   <body>
+    <dialog class="err_dlg">
+      <div></div>
+      <button autofocus>Close</button>
+    </dialog>
     <form action="{{action}}" method="post">
     <main>
       <h1>{{tourn.name}} &ndash; {{title}}</h1>
@@ -247,7 +292,7 @@
           </p>
         </div>
       </section>
-      {% endif %}
+      {% endif %}  {# popup_num in (2, 3, 5) #}
       {% if popup_num in (2, 3, 4, 5) %}
       <section class="posts">
         <h2>Rank History</h2>
@@ -285,22 +330,66 @@
         {% endif %}  {# posts #}
       </section>
       {% endif %}  {# popup_num in (2, 3, 4, 5) #}
+
+
+      {% if popup_num == 6 %}
+      <section class="pick_info">
+        <input name="picker_id" type="hidden" value="{{picker.id}}">
+        <input name="picker_name" type="hidden" value="{{picker.name}}">
+        <input name="picker_num" type="hidden" value="{{picker.player_num}}">
+        <input name="picker_rank" type="hidden" value="{{picker.player_rank_eff}}">
+        <h2>Pick Info</h2>
+        <p>
+          <span>{{picker.seed_ident}}</span> picks <span>{{picker.picks_info}}</span>
+        </p>
+      </section>
+      <section class="picks">
+        <h2>Affected Picks<span class="h2_info">(will all be reverted)</span></h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Player Name</th>
+              <th class="num">Player<br>Num</th>
+              <th class="pl_ident">Pick Order</th>
+              <th class="pl_ident">Pick</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for pick in aff_picks %}
+            {% set addl_cls = " tgt_pick" if loop.first else "" %}
+            <tr class="pick{{addl_cls}}">
+              <td class="pl_name">{{pick.full_name}}</td>
+              <td class="num">{{pick.player_num}}</td>
+              <td class="pl_ident">{{pick.seed_ident}}</td>
+              <td class="pl_ident">{{pick.picks_info}}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+      {% endif %}  {# popup_num == 6 #}
     </main>
     <p class="actions">
       {% if popup_num == 0 %}
       {% if user.is_admin %}
       <button class="adj_score" type="button">Adjust score</button>
       {% endif %}
-      <button type="button" onclick="window.close();">Close window</button>
+      <button class="close" type="button" onclick="window.close();">Close window</button>
       {% elif popup_num == 1 %}
       <input name="dummy" class="dummy">
       {% if user.is_admin %}
       <button type="submit" disabled>Save adjustment</button>
       {% endif %}
       <a class="cancel" href="{{cancel_url}}">[cancel]</a>
-      {% else %}
-      <button type="button" onclick="window.close();">Close window</button>
+      {% elif popup_num == 6 %}
+      {% if user.is_admin %}
+      <button class="revert" type="submit">Revert Pick(s)</button>
       {% endif %}
+      <a class="cancel" href="javascript:void(0);">[cancel]</a>
+      <button class="close" type="button" onclick="window.close();">Close window</button>
+      {% else %}  {# popup_num == 0 #}
+      <button class="close" type="button" onclick="window.close();">Close window</button>
+      {% endif %}  {# popup_num == 0 #}
     </p>
     </form>
   </body>
@@ -308,10 +397,19 @@
   <script src="/static/jquery-3.7.1.min.js"></script>
   <script>
    $(function() {
+     // error dialog stuff
+     $('.err_dlg button').on('click', function() {
+       $('.err_dlg')[0].close();
+     });
+     const showError = function(err_text) {
+       $('.err_dlg div').html(err_text);
+       $('.err_dlg')[0].showModal();
+     };
+
+     // score adjust stuff
      $('button.adj_score').on('click', function() {
        window.location.href = "{{adjust_url}}";
      });
-
      $('.adjust input').on('change', function() {
        const actionInfo = $('input[name="action_info"]').val();
        const team1Pts = $('input[name="team1_pts"]').val();
@@ -324,7 +422,43 @@
        else {
          $('button[type="submit"]').prop('disabled', true);
        }
-   });
+     });
+
+     {% if popup_num == 6 %}
+     // pick revert is done using ajax (hijack the submit action)
+     $('form').on("submit", function(e) {
+       e.preventDefault();
+       const $form = $(this);
+       const actionUrl = $form.attr('action');
+
+       $.ajax({
+         type: "POST",
+         url: actionUrl,
+         data: $form.serialize(),
+         success: function(data, status) {
+           console.log("Ajax success: " + status, data);
+           if (data.succ) {
+             $('tr.pick').addClass("reverted");
+             showError(data.info);
+             window.opener.location.reload();
+           }
+           else {
+             $('tr.pick').addClass("rvt_error");
+             showError(data.err);
+           }
+           // no second chances, the only option now is to close the window
+           $('button.revert').css('display', 'none');
+           $('a.cancel').css('display', 'none');
+           $('button.close').css('display', 'inline-block');
+         }
+       });
+     });
+     {% endif %}  {# popup_num == 6 #}
+
+     // cancel link
+     $('a.cancel').on('click', function() {
+       window.close();
+     });
 
      // we do this so we can tab over to the submit button from the
      // last form input (if it becomes enabled)

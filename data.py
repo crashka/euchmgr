@@ -28,10 +28,11 @@ from ui_common import referrer_path, redirect, render_error
 data = Blueprint('data', __name__)
 
 # magic strings
-HIDDEN    = 'hidden'
-CENTERED  = 'centered'
-EDITABLE  = 'editable'
-CLICKABLE = 'clickable'  # see NOTE in admin.html
+HIDDEN     = 'hidden'
+CENTERED   = 'centered'
+EDITABLE   = 'editable'
+CLK_WINNER = 'click_winner'
+PICKS_INFO = 'picks_info'
 
 Layout = list[tuple[str, str, str]]
 
@@ -210,7 +211,7 @@ sg_layout = [
     ('bye_players', "Bye(s)",      None),
     ('team1_pts',   "Team 1 Pts",  EDITABLE),
     ('team2_pts',   "Team 2 Pts",  EDITABLE),
-    ('winner',      "Winner",      CLICKABLE)
+    ('winner',      "Winner",      CLK_WINNER)
 ]
 
 @data.get("/seeding/data")
@@ -329,7 +330,7 @@ pt_layout = [
     ('seed_ident',      "Pick Order", None),
     ('champ',           "Champ?",     CENTERED),
     ('available',       "Avail?",     CENTERED),
-    ('picks_info',      "Partner(s) (pick by Name or Rank)", EDITABLE),
+    ('picks_info',      "Partner(s) (pick by Name or Rank)", PICKS_INFO),
     ('picked_by_info',  "Picked By",  None)
 ]
 
@@ -362,7 +363,7 @@ def post_partners() -> dict:
     with db_atomic() as txn:
         try:
             player = Player[typecast(data.get('id'))]
-            upd_info = {x[0]: typecast(data.get(x[0])) for x in pt_layout if x[2] == EDITABLE}
+            upd_info = {x[0]: typecast(data.get(x[0])) for x in pt_layout if x[2] == PICKS_INFO}
             # TODO: add support for `partner_num` (in addition to `picks_info`)!!!
             picks_info = upd_info.pop('picks_info')
             assert len(upd_info) == 0
@@ -388,6 +389,28 @@ def post_partners() -> dict:
 
     # REVISIT: return available players? (...and if so, by num or seed?)
     return ajax_data(pt_data)
+
+@data.post("/partners/pick_revert")
+@admin_required
+def partners_pick_revert() -> dict:
+    """Note that this is implemented as an ajax call (unlike score and rank adjustments,
+    which redirect to follow-up pages".
+    """
+    data = request.form
+    if 'picker_rank' not in data:
+        return ajax_error("picker_rank not specified")
+
+    with db_atomic() as txn:
+        try:
+            reverted = Player.revert_pick(data['picker_rank'])
+            # TODO: logging/tracking of this admin action!!!
+        except RuntimeError as e:
+            txn.rollback()
+            return ajax_error(str(e) + "; highlighted pick(s) not reverted")
+
+    plural = "s" if len(reverted) > 1 else ""
+    revert_ident = (x.seed_ident for x in reverted)
+    return ajax_succ(f"Pick{plural} reverted for: {', '.join(revert_ident)}")
 
 ##########
 # /teams #
@@ -531,7 +554,7 @@ tg_layout = [
     ('bye_team',   "Bye",        None),
     ('team1_pts',  "Team 1 Pts", EDITABLE),
     ('team2_pts',  "Team 2 Pts", EDITABLE),
-    ('winner',     "Winner",     CLICKABLE)
+    ('winner',     "Winner",     CLK_WINNER)
 ]
 
 @data.get("/round_robin/data")
@@ -717,7 +740,7 @@ pg_layout = [
     ('team2_name',    "Team 2",     None),
     ('team1_pts',     "Team 1 Pts", EDITABLE),
     ('team2_pts',     "Team 2 Pts", EDITABLE),
-    ('winner',        "Winner",     CLICKABLE)
+    ('winner',        "Winner",     CLK_WINNER)
 ]
 
 @data.get("/playoffs/data")

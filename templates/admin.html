@@ -336,8 +336,10 @@
          {target: {{loop.index0}}, className: 'dt-center'},
          {% elif col[2] == 'editable' %}
          {target: {{loop.index0}}, createdCell: editable},
-         {% elif col[2] == 'clickable' %}
-         {target: {{loop.index0}}, className: 'clickable'},
+         {% elif col[2] == 'click_winner' %}
+         {target: {{loop.index0}}, className: 'click_winner'},
+         {% elif col[2] == 'picks_info' %}
+         {target: {{loop.index0}}, className: 'picks_info', createdCell: editable},
          {% else %}
          {target: {{loop.index0}}},
          {% endif %}
@@ -355,9 +357,7 @@
      });
 
      let popupWin;
-     $('#view_tbl').on('click', 'td.clickable', function(e) {
-       // NOTE: "clickable" is completely not descriptive, but for now it implicitly
-       // means to open the score posting popup window--we should really FIX this!!!
+     $('#view_tbl').on('click', 'td.click_winner', function(e) {
        rec = table.row(this).data();
        console.log(rec);
        if (popupWin && !popupWin.closed) {
@@ -368,6 +368,22 @@
        }
        const specs = "popup,width=900,height=600,top=200,left=200";
        popupWin = window.open('/report/score_posting/' + rec.label, "_blank", specs);
+     });
+
+     $('#view_tbl').on('dblclick', 'td.picks_info', function(e) {
+       rec = table.row(this).data();
+       console.log(rec);
+       if (popupWin && !popupWin.closed) {
+         popupWin.close();
+       }
+       $cell = $(this);
+       console.log($cell);
+       if (!rec.picks_info) {
+         return false;
+       }
+       const specs = "popup,width=900,height=600,top=200,left=200";
+       const url = '/report/pick_revert/' + encodeURI(rec.picks_info);
+       popupWin = window.open(url, "_blank", specs);
      });
 
      // links for charts, dashboards, reports

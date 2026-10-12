@@ -12,13 +12,13 @@ from flask import Blueprint, g, request
 from core import log
 from security import login_required, admin_required
 from database import db_atomic
-from schema import (Bracket, BRACKET_NAME, TournStage, TournInfo, ScoreAction, RankType,
-                    TournEvent, TournLog)
+from schema import (Bracket, BRACKET_NAME, TournStage, TournInfo, TournEvent, TournLog,
+                    ScoreAction, RankType, PickAction)
 from euchmgr import (validate_seed_round, compute_player_ranks, validate_tourn,
                      compute_tourn_ranks, compute_team_ranks, validate_playoffs,
                      compute_playoff_ranks)
 from ui_schema import (Player, PartnerPick, SeedGame, Team, TournGame, PlayoffGame,
-                       PostScore, PostRank)
+                       PostScore, PostRank, PostPick)
 from ui_common import referrer_path, redirect, render_error
 
 ###################
@@ -362,6 +362,7 @@ def post_partners() -> dict:
 
     with db_atomic() as txn:
         try:
+            tourn = TournInfo.get()
             player = Player[typecast(data.get('id'))]
             upd_info = {x[0]: typecast(data.get(x[0])) for x in pt_layout if x[2] == PICKS_INFO}
             # TODO: add support for `partner_num` (in addition to `picks_info`)!!!
@@ -374,11 +375,20 @@ def post_partners() -> dict:
             partners, avail = player.pick_partners(picks_info)
             player.set_partners(*partners)
             player.save(cascade=True)
+            info = {
+                'player'        : player,
+                'post_action'   : PickAction.POST_ADMIN,
+                'player_ident'  : player.seed_ident,
+                'partner_ident' : partners[0].seed_ident,
+                'partner2_ident': partners[1].seed_ident if len(partners) > 1 else None,
+                'tourn_stage'   : tourn.stage_tag
+            }
+            post = PostPick.create(**info)
 
             # see "KINDA HOKEY" comment about this button stuff in post_playoffs() below
             enable_button = None
             if PartnerPick.current_round() == -1:
-                TournInfo.mark_stage_complete(TournStage.PARTNER_PICK)
+                tourn.complete_stage(TournStage.PARTNER_PICK)
                 enable_button = 'comp_team_seeds'
             pt_data = {'reloadTable': True}
             if enable_button:
@@ -394,20 +404,39 @@ def post_partners() -> dict:
 @admin_required
 def partners_pick_revert() -> dict:
     """Note that this is implemented as an ajax call (unlike score and rank adjustments,
-    which redirect to follow-up pages".
+    which redirect to follow-up pages).
     """
     data = request.form
     if 'picker_rank' not in data:
         return ajax_error("picker_rank not specified")
 
+    reverted = None
     with db_atomic() as txn:
         try:
+            tourn = TournInfo.get()
+            if tourn.stage_compl >= TournStage.TEAM_SEEDS:
+                raise RuntimeError("Cannot revert partner picks after team seeds have been computed")
             reverted = Player.revert_pick(data['picker_rank'])
-            # TODO: logging/tracking of this admin action!!!
+            reverted.sort(key=lambda x: x.player_rank)
+            for pl in reverted:
+                info = {
+                    'player'        : pl,
+                    'post_action'   : PickAction.RVRT_ADMIN,
+                    'player_ident'  : pl.seed_ident,
+                    'partner_ident' : None,
+                    'partner2_ident': None,
+                    'tourn_stage'   : tourn.stage_tag
+                }
+                post = PostPick.create(**info)
+                TournLog.addPick(TournEvent.PICK_REVERT, post)
+                log.notice(f"pick reverted for player {pl.id}")
+            if tourn.stage_compl >= TournStage.PARTNER_PICK:
+                tourn.reset_stage(TournStage.PARTNER_PICK, start_only=True)
         except RuntimeError as e:
             txn.rollback()
-            return ajax_error(str(e) + "; highlighted pick(s) not reverted")
+            return ajax_error(str(e) + "; highlighted pick(s) NOT reverted")
 
+    assert reverted
     plural = "s" if len(reverted) > 1 else ""
     revert_ident = (x.seed_ident for x in reverted)
     return ajax_succ(f"Pick{plural} reverted for: {', '.join(revert_ident)}")

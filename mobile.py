@@ -13,10 +13,12 @@ from ckautils import typecast
 from core import log, ImplementationError, LogicError
 from security import current_user
 from database import db_atomic
-from schema import GAME_PTS, Bracket, get_bracket, TournStage, TournInfo, ScoreAction
+from schema import (GAME_PTS, Bracket, get_bracket, TournStage, TournInfo, ScoreAction,
+                    PickAction)
 from euchmgr import compute_player_ranks, compute_team_ranks, compute_playoff_ranks
 from ui_schema import (fmt_pct, PTS_PCT_NA, get_game_by_label, Player, PlayerRegister,
-                       PartnerPick, SeedGame, Team, TournGame, PlayoffGame, PostScore)
+                       PartnerPick, SeedGame, Team, TournGame, PlayoffGame, PostScore,
+                       PostPick)
 from ui_common import process_flashes, msg_join, render_response, redirect
 
 ###################
@@ -629,10 +631,22 @@ def pick_partner(form: dict) -> str:
             partners, avail = player.pick_partners(picks_info)
         player.set_partners(*partners)
         player.save(cascade=True)
+        tourn = TournInfo.get()
+        info = {
+            'player'        : player,
+            'post_action'   : PickAction.SELECT,
+            'player_ident'  : player.seed_ident,
+            'partner_ident' : partners[0].seed_ident,
+            'partner2_ident': partners[1].seed_ident if len(partners) > 1 else None,
+            'tourn_stage'   : tourn.stage_tag,
+            'posted_by_num' : player_num
+        }
+        post = PostPick.create(**info)
+
         # REVISIT: we should try and incorporate this into update_tourn_stage (would have to
         # rethink the interface for that, though)!!!
         if PartnerPick.current_round() == -1:
-            TournInfo.mark_stage_complete(TournStage.PARTNER_PICK)
+            tourn.complete_stage(TournStage.PARTNER_PICK)
     except RuntimeError as e:
         flash(f"err={str(e)}")
     return render_view(View.PARTNERS)

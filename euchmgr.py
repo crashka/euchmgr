@@ -21,8 +21,8 @@ from core import BASE_DIR, BracketsFile, log
 from database import db_init, db_close, db_name, db_atomic
 from schema import (rnd_pct, rnd_avg, clear_schema_cache, Bracket, TournStage, TournInfo,
                     Player, SeedGame, Team, TournGame, PlayoffGame, PlayerGame, TeamGame,
-                    ScoreAction, PostScore, RankType, RankAction, PostRank, TournEvent,
-                    TournLog, schema_create)
+                    ScoreAction, RankType, RankAction, PickAction, PostScore, PostRank,
+                    PostPick, TournEvent, TournLog, schema_create)
 
 #####################
 # utility functions #
@@ -538,10 +538,23 @@ def prepick_champ_partners() -> None:
     if len(by_rank) == 0:
         return
 
-    # highest seeded champ picks fellow champ(s)
     assert len(by_rank) in (2, 3)
-    by_rank[0].set_partners(*by_rank[1:])
-    by_rank[0].save(cascade=True)
+    # highest seeded champ picks fellow champ(s)
+    player = by_rank[0]
+    partners = by_rank[1:]
+    player.set_partners(*partners)
+    player.save(cascade=True)
+    tourn = TournInfo.get()
+    info = {
+        'player'        : player,
+        'post_action'   : PickAction.PRE_PICK,
+        'action_info'   : "Reigning champs",
+        'player_ident'  : player.seed_ident,
+        'partner_ident' : partners[0].seed_ident,
+        'partner2_ident': partners[1].seed_ident if len(partners) > 1 else None,
+        'tourn_stage'   : tourn.stage_tag
+    }
+    post = PostPick.create(**info)
 
 def fake_pick_partners(clear_existing: bool = False, limit: int = None, rand_seed: int = None) -> None:
     """Assumes champ team is pre-picked (in that we don't do the picking and/or checking
@@ -554,6 +567,7 @@ def fake_pick_partners(clear_existing: bool = False, limit: int = None, rand_see
     if clear_existing:
         Player.clear_partner_picks()
 
+    tourn = TournInfo.get()
     avail = Player.available_players()  # already sorted by player_rank_eff
     assert len(avail) != 1
     nfake = 0
@@ -571,13 +585,21 @@ def fake_pick_partners(clear_existing: bool = False, limit: int = None, rand_see
             partners.append(avail.pop(0))
         player.set_partners(*partners)
         player.save(cascade=True)
+        info = {
+            'player'        : player,
+            'post_action'   : PickAction.POST_FAKE,
+            'player_ident'  : player.seed_ident,
+            'partner_ident' : partners[0].seed_ident,
+            'partner2_ident': partners[1].seed_ident if len(partners) > 1 else None,
+            'tourn_stage'   : tourn.stage_tag
+        }
+        post = PostPick.create(**info)
 
         nfake += 1
         if limit and nfake >= limit:
             return
     assert len(avail) == 0
-
-    TournInfo.mark_stage_complete(TournStage.PARTNER_PICK)
+    tourn.complete_stage(TournStage.PARTNER_PICK)
 
 def build_tourn_teams() -> list[Team]:
     """Note: we should probably move the construction of the team name into schema.py
@@ -1504,8 +1526,9 @@ def reset_partner_picks(reason: str = None) -> None:
     if tourn.stage_compl >= TournStage.TOURN_BRACKET:
         raise RuntimeError("cannot reset partner picks once round robin brackets have been created")
 
+    action = "Reset Partner Picks"
     with db_atomic() as txn:
-        TournLog.add(TournEvent.ADMIN_ACTION, "Reset Partner Picks", reason)
+        TournLog.add(TournEvent.ADMIN_ACTION, action, reason)
 
         # reset tourn stage back to end of seed bracket creation; the subsequent calls all
         # revert tables back their original state for this stage

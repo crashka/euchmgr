@@ -14,7 +14,8 @@ from schema import (rnd_pct, Bracket, BRACKET_NAME, get_bracket, TournStage, Tou
                     Player as BasePlayer, SeedGame as BaseSeedGame, Team as BaseTeam,
                     TournGame as BaseTournGame, PlayoffGame as BasePlayoffGame,
                     PlayerGame as BasePlayerGame, TeamGame as BaseTeamGame,
-                    PostScore as BasePostScore, PostRank as BasePostRank)
+                    PostScore as BasePostScore, PostRank as BasePostRank,
+                    PostPick as BasePostPick)
 
 #################
 # utility stuff #
@@ -155,12 +156,6 @@ class Player(UIMixin, BasePlayer):
         if tourn.stage_compl < TournStage.SEED_BRACKET:
             return data | EMPTY_PLYR_STATS
         return data
-
-    @property
-    def seed_ident(self) -> str:
-        """Player "name (rank)", for partner picking UI
-        """
-        return f"{self.name} ({self.player_rank_eff})"
 
     @property
     def picks_info(self) -> str | None:
@@ -1194,6 +1189,21 @@ class PostRank(UIMixin, BasePostRank):
 
     class Meta:
         table_name = BasePostRank._meta.table_name
+
+############
+# PostPick #
+############
+
+class PostPick(UIMixin, BasePostPick):
+    """Log of partner picks made (or reverted).
+    """
+    player         = ForeignKeyField(Player, field='player_num', column_name='player_num',
+                                     null=True)
+    posted_by      = ForeignKeyField(Player, field='player_num', column_name='posted_by_num',
+                                     null=True)
+
+    class Meta:
+        table_name = BasePostPick._meta.table_name
 
 ######################
 # more utility stuff #

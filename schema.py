@@ -86,6 +86,13 @@ class RankAction(StrEnum):
     REVERT      = "Revert"
     CLEAR       = "Clear"
 
+class PickAction(StrEnum):
+    PRE_PICK    = "Pre-Pick"
+    SELECT      = "Select"
+    POST_ADMIN  = "Post"
+    POST_FAKE   = "Fake Pick"
+    RVRT_ADMIN  = "Revert"
+
 ##########################
 # tournament stage stuff #
 ##########################
@@ -271,7 +278,7 @@ class TournInfo(BaseModel):
         if 'stage_compl' in self._dirty:
             stage_data = StageData[self.stage_compl]
 
-            if self.stage_start != self.stage_compl:
+            if self.stage_start not in (self.stage_compl, self.stage_compl + 1):
                 assert not self.stage_start or self.stage_start < self.stage_compl
                 # set stage_start implicitly (e.g. for for short operations)
                 self.stage_start = self.stage_compl
@@ -322,11 +329,11 @@ class TournInfo(BaseModel):
         if auto_save:
             self.save()
 
-    def reset_stage(self, stage: TournStage, auto_save: bool = True) -> None:
+    def reset_stage(self, stage: TournStage, start_only: bool = False, auto_save: bool = True) -> None:
         """Reset tournament to the specified stage (and save, by default).
         """
         self.stage_start = stage
-        self.stage_compl = stage
+        self.stage_compl = stage if not start_only else stage - 1
         if isinstance(stage, int):
             stage = TournStage(stage)
         TournLog.add(TournEvent.STAGE_RESET, stage.name, ref_id=stage.value)
@@ -703,6 +710,12 @@ class Player(BaseModel, EuchmgrUser):
         evaluates correctly as a boolean.
         """
         return 'y' if not (self.partner or self.picked_by) else None
+
+    @property
+    def seed_ident(self) -> str:
+        """Player "name (rank)", for partner picking contexts (UI and logging).
+        """
+        return f"{self.name} ({self.player_rank_eff})"
 
     def get_game_stats(self, opps: list[Self] = None) -> dict:
         """Get stats for player's games (all, or versus specified opponents)
@@ -2294,7 +2307,7 @@ class PostRank(BaseModel):
     @classmethod
     def get_posts(cls, rank_type: RankType, target: Player | Team) -> list[Self]:
         """Return PostRank records for specified ranking type and target (player or team),
-        in chronological orde
+        in chronological order.
         """
         cls_target = cls.player if rank_type == RankType.SEED else cls.team
         query = (cls
@@ -2303,6 +2316,29 @@ class PostRank(BaseModel):
                         cls_target == target)
                  .order_by(cls.id))
         return list(query)
+
+############
+# PostPick #
+############
+
+class PostPick(BaseModel):
+    """Log of partner picks made (or reverted).
+    """
+    player         = ForeignKeyField(Player, field='player_num', column_name='player_num',
+                                     null=True)
+    post_action    = TextField()
+    action_info    = TextField(null=True)
+    player_ident   = IntegerField()           # seed_ident
+    partner_ident  = IntegerField(null=True)  # ditto
+    partner2_ident = IntegerField(null=True)  # ditto
+    tourn_stage    = TextField()
+    posted_by      = ForeignKeyField(Player, field='player_num', column_name='posted_by_num',
+                                     null=True)
+
+    class Meta:
+        indexes = (
+            (('player', 'created_at'), False),
+        )
 
 #############
 # Tourn Log #
@@ -2316,13 +2352,14 @@ class TournEvent(StrEnum):
     ROUND_COMPL  = "Round complete"
     SCORE_ADJ    = "Score adjust"
     RANK_ADJ     = "Rank adjust"
+    PICK_REVERT  = "Pick revert"
     ADMIN_ACTION = "Admin action"
 
 class TournLog(BaseModel):
     """Log of critical tournament-level events, including stage changes and admin overrides.
     """
     event_type     = TextField()              # TournEvent
-    event_target   = TextField()              # stage, round, score/rank type, etc.
+    event_target   = TextField(null=True)     # stage, round, score/rank type, etc.
     event_info     = TextField(null=True)     # additional info (unstructured)
     event_data     = JSONField(null=True)     # may be denorm from ref table (see next)
     ref_id         = IntegerField(null=True)  # ID for type-dependent ref table
@@ -2366,12 +2403,26 @@ class TournLog(BaseModel):
         event = cls.create(**info)
         return event
 
+    @classmethod
+    def addPick(cls, ev_type: TournEvent, post: PostPick) -> Self:
+        """Convenience function for logging posted partner picks.
+        """
+        ev_info = f"player num {post.player.player_num}"
+        info = {'event_type'  : ev_type,
+                'event_target': None,  # no target for this event type
+                'event_info'  : ev_info,
+                'event_data'  : post.__data__,
+                'ref_id'      : post.id}
+        event = cls.create(**info)
+        return event
+
 #################
 # schema_create #
 #################
 
 ALL_MODELS = [TournInfo, Player, SeedGame, Team, TournGame, PlayoffGame, PlayerGame,
-              TeamGame, StandinPlayer, StandinGame, PostScore, PostRank, TournLog]
+              TeamGame, StandinPlayer, StandinGame, PostScore, PostRank, PostPick,
+              TournLog]
 
 def schema_create(models: list[BaseModel | str] | str = None, force = False) -> None:
     """Create tables for specified models (list of objects or comma-separated list of

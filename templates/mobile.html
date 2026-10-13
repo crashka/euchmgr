@@ -341,7 +341,7 @@
       </span>
     </div>
     {% with tooltip = "Tap here to refresh view" %}
-    <section class="info_stats" id="info-stats" title='{{tooltip}}'>
+    <section class="info_stats" title='{{tooltip}}'>
       <h2>{{view_name}}</h2>
       <section>
         {% for sect, info_flds in info_data.items() %}
@@ -372,7 +372,7 @@
     {% set view_active = true %}
     {% set locked = (nums_avail == none) %}
     {% set disabled = " disabled" if locked else "" %}
-    <section class="register" id="register">
+    <section class="register">
       <h3>Player Info</h3>
       <form action="{{view}}" method="post">
         <input type="hidden" name="player_id" value="{{user.id}}">
@@ -410,7 +410,7 @@
 
     {% if view in (View.SEEDING, View.ROUND_ROBIN, View.SEMIFINALS, View.FINALS) %}
     {% set stage_ent = user if view == View.SEEDING else team %}
-    <section class="games" id="sd-games">
+    <section class="games">
       {% if stage_games %}
       {% set view_active = true %}
       <h3>Games</h3><span>(tap here for Leaderboard)</span>
@@ -423,6 +423,7 @@
         {% for gm in stage_games %}
         {% set gm_cls = " active" if gm == cur_game else ("" if gm.winner else " pending") %}
         <article class="game{{gm_cls}}" id="{{gm.label}}">
+          <div id="rnd-{{gm.round_num + 1}}"></div>
           <h4>{{gm_lbl}} {{gm.round_num}}</h4>
           {% set matchup_str = fmt_matchup(gm, stage_ent) %}
           <p class="matchup">
@@ -519,7 +520,7 @@
     {% endif %}  {# view in (View.SEEDING, View.ROUND_ROBIN, View.SEMIFINALS, View.FINALS) #}
 
     {% if view == View.PARTNERS %}
-    <section class="picks" id="pt-picks">
+    <section class="picks">
       {% if partner_picks %}
       {% set view_active = true %}
       <h3>Picking Order</h3>
@@ -530,7 +531,7 @@
       <form action="{{view}}" method="post">
         {% for pk in partner_picks %}
         {% set pk_cls = " active" if pk == cur_pick else ("" if pk.partner else " pending") %}
-        <article class="pick{{pk_cls}}" id="pk-{{pk.player_rank}}">
+        <article class="pick{{pk_cls}}" id="pk-{{pk.player_rank_eff}}">
           {% set is_you = " &ndash; <i>you</i>" if pk == user else "" %}
           {% set champ_flg = "*" if pk.reigning_champ else "" %}
           <span class="picker">{{pk.seed_ident}}{{is_you|safe}}{{champ_flg}}</span>
@@ -640,7 +641,7 @@
      });
      // shortcuts
      $('.info_stats').on('click', function() {
-       window.location.href = "";
+       window.location.href = window.location.pathname + '/';
      });
      $('.login_info span').on('click', function() {
        window.location.href = "./register";
@@ -686,12 +687,9 @@
      // current game may change on this reload
      $('.game.active').on('click', function(e) {
        if (chgMap.size == 0) {
-         //window.location.href = window.location.pathname;
-         //window.location.href = '';
          // WATCH: this appears to reload changed data despite all of the claims that the
          // `forceGet` flag is ignored these days; if we see that this is not reliable, we
-         // can fall back to setting location.href (I think the two commented out options,
-         // just above, are equivalent)!
+         // can fall back to setting location.href to pathname + '/' (here and elsewhere)
          window.location.reload(true);
        }
        else {
@@ -715,7 +713,10 @@
            if (data.succ) {
              //console.log("Ajax success: " + (data.info || status), data);
              const post = data.data;
-             if (post.id > {{ref_score_id}} || post.do_push) {
+             if (post.id > {{ref_score_id}}) {
+               window.location.href = window.location.pathname + '/';
+             }
+             else if (post.do_push) {
                window.location.reload(true);
              }
              timeoutId = setTimeout(chkGameScore, {{update_int}});

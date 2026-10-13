@@ -80,9 +80,9 @@ class View(StrEnum):
 
 def view_path(view: str) -> str:
     """Return absolute path for specified view.  Note that the view name itself is the
-    proper _relative_ path for the view.
+    endpoint name within the admin blueprint.
     """
-    return '/' + view
+    return url_for('admin.' + view)
 
 class ViewInfo(NamedTuple):
     """This is not super-pretty, but we want to make this as data-driven as possible
@@ -228,13 +228,13 @@ def tourn() -> str:
     }
     return render_tourn(context)
 
-@admin.get("/players")
-@admin.get("/seeding")
-@admin.get("/partners")
-@admin.get("/teams")
-@admin.get("/round_robin")
-@admin.get("/final_four")
-@admin.get("/playoffs")
+@admin.get("/players", endpoint="players")
+@admin.get("/seeding", endpoint="seeding")
+@admin.get("/partners", endpoint="partners")
+@admin.get("/teams", endpoint="teams")
+@admin.get("/round_robin", endpoint="round_robin")
+@admin.get("/final_four", endpoint="final_four")
+@admin.get("/playoffs", endpoint="playoffs")
 def view() -> str:
     """Render the requested view directly.
     """

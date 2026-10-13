@@ -3,6 +3,7 @@
 """Blueprint for the mobile device interface
 """
 from enum import StrEnum
+from functools import partial
 from dataclasses import dataclass
 import re
 
@@ -29,7 +30,6 @@ from ui_common import (process_flashes, msg_join, render_response, redirect, api
 mobile = Blueprint('mobile', __name__)
 MOBILE_TITLE = "Euchmgr"
 MOBILE_TEMPLATE = "mobile.html"
-MOBILE_URL_PFX = '/mobile'
 
 #################
 # utility stuff #
@@ -195,17 +195,17 @@ class View(StrEnum):
 # represents the common header section (not a valid path itself)
 VIEW_HEADER = '(header)'
 
-def view_path(view: str) -> str:
+def view_path(view: str, anchor: str = None) -> str:
     """Return absolute path for specified view.  Note that the view name itself is the
-    proper _relative_ path for the view.
+    endpoint name within the mobile blueprint.
     """
-    return MOBILE_URL_PFX + '/' + view
+    return url_for('mobile.' + view, _anchor=anchor)
 
-BRACKET_VIEW = {
-    Bracket.SEED  : View.SEEDING,
-    Bracket.TOURN : View.ROUND_ROBIN,
-    Bracket.SEMIS : View.SEMIFINALS,
-    Bracket.FINALS: View.FINALS
+BRACKET_ENDPT = {
+    Bracket.SEED  : View.SEEDING + '/',
+    Bracket.TOURN : View.ROUND_ROBIN + '/',
+    Bracket.SEMIS : View.SEMIFINALS + '/',
+    Bracket.FINALS: View.FINALS + '/'
 }
 
 STAGE_VIEW = [
@@ -239,28 +239,54 @@ def active_view(tourn: TournInfo, player: Player) -> str:
             return remap_view(view, player)
     raise LogicError(f"unexpected stage_start '{tourn.stage_start}'")
 
-@mobile.get("/")
+CUR_ROUND_FUNC = {
+    View.SEEDING    : SeedGame.current_round,
+    View.PARTNERS   : Player.current_round,
+    View.ROUND_ROBIN: TournGame.current_round,
+    View.SEMIFINALS : partial(PlayoffGame.current_round, bracket=Bracket.SEMIS),
+    View.FINALS     : partial(PlayoffGame.current_round, bracket=Bracket.FINALS)
+}
+
+def cur_round(view: str) -> int:
+    """Return current round for stage associated with specified view (0 indicates stage
+    not started, -1 indicates stage completed).
+    """
+    func = CUR_ROUND_FUNC.get(view)
+    return func() if func else None
+
+@mobile.get("/seeding/", endpoint="seeding/")
+@mobile.get("/partners/", endpoint="partners/")
+@mobile.get("/round_robin/", endpoint="round_robin/")
+@mobile.get("/semifinals/", endpoint="semifinals/")
+@mobile.get("/finals/", endpoint="finals/")
+@mobile.get("/")  # must be last (for endpoint binding)
 def index() -> str:
-    """Render appropriate mobile view, depending on tournament stage (and progress for the
-    current user).
+    """For root node, render appropriate mobile view (with current progress) for the
+    tournament stage and player.  If view branch route is specified, the active round
+    within that view is determined (if within scope).
     """
     if not current_user.is_authenticated:
         flash("err=Please reauthenticate in order to access the app")
         return redirect(url_for('login_page'))
 
-    tourn = TournInfo.get()
-    view = active_view(tourn, current_user)
-    assert view
+    view = request.path.split('/')[2]  # account for `/mobile` prefix
+    if not view:
+        assert request.path == "/mobile/"
+        tourn = TournInfo.get()
+        view = active_view(tourn, current_user)
+    assert view in View, f"'{view}' not a recognized view"
+    rnd = cur_round(view)
+    anchor = f"rnd-{rnd}" if rnd > 0 else None
     # note that flashed messages are not processed for now, they will be passed through to
     # the redirected page
-    return render_view(view)
+    return render_view(view, anchor)
 
-@mobile.get("/register")
-@mobile.get("/seeding")
-@mobile.get("/partners")
-@mobile.get("/round_robin")
-@mobile.get("/semifinals")
-@mobile.get("/finals")
+@mobile.get("/register", endpoint="register")
+@mobile.get("/seeding", endpoint="seeding")
+@mobile.get("/partners", endpoint="partners")
+@mobile.get("/round_robin", endpoint="round_robin")
+@mobile.get("/semifinals", endpoint="semifinals")
+@mobile.get("/finals", endpoint="finals")
 def view() -> str:
     """Render mobile app, if logged in.
     """
@@ -296,9 +322,12 @@ def view() -> str:
 
 @mobile.get("/game_score/<game_label>")
 def game_score(game_label: str) -> str:
-    """Return last post_score record for specified game.
+    """Return last post_score record for specified game.  Uses API protocol.
     """
-    assert g.api_call  # FIX!!!
+    if not current_user.is_authenticated:
+        return api_error(401, "User is not authenticated")
+    if not g.api_call:
+        return api_error(400, "Only accessible through API path")
     post = PostScore.get_last(game_label, include_accept=True)
     if not post:
         # REVISIT: maybe use status code 200 to avoid compulsory client console logging!!!
@@ -453,7 +482,7 @@ def submit_score(form: dict) -> str:
     score = PostScore.create(**info)
     if score_pushed:
         return render_game_in_view(game_label)
-    return render_view(BRACKET_VIEW[bracket])
+    return render_view(BRACKET_ENDPT[bracket])
 
 def accept_score(form: dict, ref_score: PostScore = None) -> str:
     """Accept a game score posted by an opponent.
@@ -537,7 +566,7 @@ def accept_score(form: dict, ref_score: PostScore = None) -> str:
     if do_push or score_pushed:
         # be a little fancy here and highlight the accepted game
         return render_game_in_view(game_label)
-    return render_view(BRACKET_VIEW[bracket])
+    return render_view(BRACKET_ENDPT[bracket])
 
 def correct_score(form: dict, ref_score: PostScore = None) -> str:
     """Correct a game score, superceding all previous submitted (or corrected) scores.  As
@@ -621,7 +650,7 @@ def correct_score(form: dict, ref_score: PostScore = None) -> str:
     score = PostScore.create(**info)
     if score_pushed:
         return render_game_in_view(game_label)
-    return render_view(BRACKET_VIEW[bracket])
+    return render_view(BRACKET_ENDPT[bracket])
 
 def pick_partner(form: dict) -> str:
     """Submit the specified partner pick.
@@ -771,10 +800,11 @@ class UserData:
     min_stg : TournStage  # refers to stage_compl
     value   : str | int | float
 
-def render_view(view: str) -> str:
-    """Render the specified view using redirect (called from POST action handlers).
+def render_view(view: str, anchor: str = None) -> str:
+    """Render the specified view (or more accurately, view *endpoint*) using redirect
+    (called from POST action handlers).
     """
-    return redirect(view_path(view))
+    return redirect(view_path(view, anchor))
 
 def render_game_in_view(label: str) -> str:
     """Return the url for jumping to the specified game in its stage view.  We do a tricky
@@ -782,7 +812,7 @@ def render_game_in_view(label: str) -> str:
     an ugly query string).
     """
     bracket = get_bracket(label)
-    view = BRACKET_VIEW[bracket]
+    view = BRACKET_ENDPT[bracket]
     flash(f"cur_game={label}")
     return render_view(view)
 

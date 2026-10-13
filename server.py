@@ -28,7 +28,7 @@ from data import data
 from chart import chart
 from dash import dash
 from report import report
-from mobile import mobile, MOBILE_URL_PFX
+from mobile import mobile
 from admin import admin, active_view, render_view, SEL_NEW
 
 #################
@@ -73,7 +73,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
     app.config.from_object(config)
     app.register_blueprint(admin)
     app.register_blueprint(data)
-    app.register_blueprint(mobile, url_prefix=MOBILE_URL_PFX)
+    app.register_blueprint(mobile, url_prefix='/mobile')
     app.register_blueprint(chart, url_prefix='/chart')
     app.register_blueprint(dash, url_prefix='/dash')
     app.register_blueprint(report, url_prefix='/report')
@@ -347,7 +347,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         """
         if not g.mobile:
             return render_error(403, desc="Mobile access only")
-        reroute = MOBILE_API_MAP.get(route) or MOBILE_URL_PFX + '/' + route
+        reroute = MOBILE_API_MAP.get(route) or '/mobile/' + route
         assert g.api_call  # consider this flag a framework thing
         # see ATTN message in `api_router()` (above)
         url_adapter = request_ctx.url_adapter

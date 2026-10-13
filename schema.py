@@ -1854,7 +1854,7 @@ class PlayoffGame(BaseModel):
         """Return the current round of play, with the special values of `0` to indicate
         that the specified playoff bracket has not yet been created, and `-1` to indicate
         that the associated playoff stage is complete.  Note that "round", for playoff
-        brackets, means the lowest active game number for any matchup in the stage.
+        brackets, means the highest active game number for any matchup in the stage.
         """
         compl = cls.bracket_complete(bracket)
         if compl is None:
@@ -1866,7 +1866,7 @@ class PlayoffGame(BaseModel):
                  .select(cls.matchup_num, fn.count(cls.winner))
                  .where(cls.bracket == bracket)
                  .group_by(cls.matchup_num)
-                 .order_by(fn.count(cls.winner).asc()))
+                 .order_by(fn.count(cls.winner).desc()))
         matchup_num, ngames = query.scalar(as_tuple=True)
 
         assert ngames < 3

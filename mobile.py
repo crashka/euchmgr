@@ -19,7 +19,8 @@ from euchmgr import compute_player_ranks, compute_team_ranks, compute_playoff_ra
 from ui_schema import (fmt_pct, PTS_PCT_NA, get_game_by_label, Player, PlayerRegister,
                        PartnerPick, SeedGame, Team, TournGame, PlayoffGame, PostScore,
                        PostPick)
-from ui_common import process_flashes, msg_join, render_response, redirect
+from ui_common import (process_flashes, msg_join, render_response, redirect, api_succ,
+                       api_error)
 
 ###################
 # blueprint stuff #
@@ -292,6 +293,17 @@ def view() -> str:
         context['cur_game'] = cur_game
 
     return render_mobile(context, view)
+
+@mobile.get("/game_score/<game_label>")
+def game_score(game_label: str) -> str:
+    """Return last post_score record for specified game.
+    """
+    assert g.api_call  # FIX!!!
+    post = PostScore.get_last(game_label, include_accept=True)
+    if not post:
+        # REVISIT: maybe use status code 200 to avoid compulsory client console logging!!!
+        return api_error(404, "Game score record does not exist")
+    return api_succ(data=post.__data__)
 
 ################
 # POST actions #
@@ -944,6 +956,11 @@ def render_mobile(context: dict, view: str) -> str:
         stage_games = team.get_playoff_games(Bracket.FINALS, all_games=True)
         leaderboard = get_leaderboard(Bracket.FINALS)
 
+    update_int = -1
+    if cur_game:
+        # TODO: all of this should be moved to config params!!!
+        update_int = 5000 if compl_game else 5000
+
     # FIX: for now we're not worried about too many context items (since we are trying to
     # develop clear semantics for the display), but this is inelegant and getting bloated
     # and redundant, so we really need to refactor into something with better structure!!!
@@ -965,7 +982,7 @@ def render_mobile(context: dict, view: str) -> str:
         'opp_tag'      : opp_tag,
         'opp_pts'      : opp_pts,
         'ref_score'    : ref_score,
-        'ref_score_id' : ref_score.id if ref_score else None,
+        'ref_score_id' : ref_score.id if ref_score else 0,  # for javascript
         'nums_avail'   : nums_avail,
         'stage_games'  : stage_games,
         'leaderboard'  : leaderboard,
@@ -973,6 +990,7 @@ def render_mobile(context: dict, view: str) -> str:
         'picks_avail'  : picks_avail,
         'fmt_matchup'  : fmt_matchup,
         'resources'    : VIEW_RESOURCES.get(view),
+        'update_int'   : update_int,
         'err_msg'      : None,
         'info_msg'     : None
     }

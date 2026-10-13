@@ -418,7 +418,7 @@
         <input type="hidden" name="game_label" value="{{cur_game.label}}">
         <input type="hidden" name="posted_by_num" value="{{user.player_num}}">
         <input type="hidden" name="team_idx" value="{{team_idx}}">
-        <input type="hidden" name="ref_score_id" value="{{ref_score_id}}">
+        <input type="hidden" name="ref_score_id" value="{{ref_score_id or none}}">
         {% set gm_lbl = "Game" if view in (View.SEMIFINALS, View.FINALS) else "Round" %}
         {% for gm in stage_games %}
         {% set gm_cls = " active" if gm == cur_game else ("" if gm.winner else " pending") %}
@@ -449,9 +449,9 @@
               <option{{selected}}>{{pts}}</option>
               {% endfor %}
             </select>
-            {% else %}
+            {% else %}  {# gm == cur_game and not gm.winner #}
             {{matchup_str[1]|safe}}
-            {% endif %}
+            {% endif %}  {# gm == cur_game and not gm.winner #}
           </p>
           <p class="units">
             {{matchup_str[2]|safe}}
@@ -587,6 +587,15 @@
   <script src="/static/jquery-3.7.1.min.js"></script>
   <script>
    $(function() {
+     let timeoutId;
+
+     $('body').on('click', function() {
+       if (timeoutId) {
+         clearTimeout(timeoutId);
+         timeoutId = null;
+       }
+     });
+
      // add css and attributes
      $('.actions button')
        .attr({
@@ -691,8 +700,54 @@
      });
      $('select, option, button, a', '.game').on('click', function(e) {
        //console.log("trapping click to refresh (clickable element: " + this.nodeName + ")");
+       if (timeoutId) {
+         clearTimeout(timeoutId);
+         timeoutId = null;
+       }
        e.stopPropagation();
      });
+
+     // refresh window if there is an update to the current game
+     const chkGameScore = function() {
+       $.ajax({
+         url: "/mobile_api/game_score/{{cur_game.label}}",
+         success: function(data, status) {
+           if (data.succ) {
+             //console.log("Ajax success: " + (data.info || status), data);
+             const post = data.data;
+             if (post.id > {{ref_score_id}} || post.do_push) {
+               window.location.reload(true);
+             }
+             timeoutId = setTimeout(chkGameScore, {{update_int}});
+           }
+           else {
+             console.log("Ajax (soft) error: " + data.err, data);
+             showError(data.err + " (" + data.info + ")");
+             timeoutId = null;
+           }
+         },
+         error: function(req, status) {
+           data = JSON.parse(req.responseText);
+           // TODO: we should really pattern match on `data.err` as well, and/or make
+           // this a "soft" error (and move to the success handler above)!!!
+           if (req.status == 404) {
+             //console.log("Ignoring ajax error: ", data.err);
+             timeoutId = setTimeout(chkGameScore, {{update_int}});
+           }
+           else {
+             console.log("Ajax error: " + data.err, data);
+             showError(data.err + " (" + data.info + ")");
+             timeoutId = null;
+           }
+         }
+       });
+     };
+
+     if (!timeoutId && {{update_int}} > 0) {
+       // do this with timeout (instead of interval) just so requests don't get
+       // backed-up when debugging and/or if server is loaded
+       timeoutId = setTimeout(chkGameScore, {{update_int}});
+     }
      {% endif %}  {# cur_game #}
 
      {% if stage_games %}

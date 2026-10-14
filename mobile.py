@@ -208,6 +208,8 @@ BRACKET_ENDPT = {
     Bracket.FINALS: View.FINALS + '/'
 }
 
+PARTNERS_ENDPT = View.PARTNERS + '/'
+
 STAGE_VIEW = [
     (TournStage.SEMIS_RANKS,  View.FINALS),
     (TournStage.TOURN_RANKS,  View.SEMIFINALS),
@@ -333,6 +335,18 @@ def game_score(game_label: str) -> str:
         # REVISIT: maybe use status code 200 to avoid compulsory client console logging!!!
         return api_error(404, "Game score record does not exist")
     return api_succ(data=post.__data__)
+
+@mobile.get("/current_pick")
+def current_pick() -> str:
+    """Return last PartnerPick.current_pick record.  Uses API protocol.
+    """
+    if not current_user.is_authenticated:
+        return api_error(401, "User is not authenticated")
+    if not g.api_call:
+        return api_error(400, "Only accessible through API path")
+    pick = PartnerPick.current_pick()
+    data = pick.__data__ if pick else None
+    return api_succ(data=data)
 
 ################
 # POST actions #
@@ -690,7 +704,7 @@ def pick_partner(form: dict) -> str:
             tourn.complete_stage(TournStage.PARTNER_PICK)
     except RuntimeError as e:
         flash(f"err={str(e)}")
-    return render_view(View.PARTNERS)
+    return render_view(PARTNERS_ENDPT)
 
 #############
 # renderers #
@@ -990,6 +1004,8 @@ def render_mobile(context: dict, view: str) -> str:
     if cur_game:
         # TODO: all of this should be moved to config params!!!
         update_int = 5000 if compl_game else 5000
+    elif cur_pick and cur_pick != current_user:
+        update_int = 5000
 
     # FIX: for now we're not worried about too many context items (since we are trying to
     # develop clear semantics for the display), but this is inelegant and getting bloated

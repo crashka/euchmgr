@@ -408,13 +408,19 @@ class PartnerPick(UIMixin, BasePlayer):
         if not tourn.seeding_done():
             return None
 
-        # NOTE: need to instantiate `Player` instances here
-        pl_query = Player.select()
-        avail = list(filter(lambda x: x.available, pl_query))
+        # NOTE: need to instantiate `Player` instances here; we're doing a little bit of
+        # integrity checking for now, but later can actually specify `.limit(1)`
+        player_rank_eff = fn.coalesce(Player.player_rank_adj, Player.player_rank)
+        query = (Player
+                 .select()
+                 .where(Player.partner.is_null(True),
+                        Player.picked_by.is_null(True))
+                 .order_by(player_rank_eff.asc()))
+        avail = list(query)
         if not avail:
             return None
         assert len(avail) > 1
-        return sorted(avail, key=lambda x: x.player_rank_eff)[0]
+        return avail[0]
 
     @classmethod
     def avail_picks(cls) -> list[Player]:

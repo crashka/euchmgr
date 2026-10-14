@@ -532,6 +532,7 @@
         {% for pk in partner_picks %}
         {% set pk_cls = " active" if pk == cur_pick else ("" if pk.partner else " pending") %}
         <article class="pick{{pk_cls}}" id="pk-{{pk.player_rank_eff}}">
+          <div id="rnd-{{loop.index + 10}}"></div>
           {% set is_you = " &ndash; <i>you</i>" if pk == user else "" %}
           {% set champ_flg = "*" if pk.reigning_champ else "" %}
           <span class="picker">{{pk.seed_ident}}{{is_you|safe}}{{champ_flg}}</span>
@@ -779,6 +780,41 @@
        //console.log("trapping click to refresh (clickable element: " + this.nodeName + ")");
        e.stopPropagation();
      });
+
+     {% if cur_pick %}
+     // refresh window if there is an update to the current pick
+     const chkCurrentPick = function() {
+       $.ajax({
+         url: "/mobile_api/current_pick",
+         success: function(data, status) {
+           if (data.succ) {
+             console.log("Ajax success: " + (data.info || status), data);
+             const pick = data.data;
+             if (pick == null) {
+               //window.location.href = '';
+               window.location.href = window.location.pathname;
+             }
+             else if (pick.id != {{cur_pick.id}}) {
+               window.location.href = window.location.pathname + '/';
+             }
+             timeoutId = setTimeout(chkCurrentPick, {{update_int}});
+           }
+         },
+         error: function(req, status) {
+           data = JSON.parse(req.responseText);
+           console.log("Ajax error: " + data.err, data);
+           showError(data.err + " (" + data.info + ")");
+           timeoutId = null;
+         }
+       });
+     };
+
+     if (!timeoutId && {{update_int}} > 0) {
+       // do this with timeout (vs. interval) so requests don't get backed-up when
+       // debugging and/or if server is loaded (as above with game scores)
+       timeoutId = setTimeout(chkCurrentPick, {{update_int}});
+     }
+     {% endif %}  {# cur_pick #}
      {% endif %}  {# partner_picks #}
 
      {% if nums_avail %}
@@ -790,7 +826,7 @@
        $('button[value="register_player"]').prop('disabled', false);
        $('a.reset').attr('href', '');
      });
-     {% endif %}  {# partner_picks #}
+     {% endif %}  {# nums_avail #}
 
      {% if err_msg %}
      showError("{{err_msg|safe}}");

@@ -423,7 +423,7 @@
         {% for gm in stage_games %}
         {% set gm_cls = " active" if gm == cur_game else ("" if gm.winner else " pending") %}
         <article class="game{{gm_cls}}" id="{{gm.label}}">
-          <div id="rnd-{{gm.round_num + 1}}"></div>
+          <div id="rnd-{{gm.round_num + 2}}"></div>
           <h4>{{gm_lbl}} {{gm.round_num}}</h4>
           {% set matchup_str = fmt_matchup(gm, stage_ent) %}
           <p class="matchup">

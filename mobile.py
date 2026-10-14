@@ -1003,7 +1003,7 @@ def render_mobile(context: dict, view: str) -> str:
     update_int = -1
     if cur_game:
         # TODO: all of this should be moved to config params!!!
-        update_int = 5000 if compl_game else 5000
+        update_int = 2000 if compl_game else 5000
     elif cur_pick and cur_pick != current_user:
         update_int = 5000
 

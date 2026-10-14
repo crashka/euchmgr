@@ -1,20 +1,30 @@
 {
-  "name":       "Euchre Manager",
-  "short_name": "Euchmgr",
+  "name":             "Euchre Manager",
+  "short_name":       "Euchmgr",
   "icons": [
     {
-      "src":        "/web-app-icon-192x192.png",
-      "sizes":      "192x192",
-      "type":       "image/png",
-      "purpose":    "maskable"
+      "src":          "/web-app-icon-192x192.png",
+      "sizes":        "192x192",
+      "type":         "image/png",
+      "purpose":      "any"
     },
     {
-      "src":        "/web-app-icon-512x512.png",
-      "sizes":      "512x512",
-      "type":       "image/png",
-      "purpose":    "maskable"
+      "src":          "/web-app-icon-512x512.png",
+      "sizes":        "512x512",
+      "type":         "image/png",
+      "purpose":      "any"
     }
   ],
-  "start_url":  "./"
-  "display":    "standalone"
+  "screenshots": [
+    {
+      "src":          "/web-app-screenshot-488x948.png",
+      "sizes":        "488x948",
+      "type":         "image/png",
+      "form_factor":  "narrow"
+    }
+  ],
+  "start_url":        "/",
+  "display":          "standalone",
+  "theme_color":      "#57a2ff",
+  "background_color": "#ffd7d7"
 }

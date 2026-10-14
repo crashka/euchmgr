@@ -444,7 +444,8 @@ def pick_revert(target: str, tourn: TournInfo) -> str:
     """Render admin pick revert window (as a popup), where `target` is the `seed_ident`
     string for the pick: "<name> (<rank>)".
     """
-    m = re.fullmatch(r'(.+) \((\d+)\)', target)
+    # ungreedy match for first partner of three-headed monster
+    m = re.match(r'(.+?) \((\d+)\)($|, )', target)
     assert m                        # FIX: handle this correctly!!!
     pick_name = m[1]
     pick_rank = int(m[2])
@@ -455,7 +456,7 @@ def pick_revert(target: str, tourn: TournInfo) -> str:
     assert pick.picked_by
 
     picker = pick.picked_by
-    subseq = lambda x: x.player_rank_eff >= picker.player_rank and not x.reigning_champ
+    subseq = lambda x: x.player_rank_eff >= picker.player_rank_eff and not x.reigning_champ
     # note that list of affected picks includes the target pick
     aff_picks = list(filter(subseq, PartnerPick.get_picks()))
     parent_url = referrer_path(request)

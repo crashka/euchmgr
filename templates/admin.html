@@ -359,7 +359,7 @@
      let popupWin;
      $('#view_tbl').on('click', 'td.click_winner', function(e) {
        rec = table.row(this).data();
-       console.log(rec);
+       //console.log(rec);
        if (popupWin && !popupWin.closed) {
          popupWin.close();
        }
@@ -372,13 +372,16 @@
 
      $('#view_tbl').on('dblclick', 'td.picks_info', function(e) {
        rec = table.row(this).data();
-       console.log(rec);
+       //console.log(rec);
        if (popupWin && !popupWin.closed) {
          popupWin.close();
        }
-       $cell = $(this);
-       console.log($cell);
        if (!rec.picks_info) {
+         return false;
+       }
+       else if (rec.reigning_champ) {
+         $(e.target).addClass("attn");
+         showError("Cannot revert pick for reigning champ team");
          return false;
        }
        const specs = "popup,width=900,height=600,top=200,left=200";

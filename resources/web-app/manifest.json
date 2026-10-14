@@ -15,14 +15,6 @@
       "purpose":      "any"
     }
   ],
-  "screenshots": [
-    {
-      "src":          "/web-app-screenshot-488x948.png",
-      "sizes":        "488x948",
-      "type":         "image/png",
-      "form_factor":  "narrow"
-    }
-  ],
   "start_url":        "/",
   "display":          "standalone",
   "theme_color":      "#57a2ff",

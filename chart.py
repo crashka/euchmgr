@@ -66,6 +66,8 @@ DIV_RESULTS  = "Division {0} Results"
 DIV_RANK_ADJ = "Division {0} Rank Adjustment"
 SD_RESULTS   = "Seeding Round Results"
 SD_RANK_ADJ  = "Seeding Round Rank Adjustment"
+TM_SEEDS     = "Team Seed Details"
+TM_SEED_ADJ  = "Team Seed Adjustment"
 
 CHART_FUNCS = [
     'sd_bracket',
@@ -78,7 +80,9 @@ CHART_FUNCS = [
     'div_results',
     'div_rank_adj',
     'sd_results',
-    'sd_rank_adj'
+    'sd_rank_adj',
+    'tm_seeds',
+    'tm_seed_adj'
 ]
 
 @chart.get("/<chart>")
@@ -111,16 +115,18 @@ def render_chart(context: dict) -> str:
 #######################
 
 RANK_HIST_REPORT = {
-    RankType.SEED : '/report/seed_rank_hist',
-    RankType.DIV  : '/report/div_rank_hist',
-    RankType.FINAL: '/report/final_rank_hist',
-    RankType.TOURN: '/report/tourn_rank_hist'
+    RankType.SEED   : '/report/seed_rank_hist',
+    RankType.TM_SEED: '/report/team_seed_hist',
+    RankType.DIV    : '/report/div_rank_hist',
+    RankType.FINAL  : '/report/final_rank_hist',
+    RankType.TOURN  : '/report/tourn_rank_hist'
 }
 
 RANK_ADJ_ACTION = {
-    RankType.SEED : '/players/rank_adj/seed',
-    RankType.DIV  : '/teams/rank_adj/div',
-    RankType.FINAL: '/teams/rank_adj/final'
+    RankType.SEED   : '/players/rank_adj/seed',
+    RankType.TM_SEED: '/teams/rank_adj/tm_seed',
+    RankType.DIV    : '/teams/rank_adj/div',
+    RankType.FINAL  : '/teams/rank_adj/final'
 }
 
 ##############
@@ -383,8 +389,7 @@ def trn_results(tourn: TournInfo) -> str:
     """Render intermediary/pre-playoff tournament results as a chart
     """
     rank_type = RankType.TOURN
-    #tm_list  = sorted(Team.iter_teams(), key=lambda tm: tm.tourn_rank_eff)
-    tm_iter  = Team.iter_teams(div=None, by_rank=True)
+    tm_iter  = Team.iter_teams(div=None, by_rank=True)  # sorted by tourn_rank_eff
     tm_list = list(filter(lambda x: x.tourn_wins + x.tourn_losses, tm_iter))
 
     tb_crit = {}
@@ -418,8 +423,7 @@ def fnl_results(tourn: TournInfo) -> str:
     """Render final tournament results as a chart
     """
     rank_type = RankType.FINAL
-    #tm_list = sorted(Team.iter_teams(), key=lambda tm: tm.final_rank_eff)
-    tm_iter  = Team.iter_teams(div=0, by_rank=True)
+    tm_iter  = Team.iter_teams(div=0, by_rank=True)  # sorted by final_rank_eff
     tm_list = list(filter(lambda x: x.tourn_wins + x.tourn_losses, tm_iter))
 
     tb_crit = {}
@@ -496,8 +500,7 @@ def div_results(tourn: TournInfo) -> str:
     div_num = typecast(request.args.get('div')) or DIV_DFLT
     assert div_num in (1, 2)
     other_div = None if tourn.playoff_teams == 2 else (div_num % 2 + 1)
-    #tm_list = sorted(Team.iter_teams(div=div_num), key=lambda tm: tm.div_rank_eff)
-    tm_iter  = Team.iter_teams(div=div_num, by_rank=True)
+    tm_iter  = Team.iter_teams(div=div_num, by_rank=True)  # sorted by div_rank_eff
     tm_list = list(filter(lambda x: x.tourn_wins + x.tourn_losses, tm_iter))
 
     tb_crit = {}
@@ -640,6 +643,75 @@ def sd_rank_adj(tourn: TournInfo) -> str:
         'cancel_url'  : parent_url,
         'redirect_to' : parent_url,
         'fmt_stat'    : fmt_stat,
+        'bold_color'  : '#555555'
+    }
+    return render_chart(context)
+
+############
+# tm_seeds #
+############
+
+def tm_seeds(tourn: TournInfo) -> str:
+    """Render team seed details, with ability to manually adjust.
+    """
+    rank_type = RankType.TM_SEED
+    tm_list = sorted(Team.iter_teams(), key=lambda tm: tm.team_seed_eff)
+
+    seed_note = {}
+    for tm in tm_list:
+        crit = [int(tm.is_thm and not tm.is_champ), tm.avg_player_rank, tm.top_player_rank]
+        note = f"Computed seed: {tm.team_seed}\n - criteria: {crit}"
+        if tm.team_seed_adj:
+            note += chr(10) + f"Adjusted to: {tm.team_seed_adj}"
+        seed_note[tm.id] = note
+
+    fmt_avg = lambda x: round(x, 2)
+    context = {
+        'chart_num'   : 11,
+        'title'       : TM_SEEDS,
+        'user'        : current_user,
+        'tourn'       : tourn,
+        'teams'       : tm_list,
+        'seed_note'   : seed_note,
+        'hist_rpt'    : RANK_HIST_REPORT[rank_type],
+        'adjust_url'  : '/chart/tm_seed_adj',
+        'fmt_avg'     : fmt_avg,
+        'bold_color'  : '#555555'
+    }
+    return render_chart(context)
+
+###############
+# tm_seed_adj #
+###############
+
+def tm_seed_adj(tourn: TournInfo) -> str:
+    """Render team seed details, with ability to manually adjust.
+    """
+    rank_type = RankType.TM_SEED
+    tm_list = sorted(Team.iter_teams(), key=lambda tm: tm.team_seed_eff)
+    parent_url = referrer_path(request)
+
+    seed_note = {}
+    for tm in tm_list:
+        crit = [int(tm.is_thm and not tm.is_champ), tm.avg_player_rank, tm.top_player_rank]
+        note = f"Computed seed: {tm.team_seed}\n - criteria: {crit}"
+        if tm.team_seed_adj:
+            note += chr(10) + f"Previously adjusted to: {tm.team_seed_adj}"
+        seed_note[tm.id] = note
+
+    fmt_avg = lambda x: round(x, 2)
+    context = {
+        'chart_num'   : 12,
+        'title'       : TM_SEED_ADJ,
+        'user'        : current_user,
+        'tourn'       : tourn,
+        'nteams'      : len(tm_list),
+        'teams'       : tm_list,
+        'seed_note'   : seed_note,
+        'action'      : RANK_ADJ_ACTION[rank_type],
+        'cancel_url'  : parent_url,
+        'redirect_to' : parent_url,
+        'fmt_avg'     : fmt_avg,
         'bold_color'  : '#555555'
     }
     return render_chart(context)

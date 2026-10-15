@@ -14,9 +14,9 @@ from security import login_required, admin_required
 from database import db_atomic
 from schema import (Bracket, BRACKET_NAME, TournStage, TournInfo, TournEvent, TournLog,
                     ScoreAction, RankType, PickAction)
-from euchmgr import (validate_seed_round, compute_player_ranks, validate_tourn,
-                     compute_tourn_ranks, compute_team_ranks, validate_playoffs,
-                     compute_playoff_ranks)
+from euchmgr import (validate_seed_round, compute_player_ranks, compute_div_seeds,
+                     validate_tourn, compute_tourn_ranks, compute_team_ranks,
+                     validate_playoffs, compute_playoff_ranks)
 from ui_schema import (Player, PartnerPick, SeedGame, Team, TournGame, PlayoffGame,
                        PostScore, PostRank, PostPick)
 from ui_common import referrer_path, redirect, render_error
@@ -446,6 +446,7 @@ def partners_pick_revert() -> dict:
 ##########
 
 tm_addl_props = [
+    'team_seed_eff',
     'player_nums',
     'tourn_win_pct_str',
     'tourn_pts_pct_str',
@@ -456,7 +457,7 @@ tm_addl_props = [
 
 tm_layout = [
     ('id',                "ID",          HIDDEN),
-    ('team_seed',         "Team Seed",   None),
+    ('team_seed_eff',     "Team Seed",   None),
     ('player_nums',       "Player Nums", None),
     ('team_name',         "Team",        None),
     ('div_num',           "Div",         None),
@@ -549,15 +550,18 @@ def teams_rank_adj(rank_type: str) -> str:
                            f"{orig_rank} -> {new_rank} [{data['action_info']}]")
                 posts.append(post)
 
-            if posts and rank_type == RankType.DIV:
-                # NOTE: we recompute tourn_rank so that playoff seeds are correct and the team
-                # ranks chart looks right (fairly minor points, but can help reduce confusion)
-                #
-                # TODO:
-                #   - need to enforce constraints (or minimally, proper logging) depending on the
-                #     tournament stage (here and elsewhere)!!!
-                tm_list = list(Team.iter_teams())
-                compute_tourn_ranks(tm_list, admin_adj=True, reason="Div rank adjustment")
+            if posts:
+                if rank_type == RankType.TM_SEED:
+                    # TODO: enforce constraints (or minimally, proper logging) depending
+                    # on tourn stage (here and elsewhere, including [just] below)!!!
+                    Team.clear_div_assignments()
+                    compute_div_seeds()
+                elif rank_type == RankType.DIV:
+                    # NOTE: we recompute tourn_rank so that playoff seeds are correct and
+                    # the team ranks chart looks right (fairly minor points, but can help
+                    # reduce confusion)--TODO: see (just) above!!!
+                    tm_list = list(Team.iter_teams())
+                    compute_tourn_ranks(tm_list, admin_adj=True, reason="Div rank adjustment")
         except RuntimeError as e:
             txn.rollback()
             return render_error(400, str(e), BACK_BUTTON)

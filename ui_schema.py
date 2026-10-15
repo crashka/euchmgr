@@ -699,6 +699,17 @@ class Team(UIMixin, BaseTeam):
         return f"<b>{self.team_seed}</b>&nbsp;&nbsp;{self.team_name}"
 
     @property
+    def team_seed_disp(self) -> str:
+        """The display value for team seed (defaults to team_seed, with override from
+        team_seed_adj).
+        """
+        if self.team_seed_adj:
+            #return f"{self.team_seed_adj} ({self.team_seed})"
+            return f"{self.team_seed_adj}*"
+        else:
+            return str(self.team_seed) if self.team_seed else ''
+
+    @property
     def tourn_pos_str(self) -> str:
         """Same as tourn_pos, except annotated if tied with others
         """

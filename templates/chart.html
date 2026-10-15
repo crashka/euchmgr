@@ -580,6 +580,86 @@
         </p>
       </form>
       {% endif %}  {# chart_num in (9, 10) #}
+
+      {% if chart_num in (11, 12) %}
+      <form action="{{action}}" method="post">
+        <input name="redirect_to" type="hidden" value="{{redirect_to}}">
+        <div class="section team_ranks">
+          <table class="ranks">
+            <thead>
+              <tr>
+                <th class="hor_sect">Pick<br>Num</th>
+                <th class="team_lbl hor_sect">Team</th>
+                <th class="hor_sect vert_sect">Champ?</th>
+                <th class="hor_sect vert_sect">Plyr 1<br>Rank</th>
+                <th class="hor_sect">Plyr 2<br>Rank</th>
+                <th class="hor_sect">Plyr 3<br>Rank</th>
+                <th class="hor_sect vert_sect">Avg Plyr<br>Rank</th>
+                {% if chart_num == 11 %}
+                <th class="rank_lbl hor_sect vert_sect">Team<br>Seed</th>
+                {% elif chart_num == 12 %}
+                {% set adj_txt = "Enter new team seed, or use up/down arrows to move" %}
+                <th class="rank_lbl hor_sect vert_sect" title="{{adj_txt}}">
+                  Adjst<br>Seed
+                </th>
+                <th class="rank_lbl hor_sect vert_sect">Seed<br>Mvmt</th>
+                {% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% if teams %}
+              {% for tm in teams %}
+              <tr class="cmpt">
+                <td>{{tm.team_seed}}</td>
+                <td class="team_lbl">{{tm.team_name}}</td>
+                <td class="vert_sect">{{"y" if tm.is_champ else ""}}</td>
+                <td class="vert_sect">{{tm.player1.player_rank}}</td>
+                <td>{{tm.player2.player_rank}}</td>
+                <td>{{tm.player3.player_rank if tm.player3 else ""}}</td>
+                <td class="vert_sect">{{fmt_avg(tm.avg_player_rank)}}</td>
+                {% if chart_num == 11 %}
+                <td class="rank vert_sect" id="tm_{{tm.id}}" title="{{seed_note[tm.id]}}">
+                  {{tm.team_seed_disp}}
+                </td>
+                {% elif chart_num == 12 %}
+                <td class="rank vert_sect" id="tm_{{tm.id}}" title="{{seed_note[tm.id]}}">
+                  <input class="orig" name="tm_{{tm.id}}_orig_rank" type="hidden"
+                         value="{{tm.team_seed_eff}}">
+                  <input class="prev" name="tm_{{tm.id}}_prev_rank" type="hidden"
+                         value="{{tm.team_seed_eff}}">
+                  <input class="cur" name="tm_{{tm.id}}_rank" type="number"
+                         min="1" max="{{nteams}}" value="{{tm.team_seed_eff}}">
+                </td>
+                <td class="mvmt vert_sect">-</td>
+                {% endif %}  {# chart_num #}
+              </tr>
+              {% endfor %}  {# tm in teams #}
+              {% else %}
+              {% set cols = 8 if chart_num == 11 else 1 %}
+              <td colspan="{{cols}}"><i>No data</i></td>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+        <p class="actions">
+          {% if chart_num == 11 %}
+          <input name="dummy" class="dummy">
+          {% if user.is_admin %}
+          <button class="adj_ranks" type="button">Adjust seeds</button>
+          {% endif %}
+          {% elif chart_num == 12 %}
+          <input class="reason" name="action_info" type="text" placeholder="indicate reason"
+                 required>
+          <input name="dummy" class="dummy">
+          {% if user.is_admin %}
+          <button type="submit" disabled>Save adjustments</button>
+          {% endif %}
+          <a class="reset">[reset]</a>
+          <a class="cancel" href="{{cancel_url}}">[cancel]</a>
+          {% endif %}  {# chart_num #}
+        </p>
+      </form>
+      {% endif %}  {# chart_num in (11, 12) #}
     </div>
   </body>
 
@@ -601,7 +681,7 @@
        const specs = "popup,width=900,height=600,top=200,left=200";
        popupWin = window.open('/report/score_posting/' + this.id, "_blank", specs);
      });
-     {% elif chart_num in (4, 5, 7, 9) %}
+     {% elif chart_num in (4, 5, 7, 9, 11) %}
      $('td.rank').on('click', function(e) {
        if (popupWin && !popupWin.closed) {
          popupWin.close();
@@ -611,13 +691,13 @@
      });
      {% endif %}  {# chart_num #}
 
-     {% if chart_num in (5, 7, 9) %}
+     {% if chart_num in (5, 7, 9, 11) %}
      $('button.adj_ranks').on('click', function() {
        window.location.href = "{{adjust_url}}";
      });
      {% endif %}
 
-     {% if chart_num in (6, 8, 10) %}
+     {% if chart_num in (6, 8, 10, 12) %}
      {% set nrecs = nplayers if chart_num == 10 else nteams %}
      //const hlClasses = Array("highlight1", "highlight2", "highlight3",
      //                        "highlight4", "highlight5", "highlight6");
@@ -798,7 +878,7 @@
        iHighlight = -1;
        return false;
      });
-     {% endif %}  {# chart_num in (6, 8, 10) #}
+     {% endif %}  {# chart_num in (6, 8, 10, 12) #}
 
      // we do this so we can tab over to the submit button from the
      // last form input (if it becomes enabled)

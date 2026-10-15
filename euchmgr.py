@@ -58,6 +58,23 @@ def bracket_reader(bracket_file: str) -> Iterator[list[str]]:
 
     return ''.join(bracket_info) or None
 
+def get_seed_map(tourn: TournInfo) -> list[int]:
+    """Return a mapping where the mapped value encapsulates the division and seed within
+    the division (integer mod and quotient, respectively).
+    """
+    ndivs = tourn.divisions
+    nteams = tourn.teams
+
+    # we currently assign teams to divisions based on a snake pattern (1, 2, ..., ndivs,
+    # ndivs, ndivs - 1, ...)--REVISIT: this cleverness is quite misplaced, since we will
+    # really want to rethink the whole bracket strategy (e.g. globally fair division
+    # assignment, possibly with inter-div play, etc.)
+    map_size = ((nteams - 1) // ndivs + 1) * ndivs
+    seed_map = list(range(map_size))
+    for s in seed_map[ndivs::ndivs*2]:
+        seed_map[s:s+ndivs] = reversed(seed_map[s:s+ndivs])
+    return seed_map
+
 def get_div_maps(tourn: TournInfo) -> dict[int, dict[int, Team]]:
     """For each division (top-level key), return map of Teams indexed by div_seed.  Do a
     bunch of integrity checking (as good here as anywhere, I guess).
@@ -642,21 +659,15 @@ def build_tourn_teams() -> list[Team]:
     return teams
 
 def compute_team_seeds(finalize: bool = False, no_save: bool = False) -> list[Team]:
+    """Implicitly does division assignment and seeding (currently).  Note that `no_save`
+    may be used by utilities doing in-memory processing.
     """
-    """
-    tm_list = list(Team.iter_teams())
     tourn = TournInfo.get()
     ndivs = tourn.divisions
     nteams = tourn.teams
+    seed_map = get_seed_map(tourn)
+    tm_list = list(Team.iter_teams())
     assert len(tm_list) == nteams
-
-    # we assign teams to divisions based on a snake pattern (1, 2, ..., ndivs, ndivs,
-    # ndivs - 1, ...) by creating a mapping, where the mapped value encapsulates the
-    # division and seed within the division (integer mod and quotient, respectively)
-    map_size = ((nteams - 1) // ndivs + 1) * ndivs
-    seed_map = list(range(map_size))
-    for s in seed_map[ndivs::ndivs*2]:
-        seed_map[s:s+ndivs] = reversed(seed_map[s:s+ndivs])
 
     teams = []
     # note that non-champ THM is always sorted to last postion
@@ -670,7 +681,36 @@ def compute_team_seeds(finalize: bool = False, no_save: bool = False) -> list[Te
         teams.append(tm)
 
     if finalize:
+        rank_action = RankAction.COMPUTE if not tourn.team_seeds_done() else RankAction.RECOMPUTE
+        for tm in teams:
+            info = {
+                'rank_type'   : RankType.TM_SEED,
+                'team'        : tm,
+                'post_action' : rank_action,
+                'new_rank'    : tm.team_seed,
+                'tourn_stage' : tourn.stage_tag
+            }
+            seed_post = PostRank.create(**info)
         tourn.complete_stage(TournStage.TEAM_SEEDS)
+    return teams
+
+def compute_div_seeds() -> list[Team]:
+    """Do division assignment and seeding, based on existing (effective) team seeds
+    (subset of `compute_team_seeds`, called after admin team_seed adjustments).
+    """
+    tourn = TournInfo.get()
+    ndivs = tourn.divisions
+    nteams = tourn.teams
+    seed_map = get_seed_map(tourn)
+
+    teams = sorted(Team.iter_teams(), key=lambda x: x.team_seed_eff)
+    assert len(teams) == nteams
+    for i, tm in enumerate(teams):
+        assert tm.team_seed_eff == i + 1
+        tm.div_num = seed_map[i] % ndivs + 1
+        tm.div_seed = seed_map[i] // ndivs + 1
+        tm.save()
+
     return teams
 
 def build_tourn_bracket() -> list[TournGame]:

@@ -33,6 +33,7 @@ DIV_RANK_HIST = "Division Rank History"
 SEED_RANK_HIST = "Seeding Rank History"
 TOURN_RANK_HIST = "Tourn Rank History"
 PICK_REVERT = "Revert Partner Pick"
+TEAM_SEED_HIST = "Team Seed History"
 
 REPORT_FUNCS = [
     'rr_tbreak',
@@ -44,7 +45,8 @@ REPORT_FUNCS = [
     'div_rank_hist',
     'seed_rank_hist',
     'tourn_rank_hist',
-    'pick_revert'
+    'pick_revert',
+    'team_seed_hist'
 ]
 
 @report.get("/<report>")
@@ -469,5 +471,28 @@ def pick_revert(target: str, tourn: TournInfo) -> str:
         'picker'     : picker,
         'aff_picks'  : aff_picks,
         'action'     : "/partners/pick_revert"
+    }
+    return render_popup(context)
+
+##################
+# team_seed_hist #
+##################
+
+def team_seed_hist(target: str, tourn: TournInfo) -> str:
+    """Render rank posting report (as a popup), where `target` is tm_<id>
+    """
+    segs = target.split("_", 1)
+    assert len(segs) == 2 and segs[0] == 'tm'
+    team = Team[typecast(segs[1])]
+    posts = PostRank.get_posts(RankType.TM_SEED, team)
+
+    context = {
+        'popup_num' : 7,
+        'title'     : TEAM_SEED_HIST,
+        'user'      : current_user,
+        'tourn'     : tourn,
+        'team'      : team,
+        'posts'     : posts,
+        'fmt_rank'  : fmt_rank
     }
     return render_popup(context)

@@ -652,6 +652,7 @@ LINK_INFO = {
         ('/dash/pt_dash',       "Live Dashboard",        TournStage.SEED_RANKS)
     ],
     View.TEAMS: [
+        ('/chart/tm_seeds',     "Team Seed Details",     TournStage.TEAM_SEEDS),
         ('/chart/trn_results',  "Team Rank Results",     TournStage.TOURN_RANKS),
         ('/report/trn_tbreak',  "Tie-Breaker Report",    TournStage.TOURN_RANKS)
     ],

@@ -75,6 +75,7 @@ class ScoreAction(StrEnum):
 
 class RankType(StrEnum):
     SEED        = "seed"
+    TM_SEED     = "tm_seed"
     TOURN       = "tourn"
     DIV         = "div"
     FINAL       = "final"
@@ -386,6 +387,12 @@ class TournInfo(BaseModel):
         determined).
         """
         return self.stage_compl >= TournStage.TOURN_TEAMS
+
+    def team_seeds_done(self) -> bool:
+        """Official way to check if team seeds have been computed (based on player seeding
+        round rankings).
+        """
+        return self.stage_compl >= TournStage.TEAM_SEEDS
 
     def round_robin_done(self) -> bool:
         """Official way to check if round robin is complete (scores validated and final
@@ -1224,6 +1231,14 @@ class Team(BaseModel):
         return del_stmt.execute()
 
     @classmethod
+    def clear_div_assignments(cls) -> int:
+        """Clear out division assignments and seeds for all teams; return number of
+        records updated.
+        """
+        upd_stmt = cls.update(div_num=None, div_seed=None)
+        return upd_stmt.execute()
+
+    @classmethod
     def clear_tourn_data(cls, do_logging: bool = False, action_info: str = None) -> int:
         """Clear all team data related to tournament round robin games and scores, as well
         as consequent position/rank determinations (at both tourn- and div-levels); return
@@ -1363,8 +1378,14 @@ class Team(BaseModel):
         return tbs
 
     @property
+    def team_seed_eff(self) -> int:
+        """Effective team_seed (used in round robin bracket game assignment)
+        """
+        return self.team_seed_adj or self.team_seed
+
+    @property
     def tourn_rank_eff(self) -> int:
-        """Effective tourn_rank (not currently used!)
+        """Effective tourn_rank (only used as a tie-breaker for playoff rank)
         """
         return self.tourn_rank_adj or self.tourn_rank
 
@@ -1481,7 +1502,19 @@ class Team(BaseModel):
         rank_action = None
         old_rank = None
 
-        if rank_type == RankType.DIV:
+        if rank_type == RankType.TM_SEED:
+            if tourn.stage_compl >= TournStage.TOURN_BRACKET:
+                raise RuntimeError("Cannot adjust team seed after round robin brackets have been created")
+            if new_rank == self.team_seed:
+                rank_action = RankAction.REVERT
+                assert self.team_seed_adj
+                old_rank = self.team_seed_adj
+                self.team_seed_adj = None
+            else:
+                rank_action = RankAction.ADJUST
+                old_rank = self.team_seed_adj or self.team_seed
+                self.team_seed_adj = new_rank
+        elif rank_type == RankType.DIV:
             if tourn.playoffs_started():
                 raise RuntimeError("Cannot adjust division rank after playoff brackets have been created")
             if new_rank == self.div_rank:

@@ -231,7 +231,7 @@
       </section>
       {% endif %}  {# popup_num in (0, 1) #}
 
-      {% if popup_num in (2, 3, 5) %}
+      {% if popup_num in (2, 3, 5, 7) %}
       <section class="team_info">
         <h2>Team Info</h2>
         <p>
@@ -243,9 +243,15 @@
           <span>{{team.team_seed}}</span>
         </p>
         <p>
+          {% if popup_num == 7 %}
+          <label>Div/Seed</label>:
+          <span>{{team.div_num}} / {{team.team_seed_disp}}</span>
+          {% else %}
           <label>Div/Rank</label>:
           <span>{{team.div_num}} / {{team.div_rank_disp}}</span>
+          {% endif %}
         </p>
+        {% if popup_num != 7 %}
         <div class="tourn_info">
         <p>
           <label>Tourn Record</label>:
@@ -271,7 +277,8 @@
           <span>{{team.playoff_pts_pct_str}}</span>
         </p>
         </div>
-        {% endif %}  {# tean.playoff_games #}
+        {% endif %}  {# team.playoff_games #}
+        {% endif %}  {# popup_num != 7 #}
       </section>
       {% elif popup_num == 4 %}
       <section class="player_info">
@@ -295,8 +302,8 @@
           </p>
         </div>
       </section>
-      {% endif %}  {# popup_num in (2, 3, 5) #}
-      {% if popup_num in (2, 3, 4, 5) %}
+      {% endif %}  {# popup_num in (2, 3, 5, 7) #}
+      {% if popup_num in (2, 3, 4, 5, 7) %}
       <section class="posts">
         <h2>Rank History</h2>
         {% if posts %}
@@ -332,7 +339,7 @@
         </p>
         {% endif %}  {# posts #}
       </section>
-      {% endif %}  {# popup_num in (2, 3, 4, 5) #}
+      {% endif %}  {# popup_num in (2, 3, 4, 5, 7) #}
 
 
       {% if popup_num == 6 %}

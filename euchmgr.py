@@ -17,7 +17,7 @@ import os
 
 from ckautils import rankdata
 
-from core import BASE_DIR, BracketsFile, log
+from core import BASE_DIR, BracketsFile, config, profile, log
 from database import db_init, db_close, db_name, db_atomic
 from schema import (rnd_pct, rnd_avg, clear_schema_cache, Bracket, TournStage, TournInfo,
                     Player, SeedGame, Team, TournGame, PlayoffGame, PlayerGame, TeamGame,
@@ -166,33 +166,39 @@ ROUNDS_MAP = {
 
 DFLT_FMT = TournFmt.FULL
 
-def tourn_create(force: bool = False, **tourn_attrs) -> TournInfo:
+def tourn_create(force: bool = False, **kwargs) -> TournInfo:
     """Create a tournament with its name specified by the currently-connected database
     name (this is a little bit of a cheat to make the __main__ script for this module
-    work).  The `force` flag is passed on to the `schema_create` call.  `tourn_attrs`
-    represents the optional fields for the TournInfo record.
+    work).  The `force` flag is passed on to the `schema_create` call.  Additional
+    `kwargs` represent optional fields for the TournInfo record, or configuration
+    overrides (unvalidated here).
     """
     schema_create(force=force)
 
-    tourn_fmt = tourn_attrs.get('tourn_fmt') or DFLT_FMT
+    tourn_attrs = config.config('tourn', profile) | kwargs
+    tourn_fmt = tourn_attrs.pop('tourn_fmt', None) or DFLT_FMT
     dflts = TOURN_DFLTS[tourn_fmt]
 
-    if import_path := tourn_attrs.get('import_path'):
+    if import_path := tourn_attrs.pop('import_path', None):
         base_pfx = BASE_DIR + os.sep
         # convert to relative path for brevity (if possible)
         if import_path.find(base_pfx) == 0:
             import_path = import_path[len(base_pfx):]
 
+    # NOTE: we guard against non-uniform empty field values in `tourn_attrs` (as above),
+    # since data may be coming from HTML forms, etc. (even though everything *should* be
+    # properly typecast upstream)
     info = {'name'         : db_name(),  # see docheader
-            'dates'        : tourn_attrs.get('dates'),
-            'venue'        : tourn_attrs.get('venue'),
+            'dates'        : tourn_attrs.pop('dates',         None) or None,
+            'venue'        : tourn_attrs.pop('venue',         None) or None,
             'tourn_fmt'    : tourn_fmt,
-            'seed_rounds'  : tourn_attrs.get('seed_rounds') or dflts['seed_rounds'],
-            'tourn_rounds' : tourn_attrs.get('tourn_rounds') or dflts['tourn_rounds'],
-            'divisions'    : tourn_attrs.get('divisions') or dflts['divisions'],
-            'playoff_teams': tourn_attrs.get('playoff_teams') or dflts['playoff_teams'],
-            'dflt_pw_hash' : tourn_attrs.get('dflt_pw_hash'),
+            'seed_rounds'  : tourn_attrs.pop('seed_rounds',   None) or dflts['seed_rounds'],
+            'tourn_rounds' : tourn_attrs.pop('tourn_rounds',  None) or dflts['tourn_rounds'],
+            'divisions'    : tourn_attrs.pop('divisions',     None) or dflts['divisions'],
+            'playoff_teams': tourn_attrs.pop('playoff_teams', None) or dflts['playoff_teams'],
+            'dflt_pw_hash' : tourn_attrs.pop('dflt_pw_hash',  None) or None,
             'import_path'  : import_path,
+            'config'       : tourn_attrs,  # whatever remains
             'stage_compl'  : TournStage.TOURN_CREATE}
     tourn = TournInfo.create(**info)
     return tourn
@@ -939,14 +945,13 @@ def validate_team_games() -> None:
     # games not yet completed (skipped above) should not have associated denorm records
     assert len(tmg_map) == 0
 
-def rank_team_cohort(teams: list[Team], use_cohrt_stats: bool = True) -> \
-        tuple[list[Team], dict[tuple], dict[dict]]:
+def rank_team_cohort(teams: list[Team]) -> tuple[list[Team], dict[tuple], dict[dict]]:
     """Given a list of teams (generally with the same record, though we are not checking
     here, since we don't really care), return list of teams ranked by the following stats
     tuples:
 
-      (cohrt_win_pct, wl_factor, cohrt_pts_pct)   [included if `use_cohrt_stats` specified]
-      (tourn_pts_pct, tourn_pts_for, -team_seed)
+      (cohrt_win_pct, wl_factor, cohrt_pts_pct)   [prepended if `use_cohort_stats`]
+      (tourn_pts_pct, tourn_pts_for, -team_seed)  [default criteria]
 
     where `wl_factor` (win-loss factor) is used to ensure that more wins is better (if all
     wins), more losses is worse (if all losses), and 0-0 sorts below 1-1, 2-2, etc.  The
@@ -958,6 +963,9 @@ def rank_team_cohort(teams: list[Team], use_cohrt_stats: bool = True) -> \
     NOTE: it is okay to call this from a UI module, since the return elements only contain
     schema objects that were passed in (and not queried from the `schema` base layer).
     """
+    tourn = TournInfo.get()
+    use_cohort_stats = tourn.config.get('use_cohort_stats', True)  # NOTE DEFAULT!!!
+
     stats = {}
     data = {}
     for tm in teams:
@@ -996,7 +1004,7 @@ def rank_team_cohort(teams: list[Team], use_cohrt_stats: bool = True) -> \
                 wl_factor = -cohrt_games
         cohrt_stats = (cohrt_win_pct, wl_factor, cohrt_pts_pct)
         tourn_stats = (tm.tourn_pts_pct, tm.tourn_pts_for, -tm.team_seed)
-        stats[tm.team_seed] = (cohrt_stats + tourn_stats) if use_cohrt_stats else tourn_stats
+        stats[tm.team_seed] = (cohrt_stats + tourn_stats) if use_cohort_stats else tourn_stats
 
     # larger is better for all stats components (except team_seed)
     sort_key = lambda tm: tuple(x for x in stats[tm.team_seed])

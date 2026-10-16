@@ -6,6 +6,7 @@ import os.path
 
 from peewee import SqliteDatabase, Model, DateTimeField
 from playhouse.cysqlite_ext import CySqliteDatabase
+from cysqlite import SQLITE_TRACE_PROFILE
 
 from core import DataFile, log, DEBUG
 
@@ -20,24 +21,29 @@ def now_str() -> str:
     """
     return datetime.now().strftime(TIME_FMT)
 
-# count of SQL statements, by SQL command
+# count and timing of SQL statements, by SQL command
 Tally = dict[str, int]
+Timing = dict[str, float]  # rounded to tenths of milliseconds
 TOTAL = 'total'
 SQL_TALLY: Tally = {TOTAL : 0}
+SQL_TIMING: Tally = {TOTAL : 0}  # "tally" of nanoseconds
 
-def trace_sql_callback(sql_stmt) -> None:
-    """Currently just log at level 'debug'.
+def trace_sql_cb(event: int, sid: int, sql: str, ns: int) -> None:
+    """Currently just log SQL statements at level 'debug'.
     """
-    log.debug(f"SQL: {sql_stmt}")
-    sql_cmd = sql_stmt.split(' ', 1)[0].lower()
+    log.debug(f"SQL: {sql}")
+    sql_cmd = sql.split(' ', 1)[0].lower()
     if sql_cmd not in SQL_TALLY:
         SQL_TALLY[sql_cmd] = 0
+        SQL_TIMING[sql_cmd] = 0
     SQL_TALLY[sql_cmd] += 1
     SQL_TALLY[TOTAL] += 1
+    SQL_TIMING[sql_cmd] += ns
+    SQL_TIMING[TOTAL] += ns
 
 def get_sql_tally(baseline: Tally = None) -> Tally | tuple[Tally, Tally]:
     """Return tally of SQL statements, by SQL command.  If `baseline` is passed in, return
-    a tuple of the aggregate as well as increment counts.
+    a tuple of the aggregate as well as incremental counts.
     """
     cur_tally = SQL_TALLY.copy()
     if not baseline:
@@ -47,6 +53,22 @@ def get_sql_tally(baseline: Tally = None) -> Tally | tuple[Tally, Tally]:
     for cmd in cur_tally:
         incr_tally[cmd] = cur_tally[cmd] - baseline.get(cmd, 0)
     return cur_tally, incr_tally
+
+def get_sql_timing(baseline: Timing = None) -> Timing | tuple[Timing, Timing]:
+    """Return SQL execution time (in ms), by SQL command.  If `baseline` is passed in,
+    return a tuple of the aggregate as well as incremental time.  Note that underlying
+    timing is at (something like) a millisecond granularity, so aggregates are not
+    reliable for mostly fast statements.
+    """
+    timing_ms = lambda x: {k: round(v / 1000000, 1) for k, v in x.items()}
+    cur_time = timing_ms(SQL_TIMING)  # makes a copy
+    if not baseline:
+        return cur_time
+
+    incr_time = {cmd: 0.0 for cmd in baseline}
+    for cmd in cur_time:
+        incr_time[cmd] = cur_time[cmd] - baseline.get(cmd, 0.0)
+    return cur_time, incr_time
 
 ############
 # database #
@@ -113,7 +135,7 @@ def db_init(name: str, force: bool = False, trace_sql: bool = False) -> SqliteDa
     setattr(db, 'db_name', name)  # little hack to remember name
     db_connect(name)  # REVISIT: should we require this to be explicit???
     if DEBUG and trace_sql:
-        db._state.conn.set_trace_callback(trace_sql_callback)
+        db._state.conn.trace(trace_sql_cb, SQLITE_TRACE_PROFILE)
     log.debug(f"db_init({name}, force={force})")
     return db
 

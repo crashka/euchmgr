@@ -212,6 +212,7 @@ class TournInfo(BaseModel):
     cur_stage      = TextField()
     cur_round      = IntegerField(null=True)
     next_action    = TextField(null=True)
+    config         = JSONField(null=True)
 
     # class variables
     inst: ClassVar[Self] = None  # singleton instance

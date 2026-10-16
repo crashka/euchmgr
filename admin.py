@@ -401,7 +401,7 @@ def create_tourn(form: dict) -> str:
     tourn_name  = form.get('tourn_name')
     dates       = form.get('dates') or None
     venue       = form.get('venue') or None
-    tourn_fmt   = form.get('tourn_fmt')
+    tourn_fmt   = form.get('tourn_fmt') or None
     dflt_pw     = form.get('dflt_pw') or None
     overwrite   = typecast(form.get('overwrite', ""))
     req_file    = request.files.get('roster_file')

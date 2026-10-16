@@ -1,0 +1,23 @@
+---
+default:
+  tourn:
+    use_cohort_stats:          true
+    production:                false
+
+  admin:
+    checkpoint_db:
+      gen_seed_bracket:        [post]
+      tabulate_seed_results:   [pre, post]
+      comp_team_seeds:         [pre, post]
+      gen_tourn_brackets:      [post]
+      tabulate_tourn_results:  [pre, post]
+      gen_semis_bracket:       [post]
+      tabulate_semis_results:  [pre, post]
+      gen_finals_bracket:      [post]
+      tabulate_finals_results: [pre, post]
+
+  mobile:
+    update_int:
+      cur_game:                5000
+      compl_game:              2000
+      cur_pick:                5000

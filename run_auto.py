@@ -134,13 +134,13 @@ def main() -> int:
     if PROFILE:
         profiler.start()
     if trace_sql:
-        sql_baseline = get_sql_tally()
+        sql_tally_base = get_sql_tally()
     for func in funcs:
         func_call = getattr(euchmgr, func)
         func_args = get_func_args(func, tourn_name)
         func_call(**(func_args | kwargs))  # will throw exceptions on error
         if trace_sql:
-            sql_baseline, sql_tally = get_sql_tally(sql_baseline)
+            sql_tally_base, sql_tally = get_sql_tally(sql_tally_base)
             print(f"SQL tally for '{func}': {sql_tally}")
     if PROFILE:
         profiler.stop()

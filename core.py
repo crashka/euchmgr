@@ -5,9 +5,10 @@
 
 from os import makedirs, environ, rename
 import os.path
+from socket import gethostname
 from datetime import datetime
 
-from ckautils import logging, TRACE
+from ckautils import Config, logging, TRACE
 import logging.handlers
 
 #####################
@@ -17,6 +18,7 @@ import logging.handlers
 FILE_DIR     = os.path.dirname(os.path.realpath(__file__))
 #BASE_DIR     = os.path.realpath(os.path.join(FILE_DIR, os.pardir))
 BASE_DIR     = FILE_DIR
+CONFIG_DIR   = os.path.join(BASE_DIR, 'config')
 DATA_DIR     = os.path.join(BASE_DIR, 'data')
 LOG_DIR      = os.path.join(BASE_DIR, 'log')
 BRACKETS_DIR = os.path.join(BASE_DIR, 'brackets')
@@ -43,6 +45,16 @@ def ResourceFile(file_name: str) -> str:
     """Convenience wrapper around DataFile
     """
     return DataFile(file_name, RESOURCE_DIR)
+
+##########
+# config #
+##########
+
+CONFIG_FILES = ['config.yml']
+
+config = Config(CONFIG_FILES, CONFIG_DIR)
+hostname = gethostname()
+profile = hostname if hostname in config.profile_data else None
 
 #####################
 # debugging/logging #

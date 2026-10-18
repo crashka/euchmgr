@@ -5,6 +5,8 @@
 
 from typing import NamedTuple
 from enum import StrEnum
+from functools import wraps
+from collections.abc import Callable
 from glob import glob
 import os.path
 import re
@@ -15,11 +17,12 @@ from flask import Blueprint, g, request, session, abort, url_for, flash
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash
 
-from core import DATA_DIR, UPLOAD_DIR, log, ImplementationError
+from core import DATA_DIR, UPLOAD_DIR, config, profile, log, ImplementationError
 from security import current_user, admin_required, DUMMY_PW_STR
-from database import DB_FILETYPE, db_init, db_name, db_reset, db_is_initialized
+from database import (DB_FILETYPE, db_atomic, db_init, db_name, db_reset, db_is_initialized,
+                      db_checkpoint)
 from schema import (clear_schema_cache, Bracket, TournStage, TOURN_INIT, ALL_STAGES,
-                    PRELIM_STAGES, ACTIVE_STAGES, TournInfo)
+                    PRELIM_STAGES, ACTIVE_STAGES, TournInfo, TournEvent, TournLog)
 from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_seed_bracket,
                      fake_seed_games, validate_seed_round, compute_player_ranks,
                      prepick_champ_partners, fake_pick_partners, build_tourn_teams,
@@ -31,6 +34,41 @@ from ui_common import (process_flashes, msg_join, cap_first, render_response, re
 from data import (Layout, pl_layout, sg_layout, pt_layout, tm_layout, tg_layout, ff_layout,
                   pg_layout)
 from dash import clear_dash_storage
+
+################
+# module stuff #
+################
+
+cfg = config.config('admin', profile)
+
+CHKPT_DB = cfg['checkpoint_db']
+
+def admin_action(func: Callable):
+    """Decorator for admin actions, to record tourn_log entries, as well as perform
+    database checkpoints (either before or after action execution, depending on the
+    configuration).  Note that checkpoint "tag" (used for restoration) will be either
+    "stage-<num>-activ" (for pre-action) or "stage-<num>-compl" (for post-action).
+    """
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        action = func.__name__
+        # bare bones logging of action (no additional info/context)
+        TournLog.add(TournEvent.ADMIN_ACTION, action)
+
+        # whether/when to checkpoint the database (relative to action)
+        chkpt_db = CHKPT_DB.get(action, ['never'])
+        tourn = TournInfo.get()
+        if 'pre' in chkpt_db:
+            chkpt_tag = f"stage-{tourn.stage_start}-activ"
+            file = db_checkpoint(chkpt_tag)
+            log.notice(f"Database checkpoint written to '{file}'")
+        ret = func(*args, **kwargs)
+        if 'post' in chkpt_db:
+            chkpt_tag = f"stage-{tourn.stage_compl}-compl"
+            file = db_checkpoint(chkpt_tag)
+            log.notice(f"Database checkpoint written to '{file}'")
+        return ret
+    return wrapper
 
 ###################
 # blueprint stuff #
@@ -49,16 +87,9 @@ def get_tourns() -> list[str]:
     """Get list of existing tournaments (currently based on existence of database file in
     DATA_DIR--later, we can do something more structured)
     """
-    glob_str  = os.path.join(DATA_DIR, r'*' + DB_FILETYPE)
-    match_str = os.path.join(DATA_DIR, r'(.+)' + DB_FILETYPE)
-
-    tourns = []
-    for file in glob(glob_str):
-        m = re.fullmatch(match_str, file)
-        assert m and len(m.groups()) == 1
-        tourns.append(m.groups()[0])
-
-    return sorted(tourns)
+    pattern = '*' + DB_FILETYPE
+    files = glob(pattern, root_dir=DATA_DIR)
+    return sorted(f.removesuffix(DB_FILETYPE) for f in files)
 
 ##############
 # view stuff #
@@ -365,8 +396,9 @@ def view_action(action: str) -> str:
 ##################
 
 def select_tourn(form: dict) -> str:
-    """Render default view for existing tournament, or new tournament creation view.  Note
-    that this is called against the `select_tourn` form.
+    """Resume and render default view for existing tournament, or redirect to tournament
+    creation view.  Note that this admin action is not decorated (tourn_log written
+    internally)!
     """
     tourn_name = form.get('tourn')
     if tourn_name == SEL_NEW:
@@ -387,11 +419,13 @@ def select_tourn(form: dict) -> str:
         tourn = TournInfo.get()
         oper = "operation" if tourn.stage_compl in ACTIVE_STAGES else "creation"
         flash(f"info=Resuming {oper} of tournament \"{tourn_name}\"")
+        # one-off log entry (parent action not decorated)
+        TournLog.add(TournEvent.ADMIN_ACTION, 'select_tourn', f"Resuming {oper}")
     return redirect(url_for('index'))
 
 def create_tourn(form: dict) -> str:
-    """Create new tournament from form data.  Note that this is called against the
-    `tourn_info` form.
+    """Create new tournament from form data (called against the `tourn_info` form).  Note
+    that this admin action is not decorated (no tourn_log entry written)!
     """
     tourn       = None
     roster_path = None
@@ -455,8 +489,9 @@ def create_tourn(form: dict) -> str:
     return render_tourn(context)
 
 def update_tourn(form: dict) -> str:
-    """Update tournament information (selected fields only) from form data.  Note that
-    this is called against the `tourn_info` form.
+    """Update tournament information from form data (called against the `tourn_info` form,
+    selected fields only).  Note that this admin action is not decorated (tourn_log
+    written internally)!
     """
     tourn_name = form.get('tourn_name')
     tourn = TournInfo.get()
@@ -495,14 +530,17 @@ def update_tourn(form: dict) -> str:
             written = "value set"
         log.info(f"update_tourn: dflt_pw_hash {written}")
         flash("info=Tournament information updated")
+        # one-off log entry (parent action not decorated)
+        upd_data = {'dates': dates, 'venue': venue, 'dflt_pw_hash': f"[{written}]"}
+        TournLog.add(TournEvent.ADMIN_ACTION, 'update_tourn', ev_data=upd_data)
     else:
         flash("info=No updates specified")
 
     return redirect(url_for('admin.tourn'))
 
+@admin_action
 def pause_tourn(form: dict) -> str:
-    """Disconnect server from database for current tournament.  Note that this is called
-    against the `tourn_info` form.
+    """Disconnect server from current database (tourn_log written through decorator).
     """
     tourn_name = form.get('tourn_name')
     tourn = TournInfo.get()
@@ -522,113 +560,139 @@ def pause_tourn(form: dict) -> str:
 # /players actions #
 ####################
 
+@admin_action
 def gen_player_nums(form: dict) -> str:
     """
     """
-    generate_player_nums()
+    with db_atomic() as txn:
+        generate_player_nums()
     return render_view(View.PLAYERS)
 
+@admin_action
 def gen_seed_bracket(form: dict) -> str:
     """
     """
-    build_seed_bracket()
+    with db_atomic() as txn:
+        build_seed_bracket()
     return render_view(View.SEEDING)
 
 ####################
 # /seeding actions #
 ####################
 
+@admin_action
 def fake_seed_results(form: dict) -> str:
     """
     """
-    fake_seed_games()
+    with db_atomic() as txn:
+        fake_seed_games()
     return render_view(View.SEEDING)
 
+@admin_action
 def tabulate_seed_results(form: dict) -> str:
     """
     """
-    validate_seed_round(finalize=True)
-    compute_player_ranks(finalize=True)
-    prepick_champ_partners()
+    with db_atomic() as txn:
+        validate_seed_round(finalize=True)
+        compute_player_ranks(finalize=True)
+        prepick_champ_partners()
     return render_view(View.PARTNERS)
 
 #####################
 # /partners actions #
 #####################
 
+@admin_action
 def fake_partner_picks(form: dict) -> str:
     """
     """
-    fake_pick_partners()
+    with db_atomic() as txn:
+        fake_pick_partners()
     return render_view(View.PARTNERS)
 
+@admin_action
 def comp_team_seeds(form: dict) -> str:
     """
     """
-    build_tourn_teams()
-    compute_team_seeds(finalize=True)
+    with db_atomic() as txn:
+        build_tourn_teams()
+        compute_team_seeds(finalize=True)
     return render_view(View.TEAMS)
 
 ##################
 # /teams actions #
 ##################
 
+@admin_action
 def gen_tourn_brackets(form: dict) -> str:
     """
     """
-    build_tourn_bracket()
+    with db_atomic() as txn:
+        build_tourn_bracket()
     return render_view(View.ROUND_ROBIN)
 
 ########################
 # /round_robin actions #
 ########################
 
+@admin_action
 def fake_tourn_results(form: dict) -> str:
     """
     """
-    fake_tourn_games()
+    with db_atomic() as txn:
+        fake_tourn_games()
     return render_view(View.ROUND_ROBIN)
 
+@admin_action
 def tabulate_tourn_results(form: dict) -> str:
     """
     """
-    validate_tourn(finalize=True)
-    compute_team_ranks(finalize=True)
+    with db_atomic() as txn:
+        validate_tourn(finalize=True)
+        compute_team_ranks(finalize=True)
     return render_view(View.FINAL_FOUR)
 
 #######################
 # /final_four actions #
 #######################
 
+@admin_action
 def gen_semis_bracket(form: dict) -> str:
     """
     """
-    build_playoff_bracket(Bracket.SEMIS)
+    with db_atomic() as txn:
+        build_playoff_bracket(Bracket.SEMIS)
     return render_view(View.PLAYOFFS)
 
+@admin_action
 def gen_finals_bracket(form: dict) -> str:
     """
     """
-    build_playoff_bracket(Bracket.FINALS)
+    with db_atomic() as txn:
+        build_playoff_bracket(Bracket.FINALS)
     return render_view(View.PLAYOFFS)
 
 #####################
 # /playoffs actions #
 #####################
 
+@admin_action
 def tabulate_semis_results(form: dict) -> str:
     """
     """
-    validate_playoffs(Bracket.SEMIS, finalize=True)
-    compute_playoff_ranks(Bracket.SEMIS, finalize=True)
+    with db_atomic() as txn:
+        validate_playoffs(Bracket.SEMIS, finalize=True)
+        compute_playoff_ranks(Bracket.SEMIS, finalize=True)
     return render_view(View.FINAL_FOUR)
 
+@admin_action
 def tabulate_finals_results(form: dict) -> str:
     """
     """
-    validate_playoffs(Bracket.FINALS, finalize=True)
-    compute_playoff_ranks(Bracket.FINALS, finalize=True)
-    compute_final_ranks(finalize=True)  # TODO: move this to its own action!!!
+    with db_atomic() as txn:
+        validate_playoffs(Bracket.FINALS, finalize=True)
+        compute_playoff_ranks(Bracket.FINALS, finalize=True)
+        compute_final_ranks(finalize=True)  # TODO: move this to its own action!!!
     return render_view(View.FINAL_FOUR)
 
 #############

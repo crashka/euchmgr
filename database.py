@@ -1,14 +1,23 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import re
 from datetime import datetime, date
+from glob import glob
 import os.path
+from os import stat, stat_result
 
 from peewee import SqliteDatabase, Model, DateTimeField
 from playhouse.cysqlite_ext import CySqliteDatabase
 from cysqlite import SQLITE_TRACE_PROFILE
 
-from core import DataFile, log, DEBUG
+from core import DATA_DIR, DataFile, config, profile, log, DEBUG
+
+################
+# module stuff #
+################
+
+cfg = config.config('database', profile)
 
 #####################
 # utility functions #
@@ -60,7 +69,7 @@ def get_sql_timing(baseline: Timing = None) -> Timing | tuple[Timing, Timing]:
     timing is at (something like) a millisecond granularity, so aggregates are not
     reliable for mostly fast statements.
     """
-    timing_ms = lambda x: {k: round(v / 1000000, 1) for k, v in x.items()}
+    timing_ms = lambda tm: {k: round(v / 1000000, 1) for k, v in tm.items()}
     cur_time = timing_ms(SQL_TIMING)  # makes a copy
     if not baseline:
         return cur_time
@@ -75,6 +84,7 @@ def get_sql_timing(baseline: Timing = None) -> Timing | tuple[Timing, Timing]:
 ############
 
 DB_FILETYPE = '.tourn_db'
+DB_SAVETYPE = '.chkpt_db'
 
 # note that sharing connections across threads removes some integrity checks
 shared_conn = False
@@ -99,6 +109,15 @@ def db_filepath(name: str, db_dir: str = None) -> str:
     """Build filename (or pathname) based on specified name.
     """
     db_file = f'{name}{DB_FILETYPE}'
+    if db_dir:
+        return DataFile(db_file, db_dir)
+    else:
+        return DataFile(db_file)
+
+def db_savepath(name: str, db_dir: str = None) -> str:
+    """Build filename (or pathname) for saved database based on specified name.
+    """
+    db_file = f'{name}{DB_SAVETYPE}'
     if db_dir:
         return DataFile(db_file, db_dir)
     else:
@@ -209,6 +228,67 @@ def db_is_closed() -> bool:
     """
     return db.is_closed()
 
+# return unixtime as an int (i.e. to the second)
+unixtime = lambda: int(datetime.now().timestamp())
+
+def db_checkpoint(chkpt_tag: str = None, overwrite: bool = False) -> str:
+    """Create checkpoint for the current database.  If chkpt_tag is not specified, then
+    "ad hoc" identifier will be created using timestamp (with one second granularity, so
+    caller must ensure this is not done in quick succession).  Return pathname of
+    checkpoint database file, for reference.
+    """
+    chkpt_tag = chkpt_tag or f"adhoc-{unixtime()}"
+    chkpt_path = db_savepath(f"{db_name()}-{chkpt_tag}")  # must be same as below (restore_from...)
+    if os.path.exists(chkpt_path) and cfg.get('strict_checkpoints') and not overwrite:
+        raise FileExistsError(f"Cannot overwrite existing file '{chkpt_path}'")
+    db.backup_to_file(chkpt_path)
+    return chkpt_path
+
+def restore_from_checkpoint(chkpt_tag: str) -> None:
+    """Restore current database from checkpoint file (with specified tag).  NOTE: not much
+    integrity checking is done (other than pathname similarity), so this operation should
+    be used with caution.  As a safeguard, we create a timestamped internal checkpoint
+    (with "restr" tag indicator) just before the restoration.
+    """
+    chkpt_path = db_savepath(f"{db_name()}-{chkpt_tag}")  # must be same as above (db_checkpoint)
+    if not os.path.exists(chkpt_path):
+        raise FileExistsError(f"Checkpoint file '{chkpt_path}' does not exist")
+
+    assert db_is_initialized(), "Database not initialized"
+    file = db_checkpoint(f"restr-{unixtime()}")
+    log.notice(f"Database checkpoint written to '{file}'")
+    db_close()
+
+    chkpt_db = CySqliteDatabase(chkpt_path, pragmas=pragmas, **db_params)
+    chkpt_db.backup(db)  # ...actually "restore" (going in this direction)
+    chkpt_db.close()
+    # TODO: we really need to archive (or just delete) all pre-existing checkpoint files
+    # newer than the one we just restored from--they are essentially now rendered obsolete
+    # (or at least, will be, upon the first new update)!!!
+
+def get_checkpoints(include_internal: bool = False, do_print: bool = False) \
+        -> list[tuple[str, stat_result]]:
+    """Get list of checkpoints (by tag, with file info from `stat`) for the current
+    database, in ascending chronological order.  "Internal" checkpoints (if requested)
+    include those implicitly created before database restores, or otherwise done ad hoc.
+    """
+    pfx = db_name() + '-'
+    pattern = pfx + '*' + DB_SAVETYPE
+    get_tag = lambda fn: fn.removeprefix(pfx).removesuffix(DB_SAVETYPE)
+    files = glob(pattern, root_dir=DATA_DIR)
+    # represented as: list[tuple[tag, stat_result]]
+    chkpts = [(get_tag(f), stat(os.path.join(DATA_DIR, f))) for f in files]
+    if not include_internal:
+        chkpts = filter(lambda cp: cp[0].startswith('stage-'), chkpts)
+    chkpt_seq = sorted(chkpts, key=lambda cp: cp[1].st_ctime)
+    if do_print:
+        print(f"{'Checkpoint Tag':18}\t{'Timestamp':21}\tFilesize")
+        print(f"{'-' * 16:18}\t{'-' * 19:21}\t{'-' * 8}")
+        for tag, file_info in chkpt_seq:
+            ctime = datetime.fromtimestamp(file_info.st_ctime)
+            print(f"{tag:18}\t{ctime.strftime(TIME_FMT):21}\t{file_info.st_size}")
+    return chkpt_seq
+
 #############
 # BaseModel #
 #############
@@ -247,3 +327,49 @@ class BaseModel(Model):
         elif 'updated_at' not in self._dirty:
             self.updated_at = now_str()
         return super().save(*args, **kwargs)
+
+########
+# main #
+########
+
+from functools import partial
+import sys
+
+from ckautils import parse_argv
+
+MOD_FUNCS = {
+    'get_checkpoints'        : partial(get_checkpoints, do_print=True),
+    'restore_from_checkpoint': restore_from_checkpoint,
+}
+
+def main() -> int:
+    """Built-in driver to invoke database functions
+
+    Usage: python -m database <db_name> <func> [<args>]
+
+    Functions (and args):
+      - get_checkpoints [include_internal=<bool>]
+      - restore_from_checkpoint <chkpt_tag>
+    """
+    mod_func = None
+    usage = lambda msg: msg + "\n\n" + main.__doc__
+    if len(sys.argv) < 2:
+        return usage(f"Database name not specified")
+    if len(sys.argv) < 3:
+        return usage(f"Function not specified")
+
+    db_name = sys.argv[1]
+    func_name = sys.argv[2]
+    if func_name not in MOD_FUNCS:
+        return usage(f"Unknown function '{func_name}'")
+    else:
+        mod_func = MOD_FUNCS[func_name]
+
+    args, kwargs = parse_argv(sys.argv[3:])
+    db_init(db_name, force=True)
+    mod_func(*args, **kwargs)  # will throw exceptions on error
+    db_close()
+    return 0
+
+if __name__ == '__main__':
+    sys.exit(main())

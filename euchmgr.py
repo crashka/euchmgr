@@ -119,7 +119,7 @@ class TournFmt(StrEnum):
     MINI  = 'mini'   # abbreviated format (minimal seeding)
     MINI2 = 'mini2'  # abbreviated format (balanced seeding)
 
-# TEMP: this will all be moved to the config file (defaults and rounds, by format!!!
+# TEMP: this will all be moved to the config file (defaults and rounds, by format)!!!
 TOURN_DFLTS = {
     TournFmt.FULL: {
         'seed_rounds'  : 8,

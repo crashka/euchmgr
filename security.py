@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 from functools import wraps
@@ -192,7 +193,7 @@ import sys
 from ckautils import parse_argv
 
 def main() -> int:
-    """Built-in driver to invoke security functons
+    """Built-in driver to invoke security functions
 
     Usage: python -m security <user> <func> [<args>]
 

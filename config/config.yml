@@ -4,6 +4,9 @@ default:
     use_cohort_stats:          true
     production:                false
 
+  database:
+    strict_checkpoints:        false
+
   admin:
     checkpoint_db:
       gen_seed_bracket:        [post]

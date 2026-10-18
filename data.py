@@ -11,7 +11,7 @@ from flask import Blueprint, g, request
 
 from core import log
 from security import login_required, admin_required
-from database import db_atomic
+from database import db_atomic, db_checkpoint
 from schema import (Bracket, BRACKET_NAME, TournStage, TournInfo, TournEvent, TournLog,
                     ScoreAction, RankType, PickAction)
 from euchmgr import (validate_seed_round, compute_player_ranks, compute_div_seeds,
@@ -225,6 +225,13 @@ def get_seeding() -> dict:
         sg_props = {prop: getattr(game, prop) for prop in sg_addl_props}
         sg_data.append(game.__data__ | sg_props)
 
+    round = SeedGame.current_round()
+    if round > 0:
+        tourn = TournInfo.get()
+        stage_info = f"stage-{tourn.stage_start}-activ-{round}"
+        file = db_checkpoint(stage_info, overwrite=True)
+        log.notice(f"Database checkpoint written to '{file}'")
+
     return ajax_data(sg_data)
 
 @data.post("/seeding/data")
@@ -417,7 +424,7 @@ def partners_pick_revert() -> dict:
             if tourn.stage_compl >= TournStage.TEAM_SEEDS:
                 raise RuntimeError("Cannot revert partner picks after team seeds have been computed")
             reverted = Player.revert_pick(data['picker_rank'])
-            reverted.sort(key=lambda x: x.player_rank)
+            reverted.sort(key=lambda pl: pl.player_rank)
             for pl in reverted:
                 info = {
                     'player'        : pl,
@@ -438,7 +445,7 @@ def partners_pick_revert() -> dict:
 
     assert reverted
     plural = "s" if len(reverted) > 1 else ""
-    revert_ident = (x.seed_ident for x in reverted)
+    revert_ident = (pl.seed_ident for pl in reverted)
     return ajax_succ(f"Pick{plural} reverted for: {', '.join(revert_ident)}")
 
 ##########
@@ -600,6 +607,13 @@ def get_round_robin() -> dict:
     for game in tg_iter:
         tg_props = {prop: getattr(game, prop) for prop in tg_addl_props}
         tg_data.append(game.__data__ | tg_props)
+
+    round = TournGame.current_round()
+    if round > 0:
+        tourn = TournInfo.get()
+        stage_info = f"stage-{tourn.stage_start}-activ-{round}"
+        file = db_checkpoint(stage_info, overwrite=True)
+        log.notice(f"Database checkpoint written to '{file}'")
 
     return ajax_data(tg_data)
 

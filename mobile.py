@@ -11,7 +11,7 @@ from peewee import IntegrityError
 from flask import Blueprint, g, request, abort, url_for, flash, get_flashed_messages
 from ckautils import typecast
 
-from core import log, ImplementationError, LogicError
+from core import config, profile, log, ImplementationError, LogicError
 from security import current_user
 from database import db_atomic
 from schema import (GAME_PTS, Bracket, get_bracket, TournStage, TournInfo, ScoreAction,
@@ -22,6 +22,15 @@ from ui_schema import (fmt_pct, PTS_PCT_NA, get_game_by_label, Player, PlayerReg
                        PostPick)
 from ui_common import (process_flashes, msg_join, render_response, redirect, api_succ,
                        api_error)
+
+################
+# module stuff #
+################
+
+cfg = config.config('mobile', profile)
+
+# update intervals for active game scores and partner picks
+UPD_INT = cfg['update_int']
 
 ###################
 # blueprint stuff #
@@ -1002,10 +1011,9 @@ def render_mobile(context: dict, view: str) -> str:
 
     update_int = -1
     if cur_game:
-        # TODO: all of this should be moved to config params!!!
-        update_int = 2000 if compl_game else 5000
+        update_int = UPD_INT['compl_game'] if compl_game else UPD_INT['cur_game']
     elif cur_pick and cur_pick != current_user:
-        update_int = 5000
+        update_int = UPD_INT['cur_pick']
 
     # FIX: for now we're not worried about too many context items (since we are trying to
     # develop clear semantics for the display), but this is inelegant and getting bloated

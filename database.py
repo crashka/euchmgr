@@ -5,7 +5,8 @@ import re
 from datetime import datetime, date
 from glob import glob
 import os.path
-from os import stat, stat_result
+from os import stat, stat_result, makedirs
+import shutil
 
 from peewee import SqliteDatabase, Model, DateTimeField
 from playhouse.cysqlite_ext import CySqliteDatabase
@@ -114,9 +115,11 @@ def db_filepath(name: str, db_dir: str = None) -> str:
     else:
         return DataFile(db_file)
 
-def db_savepath(name: str, db_dir: str = None) -> str:
-    """Build filename (or pathname) for saved database based on specified name.
+def db_savepath(save_tag: str, db_dir: str = None) -> str:
+    """Build filename (or pathname) for saved database (e.g. checkpoint) based on database
+    name and specified "tag".
     """
+    name = f"{db_name()}-{save_tag}"
     db_file = f'{name}{DB_SAVETYPE}'
     if db_dir:
         return DataFile(db_file, db_dir)
@@ -231,63 +234,97 @@ def db_is_closed() -> bool:
 # return unixtime as an int (i.e. to the second)
 unixtime = lambda: int(datetime.now().timestamp())
 
-def db_checkpoint(chkpt_tag: str = None, overwrite: bool = False) -> str:
+# checkpoints not explicitly tied to a tournament stage are considered "hidden"
+hidden_chkpt = lambda tag: not tag.startswith('stage-')
+
+def db_checkpoint(chkpt_tag: str = None, skip_existing: bool = False) -> str | None:
     """Create checkpoint for the current database.  If chkpt_tag is not specified, then
     "ad hoc" identifier will be created using timestamp (with one second granularity, so
     caller must ensure this is not done in quick succession).  Return pathname of
-    checkpoint database file, for reference.
+    checkpoint database file, for reference (or `None` if skipped).
     """
+    assert db_is_initialized(), "Database not initialized"
     chkpt_tag = chkpt_tag or f"adhoc-{unixtime()}"
-    chkpt_path = db_savepath(f"{db_name()}-{chkpt_tag}")  # must be same as below (restore_from...)
-    if os.path.exists(chkpt_path) and cfg.get('strict_checkpoints') and not overwrite:
-        raise FileExistsError(f"Cannot overwrite existing file '{chkpt_path}'")
+    chkpt_path = db_savepath(chkpt_tag)
+    if os.path.exists(chkpt_path):
+        if skip_existing:
+            log.info(f"Skipping checkpoint for existing file '{chkpt_path}'")
+            return None
+        elif cfg.get('strict_checkpoints', False):
+            raise FileExistsError(f"Cannot overwrite existing file '{chkpt_path}'")
+        log.info(f"Overwriting existing checkpoint file '{chkpt_path}'")
     db.backup_to_file(chkpt_path)
+    # NOTE: we are (currently) not writing the NOTICE log message here, since there is
+    # more information conveyed if the caller writes it--may want to REVISIT this!
     return chkpt_path
 
 def restore_from_checkpoint(chkpt_tag: str) -> None:
     """Restore current database from checkpoint file (with specified tag).  NOTE: not much
     integrity checking is done (other than pathname similarity), so this operation should
-    be used with caution.  As a safeguard, we create a timestamped internal checkpoint
+    be used with caution.  As a safeguard, we create a timestamped "hidden" checkpoint
     (with "restr" tag indicator) just before the restoration.
     """
-    chkpt_path = db_savepath(f"{db_name()}-{chkpt_tag}")  # must be same as above (db_checkpoint)
+    assert db_is_initialized(), "Database not initialized"
+    chkpts = get_checkpoints(include_hidden=True)
+    if chkpt_tag not in chkpts:
+        raise RuntimeError(f"Invalid checkpoint tag '{chkpt_tag}'")
+    if hidden_chkpt(chkpt_tag):
+        # don't support this for now, since the workflow is not really specified--we will
+        # need to think a little about the use cases for hidden checkpoints
+        raise RuntimeError(f"Cannot (currently) restore from hidden checkpoint '{chkpt_tag}'")
+    chkpt_path = db_savepath(chkpt_tag)
     if not os.path.exists(chkpt_path):
         raise FileExistsError(f"Checkpoint file '{chkpt_path}' does not exist")
 
-    assert db_is_initialized(), "Database not initialized"
-    file = db_checkpoint(f"restr-{unixtime()}")
-    log.notice(f"Database checkpoint written to '{file}'")
+    ts = unixtime()
+    hidden_file = db_checkpoint(f"restr-{ts}")
+    log.notice(f"Database checkpoint written to '{hidden_file}'")
     db_close()
 
     chkpt_db = CySqliteDatabase(chkpt_path, pragmas=pragmas, **db_params)
     chkpt_db.backup(db)  # ...actually "restore" (going in this direction)
     chkpt_db.close()
-    # TODO: we really need to archive (or just delete) all pre-existing checkpoint files
-    # newer than the one we just restored from--they are essentially now rendered obsolete
-    # (or at least, will be, upon the first new update)!!!
+    log.notice(f"Database restored from checkpoint file '{chkpt_path}'")
 
-def get_checkpoints(include_internal: bool = False, do_print: bool = False) \
-        -> list[tuple[str, stat_result]]:
-    """Get list of checkpoints (by tag, with file info from `stat`) for the current
-    database, in ascending chronological order.  "Internal" checkpoints (if requested)
-    include those implicitly created before database restores, or otherwise done ad hoc.
+    # now archive all pre-existing checkpoint files newer than the one we just restored
+    # from, since they are essentially now rendered obsolete (or at least, will be, upon
+    # the first new update)
+    chkpt_ctime = stat(chkpt_path).st_ctime
+    log.info(f"Archiving checkpoints newer than {chkpt_ctime}")
+    archive_dir = os.path.join(DATA_DIR, f"archive-{ts}")
+    makedirs(archive_dir, exist_ok=True)
+    for tag, file_info in chkpts.items():
+        if file_info.st_ctime <= chkpt_ctime:
+            continue
+        filepath = db_savepath(tag)
+        shutil.move(filepath, archive_dir)
+        log.debug(f"archiving file '{filepath}' to dir '{archive_dir}'")
+    shutil.move(hidden_file, archive_dir)
+    log.debug(f"archiving file '{hidden_file}' to dir '{archive_dir}'")
+
+def get_checkpoints(include_hidden: bool = False, do_print: bool = False) \
+        -> dict[str, stat_result]:
+    """Get dict of checkpoints (indexed by tag, with file info from `stat` as the value)
+    for the current database, in ascending chronological order.  "Hidden" checkpoints (if
+    requested) include those implicitly generated before database restores, or otherwise
+    created ad hoc.
     """
+    assert db_is_initialized(), "Database not initialized"
     pfx = db_name() + '-'
     pattern = pfx + '*' + DB_SAVETYPE
     get_tag = lambda fn: fn.removeprefix(pfx).removesuffix(DB_SAVETYPE)
     files = glob(pattern, root_dir=DATA_DIR)
     # represented as: list[tuple[tag, stat_result]]
-    chkpts = [(get_tag(f), stat(os.path.join(DATA_DIR, f))) for f in files]
-    if not include_internal:
-        chkpts = filter(lambda cp: cp[0].startswith('stage-'), chkpts)
-    chkpt_seq = sorted(chkpts, key=lambda cp: cp[1].st_ctime)
+    chkpts = [(get_tag(f), stat(os.path.join(DATA_DIR, f))) for f in files
+              if include_hidden or not hidden_chkpt(get_tag(f))]
+    chkpt_info = dict(sorted(chkpts, key=lambda cp: cp[1].st_ctime))
     if do_print:
-        print(f"{'Checkpoint Tag':18}\t{'Timestamp':21}\tFilesize")
-        print(f"{'-' * 16:18}\t{'-' * 19:21}\t{'-' * 8}")
-        for tag, file_info in chkpt_seq:
+        print(f"{'Checkpoint Tag':18}\t{'Timestamp':28}\tFilesize")
+        print(f"{'-' * 16:18}\t{'-' * 26:28}\t{'-' * 8}")
+        for tag, file_info in chkpt_info.items():
             ctime = datetime.fromtimestamp(file_info.st_ctime)
-            print(f"{tag:18}\t{ctime.strftime(TIME_FMT):21}\t{file_info.st_size}")
-    return chkpt_seq
+            print(f"{tag:18}\t{str(ctime):28}\t{file_info.st_size}")
+    return chkpt_info
 
 #############
 # BaseModel #
@@ -348,7 +385,7 @@ def main() -> int:
     Usage: python -m database <db_name> <func> [<args>]
 
     Functions (and args):
-      - get_checkpoints [include_internal=<bool>]
+      - get_checkpoints [include_hidden=<bool>]
       - restore_from_checkpoint <chkpt_tag>
     """
     mod_func = None

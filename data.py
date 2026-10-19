@@ -226,10 +226,12 @@ def get_seeding() -> dict:
         sg_data.append(game.__data__ | sg_props)
 
     round = SeedGame.current_round()
-    if round > 0:
+    if round > 1:
         tourn = TournInfo.get()
-        stage_info = f"stage-{tourn.stage_start}-activ-{round}"
-        file = db_checkpoint(stage_info, overwrite=True)
+        # `current_round` indicates that the previous round is over, so we'll checkpoint
+        # it accordingly (only need to write the first instance of this state)
+        stage_info = f"stage-{tourn.stage_start}-activ-{round - 1}"
+        file = db_checkpoint(stage_info, skip_existing=True)
         log.notice(f"Database checkpoint written to '{file}'")
 
     return ajax_data(sg_data)
@@ -609,10 +611,12 @@ def get_round_robin() -> dict:
         tg_data.append(game.__data__ | tg_props)
 
     round = TournGame.current_round()
-    if round > 0:
+    if round > 1:
         tourn = TournInfo.get()
-        stage_info = f"stage-{tourn.stage_start}-activ-{round}"
-        file = db_checkpoint(stage_info, overwrite=True)
+        # `current_round` indicates that the previous round is over, so we'll checkpoint
+        # it accordingly (only need to write the first instance of this state)
+        stage_info = f"stage-{tourn.stage_start}-activ-{round - 1}"
+        file = db_checkpoint(stage_info, skip_existing=True)
         log.notice(f"Database checkpoint written to '{file}'")
 
     return ajax_data(tg_data)

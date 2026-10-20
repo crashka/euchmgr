@@ -309,7 +309,7 @@
        });
      };
 
-     const tourn = $('.info_blk input[name="tourn_name"]').val();
+     DataTable.ext.errMode = 'none';  // don't worry about trapping ajax errors (for now...)
      const table = $('#view_tbl').DataTable({
        rowId: '{{view_info.rowid_col}}',
        paging: false,

@@ -88,6 +88,8 @@ def post_tourn() -> dict:
 pl_addl_props = [
     'display_name',
     'champ',
+    'late_arr',
+    'early_dep',
     'seed_win_pct_str',
     'seed_pts_pct_str',
     'player_rank_eff'
@@ -99,6 +101,8 @@ pl_layout = [
     ('player_num',       "Player Num",  EDITABLE),
     ('nick_name',        "Player Name", EDITABLE),
     ('champ',            "Champ?",      CENTERED),
+    ('late_arr',         "Late Arr?",   CENTERED),
+    ('early_dep',        "Early Dep?",  CENTERED),
     ('seed_wins',        "Wins",        None),
     ('seed_losses',      "Losses",      None),
     ('seed_win_pct_str', "Win Pct",     None),

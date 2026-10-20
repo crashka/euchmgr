@@ -449,6 +449,8 @@ class Player(BaseModel, EuchmgrUser):
     last_name      = TextField()
     nick_name      = TextField(unique=True)  # serves as player_name (defaults to last_name)
     reigning_champ = BooleanField(default=False)
+    late_arrive    = BooleanField(default=False)
+    early_depart   = BooleanField(default=False)
     player_num     = IntegerField(unique=True, null=True)  # 1-based, must be contiguous
     pw_hash        = TextField(null=True)    # default pw_hash (in TournInfo) is used, if null
     # seeding round
@@ -477,6 +479,29 @@ class Player(BaseModel, EuchmgrUser):
         indexes = (
             (('last_name', 'first_name'), True),
         )
+
+    @classmethod
+    def seed_players(cls, inverse: bool = False) -> int:
+        """Number of players for seeding round play (excludes late arrivers).  The number
+        of late arrivers is returned if called with `inverse=True`.
+        """
+        late_crit = bool(inverse)
+        query = (cls
+                 .select(fn.count())
+                 .where(cls.late_arrive == late_crit))
+        return query.scalar()
+
+    @classmethod
+    def tourn_players(cls, inverse: bool = False) -> int:
+        """Number of players for main tournament round robin play (excludes early
+        departers).  The number of early departers is returned if called with
+        `inverse=True`.
+        """
+        early_crit = bool(inverse)
+        query = (cls
+                 .select(fn.count())
+                 .where(cls.early_depart == early_crit))
+        return query.scalar()
 
     @classmethod
     def fetch_by_num(cls, player_num: int) -> Self:
@@ -705,6 +730,18 @@ class Player(BaseModel, EuchmgrUser):
         """For UI support ('y' or empty)
         """
         return 'y' if self.reigning_champ else None
+
+    @property
+    def late_arr(self) -> str | None:
+        """For UI support ('y' or empty)
+        """
+        return 'y' if self.late_arrive else None
+
+    @property
+    def early_dep(self) -> str | None:
+        """For UI support ('y' or empty)
+        """
+        return 'y' if self.early_depart else None
 
     @property
     def player_rank_eff(self) -> int:

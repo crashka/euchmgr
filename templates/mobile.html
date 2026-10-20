@@ -373,6 +373,7 @@
     {% set view_active = true %}
     {% set locked = (nums_avail == none) %}
     {% set disabled = " disabled" if locked else "" %}
+    {% set ping_pong_balls = tourn.config.get('ping_pong_balls') %}
     <section class="register">
       <h3>Player Info</h3>
       <form action="{{view}}" method="post">
@@ -383,8 +384,9 @@
           <input type="text" name="nick_name" value="{{nick_name}}"{{disabled}}>
         </p>
         <p>
+          {% set sel_disabled = "{{disabled}}" if ping_pong_balls else " disabled" %}
           <label>Player Num</label><sup>&dagger;</sup>:
-          <select name="player_num"{{disabled}}>
+          <select name="player_num"{{sel_disabled}}>
             {% if nums_avail %}
             <option value="" selected disabled hidden></option>
             {% for num in nums_avail %}
@@ -398,13 +400,15 @@
         </p>
         {% if not locked %}
         <p class="actions">
-          <button value="register_player" disabled>Complete Registration</button>
+          {% set reg_verb = "Complete" if ping_pong_balls else "Update" %}
+          <button value="register_player" disabled>{{reg_verb}} Registration</button>
           <a class="reset">[reset]</a>
         </p>
         {% endif %}
       </form>
       <p>
-        <sup>&dagger;</sup> (ping pong ball number)
+        {% set dag_txt = "ping pong ball number" if ping_pong_balls else "randomly generated" %}
+        <sup>&dagger;</sup> ({{dag_txt}})
       </p>
     </section>
     {% endif %}  {# view == View.REGISTER #}
@@ -713,7 +717,7 @@
          url: "/mobile/game_score/{{cur_game.label}}",
          success: function(data, status) {
            if (data.succ) {
-             //console.log("Ajax success: " + (data.info || status), data);
+             //console.log("/game_score success: " + (data.info || status), data);
              const post = data.data;
              if (post.id > {{ref_score_id}}) {
                window.location.href = window.location.pathname + '/';
@@ -724,22 +728,26 @@
              timeoutId = setTimeout(chkGameScore, {{update_int}});
            }
            else {
-             console.log("Ajax (soft) error: " + data.err, data);
+             console.log("/game_score (soft) error: " + data.err, data);
              showError(data.err + " (" + data.info + ")");
              timeoutId = null;
            }
          },
          error: function(req, status) {
-           data = JSON.parse(req.responseText);
-           // TODO: we should really pattern match on `data.err` as well, and/or make
-           // this a "soft" error (and move to the success handler above)!!!
-           if (req.status == 404) {
-             //console.log("Ignoring ajax error: ", data.err);
+           data = req.responseJSON;
+           if (req.status == 404 && data) {
+             // TODO: we should really also pattern match on `data.err`, or better
+             // yet, make this a soft error and move to success handler above!!!
              timeoutId = setTimeout(chkGameScore, {{update_int}});
            }
-           else {
-             console.log("Ajax error: " + data.err, data);
+           else if (data) {
+             console.log("/game_score error: " + data.err, data);
              showError(data.err + " (" + data.info + ")");
+             timeoutId = null;
+           }
+           else {
+             console.log("/game_score error:\n" + req.responseText);
+             showError(req.statusText + " (" + req.status + ")");
              timeoutId = null;
            }
          }
@@ -789,7 +797,7 @@
          url: "/mobile/current_pick",
          success: function(data, status) {
            if (data.succ) {
-             console.log("Ajax success: " + (data.info || status), data);
+             console.log("/current_pick success: " + (data.info || status), data);
              const pick = data.data;
              if (pick == null) {
                //window.location.href = '';
@@ -802,10 +810,17 @@
            }
          },
          error: function(req, status) {
-           data = JSON.parse(req.responseText);
-           console.log("Ajax error: " + data.err, data);
-           showError(data.err + " (" + data.info + ")");
-           timeoutId = null;
+           data = req.responseJSON;
+           if (data) {
+             console.log("/current_pick error: " + data.err, data);
+             showError(data.err + " (" + data.info + ")");
+             timeoutId = null;
+           }
+           else {
+             console.log("/current_pick error:\n" + req.responseText);
+             showError(req.statusText + " (" + req.status + ")");
+             timeoutId = null;
+           }
          }
        });
      };

@@ -260,11 +260,13 @@ CUR_ROUND_FUNC = {
 
 def cur_round(view: str) -> int:
     """Return current round for stage associated with specified view (0 indicates stage
-    not started, -1 indicates stage completed).
+    not started, -1 indicates stage completed, `None` indicates call not applicable).
     """
-    func = CUR_ROUND_FUNC.get(view)
-    return func() if func else None
+    if view not in CUR_ROUND_FUNC:
+        return None
+    return CUR_ROUND_FUNC[view]()
 
+@mobile.get("/register/", endpoint="register/")
 @mobile.get("/seeding/", endpoint="seeding/")
 @mobile.get("/partners/", endpoint="partners/")
 @mobile.get("/round_robin/", endpoint="round_robin/")
@@ -287,7 +289,7 @@ def index() -> str:
         view = active_view(tourn, current_user)
     assert view in View, f"'{view}' not a recognized view"
     rnd = cur_round(view)
-    anchor = f"rnd-{rnd}" if rnd > 0 else None
+    anchor = f"rnd-{rnd}" if (rnd is not None and rnd > 0) else None
     # note that flashed messages are not processed for now, they will be passed through to
     # the redirected page
     return render_view(view, anchor)
@@ -419,9 +421,11 @@ def register_player(form: dict) -> str:
     player     = Player.get(player_id)
 
     if not player_num:
-        assert not player.player_num
-        # show message, but store the record anyway
-        flash("err=Player Num must be specified")
+        assert not player.player_num  # player can't clear out player_num
+        tourn = TournInfo.get()
+        if tourn.config.get('ping_pong_balls'):
+            # show message, but store the record anyway
+            flash("err=Player Num must be specified")
     else:
         player.player_num = player_num
     player.nick_name = nick_name  # allow nick_name to be nulled out

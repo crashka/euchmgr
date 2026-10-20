@@ -248,7 +248,7 @@ def db_checkpoint(chkpt_tag: str = None, skip_existing: bool = False) -> str | N
     chkpt_path = db_savepath(chkpt_tag)
     if os.path.exists(chkpt_path):
         if skip_existing:
-            log.info(f"Skipping checkpoint for existing file '{chkpt_path}'")
+            log.trace(f"Skipping checkpoint for existing file '{chkpt_path}'")
             return None
         elif cfg.get('strict_checkpoints', False):
             raise FileExistsError(f"Cannot overwrite existing file '{chkpt_path}'")

@@ -231,13 +231,13 @@ class APIClient(FlaskClient):
         """Add API endpoint to URLs.
         """
         assert url[0] == '/'
-        return super().get('/api' + url, *args, **kwargs)
+        return super().get('/admin_api' + url, *args, **kwargs)
 
     def post(self, url: str, *args, **kwargs) -> str:
         """Add API endpoint to URLs.
         """
         assert url[0] == '/'
-        return super().post('/api' + url, *args, **kwargs)
+        return super().post('/admin_api' + url, *args, **kwargs)
 
 ####################
 # mobile API stuff #

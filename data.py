@@ -232,7 +232,8 @@ def get_seeding() -> dict:
         # it accordingly (only need to write the first instance of this state)
         stage_info = f"stage-{tourn.stage_start}-activ-{round - 1}"
         file = db_checkpoint(stage_info, skip_existing=True)
-        log.notice(f"Database checkpoint written to '{file}'")
+        if file is not None:
+            log.notice(f"Database checkpoint written to '{file}'")
 
     return ajax_data(sg_data)
 
@@ -617,7 +618,8 @@ def get_round_robin() -> dict:
         # it accordingly (only need to write the first instance of this state)
         stage_info = f"stage-{tourn.stage_start}-activ-{round - 1}"
         file = db_checkpoint(stage_info, skip_existing=True)
-        log.notice(f"Database checkpoint written to '{file}'")
+        if file is not None:
+            log.notice(f"Database checkpoint written to '{file}'")
 
     return ajax_data(tg_data)
 

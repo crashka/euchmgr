@@ -1,8 +1,9 @@
 ---
 default:
   tourn:
+    production_mode:           false
+    ping_pong_balls:           false
     use_cohort_stats:          true
-    production:                false
 
   database:
     strict_checkpoints:        false

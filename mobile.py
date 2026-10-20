@@ -333,12 +333,10 @@ def view() -> str:
 
 @mobile.get("/game_score/<game_label>")
 def game_score(game_label: str) -> str:
-    """Return last post_score record for specified game.  Uses API protocol.
+    """Return last post_score record for specified game.  Uses API return data protocol.
     """
     if not current_user.is_authenticated:
         return api_error(401, "User is not authenticated")
-    if not g.api_call:
-        return api_error(400, "Only accessible through API path")
     post = PostScore.get_last(game_label, include_accept=True)
     if not post:
         # REVISIT: maybe use status code 200 to avoid compulsory client console logging!!!
@@ -347,12 +345,10 @@ def game_score(game_label: str) -> str:
 
 @mobile.get("/current_pick")
 def current_pick() -> str:
-    """Return last PartnerPick.current_pick record.  Uses API protocol.
+    """Return last `PartnerPick.current_pick` record.  Uses API return data protocol.
     """
     if not current_user.is_authenticated:
         return api_error(401, "User is not authenticated")
-    if not g.api_call:
-        return api_error(400, "Only accessible through API path")
     pick = PartnerPick.current_pick()
     data = pick.__data__ if pick else None
     return api_succ(data=data)

@@ -22,7 +22,8 @@ from security import current_user, admin_required, DUMMY_PW_STR
 from database import (DB_FILETYPE, db_atomic, db_init, db_name, db_reset, db_is_initialized,
                       db_checkpoint)
 from schema import (clear_schema_cache, Bracket, TournStage, TOURN_INIT, ALL_STAGES,
-                    PRELIM_STAGES, ACTIVE_STAGES, TournInfo, TournEvent, TournLog)
+                    PRELIM_STAGES, ACTIVE_STAGES, TournInfo, TournEvent, TournLog,
+                    Player, SeedGame, TournGame, PlayoffGame)
 from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_seed_bracket,
                      fake_seed_games, validate_seed_round, compute_player_ranks,
                      prepick_champ_partners, fake_pick_partners, build_tourn_teams,
@@ -30,7 +31,7 @@ from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_se
                      validate_tourn, compute_team_ranks, build_playoff_bracket,
                      validate_playoffs, compute_playoff_ranks, compute_final_ranks)
 from ui_common import (process_flashes, msg_join, cap_first, render_response, redirect,
-                       render_error)
+                       render_error, api_succ, api_error)
 from data import (Layout, pl_layout, sg_layout, pt_layout, tm_layout, tg_layout, ff_layout,
                   pg_layout)
 from dash import clear_dash_storage
@@ -207,23 +208,35 @@ def active_view(tourn: TournInfo) -> View:
             return view
     return None
 
-# when the view is considered to be "active" (auto-dating of data) represented as a
-# tuple of min and max stage
-ACTIVE_STAGE = {
-    View.SEEDING    : (TournStage.SEED_RESULTS,  TournStage.SEED_RESULTS),
-    View.PARTNERS   : (TournStage.PARTNER_PICK,  TournStage.PARTNER_PICK),
-    View.ROUND_ROBIN: (TournStage.TOURN_RESULTS, TournStage.TOURN_RESULTS),
-    View.PLAYOFFS   : (TournStage.SEMIS_RESULTS, TournStage.FINALS_RESULTS),
+CUR_ROUND_FUNC = {
+    View.SEEDING    : SeedGame.current_round,
+    View.PARTNERS   : Player.current_round,
+    View.ROUND_ROBIN: TournGame.current_round
 }
 
-def view_active(tourn: TournInfo, view: View) -> bool:
-    """Check if view is "active"--typically, if it represents a long-running stage that is
-    currently in process (e.g. for auto-update logic).
+def activity_complete(view: str) -> bool | None:
+    """Return indication that activity for a long-running stage (i.e. card play or partner
+    picking) is complete.  For better or for worse, this call has the same return value
+    semantics as `PlayoffGame.bracket_complete`:
+
+      - `None`  - stage has not started or view has no long-running stage
+      - `False` - stage has started but activity is not complete
+      - `True`  - activity for the stage is complete
     """
-    if view not in ACTIVE_STAGE:
-        return False
-    beg, end = ACTIVE_STAGE[view]
-    return tourn.stage_start >= beg and tourn.stage_compl < end
+    if view == View.PLAYOFFS:
+        return PlayoffGame.bracket_complete(None)
+    if view not in CUR_ROUND_FUNC:
+        return None
+
+    # this is a little ugly, due to unfortunate `current_round` semantics
+    cur_round = CUR_ROUND_FUNC[view]()
+    if cur_round == 0:
+        return None
+    else:
+        return cur_round == -1
+
+# convenience call with clearer semantics
+view_active = lambda view: activity_complete(view) == False
 
 ##############
 # GET routes #
@@ -309,6 +322,30 @@ def view() -> str:
         'info_msg': msg_join(info_msgs)
     }
     return render_admin(context)
+
+COMPL_MAP = {
+    View.SEEDING    : [TournStage.SEED_RESULTS],
+    View.PARTNERS   : [TournStage.PARTNER_PICK],
+    View.ROUND_ROBIN: [TournStage.TOURN_RESULTS],
+    View.PLAYOFFS   : [TournStage.SEMIS_RESULTS, TournStage.FINALS_RESULTS]
+}
+
+@admin.get("/check_compl/<view>")
+@admin_action
+def check_compl(view: str) -> str:
+    """Return stage completion status for the specified view.  Uses API return data (json)
+    protocol.  The `complete` data field value carries same semantics as the underlying
+    `activity_complete` call.  Mark the tournament stage complete, as appropriate.
+    """
+    compl = activity_complete(view)
+    if compl:
+        tourn = TournInfo.get()
+        for stage in COMPL_MAP[view]:
+            if tourn.stage_start == stage and tourn.stage_compl < stage:
+                assert tourn.stage_compl == stage - 1
+                tourn.complete_stage(stage)
+                break
+    return api_succ(data={'complete': compl})
 
 ################
 # POST actions #
@@ -828,7 +865,7 @@ def render_admin(context: dict) -> str:
     tourn = context.get('tourn')
     assert tourn
     exclude = POWER_ACTIONS
-    if tourn.config['production']:
+    if tourn.config['production_mode']:
         exclude += TEST_ACTIONS
     buttons = [btn for btn in VIEW_ACTIONS[view] if btn not in exclude]
     btn_info = [ACTION_INFO[btn] for btn in buttons]
@@ -879,7 +916,7 @@ def render_admin(context: dict) -> str:
                 2
             )
 
-    reload_int = cfg['reload_int'] if view_active(tourn, view) else -1
+    reload_int = cfg['reload_int'] if view_active(view) else -1
     base_ctx = {
         'title'     : APP_NAME,
         'user'      : current_user,

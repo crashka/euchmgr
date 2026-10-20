@@ -1851,14 +1851,25 @@ class PlayoffGame(BaseModel):
         return del_stmt.execute()
 
     @classmethod
-    def bracket_complete(cls, bracket: Bracket) -> bool:
+    def bracket_complete(cls, bracket: Bracket | None) -> bool:
         """Check if all play associated with the specified bracket is complete.  `None`
-        indicates that the bracket has not started, whereas `False` indicates that play
-        has started but not yet complete.
+        (as a return value) indicates that the bracket has not started, whereas `False`
+        indicates that play has started but is not yet complete.  See LITTLE CHEAT below
+        for the meaning of invocation with `bracket = None`.
 
         Must be called after `update_team_stats()` for the most recent game.
+
         """
         tourn = TournInfo.get()
+        # this is a LITTLE CHEAT (with narrower semantics) to report activity status of
+        # the "current" (inferred) playoff round
+        if bracket is None:
+            if not tourn.semifinals_done():
+                assert tourn.stage_start <= TournStage.SEMIS_RESULTS
+                assert tourn.stage_compl <= tourn.stage_start  # ???
+                return cls.bracket_complete(Bracket.SEMIS)
+            return cls.bracket_complete(Bracket.FINALS)
+
         if bracket == Bracket.SEMIS:
             if tourn.stage_compl < TournStage.SEMIS_BRACKET:
                 return None

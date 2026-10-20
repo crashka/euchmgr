@@ -230,6 +230,7 @@
          // power-mode admin popup
        }
        else {
+         //console.log('Reloading table data');
          table.ajax.reload(reloadCallback, false);
        }
      });
@@ -276,7 +277,7 @@
               }
               else if (resp.succ) {
                 if (resp.data && resp.data.reloadTable) {
-                  console.log('Reloading table data');
+                  //console.log('Reloading table data');
                   table.ajax.reload(reloadCallback, false);
                 }
                 else if (resp.data) {
@@ -412,7 +413,27 @@
 
      const reloadCallback = function(data) {
        startAutoUpdate();
-       // TODO: check for end of stage (refresh view)!!!
+       // reload page (for header and button updates) if stage is complete
+       $.ajax({
+         url: "/check_compl/{{view}}",
+         success: function(data, status) {
+           if (data.succ) {
+             //console.log("Ajax success: " + (data.info || status), data);
+             if (data.data.complete == true) {
+               window.location.reload(true);
+             }
+           }
+           else {
+             console.log("Ajax (soft) error: " + data.err, data);
+             showError(data.err + " (" + data.info + ")");
+           }
+         },
+         error: function(req, status) {
+           data = JSON.parse(req.responseText);
+           console.log("Ajax error: " + data.err, data);
+           showError(data.err + " (" + data.info + ")");
+         }
+       });
      };
 
      const startAutoUpdate = function(restart = false) {
@@ -421,7 +442,7 @@
        }
        if (!timeoutId && {{reload_int}} > 0) {
          timeoutId = window.setTimeout(function() {
-           console.log("reloading table data");
+           //console.log("reloading table data");
            table.ajax.reload(reloadCallback, false);
            timeoutId = null;
          }, {{reload_int}});

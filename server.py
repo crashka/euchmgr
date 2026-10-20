@@ -88,7 +88,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         """Tag API calls and mobile clients on the way in (used for routing, rendering,
         etc.).
         """
-        g.api_call = request.path.startswith(('/api/', '/mobile_api/'))  # bool
+        g.api_call = request.path.startswith(('/admin_api/', '/mobile_api/'))  # bool
         g.mobile = mobile_client()
 
     ##################
@@ -288,7 +288,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
 
     INVALID_ROUTE = "_INVALID"
 
-    API_MAP = {
+    ADMIN_API_MAP = {
         "tourn/"      : "/tourn/data",
         "players/"    : "/players/data",
         "seeding/"    : "/seeding/data",
@@ -313,14 +313,14 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         '/tourn/create_tourn'
     }
 
-    @app.route("/api/<path:route>", methods=['GET', 'POST'])
+    @app.route("/admin_api/<path:route>", methods=['GET', 'POST'])
     def api_router(route: str) -> str:
         """Reroute API calls.  The route handlers should treat these the same as calls
         from the app, except that only JSON data is returned (for errors, as well).  Note
         that the following request attributes will be different for API calls (we are not
         rewriting them here): `url`, `path`, `full_path`, and `endpoint`.
         """
-        reroute = API_MAP.get(route) or '/' + route
+        reroute = ADMIN_API_MAP.get(route) or '/' + route
         assert g.api_call  # consider this flag a framework thing
         # ATTN: `request_ctx` will be merged with `app_ctx` in Flask version 3.2, so the
         # URL adapter will move at that point!

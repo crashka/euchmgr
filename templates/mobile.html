@@ -710,7 +710,7 @@
      // refresh window if there is an update to the current game
      const chkGameScore = function() {
        $.ajax({
-         url: "/mobile_api/game_score/{{cur_game.label}}",
+         url: "/mobile/game_score/{{cur_game.label}}",
          success: function(data, status) {
            if (data.succ) {
              //console.log("Ajax success: " + (data.info || status), data);
@@ -786,7 +786,7 @@
      // refresh window if there is an update to the current pick
      const chkCurrentPick = function() {
        $.ajax({
-         url: "/mobile_api/current_pick",
+         url: "/mobile/current_pick",
          success: function(data, status) {
            if (data.succ) {
              console.log("Ajax success: " + (data.info || status), data);

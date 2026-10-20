@@ -290,8 +290,8 @@ def restore_from_checkpoint(chkpt_tag: str) -> None:
     # from, since they are essentially now rendered obsolete (or at least, will be, upon
     # the first new update)
     chkpt_ctime = stat(chkpt_path).st_ctime
-    log.info(f"Archiving checkpoints newer than {chkpt_ctime}")
     archive_dir = os.path.join(DATA_DIR, f"archive-{ts}")
+    log.info(f"Archiving checkpoints newer than {chkpt_ctime} to '{archive_dir}'")
     makedirs(archive_dir, exist_ok=True)
     for tag, file_info in chkpts.items():
         if file_info.st_ctime <= chkpt_ctime:

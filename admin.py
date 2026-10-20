@@ -207,6 +207,24 @@ def active_view(tourn: TournInfo) -> View:
             return view
     return None
 
+# when the view is considered to be "active" (auto-dating of data) represented as a
+# tuple of min and max stage
+ACTIVE_STAGE = {
+    View.SEEDING    : (TournStage.SEED_RESULTS,  TournStage.SEED_RESULTS),
+    View.PARTNERS   : (TournStage.PARTNER_PICK,  TournStage.PARTNER_PICK),
+    View.ROUND_ROBIN: (TournStage.TOURN_RESULTS, TournStage.TOURN_RESULTS),
+    View.PLAYOFFS   : (TournStage.SEMIS_RESULTS, TournStage.FINALS_RESULTS),
+}
+
+def view_active(tourn: TournInfo, view: View) -> bool:
+    """Check if view is "active"--typically, if it represents a long-running stage that is
+    currently in process (e.g. for auto-update logic).
+    """
+    if view not in ACTIVE_STAGE:
+        return False
+    beg, end = ACTIVE_STAGE[view]
+    return tourn.stage_start >= beg and tourn.stage_compl < end
+
 ##############
 # GET routes #
 ##############
@@ -305,22 +323,28 @@ VIEW_ACTIONS = {
     ],
     View.PLAYERS: [
         'gen_player_nums',
-        'gen_seed_bracket'
+        'gen_seed_bracket',
+        'add_player',
+        'remove_player',
+        'clear_player_nums'
     ],
     View.SEEDING: [
         'fake_seed_results',
-        'tabulate_seed_results'
+        'tabulate_seed_results',
+        'clear_seed_results'
     ],
     View.PARTNERS: [
         'fake_partner_picks',
-        'comp_team_seeds'
+        'comp_team_seeds',
+        'clear_partner_picks'
     ],
     View.TEAMS: [
         'gen_tourn_brackets'
     ],
     View.ROUND_ROBIN: [
         'fake_tourn_results',
-        'tabulate_tourn_results'
+        'tabulate_tourn_results',
+        'clear_tourn_results'
     ],
     View.FINAL_FOUR: [
         'gen_semis_bracket',
@@ -328,9 +352,26 @@ VIEW_ACTIONS = {
     ],
     View.PLAYOFFS: [
         'tabulate_semis_results',
-        'tabulate_finals_results'
+        'tabulate_finals_results',
+        'clear_playoff_results'
     ]
 }
+
+POWER_ACTIONS = [
+    'add_player',
+    'remove_player',
+    'clear_player_nums',
+    'clear_seed_results',
+    'clear_partner_picks',
+    'clear_tourn_results',
+    'clear_playoff_results'
+]
+
+TEST_ACTIONS = [
+    'fake_seed_results',
+    'fake_partner_picks',
+    'fake_tourn_results'
+]
 
 # key: action function (doubles as button name in views)
 # value: tuple(action/button display name, list of stages when valid/callable)
@@ -784,12 +825,15 @@ def render_admin(context: dict) -> str:
     view = context.get('view')
     assert view in VIEW_DEFS
     assert view in VIEW_ACTIONS
-    buttons = VIEW_ACTIONS[view]
+    tourn = context.get('tourn')
+    assert tourn
+    exclude = POWER_ACTIONS
+    if tourn.config['production']:
+        exclude += TEST_ACTIONS
+    buttons = [btn for btn in VIEW_ACTIONS[view] if btn not in exclude]
     btn_info = [ACTION_INFO[btn] for btn in buttons]
 
-    stage_compl = TOURN_INIT
-    if context.get('tourn'):
-        stage_compl = context['tourn'].stage_compl or TOURN_INIT
+    stage_compl = tourn.stage_compl or TOURN_INIT
     btn_lbl = []
     btn_attr = []
     for label, stages in btn_info:
@@ -835,20 +879,22 @@ def render_admin(context: dict) -> str:
                 2
             )
 
+    reload_int = cfg['reload_int'] if view_active(tourn, view) else -1
     base_ctx = {
-        'title'    : APP_NAME,
-        'user'     : current_user,
-        'tourn'    : None,  # context may contain override
-        'view'     : view,  # also represents relative path name
-        'view_info': view_info,
-        'view_menu': view_menu(),
-        'buttons'  : buttons,
-        'btn_lbl'  : btn_lbl,
-        'btn_attr' : btn_attr,
-        'links'    : LINK_INFO.get(view),
-        'help_txt' : help_txt,
-        'err_msg'  : None,  # context may contain override
-        'info_msg' : None   # ditto
+        'title'     : APP_NAME,
+        'user'      : current_user,
+        'tourn'     : None,  # context may contain override
+        'view'      : view,  # also represents relative path name
+        'view_info' : view_info,
+        'view_menu' : view_menu(),
+        'buttons'   : buttons,
+        'btn_lbl'   : btn_lbl,
+        'btn_attr'  : btn_attr,
+        'links'     : LINK_INFO.get(view),
+        'help_txt'  : help_txt,
+        'reload_int': reload_int,
+        'err_msg'   : None,  # context may contain override
+        'info_msg'  : None   # ditto
     }
     return render_response(ADMIN_TEMPLATE, **(base_ctx | context))
 

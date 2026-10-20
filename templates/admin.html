@@ -225,11 +225,13 @@
      $("header h2").on('click', function() {
        window.location.href = './';
      });
-     $('.view_body h2').on('click', function() {
-       // NOTE: we currently refresh the page (rather than just reloading the table data),
-       // since we would like to pick up stage/state changes (e.g. button enablement)
-       //table.ajax.reload(null, false);
-       window.location.href = "";
+     $('.view_body h2').on('click', function(e) {
+       if (e.ctrlKey) {
+         // power-mode admin popup
+       }
+       else {
+         table.ajax.reload(reloadCallback, false);
+       }
      });
      $('.login_info span').on('click', function() {
        window.location.href = "/tourn";
@@ -250,6 +252,7 @@
        });
 
        node.addEventListener('focus', function(e) {
+         cancelAutoUpdate();
          orig_val = e.target.textContent;
          $('td[contenteditable].attn').removeClass("attn");
          window.getSelection().selectAllChildren(e.target);
@@ -274,7 +277,7 @@
               else if (resp.succ) {
                 if (resp.data && resp.data.reloadTable) {
                   console.log('Reloading table data');
-                  table.ajax.reload();
+                  table.ajax.reload(reloadCallback, false);
                 }
                 else if (resp.data) {
                   console.log('Updating row data: ', resp.data);
@@ -301,7 +304,9 @@
               win = window.open('', '_blank')
               win.document.body.innerHTML = resp.responseText;
             });
-       }});
+         }
+         startAutoUpdate(true);
+       });
      };
 
      const tourn = $('.info_blk input[name="tourn_name"]').val();
@@ -394,6 +399,36 @@
        //showError("Cannot display \"" + $(this).text() + "\", data not yet available");
        return false;
      });
+
+     // auto-update stuff
+     let timeoutId;
+
+     const cancelAutoUpdate = function() {
+       if (timeoutId) {
+         window.clearTimeout(timeoutId);
+         timeoutId = null;
+       }
+     };
+
+     const reloadCallback = function(data) {
+       startAutoUpdate();
+       // TODO: check for end of stage (refresh view)!!!
+     };
+
+     const startAutoUpdate = function(restart = false) {
+       if (restart) {
+         cancelAutoUpdate();  // ensure a full reload_int below
+       }
+       if (!timeoutId && {{reload_int}} > 0) {
+         timeoutId = window.setTimeout(function() {
+           console.log("reloading table data");
+           table.ajax.reload(reloadCallback, false);
+           timeoutId = null;
+         }, {{reload_int}});
+       }
+     };
+
+     startAutoUpdate();
 
      // TODO: set initial focus (and/or highlight) here!!!
 

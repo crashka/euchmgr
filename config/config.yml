@@ -18,6 +18,7 @@ default:
       tabulate_semis_results:  [pre, post]
       gen_finals_bracket:      [post]
       tabulate_finals_results: [pre, post]
+    reload_int:                5000
 
   mobile:
     update_int:

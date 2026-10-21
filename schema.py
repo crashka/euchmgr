@@ -384,10 +384,9 @@ class TournInfo(BaseModel):
             return cur_round > int(tourn.has_champ) + 1
 
     def partner_picks_done(self) -> bool:
-        """Official way to check if partner picking is complete (all picks made and teams
-        determined).
+        """Official way to check if partner picking is complete (all picks made).
         """
-        return self.stage_compl >= TournStage.TOURN_TEAMS
+        return self.stage_compl >= TournStage.PARTNER_PICK
 
     def team_seeds_done(self) -> bool:
         """Official way to check if team seeds have been computed (based on player seeding

@@ -7,6 +7,7 @@ implements the Flask "application factory" pattern through the ``create_app()`` 
 
 import re
 import traceback
+from time import perf_counter_ns
 
 from ckautils import typecast
 from flask import Flask, current_app, g, request, session, url_for, flash
@@ -92,6 +93,23 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         g.mobile = mobile_client()
 
     ##################
+    # request timing #
+    ##################
+
+    @app.before_request
+    def _start_perf() -> None:
+        """Record starting timestamp.
+        """
+        g.start_ns = perf_counter_ns()
+
+    @app.teardown_request
+    def _stop_perf(e) -> None:
+        """Debug-level logging for request timing (tenths of millisecond granularity).
+        """
+        req_ms = (perf_counter_ns() - g.start_ns) / 1000000.0
+        log.debug(f"req time: {request.method} {request.path}: {req_ms:.1f} ms")
+
+    ##################
     # db connections #
     ##################
 
@@ -135,7 +153,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
                     flash(f"Note: {msg}")
 
     @app.teardown_request
-    def _db_close(exc) -> None:
+    def _db_close(e) -> None:
         """Do a logical close of the database connection on the way out.  Underneath, we may
         actually choose to keep the connection open and reuse it (in which case, there may be
         no way to explicitly close it on server exit).

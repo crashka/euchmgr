@@ -44,6 +44,8 @@ def fmt_stat(val: Numeric | str) -> str:
         assert isinstance(val, str)
         return val
 
+fmt_flag = lambda val: 'y' if bool(val) else ''
+
 # quick and dirty stuff (yucky!)
 SPC = lambda x: '&nbsp;' * x
 PTS = lambda x: f"{SPC(1)}{x}{SPC(2)}" if x == GAME_PTS else f"{SPC(2)}{x}{SPC(2)}"
@@ -606,6 +608,7 @@ def sd_results(tourn: TournInfo) -> str:
         'hist_rpt'    : RANK_HIST_REPORT[rank_type],
         'adjust_url'  : '/chart/sd_rank_adj',
         'fmt_stat'    : fmt_stat,
+        'fmt_flag'    : fmt_flag,
         'bold_color'  : '#555555'
     }
     return render_chart(context)
@@ -643,6 +646,7 @@ def sd_rank_adj(tourn: TournInfo) -> str:
         'cancel_url'  : parent_url,
         'redirect_to' : parent_url,
         'fmt_stat'    : fmt_stat,
+        'fmt_flag'    : fmt_flag,
         'bold_color'  : '#555555'
     }
     return render_chart(context)

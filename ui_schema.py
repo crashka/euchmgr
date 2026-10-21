@@ -9,6 +9,7 @@ from typing import Self, Iterator
 from peewee import ForeignKeyField, DeferredForeignKey, fn
 from flask import g
 
+from core import log
 from database import BaseModel
 from schema import (rnd_pct, Bracket, BRACKET_NAME, get_bracket, TournStage, TournInfo,
                     Player as BasePlayer, SeedGame as BaseSeedGame, Team as BaseTeam,
@@ -294,6 +295,8 @@ class Player(UIMixin, BasePlayer):
         if len(avail) == 0:
             raise RuntimeError("No available players to pick")
 
+        if self.early_depart:
+            raise RuntimeError(f"Early departer ({self.name}) cannot pick")
         if not self.available:
             raise RuntimeError(f"Specified picker ({self.name}) already on a team")
         if self != avail[0]:
@@ -325,6 +328,8 @@ class Player(UIMixin, BasePlayer):
 
         if not partner:
             raise RuntimeError(f"Player identified by \"{picks_info}\" does not exist")
+        if partner.early_depart:
+            raise RuntimeError(f"Cannot pick early departer ({partner.name})")
         if not partner.available:
             raise RuntimeError(f"Specified pick ({partner.name}) already on a team")
         if partner == self:
@@ -332,7 +337,20 @@ class Player(UIMixin, BasePlayer):
 
         # automatic final pick(s) if 2 or 3 teams remain
         assert len(avail) not in (0, 1)
-        if len(avail) in (2, 3):
+        if len(avail) == 2:
+            if early_deps := Player.early_departures(by_rank=True):
+                avail.append(early_deps.pop(0))  # only the first (top-ranked) qualifies
+                log.info(f"Early departer '{avail[-1].name}' added to three-headed monster")
+                if len(early_deps) > 0:
+                    omitted = ', '.join([p.name for p in early_deps])
+                    log.info(f"Additional early departer(s) omitted from round robin ({omitted})")
+            partners = avail[1:]
+            assert partner in partners
+            return partners, []
+        if len(avail) == 3:
+            if early_deps := Player.early_departures():
+                omitted = ', '.join([p.name for p in early_deps])
+                log.info(f"Early departer(s) omitted from round robin ({omitted})")
             partners = avail[1:]
             assert partner in partners
             return partners, []
@@ -414,7 +432,8 @@ class PartnerPick(UIMixin, BasePlayer):
         query = (Player
                  .select()
                  .where(Player.partner.is_null(True),
-                        Player.picked_by.is_null(True))
+                        Player.picked_by.is_null(True),
+                        Player.early_depart == False)
                  .order_by(player_rank_eff.asc()))
         avail = list(query)
         if not avail:
@@ -461,7 +480,7 @@ class PartnerPick(UIMixin, BasePlayer):
         # code (should probably also do the same elsewhere!)
         pl_list = list(Player.select())
         if all_picks or cur_round == -1:
-            includer = lambda x: not x.picked_by
+            includer = lambda x: not (x.picked_by or x.early_depart)
         else:
             includer = lambda x: x.partner
         picks = filter(includer, pl_list)

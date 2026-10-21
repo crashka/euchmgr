@@ -514,6 +514,8 @@
             <thead>
               <tr>
                 <th class="plyr_lbl hor_sect">Player (by Player Num)</th>
+                <th class="hor_sect vert_sect">Late<br>Arr</th>
+                <th class="hor_sect">Early<br>Dep</th>
                 <th class="pos_lbl hor_sect vert_sect">Seed<br>Pos</th>
                 <th class="hor_sect vert_sect">W-L</th>
                 <th class="hor_sect">Win Pct</th>
@@ -535,6 +537,8 @@
               {% for pl in players %}
               <tr class="cmpt">
                 <td class="plyr_lbl">{{pl.player_tag|safe}}</td>
+                <td class="vert_sect">{{fmt_flag(pl.late_arr)}}</td>
+                <td>{{fmt_flag(pl.early_dep)}}</td>
                 <td class="vert_sect" title="{{tb_crit[pl.id]}}">{{pl.player_pos_str}}</td>
                 <td class="vert_sect">{{fmt_stat(pl.seed_win_rec)}}</td>
                 <td>{{fmt_stat(pl.seed_win_pct)|safe}}</td>

@@ -331,6 +331,8 @@ pt_addl_props = [
     'full_name',
     'seed_ident',
     'champ',
+    'late_arr',
+    'early_dep',
     'available',
     'picks_info',
     'picked_by_info'
@@ -343,6 +345,8 @@ pt_layout = [
     ('player_num',      "Player Num", None),
     ('seed_ident',      "Pick Order", None),
     ('champ',           "Champ?",     CENTERED),
+    ('late_arr',        "Late Arr?",  CENTERED),
+    ('early_dep',       "Early Dep?", CENTERED),
     ('available',       "Avail?",     CENTERED),
     ('picks_info',      "Partner(s) (pick by Name or Rank)", PICKS_INFO),
     ('picked_by_info',  "Picked By",  None)

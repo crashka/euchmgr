@@ -481,27 +481,30 @@ class Player(BaseModel, EuchmgrUser):
         )
 
     @classmethod
-    def seed_players(cls, inverse: bool = False) -> int:
-        """Number of players for seeding round play (excludes late arrivers).  The number
-        of late arrivers is returned if called with `inverse=True`.
+    def late_arrivals(cls, by_rank: bool = False) -> list[Self]:
+        """Return list of late arriving players (omitted from seeding round), ordered by
+        effective player rank (if specified).
         """
-        late_crit = bool(inverse)
         query = (cls
-                 .select(fn.count())
-                 .where(cls.late_arrive == late_crit))
-        return query.scalar()
+                 .select()
+                 .where(cls.late_arrive == True))
+        if by_rank:
+            player_rank_eff = fn.coalesce(cls.player_rank_adj, cls.player_rank)
+            query = query.order_by(player_rank_eff.asc(nulls='last'))
+        return list(query)
 
     @classmethod
-    def tourn_players(cls, inverse: bool = False) -> int:
-        """Number of players for main tournament round robin play (excludes early
-        departers).  The number of early departers is returned if called with
-        `inverse=True`.
+    def early_departures(cls, by_rank: bool = False) -> list[Self]:
+        """Return list (or count) of early departing players (auto-assinged to THM, or
+        omitted from round robin), ordered by effective player rank (if specified).
         """
-        early_crit = bool(inverse)
         query = (cls
-                 .select(fn.count())
-                 .where(cls.early_depart == early_crit))
-        return query.scalar()
+                 .select()
+                 .where(cls.early_depart == True))
+        if by_rank:
+            player_rank_eff = fn.coalesce(cls.player_rank_adj, cls.player_rank)
+            query = query.order_by(player_rank_eff.asc(nulls='last'))
+        return list(query)
 
     @classmethod
     def fetch_by_num(cls, player_num: int) -> Self:
@@ -754,7 +757,7 @@ class Player(BaseModel, EuchmgrUser):
         """For partner picking UI; returns 'y' or None.  Note that this return value
         evaluates correctly as a boolean.
         """
-        return 'y' if not (self.partner or self.picked_by) else None
+        return 'y' if not (self.partner or self.picked_by or self.early_depart) else None
 
     @property
     def seed_ident(self) -> str:

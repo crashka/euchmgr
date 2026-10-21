@@ -209,6 +209,8 @@ def upload_roster(csv_path: str) -> None:
     """
     players = []
     nchamps = 0
+    late_arrs = 0   # non-seeding players
+    early_deps = 0  # compulsory-THM (or omitted from round robin play)
     with open(csv_path, newline='') as f:
         reader = csv.reader(f)
         header = next(reader)  # TODO: check for required fields!!!
@@ -220,19 +222,33 @@ def upload_roster(csv_path: str) -> None:
             player = Player.create(**player_info)
             if player.reigning_champ:
                 nchamps += 1
+            if player.late_arrive:
+                late_arrs += 1
+            if player.early_dep:
+                early_deps += 1
             players.append(player)
 
     # update tournament info (players, teams, etc.)
     nplayers = len(players)
+    seed_players = nplayers - late_arrs
+    tourn_players = nplayers - early_deps
+
     thm_teams = int(nchamps == 3)
-    non_champs = nplayers - nchamps
+    non_champs = tourn_players - nchamps  # for tournament play
+    deps_omitted = 0
     if non_champs & 0x01:
         thm_teams += 1
+        deps_omitted += early_deps
+    elif early_deps:
+        thm_teams += 1
+        deps_omitted += (early_deps - 1)
     nteams = non_champs // 2 + (1 if nchamps else 0)
-    assert nteams == (nplayers - thm_teams) // 2
+    assert nteams == (nplayers - deps_omitted - thm_teams) // 2
 
     tourn = TournInfo.get()
     if not tourn.seed_rounds or not tourn.tourn_rounds:
+        if late_arrs or early_deps:
+            raise RuntimeError(f"Only fixed players supported for {tourn.tourn_fmt} tournament")
         rounds = ROUNDS_MAP[tourn.tourn_fmt]
         if nplayers not in rounds:
             raise RuntimeError(f"No support for {tourn.tourn_fmt} tournament with {nplayers} players")
@@ -513,14 +529,16 @@ def compute_player_ranks(finalize: bool = False) -> None:
     pl_iter = Player.iter_players()
     played = list(filter(lambda x: x.seed_wins + x.seed_losses, pl_iter))
 
-    seed_rank_data = [pl.seed_win_pct for pl in played]
+    rank_key = lambda x: (-x.early_depart, x.seed_win_pct)
+    seed_rank_data = [rank_key(pl) for pl in played]
     seed_ranks = rankdata(seed_rank_data, method='min')
+
     for i, pl in enumerate(played):
         pl.player_pos = seed_ranks[i]
 
     # high-level ranking based on win percentage, before tie-breaking
-    played.sort(key=lambda x: x.seed_win_pct, reverse=True)
-    for k, g in groupby(played, key=lambda x: x.seed_win_pct):
+    played.sort(key=rank_key, reverse=True)
+    for k, g in groupby(played, key=rank_key):
         cohort = list(g)
         if len(cohort) == 1:
             pl = cohort[0]
@@ -604,8 +622,18 @@ def fake_pick_partners(clear_existing: bool = False, limit: int = None, rand_see
 
         partners = [my_rand.choice(avail)]
         avail.remove(partners[0])
-        if len(avail) == 1:  # three-headed monster
+        if len(avail) == 0:
+            if early_deps := Player.early_departures(by_rank=True):
+                partners.append(early_deps.pop(0))  # only the first (top-ranked) qualifies
+                log.info(f"Early departer '{partners[-1].name}' added to three-headed monster")
+                if len(early_deps) > 0:
+                    omitted = ', '.join([p.name for p in early_deps])
+                    log.info(f"Additional early departer(s) omitted from round robin ({omitted})")
+        elif len(avail) == 1:  # three-headed monster
             partners.append(avail.pop(0))
+            if early_deps := Player.early_departures():
+                omitted = ', '.join([p.name for p in early_deps])
+                log.info(f"Early departer(s) omitted from round robin ({omitted})")
         player.set_partners(*partners)
         player.save(cascade=True)
         info = {

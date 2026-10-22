@@ -707,8 +707,8 @@ def pick_partner(form: dict) -> str:
         }
         post = PostPick.create(**info)
 
-        # REVISIT: we should try and incorporate this into update_tourn_stage (would have to
-        # rethink the interface for that, though)!!!
+        # REVISIT: we should try and incorporate this into update_tourn_stage (would have
+        # to rethink the interface for that, though)!!!
         if PartnerPick.current_round() == -1:
             tourn.complete_stage(TournStage.PARTNER_PICK)
     except RuntimeError as e:

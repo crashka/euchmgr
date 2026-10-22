@@ -282,6 +282,24 @@ def generate_player_nums(rand_seed: int = None, limit: int = None) -> None:
         player.save()
 
     if len(Player.nums_avail()) == 0:
+        if late_arrs := Player.late_arrivals(by_num=True):
+            # TEMP: one-off building of map (no integrity checking)--LATER: should really
+            # push requirements down to some version of `get_player_map`!!!
+            pl_map = {pl.player_num: pl for pl in Player.iter_players()}
+            nplayers = len(pl_map)
+            ident = lambda pl: f"'{pl.name}' ({pl.player_num})"
+            # we start from the bottom of the respective lists for late arrival players
+            # and their swap targets, to avoid possible overlaps/conflicts
+            for idx, pl in enumerate(reversed(late_arrs)):
+                tgt_num = nplayers - idx
+                if tgt_num == pl.player_num:
+                    log.info(f"skipping player_num swap for late arriver {ident(pl)}")
+                    continue
+                tgt = pl_map[tgt_num]
+                log.info(f"swapping player_nums for late arriver {ident(pl)} <--> {ident(tgt)}")
+                # just swap the player_nums in-place (note that this call implicitly saves
+                # both records)--we don't actually have to alter the map
+                Player.swap_nums(pl, tgt)
         TournInfo.mark_stage_complete(TournStage.PLAYER_NUMS)
 
 def build_seed_bracket() -> list[SeedGame]:
@@ -293,11 +311,20 @@ def build_seed_bracket() -> list[SeedGame]:
     """
     tourn = TournInfo.get()
     nplayers = tourn.players
+    late_arrs = Player.late_arrivals()
+    if late_arrs:
+        # combo of integrity checking and removing them from the bracket
+        bottom_nums = set(range(nplayers, nplayers - len(late_arrs), -1))
+        late_arr_nums = set(pl.player_num for pl in late_arrs)
+        assert late_arr_nums == bottom_nums
+        nplayers -= len(late_arrs)
     nrounds = tourn.seed_rounds
     bracket_file = f'sd-{nplayers}-{nrounds}.brckt'
 
     games = []
     pl_map = Player.get_player_map()
+    for pl in late_arrs:
+        pl_map.pop(pl.player_num)
     reader = bracket_reader(bracket_file)
     for rnd_i, row in enumerate(reader):
         seats = (int(x) for x in row)
@@ -519,26 +546,43 @@ def rank_player_cohort(players: list[Player]) -> list[tuple[Player, tuple, dict]
     ranked = sorted(players, key=sort_key, reverse=True)
     return [(pl, sort_key(pl), None) for pl in ranked]
 
+# "seed factor": -2 if early_depart, -1 if late_arrive, 0 otherwise
+seed_factor = lambda pl: -2 if pl.early_depart else (-1 if pl.late_arrive else 0)
+
+# handle empty seed_win_pct (e.g. no games played), treat lower than winless
+seed_win_pct_eff = lambda pl: pl.seed_win_pct if pl.seed_win_pct is not None else -1.0
+
 def compute_player_ranks(finalize: bool = False) -> None:
     """Note that we use `rankdata` to do the computation here, and `rank_player_cohort` to
     break ties.
     """
-    # REVISIT: should we be going through `iter_players` here instead (to follow the same
-    # pattern as computing team raks)???  We really want to make the design informed and
-    # consistent!!!
-    pl_iter = Player.iter_players()
-    played = list(filter(lambda x: x.seed_wins + x.seed_losses, pl_iter))
+    pl_list = None
+    rank_key = None
+    if not finalize:
+        # during the round, we ignore "seed factor", and don't rank teams before they
+        # start playing (and/or don't play at all)
+        pl_iter = Player.iter_players()
+        pl_list = list(filter(lambda x: x.seed_wins + x.seed_losses, pl_iter))
+        rank_key = lambda x: seed_win_pct_eff(x)
+    else:
+        # REVISIT: (1) should we use seed_factor to rank early_deps below late_arrs???
+        # or: (2) should we do an automated admin adjustment in finalization below to
+        # move (i.e. "effectively") early departer(s) to the bottom of the rankings???
+        pl_list = list(Player.iter_players())
+        #rank_key = lambda x: (seed_factor(x), seed_win_pct_eff(x))
+        rank_key = lambda x: seed_win_pct_eff(x)
 
-    rank_key = lambda x: (-x.early_depart, x.seed_win_pct)
-    seed_rank_data = [rank_key(pl) for pl in played]
+    assert pl_list
+    assert rank_key
+    seed_rank_data = [rank_key(pl) for pl in pl_list]
     seed_ranks = rankdata(seed_rank_data, method='min')
 
-    for i, pl in enumerate(played):
+    for i, pl in enumerate(pl_list):
         pl.player_pos = seed_ranks[i]
 
     # high-level ranking based on win percentage, before tie-breaking
-    played.sort(key=rank_key, reverse=True)
-    for k, g in groupby(played, key=rank_key):
+    pl_list.sort(key=rank_key, reverse=True)
+    for k, g in groupby(pl_list, key=rank_key):
         cohort = list(g)
         if len(cohort) == 1:
             pl = cohort[0]
@@ -558,7 +602,7 @@ def compute_player_ranks(finalize: bool = False) -> None:
     if finalize:
         tourn = TournInfo.get()
         rank_action = RankAction.COMPUTE if not tourn.seeding_done() else RankAction.RECOMPUTE
-        for pl in played:
+        for pl in pl_list:
             info = {
                 'rank_type'   : RankType.SEED,
                 'player'      : pl,

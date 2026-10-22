@@ -94,6 +94,7 @@ def get_chart(chart: str) -> str:
     if chart not in CHART_FUNCS:
         abort(404, f"Invalid chart '{chart}'")
 
+    # TODO: trap peewee.InterfaceError on this call!!!
     tourn = TournInfo.get(requery=True)
     return globals()[chart](tourn)
 
@@ -104,6 +105,7 @@ def get_chart_targ(chart: str, target: str) -> str:
     if chart not in CHART_FUNCS:
         abort(404, f"Invalid chart '{chart}'")
 
+    # TODO: trap peewee.InterfaceError on this call!!!
     tourn = TournInfo.get(requery=True)
     return globals()[chart](typecast(target), tourn)
 
@@ -138,8 +140,9 @@ RANK_ADJ_ACTION = {
 def sd_bracket(tourn: TournInfo) -> str:
     """Render seed round bracket as a chart.
     """
-    rnd_tables = tourn.players // 4
-    rnd_byes = tourn.players % 4
+    seed_players = tourn.players - len(Player.late_arrivals())
+    rnd_tables = seed_players // 4
+    rnd_byes = seed_players % 4
 
     matchups = {}  # key sequence: rnd, tbl -> matchup_html
     labels   = {}
@@ -584,9 +587,7 @@ def sd_results(tourn: TournInfo) -> str:
     """Render seeding round results as a chart
     """
     rank_type = RankType.SEED
-    #pl_list = sorted(Player.iter_players(), key=lambda pl: pl.player_rank_eff)
-    pl_iter  = Player.iter_players(by_rank=True)
-    pl_list = list(filter(lambda x: x.seed_wins + x.seed_losses, pl_iter))
+    pl_list = list(Player.iter_players(by_rank=True))
 
     tb_crit = {}
     rank_note = {}

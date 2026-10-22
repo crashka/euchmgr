@@ -132,6 +132,7 @@ def get_dash(dash: str) -> str:
     if dash not in DASH_FUNCS:
         abort(404, f"Invalid dash '{dash}'")
 
+    # TODO: trap peewee.InterfaceError on this call!!!
     tourn = TournInfo.get(requery=True)
     return globals()[dash](tourn)
 

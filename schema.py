@@ -480,16 +480,15 @@ class Player(BaseModel, EuchmgrUser):
         )
 
     @classmethod
-    def late_arrivals(cls, by_rank: bool = False) -> list[Self]:
+    def late_arrivals(cls, by_num: bool = False) -> list[Self]:
         """Return list of late arriving players (omitted from seeding round), ordered by
-        effective player rank (if specified).
+        player_num (if specified).
         """
         query = (cls
                  .select()
                  .where(cls.late_arrive == True))
-        if by_rank:
-            player_rank_eff = fn.coalesce(cls.player_rank_adj, cls.player_rank)
-            query = query.order_by(player_rank_eff.asc(nulls='last'))
+        if by_num:
+            query = query.order_by(cls.player_num)
         return list(query)
 
     @classmethod
@@ -589,6 +588,20 @@ class Player(BaseModel, EuchmgrUser):
         tourn = TournInfo.get()
         all_nums = range(1, tourn.players + 1)
         return sorted(set(all_nums) - set(cls.nums_used(player)))
+
+    @classmethod
+    def swap_nums(cls, p1: Self, p2: Self) -> None:
+        """This is really ugly because of the UNIQUE constraint, but we encapsulate this
+        here in the interest of the caller's code.  Note that this operation implicitly
+        saves both player records (twice!--no way around that).
+        """
+        nums_rev = (p2.player_num, p1.player_num)
+        p1.player_num, p2.player_num = None, None
+        p1.save()
+        p2.save()
+        p1.player_num, p2.player_num = nums_rev
+        p1.save()
+        p2.save()
 
     @classmethod
     def current_round(cls) -> int:
@@ -979,7 +992,8 @@ class SeedGame(BaseModel):
         if tourn.stage_compl < TournStage.SEED_BRACKET:
             return 0
 
-        round_games = tourn.players // 4
+        seed_players = tourn.players - len(Player.late_arrivals())
+        round_games = seed_players // 4
         query = (cls
                  .select(cls.round_num, fn.count(cls.id))
                  .where(cls.winner.is_null(False))

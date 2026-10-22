@@ -620,9 +620,9 @@
                 <td>{{tm.team_seed}}</td>
                 <td class="team_lbl">{{tm.team_name}}</td>
                 <td class="vert_sect">{{"y" if tm.is_champ else ""}}</td>
-                <td class="vert_sect">{{tm.player1.player_rank}}</td>
-                <td>{{tm.player2.player_rank}}</td>
-                <td>{{tm.player3.player_rank if tm.player3 else ""}}</td>
+                <td class="vert_sect">{{tm.player1.player_rank_eff}}</td>
+                <td>{{tm.player2.player_rank_eff}}</td>
+                <td>{{tm.player3.player_rank_eff if tm.player3 else ""}}</td>
                 <td class="vert_sect">{{fmt_avg(tm.avg_player_rank)}}</td>
                 {% if chart_num == 11 %}
                 <td class="rank vert_sect" id="tm_{{tm.id}}" title="{{seed_note[tm.id]}}">

@@ -20,7 +20,7 @@ from werkzeug.security import generate_password_hash
 from core import DATA_DIR, UPLOAD_DIR, config, profile, log, ImplementationError
 from security import current_user, admin_required, DUMMY_PW_STR
 from database import (DB_FILETYPE, db_atomic, db_init, db_name, db_reset, db_is_initialized,
-                      db_checkpoint)
+                      db_prepare, db_checkpoint)
 from schema import (clear_schema_cache, Bracket, TournStage, TOURN_INIT, ALL_STAGES,
                     PRELIM_STAGES, ACTIVE_STAGES, TournInfo, TournEvent, TournLog,
                     Player, SeedGame, TournGame, PlayoffGame)
@@ -535,6 +535,7 @@ def create_tourn(form: dict) -> str:
             }
             tourn = tourn_create(force=overwrite, **attrs)
             upload_roster(roster_path)
+            db_prepare()  # archive previous checkpoint files, etc.
             tourn = TournInfo.get()
             session['tourn'] = tourn.name
             log.info(f"setting tourn = '{tourn.name}' in session state")

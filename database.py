@@ -1,7 +1,7 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#d -*- coding: utf-8 -*-
 
 import re
+from collections.abc import Callable
 from datetime import datetime, date
 from glob import glob
 import os.path
@@ -30,6 +30,9 @@ def now_str() -> str:
     """Readable format that works for string comparisons.
     """
     return datetime.now().strftime(TIME_FMT)
+
+# return unixtime as an int (i.e. to the second)
+unixtime = lambda: int(datetime.now().timestamp())
 
 # count and timing of SQL statements, by SQL command
 Tally = dict[str, int]
@@ -231,8 +234,16 @@ def db_is_closed() -> bool:
     """
     return db.is_closed()
 
-# return unixtime as an int (i.e. to the second)
-unixtime = lambda: int(datetime.now().timestamp())
+def db_prepare() -> None:
+    """Finish setting up newly created database.  For now, this just means archiving any
+    previous checkpoint files with the same database name.
+    """
+    assert db_is_initialized()
+    archive_tag = str(unixtime())
+    archive_checkpoints(archive_tag)
+
+# sequence of db checkpoints for a tournament, in chronological order
+ChkptSeq = dict[str, stat_result]
 
 # checkpoints not explicitly tied to a tournament stage are considered "hidden"
 hidden_chkpt = lambda tag: not tag.startswith('stage-')
@@ -290,20 +301,32 @@ def restore_from_checkpoint(chkpt_tag: str) -> None:
     # from, since they are essentially now rendered obsolete (or at least, will be, upon
     # the first new update)
     chkpt_ctime = stat(chkpt_path).st_ctime
-    archive_dir = os.path.join(DATA_DIR, f"archive-{ts}")
-    log.info(f"Archiving checkpoints newer than {chkpt_ctime} to '{archive_dir}'")
-    makedirs(archive_dir, exist_ok=True)
-    for tag, file_info in chkpts.items():
-        if file_info.st_ctime <= chkpt_ctime:
-            continue
-        filepath = db_savepath(tag)
-        shutil.move(filepath, archive_dir)
-        log.debug(f"archiving file '{filepath}' to dir '{archive_dir}'")
+    to_archive = {t: info for t, info in chkpts.items() if info.st_ctime > chkpt_ctime}
+    archive_dir = archive_checkpoints(str(ts), to_archive)
     shutil.move(hidden_file, archive_dir)
     log.debug(f"archiving file '{hidden_file}' to dir '{archive_dir}'")
 
-def get_checkpoints(include_hidden: bool = False, do_print: bool = False) \
-        -> dict[str, stat_result]:
+def archive_checkpoints(archive_tag: str, chkpts: ChkptSeq = None) -> str | None:
+    """Archive specified (or all) checkpoint files for the current database.  Return
+    pathname of the archive directory (or `None` if no checkpoints to archive).
+    """
+    chkpts = chkpts or get_checkpoints(include_hidden=True)
+    if not chkpts:
+        log.info(f"No checkpoints to archive for tag '{archive_tag}'")
+        return None
+    archive_dir = os.path.join(DATA_DIR, f"archive-{archive_tag}")
+    log.info(f"Archiving {len(chkpts)} checkpoints to '{archive_dir}'")
+    makedirs(archive_dir, exist_ok=True)
+    for chkpt_tag in chkpts:
+        filepath = db_savepath(chkpt_tag)
+        shutil.move(filepath, archive_dir)
+        log.debug(f"archiving file '{filepath}' to dir '{archive_dir}'")
+    return archive_dir
+
+filesize = lambda tag, info: f"File size (bytes): {info.st_size}"
+
+def get_checkpoints(include_hidden: bool = False, do_print: bool = False,
+                    chkpt_desc: Callable = filesize) -> ChkptSeq:
     """Get dict of checkpoints (indexed by tag, with file info from `stat` as the value)
     for the current database, in ascending chronological order.  "Hidden" checkpoints (if
     requested) include those implicitly generated before database restores, or otherwise
@@ -317,14 +340,14 @@ def get_checkpoints(include_hidden: bool = False, do_print: bool = False) \
     # represented as: list[tuple[tag, stat_result]]
     chkpts = [(get_tag(f), stat(os.path.join(DATA_DIR, f))) for f in files
               if include_hidden or not hidden_chkpt(get_tag(f))]
-    chkpt_info = dict(sorted(chkpts, key=lambda cp: cp[1].st_ctime))
+    chkpt_seq = dict(sorted(chkpts, key=lambda cp: cp[1].st_ctime))
     if do_print:
-        print(f"{'Checkpoint Tag':18}\t{'Timestamp':28}\tFilesize")
-        print(f"{'-' * 16:18}\t{'-' * 26:28}\t{'-' * 8}")
-        for tag, file_info in chkpt_info.items():
-            ctime = datetime.fromtimestamp(file_info.st_ctime)
-            print(f"{tag:18}\t{str(ctime):28}\t{file_info.st_size}")
-    return chkpt_info
+        print(f"{'Checkpoint Tag':18}\t{'Timestamp':28}\tDescription")
+        print(f"{'-' * 16:18}\t{'-' * 26:28}\t{'-' * 25}")
+        for tag, info in chkpt_seq.items():
+            ctime = datetime.fromtimestamp(info.st_ctime)
+            print(f"{tag:18}\t{str(ctime):28}\t{chkpt_desc(tag, info)}")
+    return chkpt_seq
 
 #############
 # BaseModel #
@@ -364,49 +387,3 @@ class BaseModel(Model):
         elif 'updated_at' not in self._dirty:
             self.updated_at = now_str()
         return super().save(*args, **kwargs)
-
-########
-# main #
-########
-
-from functools import partial
-import sys
-
-from ckautils import parse_argv
-
-MOD_FUNCS = {
-    'get_checkpoints'        : partial(get_checkpoints, do_print=True),
-    'restore_from_checkpoint': restore_from_checkpoint,
-}
-
-def main() -> int:
-    """Built-in driver to invoke database functions
-
-    Usage: python -m database <db_name> <func> [<args>]
-
-    Functions (and args):
-      - get_checkpoints [include_hidden=<bool>]
-      - restore_from_checkpoint <chkpt_tag>
-    """
-    mod_func = None
-    usage = lambda msg: msg + "\n\n" + main.__doc__
-    if len(sys.argv) < 2:
-        return usage(f"Database name not specified")
-    if len(sys.argv) < 3:
-        return usage(f"Function not specified")
-
-    db_name = sys.argv[1]
-    func_name = sys.argv[2]
-    if func_name not in MOD_FUNCS:
-        return usage(f"Unknown function '{func_name}'")
-    else:
-        mod_func = MOD_FUNCS[func_name]
-
-    args, kwargs = parse_argv(sys.argv[3:])
-    db_init(db_name, force=True)
-    mod_func(*args, **kwargs)  # will throw exceptions on error
-    db_close()
-    return 0
-
-if __name__ == '__main__':
-    sys.exit(main())

@@ -57,6 +57,8 @@ def main() -> int:
     Usage: python -m util <tourn_name> <func> [<args> ...]
 
     Functions/usage:
+      - dump_player_data
+      - dump_team_data
     """
     if len(sys.argv) < 2:
         print(main.__doc__)

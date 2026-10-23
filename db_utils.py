@@ -4,7 +4,6 @@
 from datetime import datetime
 from os import stat_result
 
-from database import db_init, db_close, get_checkpoints, restore_from_checkpoint
 from schema import StageData
 
 STR_MAP = {
@@ -37,6 +36,8 @@ from functools import partial
 import sys
 
 from ckautils import parse_argv
+
+from database import db_init, db_close, get_checkpoints, restore_from_checkpoint
 
 DB_UTILS = {
     'get_checkpoints'        : partial(get_checkpoints, do_print=True, chkpt_desc=chkpt_desc),

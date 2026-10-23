@@ -323,10 +323,7 @@ def archive_checkpoints(archive_tag: str, chkpts: ChkptSeq = None) -> str | None
         log.debug(f"archiving file '{filepath}' to dir '{archive_dir}'")
     return archive_dir
 
-filesize = lambda tag, info: f"File size (bytes): {info.st_size}"
-
-def get_checkpoints(include_hidden: bool = False, do_print: bool = False,
-                    chkpt_desc: Callable = filesize) -> ChkptSeq:
+def get_checkpoints(include_hidden: bool = False) -> ChkptSeq:
     """Get dict of checkpoints (indexed by tag, with file info from `stat` as the value)
     for the current database, in ascending chronological order.  "Hidden" checkpoints (if
     requested) include those implicitly generated before database restores, or otherwise
@@ -341,12 +338,6 @@ def get_checkpoints(include_hidden: bool = False, do_print: bool = False,
     chkpts = [(get_tag(f), stat(os.path.join(DATA_DIR, f))) for f in files
               if include_hidden or not hidden_chkpt(get_tag(f))]
     chkpt_seq = dict(sorted(chkpts, key=lambda cp: cp[1].st_ctime))
-    if do_print:
-        print(f"{'Checkpoint Tag':18}\t{'Timestamp':28}\tDescription")
-        print(f"{'-' * 16:18}\t{'-' * 26:28}\t{'-' * 25}")
-        for tag, info in chkpt_seq.items():
-            ctime = datetime.fromtimestamp(info.st_ctime)
-            print(f"{tag:18}\t{str(ctime):28}\t{chkpt_desc(tag, info)}")
     return chkpt_seq
 
 #############

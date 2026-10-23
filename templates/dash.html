@@ -398,11 +398,13 @@
      {% else %}
      startElapsed();
      {% endif %}
+     {% if update_int > 1999 %}
      if (!paused && !done) {
        timeoutId = window.setTimeout(function() {
          window.location.reload();
        }, {{update_int}});
      }
+     {% endif %}
    });
   </script>
 </html>

@@ -754,7 +754,7 @@
        });
      };
 
-     if (!timeoutId && {{update_int}} > 0) {
+     if (!timeoutId && {{update_int}} > 1999) {
        // do this with timeout (instead of interval) just so requests don't get
        // backed-up when debugging and/or if server is loaded
        timeoutId = setTimeout(chkGameScore, {{update_int}});
@@ -825,7 +825,7 @@
        });
      };
 
-     if (!timeoutId && {{update_int}} > 0) {
+     if (!timeoutId && {{update_int}} > 1999) {
        // do this with timeout (vs. interval) so requests don't get backed-up when
        // debugging and/or if server is loaded (as above with game scores)
        timeoutId = setTimeout(chkCurrentPick, {{update_int}});

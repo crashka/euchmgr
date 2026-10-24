@@ -4,14 +4,27 @@
 """
 
 from ckautils import typecast
-from flask import Blueprint, session, request, render_template, abort
+from flask import Blueprint, g, session, request, render_template, abort
 
+from core import config, profile
 from security import current_user
+from database import now_str
 from schema import GAME_PTS, RankType, RankAction
 from ui_schema import (Numeric, fmt_pct, fmt_tally, TournInfo, Player, SeedGame, Team,
                        TournGame, PlayerGame, TeamGame)
 from ui_common import referrer_path
 from euchmgr import get_div_maps
+
+################
+# module stuff #
+################
+
+cfg = config.config('chart', profile)
+
+# update intervals/adjustments for charts (by name)
+UPD_INT = cfg['update_int']
+UPD_ADJ = cfg['update_adj']
+upd_int = lambda x: UPD_INT[x] - UPD_ADJ[x]
 
 #################
 # utility stuff #
@@ -180,6 +193,10 @@ def sd_bracket(tourn: TournInfo) -> str:
     context = {
         'chart_num' : 0,
         'title'     : SD_BRACKET,
+        'mobile'    : g.mobile,
+        'updated'   : now_str(),
+        'update_int': upd_int('sd_bracket'),
+        'done'      : tourn.seeding_done(),
         'tourn'     : tourn,
         'rnds'      : tourn.seed_rounds,
         'rnd_tables': rnd_tables,
@@ -236,6 +253,10 @@ def sd_scores(tourn: TournInfo) -> str:
     context = {
         'chart_num'   : 1,
         'title'       : SD_SCORES,
+        'mobile'      : g.mobile,
+        'updated'     : now_str(),
+        'update_int'  : upd_int('sd_scores'),
+        'done'        : tourn.seeding_done(),
         'tourn'       : tourn,
         'rnds'        : tourn.seed_rounds,
         'players'     : pl_list,
@@ -305,6 +326,10 @@ def rr_brackets(tourn: TournInfo) -> str:
     context = {
         'chart_num' : 2,
         'title'     : RR_BRACKETS,
+        'mobile'    : g.mobile,
+        'updated'   : now_str(),
+        'update_int': upd_int('rr_brackets'),
+        'done'      : tourn.round_robin_done(),
         'tourn'     : tourn,
         'rnds'      : tourn.tourn_rounds,
         'div_list'  : div_list,
@@ -371,6 +396,10 @@ def rr_scores(tourn: TournInfo) -> str:
     context = {
         'chart_num'   : 3,
         'title'       : RR_SCORES,
+        'mobile'      : g.mobile,
+        'updated'     : now_str(),
+        'update_int'  : upd_int('rr_scores'),
+        'done'        : tourn.round_robin_done(),
         'tourn'       : tourn,
         'rnds'        : tourn.tourn_rounds,
         'div_list'    : div_list,

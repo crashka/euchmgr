@@ -595,11 +595,11 @@ class Player(BaseModel, EuchmgrUser):
         here in the interest of the caller's code.  Note that this operation implicitly
         saves both player records (twice!--no way around that).
         """
-        nums_rev = (p2.player_num, p1.player_num)
+        rev_nums = (p2.player_num, p1.player_num)
         p1.player_num, p2.player_num = None, None
         p1.save()
         p2.save()
-        p1.player_num, p2.player_num = nums_rev
+        p1.player_num, p2.player_num = rev_nums
         p1.save()
         p2.save()
 

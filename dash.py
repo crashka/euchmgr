@@ -8,10 +8,22 @@ from itertools import groupby
 
 from flask import Blueprint, session, render_template, abort
 
+from core import config, profile
 from database import now_str
 from schema import GAME_PTS
 from ui_schema import (Numeric, fmt_pct, fmt_tally, TournInfo, Player, PartnerPick, Team,
                        PlayerGame, TeamGame, PlayoffGame)
+
+################
+# module stuff #
+################
+
+cfg = config.config('dash', profile)
+
+# update intervals/adjustments for dashboards (by name)
+UPD_INT = cfg['update_int']
+UPD_ADJ = cfg['update_adj']
+upd_int = lambda x: UPD_INT[x] - UPD_ADJ[x]
 
 #################
 # utility stuff #
@@ -98,15 +110,6 @@ DASH_FUNCS = [
     'ff_dash'
 ]
 
-# update intervals specified in msecs
-DASH_UPDATE_INT = 5000
-BRACKET_UPDATE_INT = 10000
-# adjustments are related to time spent processing
-SD_UPDATE_ADJ = 350
-RR_UPDATE_ADJ = 200
-PT_UPDATE_ADJ = 100
-FF_UPDATE_ADJ = 100
-
 # CSS class to use for up and down movement
 COLCLS_UP   = 'grn_fg'
 COLCLS_DOWN = 'red_fg'
@@ -155,7 +158,6 @@ def render_bracket(context: dict) -> str:
 def sd_dash(tourn: TournInfo) -> str:
     """Render seed round live dashboard
     """
-    update_int = DASH_UPDATE_INT - SD_UPDATE_ADJ
     done = tourn.seeding_done()
 
     sort_key = lambda pl: pl.player_rank_eff or tourn.players
@@ -317,7 +319,7 @@ def sd_dash(tourn: TournInfo) -> str:
         'dash_num'    : 0,
         'title'       : SD_DASH,
         'updated'     : updated,
-        'update_int'  : update_int,
+        'update_int'  : upd_int('sd_dash'),
         'done'        : done,
         'tourn'       : tourn,
         'rnds'        : tourn.seed_rounds,
@@ -339,7 +341,6 @@ def sd_dash(tourn: TournInfo) -> str:
 def rr_dash(tourn: TournInfo) -> str:
     """Render round robin live dashboard
     """
-    update_int = DASH_UPDATE_INT - RR_UPDATE_ADJ
     done = tourn.round_robin_done()
 
     div_list = list(range(1, tourn.divisions + 1))
@@ -514,7 +515,7 @@ def rr_dash(tourn: TournInfo) -> str:
         'dash_num'    : 1,
         'title'       : RR_DASH,
         'updated'     : updated,
-        'update_int'  : update_int,
+        'update_int'  : upd_int('rr_dash'),
         'done'        : done,
         'tourn'       : tourn,
         'rnds'        : tourn.tourn_rounds,
@@ -537,7 +538,6 @@ def rr_dash(tourn: TournInfo) -> str:
 def pt_dash(tourn: TournInfo) -> str:
     """Render seed round live dashboard
     """
-    update_int = DASH_UPDATE_INT - PT_UPDATE_ADJ
     done = tourn.partner_picks_done()
 
     picks_made  = PartnerPick.get_picks() or []
@@ -565,7 +565,7 @@ def pt_dash(tourn: TournInfo) -> str:
         'dash_num'    : 2,
         'title'       : PT_DASH,
         'updated'     : updated,
-        'update_int'  : update_int,
+        'update_int'  : upd_int('pt_dash'),
         'done'        : done,
         'tourn'       : tourn,
         'picks_made'  : picks_made,
@@ -592,7 +592,6 @@ def fmt_scores(games: list[PlayoffGame]) -> str:
 def ff_dash(tourn: TournInfo) -> str:
     """Render final four live bracket
     """
-    update_int = BRACKET_UPDATE_INT - FF_UPDATE_ADJ
     done = tourn.playoffs_done()
 
     # match_ident: (team1, team2, winner, [games])
@@ -628,7 +627,7 @@ def ff_dash(tourn: TournInfo) -> str:
         'dash_num'  : 3,
         'title'     : FF_DASH,
         'updated'   : updated,
-        'update_int': update_int,
+        'update_int': upd_int('ff_dash'),
         'done'      : done,
         'tourn'     : tourn,
         'brckt'     : brckt_info,

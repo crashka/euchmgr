@@ -20,12 +20,33 @@
        margin-top: 0.0rem;
        margin-bottom: 0.0rem;
      }
+     {% if chart_num in (0, 1, 2, 3) and not mobile %}
+     .updated {
+       display: block;
+       float: right;
+       margin-top: 0.4rem;
+     }
+     .updated button {
+       margin-left: 0.8rem;
+       padding: 0.2rem 0.8rem;
+     }
+     .updated button[value="pause_upd"] {
+       display: inline;
+     }
+     .updated button[value="resume_upd"],
+     .updated button[value="restart_upd"] {
+       display: none;
+     }
+     {% endif %}
      .container {
+       width: max-content;
        margin-top: 1.0rem;
+       padding-right: 1.0rem;
        overflow-x: auto;
        white-space: nowrap;
      }
      .section {
+       width: max-content;
        margin-top: 1.5rem;
        margin-bottom: 1.75rem;
      }
@@ -155,6 +176,16 @@
         {{tourn.name}} &ndash; {{title}}
         <span class="h1_info">{{(title_note or '')|safe}}</span>
       </h1>
+      {% if chart_num in (0, 1, 2, 3) and not mobile %}
+      <input class="start" type="hidden" name="start" value="">
+      <span class="updated">
+        Updated: {{updated}} (<span class="elapsed">0 secs ago</span>)
+        <button value="pause_upd">Pause Updates</button>
+        <button value="resume_upd">Resume Updates</button>
+        <button value="restart_upd">Restart Updates</button>
+      </span>
+      {% endif %}
+
       {% if chart_num == 0 %}
       <div class="section seed_bracket">
         <table>
@@ -892,6 +923,79 @@
      $('input.dummy').on("focus", function() {
        $(this).nextAll('button:enabled, a[href]').first().focus();
      });
+
+     {% if chart_num in (0, 1, 2, 3) and not mobile %}
+     // auto-update stuff
+     let paused = false;
+     let done = {{'true' if done else 'false'}};
+     let intervalId;
+     let timeoutId;
+
+     function updElapsed(startVal) {
+       const nowVal = Math.round(Date.now() / 1000.0);
+       const elapsed = nowVal - startVal
+       $(".elapsed").text(elapsed + " secs ago");
+     };
+
+     function startElapsed() {
+       const $start = $("input.start");
+       if (!$start.val()) {
+         $start.val(Math.round(Date.now() / 1000.0));
+       }
+       intervalId = setInterval(updElapsed, 1000, $start.val());
+     };
+
+     $("button[value='pause_upd']").on('click', function() {
+       paused = true;
+       if (timeoutId) {
+         window.clearTimeout(timeoutId);
+         timeoutId = null;
+       }
+       if (intervalId) {
+         window.clearInterval(intervalId);
+         intervalId = null;
+       }
+       $(this).css('display', 'none');
+       $("button[value='resume_upd']").css('display', 'inline');
+       $(".elapsed").text("paused");
+     });
+
+     $("button[value='resume_upd']").on('click', function() {
+       paused = false;
+       $(this).css('display', 'none');
+       $("button[value='pause_upd']").css('display', 'inline');
+       window.setTimeout(function() {
+         window.location.reload();
+       }, 1000);
+       $(".elapsed").text("resuming");
+     });
+
+     $("button[value='restart_upd']").on('click', function() {
+       paused = false;
+       done = false;
+       $(this).css('display', 'none');
+       $("button[value='pause_upd']").css('display', 'inline');
+       window.setTimeout(function() {
+         window.location.reload();
+       }, 1000);
+       $(".elapsed").text("restarting");
+     });
+
+     {% if done %}
+     $("button[value='pause_upd']").css('display', 'none');
+     $("button[value='restart_upd']").css('display', 'inline');
+     $(".elapsed").text("done");
+     {% else %}
+     startElapsed();
+     {% endif %}
+     {% if update_int > 1999 %}
+     if (!paused && !done) {
+       timeoutId = window.setTimeout(function() {
+         window.location.reload();
+       }, {{update_int}});
+     }
+     {% endif %}  {# update_int > 1999 #}
+     {% endif %}  {# auto-update #}
    });
   </script>
 </html>

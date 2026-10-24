@@ -752,10 +752,12 @@ def view_menu(player: Player) -> dict[str, str]:
 
 VIEW_RESOURCES = {
     View.SEEDING    : [('/chart/sd_bracket',   "Seeding Bracket"),
-                       ('/chart/sd_scores',    "Seeding Scores")],
+                       ('/chart/sd_scores',    "Seeding Scores"),
+                       ('/chart/sd_results',   "Seeding Results")],
     View.ROUND_ROBIN: [('/chart/rr_brackets',  "Round Robin Brackets"),
                        ('/chart/rr_scores',    "Round Robin Scores"),
-                       ('/report/tie_breaker', "Tie-Breaker Report")]
+                       ('/chart/div_results',  "Round Robin Results"),
+                       ('/report/rr_tbreak',   "Tie-Breaker Report")]
 }
 
 # informational data fields, by view

@@ -26,3 +26,27 @@ default:
       cur_game:                5000
       compl_game:              2000
       cur_pick:                5000
+
+  dash:
+    update_int:
+      sd_dash:                 5000
+      rr_dash:                 5000
+      pt_dash:                 5000
+      ff_dash:                 10000
+    update_adj:
+      sd_dash:                 350
+      rr_dash:                 200
+      pt_dash:                 100
+      ff_dash:                 100
+
+  chart:
+    update_int:
+      sd_bracket:              10000
+      sd_scores:               10000
+      rr_brackets:             10000
+      rr_scores:               10000
+    update_adj:
+      sd_bracket:              300
+      sd_scores:               100
+      rr_brackets:             300
+      rr_scores:               100

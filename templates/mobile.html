@@ -603,6 +603,12 @@
        }
      });
 
+     function assert(condition, message) {
+       if (!condition) {
+         throw message || "Assertion failed";
+       }
+     }
+
      // add css and attributes
      $('.actions button')
        .attr({
@@ -740,13 +746,18 @@
              // yet, make this a soft error and move to success handler above!!!
              timeoutId = setTimeout(chkGameScore, {{update_int}});
            }
+           else if (req.status == 401 && data) {
+             assert(data.err == "User is not authenticated")
+             showError("Euchre Manager paused");
+             timeoutId = null;
+           }
            else if (data) {
-             console.log("/game_score error: " + data.err, data);
+             console.log("/game_score error (" + req.status + "): " + data.err, data);
              showError(data.err + " (" + data.info + ")");
              timeoutId = null;
            }
            else {
-             console.log("/game_score error:\n" + req.responseText);
+             console.log("/game_score error (" + req.status + "):\n" + req.responseText);
              showError(req.statusText + " (" + req.status + ")");
              timeoutId = null;
            }
@@ -811,13 +822,18 @@
          },
          error: function(req, status) {
            data = req.responseJSON;
-           if (data) {
-             console.log("/current_pick error: " + data.err, data);
+           if (req.status == 401 && data) {
+             assert(data.err == "User is not authenticated")
+             showError("Euchre Manager paused");
+             timeoutId = null;
+           }
+           else if (data) {
+             console.log("/current_pick error (" + req.status + "): " + data.err, data);
              showError(data.err + " (" + data.info + ")");
              timeoutId = null;
            }
            else {
-             console.log("/current_pick error:\n" + req.responseText);
+             console.log("/current_pick error (" + req.status + "):\n" + req.responseText);
              showError(req.statusText + " (" + req.status + ")");
              timeoutId = null;
            }

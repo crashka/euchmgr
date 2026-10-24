@@ -479,6 +479,187 @@ def test_gen_semis_bracket(admin_client):
     validate_button(form, "tabulate_semis_results", False)
     validate_button(form, "tabulate_finals_results", False)
 
+def test_get_semis_data(admin_client):
+    """Validate that playoffs game data reflects pre-semis state.
+    """
+    client = admin_client
+    resp = client.get("/playoffs/data", follow_redirects=True)
+    assert resp.status_code == 200
+    assert len(resp.history) == 0
+    assert resp.request.path == '/playoffs/data'
+
+    tourn = TournInfo.get()
+    matchup_games = 3  # hard-wired
+    assert tourn.playoff_teams == 4
+    ngames = tourn.playoff_teams // 2 * matchup_games
+    ajax_resp = json.loads(resp.text)
+    assert ajax_resp['succ']
+    assert isinstance(ajax_resp['data'], list)
+    semis_games = [gm for gm in ajax_resp['data'] if gm['bracket'] == 'sf']
+    semis_winners = [gm for gm in semis_games if gm['winner']]
+    assert len(semis_games) == ngames
+    assert len(semis_winners) == 0
+    assert len(ajax_resp['data']) == ngames
+
+def test_fake_semis_results(admin_client):
+    """Generating fake semis results should enable the `tabulate_semis_results` button.
+    """
+    client = admin_client
+    data = {
+        'action': "fake_semis_results"
+    }
+    resp = client.post("/playoffs/fake_semis_results", data=data, follow_redirects=True)
+    assert resp.status_code == 200
+    assert len(resp.history) == 1
+    assert resp.request.path == '/playoffs'
+
+    soup = BeautifulSoup(resp.text, 'html.parser')
+    validate_view(soup, View.PLAYOFFS)
+    validate_stage(soup, TournStage.SEMIS_RESULTS)
+
+    form = soup.select_one('form.actions[action="playoffs"]')
+    validate_button(form, "fake_semis_results", False)
+    validate_button(form, "tabulate_semis_results", True)
+
+def test_tabulate_semis_results(admin_client):
+    """Tabulating semis results should return the Final Four view.
+    """
+    client = admin_client
+    data = {
+        'action': "tabulate_semis_results"
+    }
+    resp = client.post("/playoffs/tabulate_semis_results", data=data, follow_redirects=True)
+    assert resp.status_code == 200
+    assert len(resp.history) == 1
+    assert resp.request.path == '/final_four'
+
+    soup = BeautifulSoup(resp.text, 'html.parser')
+    validate_view(soup, View.FINAL_FOUR)
+    validate_stage(soup, TournStage.SEMIS_RANKS)
+
+    form = soup.select_one('form.actions[action="final_four"]')
+    validate_button(form, "gen_semis_bracket", False)
+    validate_button(form, "gen_finals_bracket", True)
+
+def test_get_final_four_data_2(admin_client):
+    """Validate that final four teams data is populated.
+    """
+    client = admin_client
+    resp = client.get("/final_four/data", follow_redirects=True)
+    assert resp.status_code == 200
+    assert len(resp.history) == 0
+    assert resp.request.path == '/final_four/data'
+
+    tourn = TournInfo.get()
+    ajax_resp = json.loads(resp.text)
+    assert ajax_resp['succ']
+    assert isinstance(ajax_resp['data'], list)
+    assert len(ajax_resp['data']) == 4
+
+def test_gen_finals_bracket(admin_client):
+    """Generating finals bracket should return the Playoffs view.
+    """
+    client = admin_client
+    data = {
+        'action': "gen_finals_bracket"
+    }
+    resp = client.post("/final_four/gen_finals_bracket", data=data, follow_redirects=True)
+    assert resp.status_code == 200
+    assert len(resp.history) == 1
+    assert resp.request.path == '/playoffs'
+
+    soup = BeautifulSoup(resp.text, 'html.parser')
+    validate_view(soup, View.PLAYOFFS)
+    validate_stage(soup, TournStage.FINALS_BRACKET)
+
+    form = soup.select_one('form.actions[action="playoffs"]')
+    validate_button(form, "tabulate_semis_results", False)
+    validate_button(form, "tabulate_finals_results", False)
+
+def test_get_finals_data(admin_client):
+    """Validate that playoffs game data reflects pre-finals state.
+    """
+    client = admin_client
+    resp = client.get("/playoffs/data", follow_redirects=True)
+    assert resp.status_code == 200
+    assert len(resp.history) == 0
+    assert resp.request.path == '/playoffs/data'
+
+    ajax_resp = json.loads(resp.text)
+    assert ajax_resp['succ']
+    assert isinstance(ajax_resp['data'], list)
+    semis_games = [gm for gm in ajax_resp['data'] if gm['bracket'] == 'sf']
+    semis_winners = [gm for gm in semis_games if gm['winner']]
+    assert len(semis_games) in (4, 5, 6)
+    assert len(semis_winners) == len(semis_games)
+    finals_games = [gm for gm in ajax_resp['data'] if gm['bracket'] == 'fn']
+    finals_winners = [gm for gm in finals_games if gm['winner']]
+    assert len(finals_games) == 3  # hard-wired
+    assert len(finals_winners) == 0
+    assert len(ajax_resp['data']) == len(semis_games + finals_games)
+
+def test_fake_finals_results(admin_client):
+    """Generating fake finals results should enable the `tabulate_finals_results` button.
+    """
+    client = admin_client
+    data = {
+        'action': "fake_finals_results"
+    }
+    resp = client.post("/playoffs/fake_finals_results", data=data, follow_redirects=True)
+    assert resp.status_code == 200
+    assert len(resp.history) == 1
+    assert resp.request.path == '/playoffs'
+
+    soup = BeautifulSoup(resp.text, 'html.parser')
+    validate_view(soup, View.PLAYOFFS)
+    validate_stage(soup, TournStage.FINALS_RESULTS)
+
+    form = soup.select_one('form.actions[action="playoffs"]')
+    validate_button(form, "fake_semis_results", False)
+    validate_button(form, "tabulate_finals_results", True)
+
+def test_tabulate_finals_results(admin_client):
+    """Tabulating finals results should return the Final Four view.
+    """
+    client = admin_client
+    data = {
+        'action': "tabulate_finals_results"
+    }
+    resp = client.post("/playoffs/tabulate_finals_results", data=data, follow_redirects=True)
+    assert resp.status_code == 200
+    assert len(resp.history) == 1
+    assert resp.request.path == '/final_four'
+
+    soup = BeautifulSoup(resp.text, 'html.parser')
+    validate_view(soup, View.FINAL_FOUR)
+    validate_stage(soup, TournStage.TOURN_FINAL)
+
+    form = soup.select_one('form.actions[action="final_four"]')
+    validate_button(form, "gen_semis_bracket", False)
+    validate_button(form, "gen_finals_bracket", False)
+
+def test_get_final_playoff_data(admin_client):
+    """Validate that playoffs game data reflects championship state.
+    """
+    client = admin_client
+    resp = client.get("/playoffs/data", follow_redirects=True)
+    assert resp.status_code == 200
+    assert len(resp.history) == 0
+    assert resp.request.path == '/playoffs/data'
+
+    ajax_resp = json.loads(resp.text)
+    assert ajax_resp['succ']
+    assert isinstance(ajax_resp['data'], list)
+    semis_games = [gm for gm in ajax_resp['data'] if gm['bracket'] == 'sf']
+    semis_winners = [gm for gm in semis_games if gm['winner']]
+    assert len(semis_games) in (4, 5, 6)
+    assert len(semis_winners) == len(semis_games)
+    finals_games = [gm for gm in ajax_resp['data'] if gm['bracket'] == 'fn']
+    finals_winners = [gm for gm in finals_games if gm['winner']]
+    assert len(finals_games) in (2, 3)
+    assert len(finals_winners) == len(finals_games)
+    assert len(ajax_resp['data']) == len(semis_games + finals_games)
+
 ####################
 # tourn management #
 ####################
@@ -567,14 +748,14 @@ def test_resume_tourn(admin_client):
     resp = client.post("/tourn/select_tourn", data=data, follow_redirects=True)
     assert resp.status_code == 200
     assert len(resp.history) == 2
-    assert resp.request.path == '/playoffs'
+    assert resp.request.path == '/final_four'
     err_msg = f"showError(\'Resuming operation of tournament \"{TEST_DB}\""
     assert resp.text.find(err_msg) > -1
 
     soup = BeautifulSoup(resp.text, 'html.parser')
-    validate_view(soup, View.PLAYOFFS)
-    validate_stage(soup, TournStage.SEMIS_BRACKET)
+    validate_view(soup, View.FINAL_FOUR)
+    validate_stage(soup, TournStage.TOURN_FINAL)
 
-    form = soup.select_one('form.actions[action="playoffs"]')
-    validate_button(form, "tabulate_semis_results", False)
-    validate_button(form, "tabulate_finals_results", False)
+    form = soup.select_one('form.actions[action="final_four"]')
+    validate_button(form, "gen_semis_bracket", False)
+    validate_button(form, "gen_finals_bracket", False)

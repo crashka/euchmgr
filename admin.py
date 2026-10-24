@@ -29,7 +29,8 @@ from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_se
                      prepick_champ_partners, fake_pick_partners, build_tourn_teams,
                      compute_team_seeds, build_tourn_bracket, fake_tourn_games,
                      validate_tourn, compute_team_ranks, build_playoff_bracket,
-                     validate_playoffs, compute_playoff_ranks, compute_final_ranks)
+                     fake_playoff_games, validate_playoffs, compute_playoff_ranks,
+                     compute_final_ranks)
 from ui_common import (process_flashes, msg_join, cap_first, render_response, redirect,
                        render_error, api_succ, api_error)
 from data import (Layout, pl_layout, sg_layout, pt_layout, tm_layout, tg_layout, ff_layout,
@@ -388,6 +389,8 @@ VIEW_ACTIONS = {
         'gen_finals_bracket'
     ],
     View.PLAYOFFS: [
+        'fake_semis_results',
+        'fake_finals_results',
         'tabulate_semis_results',
         'tabulate_finals_results',
         'clear_playoff_results'
@@ -407,7 +410,9 @@ POWER_ACTIONS = [
 TEST_ACTIONS = [
     'fake_seed_results',
     'fake_partner_picks',
-    'fake_tourn_results'
+    'fake_tourn_results',
+    'fake_semis_results',
+    'fake_finals_results'
 ]
 
 # key: action function (doubles as button name in views)
@@ -426,9 +431,11 @@ ACTION_INFO = {
     'gen_tourn_brackets'     : ("Create Round Robin Brackets", [TournStage.TEAM_SEEDS]),
     'fake_tourn_results'     : ("Generate Fake Results",       [TournStage.TOURN_BRACKET]),
     'tabulate_tourn_results' : ("Tabulate Results",            [TournStage.TOURN_RESULTS]),
-    'gen_semis_bracket'      : ("Create Semifinals Bracket",   [TournStage.TOURN_RANKS]),
-    'tabulate_semis_results' : ("Tabulate Semifinals Results", [TournStage.SEMIS_RESULTS]),
+    'gen_semis_bracket'      : ("Create Semis Bracket",        [TournStage.TOURN_RANKS]),
+    'fake_semis_results'     : ("Gen Fake Semis Results",      [TournStage.SEMIS_BRACKET]),
+    'tabulate_semis_results' : ("Tabulate Semis Results",      [TournStage.SEMIS_RESULTS]),
     'gen_finals_bracket'     : ("Create Finals Bracket",       [TournStage.SEMIS_RANKS]),
+    'fake_finals_results'    : ("Gen Fake Finals Results",     [TournStage.FINALS_BRACKET]),
     'tabulate_finals_results': ("Tabulate Finals Results",     [TournStage.FINALS_RESULTS])
 }
 
@@ -756,6 +763,14 @@ def gen_finals_bracket(form: dict) -> str:
 #####################
 
 @admin_action
+def fake_semis_results(form: dict) -> str:
+    """
+    """
+    with db_atomic() as txn:
+        fake_playoff_games(Bracket.SEMIS)
+    return render_view(View.PLAYOFFS)
+
+@admin_action
 def tabulate_semis_results(form: dict) -> str:
     """
     """
@@ -763,6 +778,14 @@ def tabulate_semis_results(form: dict) -> str:
         validate_playoffs(Bracket.SEMIS, finalize=True)
         compute_playoff_ranks(Bracket.SEMIS, finalize=True)
     return render_view(View.FINAL_FOUR)
+
+@admin_action
+def fake_finals_results(form: dict) -> str:
+    """
+    """
+    with db_atomic() as txn:
+        fake_playoff_games(Bracket.FINALS)
+    return render_view(View.PLAYOFFS)
 
 @admin_action
 def tabulate_finals_results(form: dict) -> str:

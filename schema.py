@@ -1974,7 +1974,7 @@ class PlayoffGame(BaseModel):
     def matchup_winner(self) -> Team | None:
         """Return name of winner (if any) for the current matchup.  This is currently
         hard-wired with the assumption of best 2-out-of-3 matchups (as with the rest of
-        the playoff locic for now).
+        the playoff logic for now).
         """
         cls = self.__class__
         query = (cls

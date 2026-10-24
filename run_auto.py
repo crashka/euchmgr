@@ -3,6 +3,7 @@
 
 """Script to run through entire sequence of euchmgr tournament stages, used for profiling
 """
+from functools import partial
 from os import environ
 import sys
 
@@ -11,7 +12,14 @@ from ckautils import parse_argv
 from core import DEBUG
 from database import db_init, db_close, get_sql_tally
 from schema import Bracket
-import euchmgr
+from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_seed_bracket,
+                     fake_seed_games, validate_seed_round, compute_player_ranks,
+                     prepick_champ_partners, fake_pick_partners, build_tourn_teams,
+                     compute_team_seeds, build_tourn_bracket, fake_tourn_games,
+                     validate_tourn, compute_team_ranks, build_playoff_bracket,
+                     fake_playoff_games, validate_playoffs, compute_playoff_ranks,
+                     compute_final_ranks)
+
 
 ########
 # main #
@@ -23,16 +31,34 @@ if PROFILE:
     from pyinstrument import Profiler
     profiler = Profiler(interval=PROF_INTERVAL)
 
-EXCLUDE_FUNCS = [
-    'validate_playoffs',
-    'compute_playoff_ranks',
-    'reset_seed_round',
-    'reset_partner_picks',
-    'reset_tourn',
-    'reset_playoffs'
-]
+RUN_FUNCS = {
+    'tourn_create'          : tourn_create,
+    'upload_roster'         : upload_roster,
+    'generate_player_nums'  : generate_player_nums,
+    'build_seed_bracket'    : build_seed_bracket,
+    'fake_seed_games'       : fake_seed_games,
+    'validate_seed_round'   : validate_seed_round,
+    'compute_player_ranks'  : compute_player_ranks,
+    'prepick_champ_partners': prepick_champ_partners,
+    'fake_pick_partners'    : fake_pick_partners,
+    'build_tourn_teams'     : build_tourn_teams,
+    'compute_team_seeds'    : compute_team_seeds,
+    'build_tourn_bracket'   : build_tourn_bracket,
+    'fake_tourn_games'      : fake_tourn_games,
+    'validate_tourn'        : validate_tourn,
+    'compute_team_ranks'    : compute_team_ranks,
+    'build_semis_bracket'   : partial(build_playoff_bracket, bracket=Bracket.SEMIS),
+    'fake_semis_games'      : partial(fake_playoff_games, bracket=Bracket.SEMIS),
+    'validate_semis'        : partial(validate_playoffs, bracket=Bracket.SEMIS),
+    'compute_semis_ranks'   : partial(compute_playoff_ranks, bracket=Bracket.SEMIS),
+    'build_finals_bracket'  : partial(build_playoff_bracket, bracket=Bracket.FINALS),
+    'fake_finals_games'     : partial(fake_playoff_games, bracket=Bracket.FINALS),
+    'validate_finals'       : partial(validate_playoffs, bracket=Bracket.FINALS),
+    'compute_finals_ranks'  : partial(compute_playoff_ranks, bracket=Bracket.FINALS),
+    'compute_final_ranks'   : compute_final_ranks
+}
 
-ALL_FUNCS = list(filter(lambda x: x not in EXCLUDE_FUNCS, euchmgr.MOD_FUNCS))
+FUNC_NAMES = list(RUN_FUNCS.keys())
 
 def get_func_args(func: str, tourn_name: str) -> dict:
     """Return dict representing arguments to pass into ``func``
@@ -49,14 +75,15 @@ def get_func_args(func: str, tourn_name: str) -> dict:
         'compute_team_seeds'   : {'finalize': True},
         'validate_tourn'       : {'finalize': True},
         'compute_team_ranks'   : {'finalize': True},
-        'build_playoff_bracket': {'bracket': Bracket.SEMIS},
-        'validate_playoffs'    : {'bracket': Bracket.FINALS, 'finalize': True},
-        'compute_playoff_ranks': {'bracket': Bracket.FINALS, 'finalize': True}
+        'fake_semis_games'     : {'rand_seed': 40},
+        'validate_semis'       : {'finalize': True},
+        'compute_semis_ranks'  : {'finalize': True},
+        'fake_finals_games'    : {'rand_seed': 50},
+        'validate_finals'      : {'finalize': True},
+        'compute_finals_ranks' : {'finalize': True},
+        'compute_final_ranks'  : {'finalize': True}
     }
-
-    if func not in func_args:
-        return {}
-    return func_args[func]
+    return func_args.get(func, {})
 
 def main() -> int:
     """Built-in driver to invoke module functions
@@ -101,27 +128,27 @@ def main() -> int:
     tourn_name = sys.argv[1]
     func_list = sys.argv[2]
     if func_list == 'all':
-        funcs = ALL_FUNCS
+        funcs = FUNC_NAMES
     elif func_list == 'list':
         print("Functions (by number)")
-        for i, func in enumerate(ALL_FUNCS):
+        for i, func in enumerate(FUNC_NAMES):
             print(f"{i:2d} - {func}")
         return 0
     elif func_list[0].isdigit():
         idxs = func_list.split('-')
         if len(idxs) == 1:
             idx = int(idxs[0])
-            funcs = ALL_FUNCS[idx:idx+1]
+            funcs = FUNC_NAMES[idx:idx+1]
         elif len(idxs) == 2:
             start = int(idxs[0])
-            end = int(idxs[1]) + 1 if idxs[1] else len(ALL_FUNCS)
-            funcs = ALL_FUNCS[start:end]
+            end = int(idxs[1]) + 1 if idxs[1] else len(RUN_FUNCS)
+            funcs = FUNC_NAMES[start:end]
         else:
             return usage("Invalid function range specified")
     else:
         funcs = func_list.split(',')
         for func in funcs:
-            if func not in euchmgr.MOD_FUNCS:
+            if func not in RUN_FUNCS:
                 return usage(f"Unknown function '{func}'")
 
     args, kwargs = parse_argv(sys.argv[3:])  # pick up additional args
@@ -136,7 +163,7 @@ def main() -> int:
     if trace_sql:
         sql_tally_base = get_sql_tally()
     for func in funcs:
-        func_call = getattr(euchmgr, func)
+        func_call = RUN_FUNCS[func]
         func_args = get_func_args(func, tourn_name)
         func_call(**(func_args | kwargs))  # will throw exceptions on error
         if trace_sql:

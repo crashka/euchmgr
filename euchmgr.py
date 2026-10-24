@@ -366,9 +366,8 @@ def build_seed_bracket() -> list[SeedGame]:
     tourn.complete_stage(TournStage.SEED_BRACKET)
     return games
 
-def fake_seed_games(clear_existing: bool = False, limit: int = None, rand_seed: int = None) -> None:
-    """Generates random team points and determines winner for each seed game.  Note that
-    `clear_existing` only clears completed games.
+def fake_seed_games(limit: int = None, rand_seed: int = None) -> None:
+    """Generates random team points and determines winner for each seed game.
     """
     my_rand = random.Random()
     if isinstance(rand_seed, int):
@@ -377,7 +376,8 @@ def fake_seed_games(clear_existing: bool = False, limit: int = None, rand_seed: 
     nfake = 0
     sort_key = lambda x: (x.round_num, x.table_num)
     for game in sorted(SeedGame.iter_games(), key=sort_key):
-        if game.winner and not clear_existing:
+        if game.winner:
+            my_rand.random()
             continue
         winner_pts = 10
         loser_pts = my_rand.randrange(10)
@@ -641,16 +641,13 @@ def prepick_champ_partners() -> None:
     }
     post = PostPick.create(**info)
 
-def fake_pick_partners(clear_existing: bool = False, limit: int = None, rand_seed: int = None) -> None:
+def fake_pick_partners(limit: int = None, rand_seed: int = None) -> None:
     """Assumes champ team is pre-picked (in that we don't do the picking and/or checking
     for keeping the champ team together)
     """
     my_rand = random.Random()
     if isinstance(rand_seed, int):
         my_rand.seed(rand_seed)  # for reproducible debugging only
-
-    if clear_existing:
-        Player.clear_partner_picks()
 
     tourn = TournInfo.get()
     avail = Player.available_players()  # already sorted by player_rank_eff
@@ -866,9 +863,9 @@ def build_tourn_bracket() -> list[TournGame]:
     tourn.complete_stage(TournStage.TOURN_BRACKET)
     return games
 
-def fake_tourn_games(clear_existing: bool = False, limit: int = None, rand_seed: int = None) -> None:
+def fake_tourn_games(limit: int = None, rand_seed: int = None) -> None:
     """Generates random team points and determines winner for each tournament game (before
-    semis/finals).  Note that `clear_existing` only clears completed games.
+    semis/finals).
     """
     my_rand = random.Random()
     if isinstance(rand_seed, int):
@@ -877,7 +874,8 @@ def fake_tourn_games(clear_existing: bool = False, limit: int = None, rand_seed:
     nfake = 0
     sort_key = lambda x: (x.round_num, x.table_num)
     for game in sorted(TournGame.iter_games(), key=sort_key):
-        if game.winner and not clear_existing:
+        if game.winner:
+            my_rand.random()
             continue
         winner_pts = 10
         loser_pts = my_rand.randrange(10)
@@ -1390,6 +1388,47 @@ def build_playoff_bracket(bracket: Bracket) -> list[PlayoffGame]:
     tourn.complete_stage(stage)
     return games
 
+def fake_playoff_games(bracket: Bracket, limit: int = None, rand_seed: int = None) -> None:
+    """Generates random team points and determines winner for each playoff game for the
+    specified bracket (semis or finals).
+    """
+    my_rand = random.Random()
+    if isinstance(rand_seed, int):
+        my_rand.seed(rand_seed)  # for reproducible debugging only
+
+    nfake = 0
+    sort_key = lambda x: (x.round_num, x.matchup_num)
+    for game in sorted(PlayoffGame.iter_games(bracket), key=sort_key):
+        if game.winner or game.matchup_winner:
+            my_rand.random()
+            continue
+        winner_pts = 10
+        loser_pts = my_rand.randrange(10)
+        if my_rand.randrange(2) > 0:
+            game.add_scores(winner_pts, loser_pts)
+        else:
+            game.add_scores(loser_pts, winner_pts)
+        game.save()
+        if limit:
+            log.debug(f"{game.team1_name}: {game.team1_pts}, {game.team2_name}: {game.team2_pts}")
+
+        if game.winner:
+            PostScore.add(game, ScoreAction.POST_FAKE)
+            game.update_team_stats()
+            #game.insert_team_games()
+
+        nfake += 1
+        if limit and nfake >= limit:
+            compute_playoff_ranks(bracket)
+            return
+
+    compute_playoff_ranks(bracket)
+    if game.bracket == Bracket.SEMIS:
+        TournInfo.mark_stage_complete(TournStage.SEMIS_RESULTS)
+    else:
+        assert game.bracket == Bracket.FINALS
+        TournInfo.mark_stage_complete(TournStage.FINALS_RESULTS)
+
 def validate_playoffs(bracket: Bracket, finalize: bool = False) -> None:
     """Note that we always validate all playoff stages/rounds.  There is more integrity
     check that can be done (e.g. ensure that semifinal winner are on the only ones with
@@ -1752,8 +1791,10 @@ MOD_FUNCS = [
     'validate_tourn',
     'compute_team_ranks',
     'build_playoff_bracket',
+    'fake_playoff_games',
     'validate_playoffs',
     'compute_playoff_ranks',
+    'compute_final_ranks',
     'reset_seed_round',
     'reset_partner_picks',
     'reset_tourn',
@@ -1782,8 +1823,10 @@ def main() -> int:
       - validate_tourn
       - compute_team_ranks
       - build_playoff_bracket
+      - fake_playoff_games
       - validate_playoffs
       - compute_playoff_ranks
+      - compute_final_ranks
       - reset_seed_round
       - reset_partner_picks
       - reset_tourn

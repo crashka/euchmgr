@@ -2338,7 +2338,8 @@ class PostScore(BaseModel):
         scores posted.
         """
         assert label
-        actions = [ScoreAction.SUBMIT, ScoreAction.CORRECT]
+        actions = [ScoreAction.SUBMIT, ScoreAction.CORRECT, ScoreAction.POST_ADMIN,
+                   ScoreAction.POST_FAKE]
         if include_accept:
             actions.append(ScoreAction.ACCEPT)
         query = (cls

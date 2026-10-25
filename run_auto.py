@@ -10,7 +10,7 @@ import sys
 from ckautils import parse_argv
 
 from core import DEBUG
-from database import db_init, db_close, get_sql_tally
+from database import db_init, db_close, db_prepare, get_sql_tally
 from schema import Bracket
 from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_seed_bracket,
                      fake_seed_games, validate_seed_round, compute_player_ranks,
@@ -20,6 +20,11 @@ from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_se
                      fake_playoff_games, validate_playoffs, compute_playoff_ranks,
                      compute_final_ranks)
 
+def upload_roster_ext(csv_path: str) -> None:
+    """Append db_prepare to upload_roster.
+    """
+    upload_roster(csv_path)
+    db_prepare()  # archive previous checkpoint files, etc.
 
 ########
 # main #
@@ -33,7 +38,7 @@ if PROFILE:
 
 RUN_FUNCS = {
     'tourn_create'          : tourn_create,
-    'upload_roster'         : upload_roster,
+    'upload_roster'         : upload_roster_ext,
     'generate_player_nums'  : generate_player_nums,
     'build_seed_bracket'    : build_seed_bracket,
     'fake_seed_games'       : fake_seed_games,

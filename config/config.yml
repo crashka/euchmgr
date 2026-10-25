@@ -50,3 +50,18 @@ default:
       sd_scores:               100
       rr_brackets:             300
       rr_scores:               100
+
+  mobile_agent:
+    update_int:
+      cur_game:                5000
+      compl_game:              2000
+      cur_pick:                5000
+    wait_time:
+      check_view:              30
+      game_play:               60
+      score_submit:            15
+      score_accept:            15
+      score_correct_pct:       10
+      score_correct:           15
+      partner_pick:            10
+    time_variance:             [0.75, 1.25]

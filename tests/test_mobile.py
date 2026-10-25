@@ -137,8 +137,8 @@ def test_post_score(seed_bracket_app):
 
     game = soup.select_one('section.games article.game.active')
     game_label = game['id']
-    post_info = game.select_one('p.units + p')
-    assert post_info and "actions" in post_info.get('class')
+    action_block = game.select_one('p.units + p')
+    assert action_block and "actions" in action_block.get('class')
 
     data = {'game_label'   : game_label,
             'posted_by_num': '1',
@@ -153,8 +153,9 @@ def test_post_score(seed_bracket_app):
     assert resp.request.path == '/mobile/seeding'
 
     soup = BeautifulSoup(resp.text, 'html.parser')
-    game = soup.select_one('section.games article.game')
+    # RETHINK: should we select by '#<game_label>' instead???
+    game = soup.select_one('section.games article.game.active')
     assert game['id'] == game_label
-    post_info = game.select_one('p.units + p')
-    assert post_info and not post_info.get('class')
-    assert ''.join(post_info.stripped_strings) == "Score posted by:Virgilio (you)"
+    post_block = game.select_one('p.units + p')
+    assert post_block and not post_block.get('class')
+    assert ''.join(post_block.stripped_strings) == "Score posted by:Virgilio (you)"

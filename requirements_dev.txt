@@ -7,4 +7,5 @@ gunicorn
 cysqlite
 peewee
 pytest
+requests
 beautifulsoup4

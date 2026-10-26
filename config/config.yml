@@ -58,10 +58,9 @@ default:
       cur_pick:                5000
     wait_time:
       check_view:              30
-      game_play:               60
-      score_submit:            15
-      score_accept:            15
-      score_correct_pct:       10
-      score_correct:           15
-      partner_pick:            10
-    time_variance:             [0.75, 1.25]
+      submit_score:            60
+      accept_score:            15
+      correct_score:           15
+      pick_partner:            10
+    correct_score_freq:        0.10
+    time_variance:             [0.5, 1.5]

@@ -4,7 +4,7 @@
 """Emulate a mobile client through the lifecycle of a tournament.
 """
 
-from random import uniform, randrange
+from random import random, uniform, randrange
 from time import sleep, time
 
 from ckautils import typecast
@@ -29,12 +29,17 @@ WAIT_TIME = cfg['wait_time']
 
 TIME_VAR = cfg['time_variance']
 
-def wait_until(action_time: float, upd_cond: str) -> bool:
+def wait_until(action_time: float | None, upd_cond: str) -> bool:
     """Wait (sleep) until the specified action time.  Returns boolean indicating whether
-    the wait was interrupted by the auto-update timer.
+    the wait was interrupted by the auto-update timer.  If action time is specified as
+    empty, then only consider the update interval (as interrupting a forever wait).
     """
-    wait_secs = action_time - time()
     upd_secs = UPD_INT[upd_cond] / 1000.0
+    if not action_time:
+        sleep(upd_secs)
+        return True
+
+    wait_secs = action_time - time()
     if wait_secs < 0:
         return False
     elif wait_secs < upd_secs:
@@ -51,9 +56,12 @@ def wait_for(action: str) -> None:
     wait_secs = WAIT_TIME[action] * mult
     sleep(wait_secs)
 
-def action_time(action: str) -> float:
-    """Return time when planned action should be taken (with variance added).
+def action_time(action: str | None) -> float | None:
+    """Return time when planned action should be taken (with variance added).  Supports
+    null actions (return value will be interpreted downstream as "no target time").
     """
+    if not action:
+        return None
     mult = uniform(*TIME_VAR)
     wait_secs = WAIT_TIME[action] * mult
     return time() + wait_secs
@@ -100,7 +108,7 @@ def resp_error(resp: Response) -> str:
     """
     soup = BeautifulSoup(resp.text, 'html.parser')
     err_msg = soup.select_one('h2')
-    return err_msg.string
+    return err_msg.string if err_msg else resp.text
 
 ###############
 # agent funcs #
@@ -156,14 +164,16 @@ def parse_scores(score_block: Tag) -> tuple[int, int]:
     # TODO: should really do this by team_pts/opp_pts and not assume the order!!!
     return tuple(score_val(score) for score in scores)
 
-def seeding_agent(user: str, soup: BeautifulSoup) -> None:
+def seeding_agent(soup: BeautifulSoup) -> None:
     """Seeding agent loop.
     """
+    # it is assumed that we have new soup on every loop (it would nice to be able to
+    # assert this!)
     while game := soup.select_one('section.games article.game.active'):
         form = soup.select_one('form[action="seeding"]')
         player_num = typecast(form.select_one('input[name="posted_by_num"]').get('value'))
         team_idx = typecast(form.select_one('input[name="team_idx"]').get('value'))
-        ref_score_id = typecast(form.select_one('input[name="ref_score_id"]').get('value'))
+        ref_score_id = typecast(form.select_one('input[name="ref_score_id"]').get('value')) or 0
         game_label = game['id']  # should be same as 'form input[name="game_label"]'
         teams = parse_teams(game.select('p.matchup span'))  # not currently used
         scores = parse_scores(game.select_one('p.score'))
@@ -178,10 +188,18 @@ def seeding_agent(user: str, soup: BeautifulSoup) -> None:
             post_role = post_info[2].split(' ')[-1].strip('()')
             log.debug(f"active game: {post_info[0]} {post_info[2]}")
 
-            new_soup = False
+            new_soup = None
+            # decide on whether we plan on correcting, accepting, or neither (though we
+            # may get interrupted before actually executing)
+            action = None
+            if random() < cfg['correct_score_freq']:
+                # note that anyone may correct a score, including "you"
+                action = 'correct_score'
+            elif post_role == 'opponent':
+                action = 'accept_score'
             upd_cond = 'compl_game' if post_action == 'accepted' else 'cur_game'
-            accept_time = action_time('score_accept')
-            while wait_until(accept_time, upd_cond):
+            act_target = action_time(action)  # a forever wait, if no action assigned
+            while wait_until(act_target, upd_cond):
                 resp = agent_get(f"/mobile/game_score/{game_label}")
                 assert len(resp.history) == 0
                 if resp.status_code == 200:
@@ -190,14 +208,12 @@ def seeding_agent(user: str, soup: BeautifulSoup) -> None:
                     if post['id'] > ref_score_id:
                         log.debug(f"active game: new score posted")
                         resp = agent_get('/mobile/seeding/')
-                        soup = BeautifulSoup(resp.text, 'html.parser')
-                        new_soup = True
+                        new_soup = BeautifulSoup(resp.text, 'html.parser')
                         break
                     elif post['do_push']:
                         log.debug(f"active game: score pushed")
                         resp = agent_get('/mobile/seeding')
-                        soup = BeautifulSoup(resp.text, 'html.parser')
-                        new_soup = True
+                        new_soup = BeautifulSoup(resp.text, 'html.parser')
                         break
                     log.debug(f"active game: no new score post")
                     continue
@@ -209,17 +225,25 @@ def seeding_agent(user: str, soup: BeautifulSoup) -> None:
                 else:
                     raise RuntimeError(f"GET /game_score failed with status {resp.status_code}")
             if new_soup:
+                soup = new_soup
                 continue
 
-            # ready to accept score
+            # ready to correct or accept score
+            if action == 'correct_score':
+                points = (10, randrange(10))
+                if randrange(2) > 0:
+                    points = tuple(reversed(points))
+                if points == scores:
+                    points = tuple(reversed(points))
+                scores = points
             data = {'game_label'   : game_label,
                     'posted_by_num': player_num,
                     'team_idx'     : team_idx,
                     'ref_score_id' : ref_score_id,
                     'team_pts'     : scores[0],
                     'opp_pts'      : scores[1],
-                    'action'       : 'accept_score'}
-            resp = agent_post('/mobile/seeding/accept_score', data=data)
+                    'action'       : action}
+            resp = agent_post(f'/mobile/seeding/{action}', data=data)
             assert resp.status_code == 200
             assert len(resp.history) == 2
             soup = BeautifulSoup(resp.text, 'html.parser')
@@ -228,9 +252,11 @@ def seeding_agent(user: str, soup: BeautifulSoup) -> None:
             assert not ref_score_id
             log.debug(f"active game: score not yet posted")
 
-            new_soup = False
-            submit_time = action_time('score_submit')
-            while wait_until(submit_time, 'cur_game'):
+            new_soup = None
+            action = 'submit_score'
+            upd_cond = 'cur_game'
+            act_target = action_time(action)
+            while wait_until(act_target, upd_cond):
                 resp = agent_get(f"/mobile/game_score/{game_label}")
                 assert len(resp.history) == 0
                 if resp.status_code == 200:
@@ -239,14 +265,12 @@ def seeding_agent(user: str, soup: BeautifulSoup) -> None:
                     if post['id'] > ref_score_id:
                         log.debug(f"active game: new score posted")
                         resp = agent_get('/mobile/seeding/')
-                        soup = BeautifulSoup(resp.text, 'html.parser')
-                        new_soup = True
+                        new_soup = BeautifulSoup(resp.text, 'html.parser')
                         break
                     elif post['do_push']:
                         log.debug(f"active game: score pushed")
                         resp = agent_get('/mobile/seeding')
-                        soup = BeautifulSoup(resp.text, 'html.parser')
-                        new_soup = True
+                        new_soup = BeautifulSoup(resp.text, 'html.parser')
                         break
                     log.debug(f"active game: no new score post")
                     continue
@@ -258,6 +282,7 @@ def seeding_agent(user: str, soup: BeautifulSoup) -> None:
                 else:
                     raise RuntimeError(f"GET /game_score failed with status {resp.status_code}")
             if new_soup:
+                soup = new_soup
                 continue
 
             # ready to submit score
@@ -270,8 +295,8 @@ def seeding_agent(user: str, soup: BeautifulSoup) -> None:
                     'ref_score_id' : '',
                     'team_pts'     : points[0],
                     'opp_pts'      : points[1],
-                    'action'       : 'submit_score'}
-            resp = agent_post('/mobile/seeding/submit_score', data=data)
+                    'action'       : action}
+            resp = agent_post(f'/mobile/seeding/{action}', data=data)
             assert resp.status_code == 200
             assert len(resp.history) == 2
             soup = BeautifulSoup(resp.text, 'html.parser')
@@ -289,15 +314,15 @@ def mobile_agent() -> str:
     """Main loop for the mobile agent (must be logged in).
     """
     view, soup = active_view()
+    assert view in VIEW_AGENTS, f"No agent for view '{view}'"
     user = soup.select_one('span.login_info span[title]').string
 
     done = False
     while not done:
-        assert view in VIEW_AGENTS, f"No agent for view '{view}'"
-        VIEW_AGENTS[view](user, soup)
-
+        VIEW_AGENTS[view](soup)
         wait_for('check_view')
         view, soup = active_view()
+        assert view in VIEW_AGENTS, f"No agent for view '{view}'"
 
 ########
 # main #

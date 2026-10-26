@@ -7,9 +7,10 @@ from os import makedirs, environ, rename
 import os.path
 from socket import gethostname
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 
 from ckautils import Config, logging, TRACE
-import logging.handlers
+from peewee import Proxy
 
 #####################
 # files/directories #
@@ -63,30 +64,58 @@ profile = hostname if hostname in config.profile_data else None
 DEBUG = int(environ.get('EUCHMGR_DEBUG') or 0)
 
 # create logger (TODO: logging parameters belong in config file as well!!!)
-LOGGER_NAME  = 'euchmgr'
-LOG_FILE     = LOGGER_NAME + '.log'
-LOG_PATH     = os.path.join(LOG_DIR, LOG_FILE)
-LOG_FMTR     = logging.Formatter('%(asctime)s %(levelname)s [%(filename)s:%(lineno)s]: %(message)s')
+DFLT_LOGGER = 'euchmgr'
 LOG_FILE_MAX = 50000000
 LOG_FILE_NUM = 50
+LOG_FMTR = logging.Formatter('%(asctime)s %(levelname)s [%(filename)s:%(lineno)s]: %(message)s')
 
-dflt_hand = logging.handlers.RotatingFileHandler(LOG_PATH, 'a', LOG_FILE_MAX, LOG_FILE_NUM)
-dflt_hand.setLevel(TRACE)
-dflt_hand.setFormatter(LOG_FMTR)
+LoggerClass = logging.getLoggerClass()
 
-dbg_hand = logging.StreamHandler()
-dbg_hand.setLevel(TRACE)
-dbg_hand.setFormatter(LOG_FMTR)
+class LoggerProxy(Proxy):
+    """Proxy class that allows us to set logger (and thus, log file) on "initialization"
+    (which includes *re*-initialization).
+    """
+    def __init__(self, logger: LoggerClass = None):
+        """Initialize with the specified logger (optional).  We know the parent __init__
+        doesn't (currently) take any arguments.
+        """
+        super().__init__()
+        if logger:
+            self.initialize(logger)
 
-log = logging.getLogger(LOGGER_NAME)
-log.setLevel(logging.INFO)
-log.addHandler(dflt_hand)
-if DEBUG:
-    log.setLevel(logging.DEBUG)
-    if DEBUG > 1:
-        log.addHandler(dbg_hand)
-        if DEBUG > 2:
-            log.setLevel(TRACE)
+def get_logger(name: str) -> LoggerClass:
+    """Create (and return) logger with the specified name.  Log file will be determined by
+    the logger name.
+    """
+    log_file = name + '.log'
+    log_path = os.path.join(LOG_DIR, log_file)
+    log_hand = RotatingFileHandler(log_path, 'a', LOG_FILE_MAX, LOG_FILE_NUM)
+    log_hand.setLevel(TRACE)
+    log_hand.setFormatter(LOG_FMTR)
+
+    # `log` here is a local variable
+    log = logging.getLogger(name)
+    log.setLevel(logging.INFO)
+    log.addHandler(log_hand)
+    if DEBUG:
+        log.setLevel(logging.DEBUG)
+        if DEBUG > 1:
+            dbg_hand = logging.StreamHandler()
+            dbg_hand.setLevel(TRACE)
+            dbg_hand.setFormatter(LOG_FMTR)
+            log.addHandler(dbg_hand)
+            if DEBUG > 2:
+                log.setLevel(TRACE)
+    return log
+
+def set_logger(name: str) -> None:
+    """Replace current logger in the global proxy object.
+    """
+    global log
+    log.initialize(get_logger(name))
+
+# set default logger on import (logging against an empty proxy would break things)
+log = LoggerProxy(get_logger(DFLT_LOGGER))
 
 ##############
 # exceptions #

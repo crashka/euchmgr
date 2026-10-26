@@ -668,6 +668,10 @@ def validate_final_ranks(csv_file: str) -> None:
 # main #
 ########
 
+from core import set_logger
+
+LOGGER_NAME = "legacy-validate"
+
 # the following functions must exist in either the current module or in `euchmgr` (checked
 # in that order)--NOTE, for now, we only go as far as building the playoff bracket; LATER,
 # we can load and validation playoff results and final tournament rankings as well!!!
@@ -788,6 +792,8 @@ def main() -> int:
         return usage("Unknown args: " + ' '.join(args))
     if kwargs and len(funcs) > 1:
         return usage("Extra args only supported if a single function is specified")
+
+    set_logger(LOGGER_NAME)
     db_init(tourn_name, force=True)
     for func in funcs:
         if func in globals():

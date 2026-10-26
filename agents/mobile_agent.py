@@ -13,7 +13,7 @@ import urllib3
 from urllib3.exceptions import InsecureRequestWarning
 from bs4 import BeautifulSoup, Tag
 
-from core import config, profile, log
+from core import config, profile, log, set_logger
 
 ################
 # module stuff #
@@ -186,7 +186,7 @@ def seeding_agent(soup: BeautifulSoup) -> None:
             assert len(post_info) == 3  # e.g. ['Score posted by', ':', 'Abs (you)']
             post_action = post_info[0].split(' ')[1]
             post_role = post_info[2].split(' ')[-1].strip('()')
-            log.debug(f"active game: {post_info[0]} {post_info[2]}")
+            log.debug(f"active game {game_label}: {post_info[0]} {post_info[2]}")
 
             new_soup = None
             # decide on whether we plan on correcting, accepting, or neither (though we
@@ -206,19 +206,19 @@ def seeding_agent(soup: BeautifulSoup) -> None:
                     data = resp.json()
                     post = data['data']
                     if post['id'] > ref_score_id:
-                        log.debug(f"active game: new score posted")
+                        log.debug(f"active game {game_label}: new score posted (id {post['id']})")
                         resp = agent_get('/mobile/seeding/')
                         new_soup = BeautifulSoup(resp.text, 'html.parser')
                         break
                     elif post['do_push']:
-                        log.debug(f"active game: score pushed")
+                        log.debug(f"active game {game_label}: score pushed")
                         resp = agent_get('/mobile/seeding')
                         new_soup = BeautifulSoup(resp.text, 'html.parser')
                         break
-                    log.debug(f"active game: no new score post")
+                    log.debug(f"active game {game_label}: no new score post")
                     continue
                 elif resp.status_code == 404:
-                    log.debug(f"active game: score not yet posted")
+                    log.debug(f"active game {game_label}: score not yet posted")
                     data = resp.json()
                     post = data['data']  # for debugging
                     continue
@@ -226,6 +226,8 @@ def seeding_agent(soup: BeautifulSoup) -> None:
                     raise RuntimeError(f"GET /game_score failed with status {resp.status_code}")
             if new_soup:
                 soup = new_soup
+                if err_msg := soup.select_one('span.err_msg').string:
+                    log.debug(f"active game {game_label}: err_msg '{err_msg}'")
                 continue
 
             # ready to correct or accept score
@@ -247,10 +249,12 @@ def seeding_agent(soup: BeautifulSoup) -> None:
             assert resp.status_code == 200
             assert len(resp.history) == 2
             soup = BeautifulSoup(resp.text, 'html.parser')
+            if err_msg := soup.select_one('span.err_msg').string:
+                log.debug(f"active game {game_label}: err_msg '{err_msg}'")
         elif "actions" in action_block.get('class'):
             # no score posted yet
             assert not ref_score_id
-            log.debug(f"active game: score not yet posted")
+            log.debug(f"active game {game_label}: score not yet posted")
 
             new_soup = None
             action = 'submit_score'
@@ -263,19 +267,19 @@ def seeding_agent(soup: BeautifulSoup) -> None:
                     data = resp.json()
                     post = data['data']
                     if post['id'] > ref_score_id:
-                        log.debug(f"active game: new score posted")
+                        log.debug(f"active game {game_label}: new score posted (id {post['id']})")
                         resp = agent_get('/mobile/seeding/')
                         new_soup = BeautifulSoup(resp.text, 'html.parser')
                         break
                     elif post['do_push']:
-                        log.debug(f"active game: score pushed")
+                        log.debug(f"active game {game_label}: score pushed")
                         resp = agent_get('/mobile/seeding')
                         new_soup = BeautifulSoup(resp.text, 'html.parser')
                         break
-                    log.debug(f"active game: no new score post")
+                    log.debug(f"active game {game_label}: no new score post")
                     continue
                 elif resp.status_code == 404:
-                    log.debug(f"active game: score not yet posted")
+                    log.debug(f"active game {game_label}: score not yet posted")
                     data = resp.json()
                     post = data['data']  # for debugging
                     continue
@@ -283,6 +287,8 @@ def seeding_agent(soup: BeautifulSoup) -> None:
                     raise RuntimeError(f"GET /game_score failed with status {resp.status_code}")
             if new_soup:
                 soup = new_soup
+                if err_msg := soup.select_one('span.err_msg').string:
+                    log.debug(f"active game {game_label}: err_msg '{err_msg}'")
                 continue
 
             # ready to submit score
@@ -300,6 +306,8 @@ def seeding_agent(soup: BeautifulSoup) -> None:
             assert resp.status_code == 200
             assert len(resp.history) == 2
             soup = BeautifulSoup(resp.text, 'html.parser')
+            if err_msg := soup.select_one('span.err_msg').string:
+                log.debug(f"active game {game_label}: err_msg '{err_msg}'")
         else:
             raise RuntimeError("Unexpected element '{action_block}'")
 
@@ -347,6 +355,9 @@ def main() -> int:
     player_name = sys.argv[2]
     args, kwargs = parse_argv(sys.argv[3:])  # pick up additional args
 
+    player_tag = player_name.translate({ord("'"): "", ord(" "): ""}).lower()
+    log_name = f"agent-{player_tag}"
+    set_logger(log_name)
     set_server(server_url)
     login(player_name)
     mobile_agent()

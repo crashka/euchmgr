@@ -17,7 +17,7 @@ from cachelib.file import FileSystemCache
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.exceptions import HTTPException
 
-from core import log, ImplementationError
+from core import log, set_logger, ImplementationError
 from security import (current_user, EuchmgrUser, ADMIN_USER, ADMIN_ID, AdminUser, EuchmgrLogin,
                       AuthenticationError)
 from database import db_is_initialized, db_connect, db_close, db_is_closed
@@ -50,6 +50,7 @@ def get_logins() -> list[tuple[str, str]]:
 #############
 
 APP_NAME = "Euchre Manager"
+LOGGER_NAME = "euchmgr-server"
 LOGIN_TEMPLATE = "login.html"
 
 class Config:
@@ -66,6 +67,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
     """Application factory for the euchmgr server.  Configuration may be specified as a
     class (e.g. `Config` subclass) or `Config` instance.
     """
+    set_logger(LOGGER_NAME)
     app = Flask(__name__)
     if proxied:
         log.info("creating app using ProxyFix (default args)")

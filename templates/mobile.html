@@ -17,6 +17,9 @@
        margin-top: 0.0rem;
        margin-right: 0.5rem;
      }
+     span.err_msg {
+       display: none;
+     }
      .err_dlg {
        width: 75%;
        max-width: 20rem;
@@ -319,6 +322,7 @@
   </head>
 
   <body>
+    <span class="err_msg">{{err_msg}}</span>
     <dialog class="err_dlg">
       <div></div>
       <button autofocus>Close</button>

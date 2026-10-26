@@ -11,7 +11,7 @@ import pytest
 from peewee import SqliteDatabase
 from flask.testing import FlaskClient
 
-from core import TEST_DIR, DataFile
+from core import TEST_DIR, DataFile, set_logger
 from database import db_filepath, db_init, db_reset, db_close
 from schema import TournStage, clear_schema_cache
 from server import Config
@@ -19,6 +19,9 @@ from server import Config
 ######################
 # database utilities #
 ######################
+
+LOGGER_NAME = "euchmgr-test"
+set_logger(LOGGER_NAME)
 
 TEST_DB = "test"
 ROSTER_FILE = DataFile("test_roster.csv", TEST_DIR)

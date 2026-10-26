@@ -9,7 +9,7 @@ import sys
 
 from ckautils import parse_argv
 
-from core import DEBUG
+from core import DEBUG, set_logger
 from database import db_init, db_close, db_prepare, get_sql_tally
 from schema import Bracket
 from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_seed_bracket,
@@ -29,6 +29,8 @@ def upload_roster_ext(csv_path: str) -> None:
 ########
 # main #
 ########
+
+LOGGER_NAME = "run_auto"
 
 PROFILE = int(environ.get('EUCHMGR_PROFILE') or 0)
 PROF_INTERVAL = 0.0005
@@ -162,6 +164,8 @@ def main() -> int:
     trace_sql = kwargs.pop('trace_sql', False) and DEBUG
     if kwargs and len(funcs) > 1:
         return usage("Extra args only supported if a single function is specified")
+
+    set_logger(LOGGER_NAME)
     db_init(tourn_name, force=True, trace_sql=trace_sql)
     if PROFILE:
         profiler.start()

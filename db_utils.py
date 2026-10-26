@@ -48,7 +48,10 @@ import sys
 
 from ckautils import parse_argv
 
+from core import set_logger
 from database import db_init, db_close, restore_from_checkpoint
+
+LOGGER_NAME = "db_utils"
 
 DB_UTILS = {
     'list_checkpoints'       : list_checkpoints,
@@ -79,6 +82,8 @@ def main() -> int:
         mod_func = DB_UTILS[func_name]
 
     args, kwargs = parse_argv(sys.argv[3:])
+
+    set_logger(LOGGER_NAME)
     db_init(db_name, force=True)
     mod_func(*args, **kwargs)  # will throw exceptions on error
     db_close()

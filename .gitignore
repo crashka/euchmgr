@@ -13,7 +13,7 @@ low_res/
 *.excalidraw
 
 /clear_*.sh
-/archive_*.sh
+/deploy_*.sh
 /*.html
 /*.xlsx
 /*.csv

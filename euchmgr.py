@@ -1773,6 +1773,10 @@ import sys
 
 from ckautils import parse_argv
 
+from core import set_logger
+
+LOGGER_NAME = "euchmgr-cli"
+
 # excludes utility and helper functions
 MOD_FUNCS = [
     'tourn_create',
@@ -1858,6 +1862,7 @@ def main() -> int:
     if args:
         return usage("Unknown args: " + ' '.join(args))
 
+    set_logger(LOGGER_NAME)
     db_init(tourn_name, force=True)
     mod_func(*args, **kwargs)  # will throw exceptions on error
     db_close()

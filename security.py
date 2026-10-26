@@ -192,6 +192,10 @@ import sys
 
 from ckautils import parse_argv
 
+from core import set_logger
+
+LOGGER_NAME = "euchmgr-security"
+
 def main() -> int:
     """Built-in driver to invoke security functions
 
@@ -212,6 +216,8 @@ def main() -> int:
 
     if user_name != ADMIN_USER:
         return usage("Only operations against user 'admin' currently supported")
+
+    set_logger(LOGGER_NAME)
     user = AdminUser()
     func = getattr(user, func_name, None)
     if not func:

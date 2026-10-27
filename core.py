@@ -108,11 +108,20 @@ def get_logger(name: str) -> LoggerClass:
                 log.setLevel(TRACE)
     return log
 
-def set_logger(name: str) -> None:
-    """Replace current logger in the global proxy object.
+def set_logger(name: str) -> bool:
+    """Replace current logger in the global proxy object.  Once a non-default logger is
+    set, it is considered locked-in and cannot be changed.
     """
     global log
+    if name == log.name:
+        log.debug(f"Ignoring setting logger '{log.name}' to itself")
+        return True
+    elif log.name != DFLT_LOGGER:
+        log.info(f"Ignoring re-setting non-default logger '{log.name}' to '{name}'")
+        return False
+
     log.initialize(get_logger(name))
+    return True
 
 # set default logger on import (logging against an empty proxy would break things)
 log = LoggerProxy(get_logger(DFLT_LOGGER))

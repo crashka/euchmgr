@@ -462,47 +462,49 @@ def submit_score(form: dict) -> str:
     assert max(team1_pts, team2_pts) == GAME_PTS
     assert (team1_pts, team2_pts) != (GAME_PTS, GAME_PTS)
 
-    # see if someone slid in ahead of us (can't be ourselves)
-    latest = PostScore.get_last(game_label, include_accept=True)
-    if latest:
-        if latest.post_action == ScoreAction.ACCEPT:
-            score_pushed = True
-            post_action += ScoreAction.DISCARD
-            action_info = "Intervening acceptance"
-            flash(f"err=Discarding submission due to {lc_first(action_info)} "
-                  f"({post_info(latest, team_idx)})")
-        elif same_score((team1_pts, team2_pts), latest):
-            if latest.team_idx != team_idx:
-                log.info("Duplicate submission as opponent treated as mutual acceptance "
-                         f"({post_info(latest, team_idx)})")
-                return accept_score(form, latest)
-            # otherwise we fall through and create an ignored duplicate entry
-            post_action += ScoreAction.IGNORE
-            action_info = "Duplicate submission as partner"
-            log.info(f"Ignoring {lc_first(action_info)} ({post_info(latest, team_idx)})")
-        else:
-            # NOTE: we previously overwrote a mismatched prior submission, but I think
-            # that is both less intuitive and less desirable, so we'll intercept this
-            # submission instead
-            post_action += ScoreAction.DISCARD
-            action_info = "Conflicting submission"
-            flash(f"err=Discarding {lc_first(action_info)} ({post_info(latest, team_idx)})")
+    with db_atomic() as txn:
+        # see if someone slid in ahead of us (can't be ourselves)
+        latest = PostScore.get_last(game_label, include_accept=True)
+        if latest:
+            if latest.post_action == ScoreAction.ACCEPT:
+                score_pushed = True
+                post_action += ScoreAction.DISCARD
+                action_info = "Intervening acceptance"
+                flash(f"err=Discarding submission due to {lc_first(action_info)} "
+                      f"({post_info(latest, team_idx)})")
+            elif same_score((team1_pts, team2_pts), latest):
+                if latest.team_idx != team_idx:
+                    log.info("Duplicate submission as opponent treated as mutual acceptance "
+                             f"({post_info(latest, team_idx)})")
+                    return accept_score(form, latest)
+                # otherwise we fall through and create an ignored duplicate entry
+                post_action += ScoreAction.IGNORE
+                action_info = "Duplicate submission as partner"
+                log.info(f"Ignoring {lc_first(action_info)} ({post_info(latest, team_idx)})")
+            else:
+                # NOTE: we previously overwrote a mismatched prior submission, but I think
+                # that is both less intuitive and less desirable, so we'll intercept this
+                # submission instead
+                post_action += ScoreAction.DISCARD
+                action_info = "Conflicting submission"
+                flash(f"err=Discarding {lc_first(action_info)} ({post_info(latest, team_idx)})")
 
-    tourn = TournInfo.get()
-    info = {
-        'bracket'      : bracket,
-        'game_label'   : game_label,
-        'post_action'  : post_action,
-        'action_info'  : action_info,
-        'team1_pts'    : team1_pts,
-        'team2_pts'    : team2_pts,
-        'posted_by_num': player_num,
-        'team_idx'     : team_idx,
-        'ref_score'    : None,
-        'do_push'      : False,
-        'tourn_stage'  : tourn.stage_tag
-    }
-    score = PostScore.create(**info)
+        tourn = TournInfo.get()
+        info = {
+            'bracket'      : bracket,
+            'game_label'   : game_label,
+            'post_action'  : post_action,
+            'action_info'  : action_info,
+            'team1_pts'    : team1_pts,
+            'team2_pts'    : team2_pts,
+            'posted_by_num': player_num,
+            'team_idx'     : team_idx,
+            'ref_score'    : None,
+            'do_push'      : False,
+            'tourn_stage'  : tourn.stage_tag
+        }
+        score = PostScore.create(**info)
+
     if score_pushed:
         return render_game_in_view(game_label)
     return render_view(BRACKET_ENDPT[bracket])
@@ -534,35 +536,35 @@ def accept_score(form: dict, ref_score: PostScore = None) -> str:
             abort(400, f"invalid ref_score_id '{ref_score_id}'")
     assert same_score((team1_pts, team2_pts), ref_score)
 
-    # check for intervening corrections
-    latest = PostScore.get_last(game_label, include_accept=True)
-    if latest != ref_score:
-        assert latest.created_at > ref_score.created_at
-        if latest.post_action == ScoreAction.ACCEPT:
-            score_pushed = True
-            post_action += ScoreAction.DISCARD
-            action_info = "Intervening acceptance"
-            flash(f"err=Discarding acceptance due to {lc_first(action_info)} "
-                  f"({post_info(latest, team_idx)})")
-        elif same_score(latest, ref_score):
-            if latest.team_idx != team_idx:
-                # same score correction from opponent
-                ref_score = latest
-                action_info = f"Changing ref_score from id {ref_score_id} to id {latest.id}"
-            else:
-                # same score correction from partner
+    with db_atomic() as txn:
+        # check for intervening corrections
+        latest = PostScore.get_last(game_label, include_accept=True)
+        if latest != ref_score:
+            assert latest.created_at > ref_score.created_at
+            if latest.post_action == ScoreAction.ACCEPT:
+                score_pushed = True
                 post_action += ScoreAction.DISCARD
-                action_info = "Intervening correction from partner"
+                action_info = "Intervening acceptance"
                 flash(f"err=Discarding acceptance due to {lc_first(action_info)} "
                       f"({post_info(latest, team_idx)})")
-        else:
-            # changed score correction (from either partner or opponent)
-            post_action += ScoreAction.DISCARD
-            action_info = "Intervening correction"
-            flash(f"err=Discarding acceptance due to {lc_first(action_info)} "
-                  f"({post_info(latest, team_idx)})")
+            elif same_score(latest, ref_score):
+                if latest.team_idx != team_idx:
+                    # same score correction from opponent
+                    ref_score = latest
+                    action_info = f"Changing ref_score from id {ref_score_id} to id {latest.id}"
+                else:
+                    # same score correction from partner
+                    post_action += ScoreAction.DISCARD
+                    action_info = "Intervening correction from partner"
+                    flash(f"err=Discarding acceptance due to {lc_first(action_info)} "
+                          f"({post_info(latest, team_idx)})")
+            else:
+                # changed score correction (from either partner or opponent)
+                post_action += ScoreAction.DISCARD
+                action_info = "Intervening correction"
+                flash(f"err=Discarding acceptance due to {lc_first(action_info)} "
+                      f"({post_info(latest, team_idx)})")
 
-    with db_atomic() as txn:
         tourn = TournInfo.get()
         do_push = (post_action == ScoreAction.ACCEPT)
         info = {
@@ -624,53 +626,56 @@ def correct_score(form: dict, ref_score: PostScore = None) -> str:
     assert max(team1_pts, team2_pts) == GAME_PTS
     assert (team1_pts, team2_pts) != (GAME_PTS, GAME_PTS)
 
-    # check for intervening corrections
-    latest = PostScore.get_last(game_label, include_accept=True)
-    if latest != ref_score:
-        assert latest.created_at > ref_score.created_at
-        if latest.post_action == ScoreAction.ACCEPT:
-            score_pushed = True
-            post_action += ScoreAction.DISCARD
-            action_info = "Intervening acceptance"
-            flash(f"err=Discarding update due to {lc_first(action_info)} "
-                  f"({post_info(latest, team_idx)})")
-        # NOTE that we are always discarding this action if there is an intervening
-        # correction (regardless of actor and score), since the logic for implicit
-        # acceptance could be messy and/or counterintuitive
-        elif same_score(latest, ref_score):
-            # REVISIT: we should be able to implicitly accept if updates are from opposing
-            # teams!!!
-            post_action += ScoreAction.DISCARD
-            action_info = "Intervening correction (score unchanged)"
-            flash(f"err=Discarding update due to {lc_first(action_info)} "
-                  f"({post_info(latest, team_idx)})")
-        else:
-            post_action += ScoreAction.DISCARD
-            action_info = "Intervening correction"
-            flash(f"err=Discarding update due to {lc_first(action_info)} "
-                  f"({post_info(latest, team_idx)})")
-    elif same_score((team1_pts, team2_pts), ref_score):
-        # NOTE: we used to treat an unchanged score correction to an opponent score as an
-        # implicit acceptance, but now we always ignore this action (more intuitive)
-        post_action += ScoreAction.IGNORE
-        action_info = "Unchanged score correction"
-        log.info(f"Ignoring {lc_first(action_info)}")
+    with db_atomic() as txn:
+        # check for intervening corrections
+        latest = PostScore.get_last(game_label, include_accept=True)
+        if latest != ref_score:
+            assert latest.created_at > ref_score.created_at
+            if latest.post_action == ScoreAction.ACCEPT:
+                score_pushed = True
+                post_action += ScoreAction.DISCARD
+                action_info = "Intervening acceptance"
+                flash(f"err=Discarding update due to {lc_first(action_info)} "
+                      f"({post_info(latest, team_idx)})")
+            # NOTE that we are always discarding this action if there is an intervening
+            # correction (regardless of actor and score), since the logic for implicit
+            # acceptance could be messy and/or counterintuitive
+            elif same_score(latest, ref_score):
+                # REVISIT: we should be able to implicitly accept if updates are from
+                # opposing teams!!!
+                post_action += ScoreAction.DISCARD
+                action_info = "Intervening correction (score unchanged)"
+                flash(f"err=Discarding update due to {lc_first(action_info)} "
+                      f"({post_info(latest, team_idx)})")
+            else:
+                post_action += ScoreAction.DISCARD
+                action_info = "Intervening correction"
+                flash(f"err=Discarding update due to {lc_first(action_info)} "
+                      f"({post_info(latest, team_idx)})")
+        elif same_score((team1_pts, team2_pts), ref_score):
+            # NOTE: we used to treat an unchanged score correction to an opponent score as
+            # an implicit acceptance, but now we ignore this action (as more intuitive, if
+            # even possible anymore)
+            post_action += ScoreAction.IGNORE
+            action_info = "Unchanged score correction"
+            log.info(f"Ignoring {lc_first(action_info)}")
 
-    tourn = TournInfo.get()
-    info = {
-        'bracket'      : bracket,
-        'game_label'   : game_label,
-        'post_action'  : post_action,
-        'action_info'  : action_info,
-        'team1_pts'    : team1_pts,
-        'team2_pts'    : team2_pts,
-        'posted_by_num': player_num,
-        'team_idx'     : team_idx,
-        'ref_score'    : ref_score,
-        'do_push'      : False,
-        'tourn_stage'  : tourn.stage_tag
-    }
-    score = PostScore.create(**info)
+        tourn = TournInfo.get()
+        info = {
+            'bracket'      : bracket,
+            'game_label'   : game_label,
+            'post_action'  : post_action,
+            'action_info'  : action_info,
+            'team1_pts'    : team1_pts,
+            'team2_pts'    : team2_pts,
+            'posted_by_num': player_num,
+            'team_idx'     : team_idx,
+            'ref_score'    : ref_score,
+            'do_push'      : False,
+            'tourn_stage'  : tourn.stage_tag
+        }
+        score = PostScore.create(**info)
+
     if score_pushed:
         return render_game_in_view(game_label)
     return render_view(BRACKET_ENDPT[bracket])
@@ -682,37 +687,40 @@ def pick_partner(form: dict) -> str:
     partner_num = typecast(form['partner_num'])
     picks_info  = typecast(form['picks_info'])
 
-    try:
-        player = Player.fetch_by_num(player_num)
-        partner = Player.fetch_by_num(partner_num)
-        if partner:
-            # partner is identified, but need to apply validation logic
-            partners, avail = player.pick_partners(partner.player_rank_eff)
-        else:
-            if isinstance(picks_info, bool) or picks_info is None:
-                # revert over-aggressive typecasting (could mask viable matches)
-                picks_info = form['picks_info']
-            partners, avail = player.pick_partners(picks_info)
-        player.set_partners(*partners)
-        player.save(cascade=True)
-        tourn = TournInfo.get()
-        info = {
-            'player'        : player,
-            'post_action'   : PickAction.SELECT,
-            'player_ident'  : player.seed_ident,
-            'partner_ident' : partners[0].seed_ident,
-            'partner2_ident': partners[1].seed_ident if len(partners) > 1 else None,
-            'tourn_stage'   : tourn.stage_tag,
-            'posted_by_num' : player_num
-        }
-        post = PostPick.create(**info)
+    with db_atomic() as txn:
+        try:
+            player = Player.fetch_by_num(player_num)
+            partner = Player.fetch_by_num(partner_num)
+            if partner:
+                # partner is identified, but need to apply validation logic
+                partners, avail = player.pick_partners(partner.player_rank_eff)
+            else:
+                if isinstance(picks_info, bool) or picks_info is None:
+                    # revert over-aggressive typecasting (could mask viable matches)
+                    picks_info = form['picks_info']
+                partners, avail = player.pick_partners(picks_info)
+            player.set_partners(*partners)
+            player.save(cascade=True)
+            tourn = TournInfo.get()
+            info = {
+                'player'        : player,
+                'post_action'   : PickAction.SELECT,
+                'player_ident'  : player.seed_ident,
+                'partner_ident' : partners[0].seed_ident,
+                'partner2_ident': partners[1].seed_ident if len(partners) > 1 else None,
+                'tourn_stage'   : tourn.stage_tag,
+                'posted_by_num' : player_num
+            }
+            post = PostPick.create(**info)
 
-        # REVISIT: we should try and incorporate this into update_tourn_stage (would have
-        # to rethink the interface for that, though)!!!
-        if PartnerPick.current_round() == -1:
-            tourn.complete_stage(TournStage.PARTNER_PICK)
-    except RuntimeError as e:
-        flash(f"err={str(e)}")
+            # REVISIT: we should try and incorporate this into update_tourn_stage (would
+            # have to rethink the interface for that, though)!!!
+            if PartnerPick.current_round() == -1:
+                tourn.complete_stage(TournStage.PARTNER_PICK)
+        except RuntimeError as e:
+            txn.rollback()
+            flash(f"err={str(e)}")
+
     return render_view(PARTNERS_ENDPT)
 
 #############

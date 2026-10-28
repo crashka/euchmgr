@@ -232,8 +232,8 @@ class Player(UIMixin, BasePlayer):
             return str(self.player_rank) if self.player_rank else ''
 
     @property
-    def current_game(self) -> BaseModel:
-        """Return current SeedGame for player (only if seeding stage is active)
+    def old_current_game(self) -> BaseModel:
+        """TEMP: old version of current_game()--remove after testing/validation!!!
         """
         pg = (PlayerGame
               .select(fn.max(PlayerGame.round_num))
@@ -251,6 +251,28 @@ class Player(UIMixin, BasePlayer):
                      SeedGame.round_num > last_round)
               .order_by(SeedGame.round_num))
         return cg[0] if len(cg) > 0 else None
+
+    @property
+    def current_game(self) -> BaseModel:
+        """Return current SeedGame for player (only if seeding stage is active)
+        """
+        cg = (SeedGame
+              .select()
+              .where((SeedGame.player1 == self) |
+                     (SeedGame.player2 == self) |
+                     (SeedGame.player3 == self) |
+                     (SeedGame.player4 == self))
+              .where(SeedGame.table_num.is_null(False),
+                     SeedGame.winner.is_null(True))
+              .order_by(SeedGame.round_num)
+              .get_or_none())
+        old_cg = self.old_current_game
+        if cg != old_cg:
+            cur_game = cg.label if cg else "'None'"
+            old_cur_game = old_cg.label if old_cg else "'None'"
+            log.warning(f"mismatch with old current_game ({cur_game} vs. {old_cur_game}) "
+                        f"for player '{self.name}'")
+        return cg
 
     def get_games(self, all_games: bool = False) -> list[BaseModel]:
         """Get completed SeedGame records (including possible byes up to the current round
@@ -893,8 +915,8 @@ class Team(UIMixin, BaseTeam):
             return str(self.div_rank) if self.div_rank else ''
 
     @property
-    def current_game(self) -> BaseModel:
-        """Return current TournGame for team (only if round robin stage is active)
+    def old_current_game(self) -> BaseModel:
+        """TEMP: old version of current_game()--remove after testing/validation!!!
         """
         tg = (TeamGame
               .select(fn.max(TeamGame.round_num))
@@ -912,8 +934,28 @@ class Team(UIMixin, BaseTeam):
         return cg[0] if len(cg) > 0 else None
 
     @property
-    def current_playoff_game(self) -> BaseModel:
+    def current_game(self) -> BaseModel:
         """Return current TournGame for team (only if round robin stage is active)
+        """
+        cg = (TournGame
+              .select()
+              .where((TournGame.team1 == self) |
+                     (TournGame.team2 == self))
+              .where(TournGame.table_num.is_null(False),
+                     TournGame.winner.is_null(True))
+              .order_by(TournGame.round_num)
+              .get_or_none())
+        old_cg = self.old_current_game
+        if cg != old_cg:
+            cur_game = cg.label if cg else "'None'"
+            old_cur_game = old_cg.label if old_cg else "'None'"
+            log.warning(f"mismatch with old current_game ({cur_game} vs. {old_cur_game}) "
+                        f"for team '{self.team_name}'")
+        return cg
+
+    @property
+    def current_playoff_game(self) -> BaseModel:
+        """Return current TournGame for team (only if a playoff stage is active)
         """
         tourn = TournInfo.get()
         if not tourn.playoffs_started():
@@ -938,7 +980,7 @@ class Team(UIMixin, BaseTeam):
         for game in query:
             if not game.winner:
                 return game
-            win_idx = bool(game.winner == game.team2_name)
+            win_idx = int(game.winner == game.team2_name)
             wins[win_idx] += 1
             if max(wins) > 1:
                 break
@@ -1168,7 +1210,7 @@ class PlayoffGame(UIMixin, BasePlayoffGame):
         """Return the team index for the specified team.  This is used to map into
         `team_tags`.
         """
-        return bool(team == self.team2)
+        return int(team == self.team2)
 
 ##############
 # PlayerGame #

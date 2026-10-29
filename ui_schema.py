@@ -9,7 +9,7 @@ from typing import Self, Iterator
 from peewee import ForeignKeyField, DeferredForeignKey, fn
 from flask import g
 
-from core import log
+from core import DEBUG, log
 from database import BaseModel
 from schema import (rnd_pct, Bracket, BRACKET_NAME, get_bracket, TournStage, TournInfo,
                     Player as BasePlayer, SeedGame as BaseSeedGame, Team as BaseTeam,
@@ -232,25 +232,35 @@ class Player(UIMixin, BasePlayer):
             return str(self.player_rank) if self.player_rank else ''
 
     @property
-    def old_current_game(self) -> BaseModel:
-        """TEMP: old version of current_game()--remove after testing/validation!!!
+    def current_game_debug(self) -> BaseModel:
+        """Debug version of `current_game`, check all seed_games for the player and report
+        any anomalies.
         """
-        pg = (PlayerGame
-              .select(fn.max(PlayerGame.round_num))
-              .where(PlayerGame.player == self,
-                     PlayerGame.is_bye == False)
-              .get())
-        last_round = pg.round_num or 0
-        cg = (SeedGame
-              .select()
-              .where((SeedGame.player1 == self) |
-                     (SeedGame.player2 == self) |
-                     (SeedGame.player3 == self) |
-                     (SeedGame.player4 == self))
-              .where(SeedGame.table_num.is_null(False),
-                     SeedGame.round_num > last_round)
-              .order_by(SeedGame.round_num))
-        return cg[0] if len(cg) > 0 else None
+        cur_game = None
+        games = (SeedGame
+                 .select()
+                 .where((SeedGame.player1 == self) |
+                        (SeedGame.player2 == self) |
+                        (SeedGame.player3 == self) |
+                        (SeedGame.player4 == self))
+                 .order_by(SeedGame.round_num))
+        for game in games:
+            if not game.table_num:
+                assert not game.winner
+                continue  # skip byes (either before or after cur_game has been set)
+
+            if not cur_game:
+                if game.winner:
+                    pass  # we just have a completed game
+                else:
+                    cur_game = game
+            else:
+                if game.winner:
+                    log.warning(f"Out of order game {game.label} for player '{self.name}'")
+                else:
+                    pass  # we just have an unplayed game
+
+        return cur_game  # can be None (if never set)
 
     @property
     def current_game(self) -> BaseModel:
@@ -266,12 +276,14 @@ class Player(UIMixin, BasePlayer):
                      SeedGame.winner.is_null(True))
               .order_by(SeedGame.round_num)
               .get_or_none())
-        old_cg = self.old_current_game
-        if cg != old_cg:
-            cur_game = cg.label if cg else "'None'"
-            old_cur_game = old_cg.label if old_cg else "'None'"
-            log.warning(f"mismatch with old current_game ({cur_game} vs. {old_cur_game}) "
-                        f"for player '{self.name}'")
+
+        if DEBUG:
+            cg_debug = self.current_game_debug
+            if cg_debug != cg:
+                cur_game = cg.label if cg else "'None'"
+                cur_game_debug = cg_debug.label if cg_debug else "'None'"
+                log.error(f"current_game_debug mismatch ({cur_game_debug} vs {cur_game}) "
+                          f"for player '{self.name}'")
         return cg
 
     def get_games(self, all_games: bool = False) -> list[BaseModel]:
@@ -915,23 +927,32 @@ class Team(UIMixin, BaseTeam):
             return str(self.div_rank) if self.div_rank else ''
 
     @property
-    def old_current_game(self) -> BaseModel:
-        """TEMP: old version of current_game()--remove after testing/validation!!!
+    def current_game_debug(self) -> BaseModel:
+        """Debug version of `current_game`, check all tourn_games for the team and report
+        any anomalies.
         """
-        tg = (TeamGame
-              .select(fn.max(TeamGame.round_num))
-              .where(TeamGame.team == self,
-                     TeamGame.is_bye == False)
-              .get())
-        last_round = tg.round_num or 0
-        cg = (TournGame
-              .select()
-              .where((TournGame.team1 == self) |
-                     (TournGame.team2 == self))
-              .where(TournGame.table_num.is_null(False),
-                     TournGame.round_num > last_round)
-              .order_by(TournGame.round_num))
-        return cg[0] if len(cg) > 0 else None
+        cur_game = None
+        games = (TournGame
+                 .select()
+                 .where((TournGame.team1 == self) |
+                        (TournGame.team2 == self))
+                 .order_by(TournGame.round_num))
+        for game in games:
+            if not game.table_num:
+                assert not game.winner
+                continue  # skip byes (either before or after cur_game has been set)
+
+            if not cur_game:
+                if game.winner:
+                    pass  # we just have a completed game
+                else:
+                    cur_game = game
+            else:
+                if game.winner:
+                    log.warning(f"Out of order game {game.label} for team '{self.team_name}'")
+                else:
+                    pass  # we just have an unplayed game
+        return cur_game  # can be None (if never set)
 
     @property
     def current_game(self) -> BaseModel:
@@ -945,12 +966,14 @@ class Team(UIMixin, BaseTeam):
                      TournGame.winner.is_null(True))
               .order_by(TournGame.round_num)
               .get_or_none())
-        old_cg = self.old_current_game
-        if cg != old_cg:
-            cur_game = cg.label if cg else "'None'"
-            old_cur_game = old_cg.label if old_cg else "'None'"
-            log.warning(f"mismatch with old current_game ({cur_game} vs. {old_cur_game}) "
-                        f"for team '{self.team_name}'")
+
+        if DEBUG:
+            cg_debug = self.current_game_debug
+            if cg_debug != cg:
+                cur_game = cg.label if cg else "'None'"
+                cur_game_debug = cg_debug.label if cg_debug else "'None'"
+                log.error(f"current_game_debug mismatch ({cur_game_debug} vs {cur_game}) "
+                          f"for team '{self.team_name}'")
         return cg
 
     @property

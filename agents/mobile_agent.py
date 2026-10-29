@@ -4,6 +4,7 @@
 """Emulate a mobile client through the lifecycle of a tournament.
 """
 
+from functools import partial
 from random import random, uniform, randrange
 from time import sleep, time
 
@@ -14,6 +15,7 @@ from urllib3.exceptions import InsecureRequestWarning
 from bs4 import BeautifulSoup, Tag
 
 from core import config, profile, log, set_logger
+from mobile import View
 
 ################
 # module stuff #
@@ -128,7 +130,7 @@ def login(user: str, pw: str = "") -> str:
     resp = agent_post("/login", data=data)
     assert resp.status_code == 200
     assert len(resp.history) == 2
-    assert resp.request.path_url == '/mobile/seeding'
+    assert resp.request.path_url in VIEW_AGENTS
 
 def active_view() -> tuple[str, BeautifulSoup]:
     """Get active view.  Return view path and parsed HTML.
@@ -164,18 +166,21 @@ def parse_scores(score_block: Tag) -> tuple[int, int]:
     # TODO: should really do this by team_pts/opp_pts and not assume the order!!!
     return tuple(score_val(score) for score in scores)
 
-def seeding_agent(soup: BeautifulSoup) -> None:
-    """Seeding agent loop.
+def game_view_agent(soup: BeautifulSoup, view: View = None) -> None:
+    """Round robin agent loop.
     """
+    assert view is not None
+    view_path = f'/mobile/{view}'
+    action_url = lambda action: f'/mobile/{view}/{action}'
+
     # it is assumed that we have new soup on every loop (it would nice to be able to
     # assert this!)
     while game := soup.select_one('section.games article.game.active'):
-        form = soup.select_one('form[action="seeding"]')
+        form = soup.select_one(f'form[action="{view}"]')
         player_num = typecast(form.select_one('input[name="posted_by_num"]').get('value'))
         team_idx = typecast(form.select_one('input[name="team_idx"]').get('value'))
         ref_score_id = typecast(form.select_one('input[name="ref_score_id"]').get('value')) or 0
         game_label = game['id']  # should be same as 'form input[name="game_label"]'
-        teams = parse_teams(game.select('p.matchup span'))  # not currently used
         scores = parse_scores(game.select_one('p.score'))
         action_block = game.select_one('p.units + p')
         if not action_block.get('class'):
@@ -207,12 +212,12 @@ def seeding_agent(soup: BeautifulSoup) -> None:
                     post = data['data']
                     if post['id'] > ref_score_id:
                         log.debug(f"active game {game_label}: new score posted (id {post['id']})")
-                        resp = agent_get('/mobile/seeding/')
+                        resp = agent_get(view_path + '/')
                         new_soup = BeautifulSoup(resp.text, 'html.parser')
                         break
                     elif post['do_push']:
                         log.debug(f"active game {game_label}: score pushed")
-                        resp = agent_get('/mobile/seeding')
+                        resp = agent_get(view_path)
                         new_soup = BeautifulSoup(resp.text, 'html.parser')
                         break
                     log.debug(f"active game {game_label}: no new score post")
@@ -245,7 +250,7 @@ def seeding_agent(soup: BeautifulSoup) -> None:
                     'team_pts'     : scores[0],
                     'opp_pts'      : scores[1],
                     'action'       : action}
-            resp = agent_post(f'/mobile/seeding/{action}', data=data)
+            resp = agent_post(action_url(action), data=data)
             assert resp.status_code == 200
             assert len(resp.history) == 2
             soup = BeautifulSoup(resp.text, 'html.parser')
@@ -268,12 +273,12 @@ def seeding_agent(soup: BeautifulSoup) -> None:
                     post = data['data']
                     if post['id'] > ref_score_id:
                         log.debug(f"active game {game_label}: new score posted (id {post['id']})")
-                        resp = agent_get('/mobile/seeding/')
+                        resp = agent_get(view_path + '/')
                         new_soup = BeautifulSoup(resp.text, 'html.parser')
                         break
                     elif post['do_push']:
                         log.debug(f"active game {game_label}: score pushed")
-                        resp = agent_get('/mobile/seeding')
+                        resp = agent_get(view_path)
                         new_soup = BeautifulSoup(resp.text, 'html.parser')
                         break
                     log.debug(f"active game {game_label}: no new score post")
@@ -302,7 +307,7 @@ def seeding_agent(soup: BeautifulSoup) -> None:
                     'team_pts'     : points[0],
                     'opp_pts'      : points[1],
                     'action'       : action}
-            resp = agent_post(f'/mobile/seeding/{action}', data=data)
+            resp = agent_post(action_url(action), data=data)
             assert resp.status_code == 200
             assert len(resp.history) == 2
             soup = BeautifulSoup(resp.text, 'html.parser')
@@ -311,11 +316,12 @@ def seeding_agent(soup: BeautifulSoup) -> None:
         else:
             raise RuntimeError("Unexpected element '{action_block}'")
 
-    log.debug(f"seeding: no active game")
+    log.debug(f"{view}: no active game")
     return
 
 VIEW_AGENTS = {
-    '/mobile/seeding': seeding_agent
+    '/mobile/seeding'    : partial(game_view_agent, view=View.SEEDING),
+    '/mobile/round_robin': partial(game_view_agent, view=View.ROUND_ROBIN)
 }
 
 def mobile_agent() -> str:

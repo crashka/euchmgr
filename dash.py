@@ -136,7 +136,7 @@ def get_dash(dash: str) -> str:
         abort(404, f"Invalid dash '{dash}'")
 
     # TODO: trap peewee.InterfaceError on this call!!!
-    tourn = TournInfo.get(requery=True)
+    tourn = TournInfo.get()
     return globals()[dash](tourn)
 
 def render_dash(context: dict) -> str:

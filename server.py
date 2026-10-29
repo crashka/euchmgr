@@ -290,7 +290,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         if not db_is_initialized():
             return redirect(url_for('admin.tourn'))
 
-        tourn = TournInfo.get()
+        tourn = TournInfo.get(requery=True)
         tourn_name = session.get('tourn')
         if not tourn_name:
             # REVISIT: this can happen if another admin has switched tournaments out from
@@ -303,6 +303,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
             session['tourn'] = tourn.name
             log.info(f"re-setting tourn = '{tourn.name}' in session state")
 
+        flash("redirected=True")
         view = active_view(tourn)
         return render_view(view)
 

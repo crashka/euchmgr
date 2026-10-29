@@ -264,7 +264,7 @@ def tourn() -> str:
     if tourn_name:
         assert not create_new
         assert db_is_initialized()
-        tourn = TournInfo.get()
+        tourn = TournInfo.get(requery=True)
         assert tourn.name == tourn_name
         # render admin view for existing tournament
         context = {
@@ -278,7 +278,7 @@ def tourn() -> str:
     tourn = TournInfo() if create_new else None
     if db_is_initialized():
         # see REVISIT comment for the `index` route (in server.py)
-        tourn = TournInfo.get()
+        tourn = TournInfo.get(requery=True)
         session['tourn'] = tourn.name
         log.info(f"re-setting tourn = '{tourn.name}' in session state")
 
@@ -307,14 +307,15 @@ def view() -> str:
     if g.mobile:
         return render_error(403, desc="Mobile access unauthorized")
 
-    view = request.path.split('/')[-1]
-    tourn = TournInfo.get()
-
     params, msgs = process_flashes()
     err_msgs     = params.pop('err', [])
     info_msgs    = params.pop('info', []) + msgs
+    redirected   = params.pop('redirected', False)
     if params:
         raise ImplementationError(f"unexpected flashed params '{params}'")
+
+    tourn = TournInfo.get(requery=(not redirected))
+    view = request.path.split('/')[-1]
 
     context = {
         'tourn'   : tourn,
@@ -469,7 +470,7 @@ def view_action(action: str) -> str:
     assert action in ACTION_INFO
     valid_stages = ACTION_INFO[action][1]
     if db_is_initialized():
-        tourn = TournInfo.get()
+        tourn = TournInfo.get(requery=True)
         if tourn.stage_compl not in valid_stages:
             abort(400, f"Invalid action '{action}' for stage '{tourn.cur_stage}'")
     elif TOURN_INIT not in valid_stages:

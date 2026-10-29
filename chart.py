@@ -108,7 +108,7 @@ def get_chart(chart: str) -> str:
         abort(404, f"Invalid chart '{chart}'")
 
     # TODO: trap peewee.InterfaceError on this call!!!
-    tourn = TournInfo.get(requery=True)
+    tourn = TournInfo.get()
     return globals()[chart](tourn)
 
 @chart.get("/<chart>/<target>")
@@ -119,7 +119,7 @@ def get_chart_targ(chart: str, target: str) -> str:
         abort(404, f"Invalid chart '{chart}'")
 
     # TODO: trap peewee.InterfaceError on this call!!!
-    tourn = TournInfo.get(requery=True)
+    tourn = TournInfo.get()
     return globals()[chart](typecast(target), tourn)
 
 def render_chart(context: dict) -> str:

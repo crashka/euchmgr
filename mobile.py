@@ -853,7 +853,7 @@ def render_mobile(context: dict, view: str) -> str:
     """Common post-processing of context before rendering the tournament selector and
     creation page through Jinja
     """
-    tourn       = TournInfo.get(requery=True)
+    tourn       = TournInfo.get()
     player      = current_user
     team        = current_user.team
     cur_game    = None

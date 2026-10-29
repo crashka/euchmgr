@@ -56,7 +56,7 @@ def get_report(report: str) -> str:
     if report not in REPORT_FUNCS:
         abort(404, f"Invalid report func '{report}'")
 
-    tourn = TournInfo.get(requery=True)
+    tourn = TournInfo.get()
     return globals()[report](tourn)
 
 @report.get("/<report>/<target>")
@@ -66,7 +66,7 @@ def get_report_targ(report: str, target: str) -> str:
     if report not in REPORT_FUNCS:
         abort(404, f"Invalid report func '{report}'")
 
-    tourn = TournInfo.get(requery=True)
+    tourn = TournInfo.get()
     return globals()[report](typecast(target), tourn)
 
 def render_report(context: dict) -> str:

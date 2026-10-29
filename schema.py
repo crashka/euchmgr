@@ -232,10 +232,15 @@ class TournInfo(BaseModel):
         """
         if cls != TournInfo:
             raise ImplementationError(f"cannot cache TournInfo subclass instance")
-        if cls.inst is None or requery:
-            res = [t for t in cls.select().limit(2)]
-            assert len(res) == 1  # fails if not initialized, or unexpected multiple records
-            cls.inst = res[0]
+
+        if cls.inst and not requery:
+            #log.trace("Returning cached tourn_info", stacklevel=2)
+            return cls.inst
+
+        log.debug(f"{'Req' if cls.inst else 'Q'}uerying tourn_info", stacklevel=2)
+        res = list(cls.select().limit(2))
+        assert len(res) == 1  # fails if not initialized, or unexpected multiple records
+        cls.inst = res[0]
         return cls.inst
 
     @classmethod

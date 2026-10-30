@@ -389,7 +389,9 @@ def partners_view_agent(soup: BeautifulSoup) -> None:
 VIEW_AGENTS = {
     '/mobile/seeding'    : partial(game_view_agent, view=View.SEEDING),
     '/mobile/partners'   : partners_view_agent,
-    '/mobile/round_robin': partial(game_view_agent, view=View.ROUND_ROBIN)
+    '/mobile/round_robin': partial(game_view_agent, view=View.ROUND_ROBIN),
+    '/mobile/semifinals' : partial(game_view_agent, view=View.SEMIFINALS),
+    '/mobile/finals'     : partial(game_view_agent, view=View.FINALS)
 }
 
 def mobile_agent(player_name: str) -> str:

@@ -51,6 +51,19 @@ default:
       rr_brackets:             300
       rr_scores:               100
 
+  admin_agent:
+    reload_int:                5000
+    wait_time:
+      check_view:              30
+      players_actn:            15
+      seeding_actn:            15
+      partners_actn:           15
+      teams_actn:              15
+      round_robin_actn:        15
+      final_four_actn:         15
+      playoffs_actn:           15
+    time_variance:             [0.75, 1.25]
+
   mobile_agent:
     update_int:
       cur_game:                5000

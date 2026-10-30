@@ -110,14 +110,16 @@ def resp_error(resp: Response) -> str:
     """
     soup = BeautifulSoup(resp.text, 'html.parser')
     err_msg = soup.select_one('h2')
+    # FIX: need to parse some useful information out of `resp.text` rather than return the
+    # full HTML!!!
     return err_msg.string if err_msg else resp.text
 
 ###############
 # agent funcs #
 ###############
 
-def login(user: str, pw: str = "") -> str:
-    """Returns active view.
+def login(user: str, pw: str = "") -> tuple[str, BeautifulSoup]:
+    """Log in the user, and render the active view.
     """
     resp = agent_get('/')
     if resp.status_code != 200:
@@ -130,10 +132,11 @@ def login(user: str, pw: str = "") -> str:
     resp = agent_post("/login", data=data)
     assert resp.status_code == 200
     assert len(resp.history) == 2
-    assert resp.request.path_url in VIEW_AGENTS
+    soup = BeautifulSoup(resp.text, 'html.parser')
+    return resp.request.path_url, soup
 
 def active_view() -> tuple[str, BeautifulSoup]:
-    """Get active view.  Return view path and parsed HTML.
+    """Render the active view.  Return view path and parsed HTML.
     """
     resp = agent_get('/')
     assert resp.status_code == 200
@@ -324,10 +327,10 @@ VIEW_AGENTS = {
     '/mobile/round_robin': partial(game_view_agent, view=View.ROUND_ROBIN)
 }
 
-def mobile_agent() -> str:
-    """Main loop for the mobile agent (must be logged in).
+def mobile_agent(player_name: str) -> str:
+    """Setup and main loop for the mobile agent.
     """
-    view, soup = active_view()
+    view, soup = login(player_name)
     assert view in VIEW_AGENTS, f"No agent for view '{view}'"
     user = soup.select_one('span.login_info span[title]').string
 
@@ -365,8 +368,7 @@ def main() -> int:
     log_name = f"agent-{player_tag}"
     set_logger(log_name)
     set_server(server_url)
-    login(player_name)
-    mobile_agent()
+    mobile_agent(player_name)
     return 0
 
 if __name__ == '__main__':

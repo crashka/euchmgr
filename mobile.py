@@ -1041,6 +1041,7 @@ def render_mobile(context: dict, view: str) -> str:
         'info_data'    : info_data,
         'cur_game'     : cur_game,
         'cur_pick'     : cur_pick,
+        'cur_pick_id'  : cur_pick.id if cur_pick else 0,  # for javascript
         'team_tag'     : team_tag,
         'team_pts'     : team_pts,
         'opp_tag'      : opp_tag,

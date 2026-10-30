@@ -538,6 +538,8 @@
         <span class="partner">Teammate(s)</span>
       </article>
       <form action="{{view}}" method="post">
+        <input type="hidden" name="player_num" value="{{user.player_num}}">
+        <input type="hidden" name="cur_pick_id" value="{{cur_pick_id or none}}">
         {% for pk in partner_picks %}
         {% set pk_cls = " active" if pk == cur_pick else ("" if pk.partner else " pending") %}
         <article class="pick{{pk_cls}}" id="pk-{{pk.player_rank_eff}}">
@@ -546,7 +548,6 @@
           {% set champ_flg = "*" if pk.reigning_champ else "" %}
           <span class="picker">{{pk.seed_ident}}{{is_you|safe}}{{champ_flg}}</span>
           {% if pk == user and cur_pick == user %}
-          <input type="hidden" name="player_num" value="{{user.player_num}}">
           {# the following is currently unused, but could expose later #}
           <input type="hidden" name="picks_info" value="">
           <span class="partner">
@@ -818,7 +819,7 @@
                //window.location.href = '';
                window.location.href = window.location.pathname;
              }
-             else if (pick.id != {{cur_pick.id}}) {
+             else if (pick.id != {{cur_pick_id}}) {
                window.location.href = window.location.pathname + '/';
              }
              timeoutId = setTimeout(chkCurrentPick, {{update_int}});

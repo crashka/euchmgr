@@ -5,8 +5,9 @@
 """
 
 from functools import partial
-from random import random, uniform, randrange
+from random import random, uniform, randrange, choice
 from time import sleep, time
+import re
 
 from ckautils import typecast
 from requests import Session, Response
@@ -144,17 +145,6 @@ def active_view() -> tuple[str, BeautifulSoup]:
     soup = BeautifulSoup(resp.text, 'html.parser')
     return resp.request.path_url, soup
 
-def parse_teams(teams: list[Tag]) -> list[tuple[str, str]]:
-    """Return list of tuples representing players names for the teams.
-    """
-    assert len(teams) == 2
-    tm_players = []
-    for team in teams:
-        strings = list(team.stripped_strings)
-        assert len(strings) == 5  # [num, plyr, '/', num, plyr]
-        tm_players.append((strings[1], strings[4]))
-    return tm_players
-
 def parse_scores(score_block: Tag) -> tuple[int, int]:
     """Return tuple representing (team_pts, opp_pts).
     """
@@ -169,8 +159,18 @@ def parse_scores(score_block: Tag) -> tuple[int, int]:
     # TODO: should really do this by team_pts/opp_pts and not assume the order!!!
     return tuple(score_val(score) for score in scores)
 
+def get_view_status(parent: Tag) -> str | None:
+    """Look for the "Status" field in the view info section and return the text value.
+    """
+    info_sect = parent.select_one('section.info_stats')
+    # the first status field (if multiple) represents the status of the stage (as opposed
+    # to the player, e.g. in the case of the /register view)
+    stat_lbl = info_sect.find('label', string=re.compile(r'^Status'))
+    stat_fld = stat_lbl.find_next_sibling('span')
+    return stat_fld.string if stat_fld else None
+
 def game_view_agent(soup: BeautifulSoup, view: View = None) -> None:
-    """Round robin agent loop.
+    """View agent for game playing stages.
     """
     assert view is not None
     view_path = f'/mobile/{view}'
@@ -322,8 +322,73 @@ def game_view_agent(soup: BeautifulSoup, view: View = None) -> None:
     log.debug(f"{view}: no active game")
     return
 
+def partners_view_agent(soup: BeautifulSoup) -> None:
+    """Round robin agent loop.
+    """
+    view = View.PARTNERS
+    view_path = f'/mobile/{view}'
+    action_url = lambda action: f'/mobile/{view}/{action}'
+
+    # it is assumed that we have new soup on every loop (it would nice to be able to
+    # assert this!)
+    while pick := soup.select_one('article.pick.active'):
+        form = soup.select_one(f'form[action="{view}"]')
+        player_num = typecast(form.select_one('input[name="player_num"]').get('value'))
+        cur_pick_id = typecast(form.select_one('input[name="cur_pick_id"]').get('value')) or 0
+        if partner_sel := pick.select_one('span.partner select[name="partner_num"]'):
+            # it's our pick
+            avail = partner_sel.select('option:not([disabled])')
+            partner_num = typecast(choice(avail).get('value'))
+            picks_info = pick.select_one('input[name="picks_info"]').get('value')
+            action = 'pick_partner'
+            wait_for(action)
+            data = {'player_num'   : player_num,
+                    'partner_num'  : partner_num,
+                    'picks_info'   : picks_info,
+                    'action'       : action}
+            resp = agent_post(action_url(action), data=data)
+            assert resp.status_code == 200
+            assert len(resp.history) == 2
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            if err_msg := soup.select_one('span.err_msg').string:
+                log.debug(f"active pick num {player_num}: err_msg '{err_msg}'")
+            continue
+
+        # not our pick, we just wait until something happens
+        new_soup = None
+        while wait_until(None, 'cur_pick'):
+            resp = agent_get("/mobile/current_pick")
+            assert len(resp.history) == 0
+            if resp.status_code == 200:
+                data = resp.json()
+                pick = data['data']
+                if not pick:
+                    log.debug(f"active pick num {player_num}: done picking")
+                    resp = agent_get(view_path)
+                    new_soup = BeautifulSoup(resp.text, 'html.parser')
+                    break
+                elif pick['id'] != cur_pick_id:
+                    log.debug(f"active pick num {player_num}: new pick posted (id {pick['id']})")
+                    resp = agent_get(view_path + '/')
+                    new_soup = BeautifulSoup(resp.text, 'html.parser')
+                    break
+                log.debug(f"active pick num {player_num}: no new pick posted")
+                continue
+            else:
+                raise RuntimeError(f"GET /current_pick failed with status {resp.status_code}")
+        if new_soup:
+            soup = new_soup
+            if err_msg := soup.select_one('span.err_msg').string:
+                log.debug(f"active game {game_label}: err_msg '{err_msg}'")
+            continue
+        assert False, "NOTREACHED"
+
+    log.debug(f"{view}: no active pick")
+    return
+
 VIEW_AGENTS = {
     '/mobile/seeding'    : partial(game_view_agent, view=View.SEEDING),
+    '/mobile/partners'   : partners_view_agent,
     '/mobile/round_robin': partial(game_view_agent, view=View.ROUND_ROBIN)
 }
 
@@ -332,6 +397,7 @@ def mobile_agent(player_name: str) -> str:
     """
     view, soup = login(player_name)
     assert view in VIEW_AGENTS, f"No agent for view '{view}'"
+    log.debug(f"view {view}, status '{get_view_status(soup)}'")
     user = soup.select_one('span.login_info span[title]').string
 
     done = False
@@ -340,6 +406,7 @@ def mobile_agent(player_name: str) -> str:
         wait_for('check_view')
         view, soup = active_view()
         assert view in VIEW_AGENTS, f"No agent for view '{view}'"
+        log.debug(f"view {view}, status '{get_view_status(soup)}'")
 
 ########
 # main #

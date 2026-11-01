@@ -7,6 +7,10 @@ default:
 
   database:
     strict_checkpoints:        false
+    trace_sql:                 true
+
+  server:
+    trace_sql_paths:           []
 
   admin:
     checkpoint_db:
@@ -77,3 +81,17 @@ default:
       pick_partner:            10
     correct_score_freq:        0.15
     time_variance:             [0.5, 1.5]
+
+corellia:
+  server:
+    trace_sql_paths:
+      - /chart/rr_brackets
+      - /chart/sd_bracket
+      - /chart/sd_score
+      - /chart/rr_brackets
+      - /chart/rr_scores
+      - /dash/sd_dash
+      - /dash/rr_dash
+      - /mobile/seeding/accept_score
+      - /mobile/round_robin/accept_score
+      - /mobile/partners

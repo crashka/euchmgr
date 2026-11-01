@@ -17,10 +17,11 @@ from cachelib.file import FileSystemCache
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.exceptions import HTTPException
 
-from core import log, set_logger, ImplementationError
+from core import config, profile, log, set_logger, ImplementationError, DEBUG
 from security import (current_user, EuchmgrUser, ADMIN_USER, ADMIN_ID, AdminUser, EuchmgrLogin,
                       AuthenticationError)
-from database import db_is_initialized, db_connect, db_close, db_is_closed
+from database import (db_is_initialized, db_connect, db_close, db_is_closed, get_sql_tally,
+                      proc_tally)
 from schema import TournInfo
 from ui_schema import Player
 from ui_common import (mobile_client, process_flashes, msg_join, render_response, redirect,
@@ -31,6 +32,12 @@ from dash import dash
 from report import report
 from mobile import mobile
 from admin import admin, active_view, render_view, SEL_NEW
+
+################
+# module stuff #
+################
+
+cfg = config.config('server', profile)
 
 #################
 # utility stuff #
@@ -140,7 +147,11 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         if tourn_name != SEL_NEW:
             if not app.testing or db_is_closed():
                 try:
-                    db_connect(tourn_name)
+                    if request.path in cfg.get('trace_sql_paths', []):
+                        db_connect(tourn_name, trace_sql=True)
+                        g.sql_tally_base = get_sql_tally()
+                    else:
+                        db_connect(tourn_name)
                 except ConnectionError as e:
                     pattern = r"does not match db_name\(\) \('(.*)'\)$"
                     if not (m := re.search(pattern, str(e))):
@@ -163,6 +174,9 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         if ignore_path(request.path):
             return
         log.trace(f"@app.teardown_request: {request.method} {request.path}")
+        if getattr(g, 'sql_tally_base', None):
+            _, sql_tally = get_sql_tally(g.sql_tally_base)
+            log.debug(f"SQL tally for '{request.method} {request.path}': {proc_tally(sql_tally)}")
         db_close()
 
     @app.errorhandler(HTTPException)

@@ -7,6 +7,8 @@ from glob import glob
 import os.path
 from os import stat, stat_result, makedirs
 import shutil
+import sys
+from types import CodeType
 
 from peewee import SqliteDatabase, Model, DateTimeField
 from playhouse.cysqlite_ext import CySqliteDatabase
@@ -41,17 +43,51 @@ TOTAL = 'total'
 SQL_TALLY: Tally = {TOTAL : 0}
 SQL_TIMING: Tally = {TOTAL : 0}  # "tally" of nanoseconds
 
-def trace_sql_cb(event: int, sid: int, sql: str, ns: int) -> None:
-    """Currently just log SQL statements at level 'debug'.
+def _is_internal_frame(frame):
+    """Signal whether the frame represents ORM or application schema code.
     """
-    log.debug(f"SQL: {sql}")
+    filename = os.path.normcase(frame.f_code.co_filename)
+    return (filename.endswith('peewee.py') or
+            filename.endswith('schema.py') or
+            filename.endswith('database.py'))
+
+def get_sql_caller() -> tuple[str, int]:
+    """Get source information (file and lineno), as, well as stacklevel, of first
+    non-internal frame.
+    """
+    f = sys._getframe(1)
+    assert(f)
+    stacklevel = 2
+    while f := f.f_back:
+        if not _is_internal_frame(f):
+            filename = os.path.basename(f.f_code.co_filename)
+            return f"{filename}:{f.f_lineno}", stacklevel
+        stacklevel += 1
+    return None, None
+
+# "process" tally (meaning, remove empty buckets)
+proc_tally = lambda x: {k: v for k, v in x.items() if bool(v) or k == TOTAL}
+
+def trace_sql_cb(event: int, sid: int, sql: str, ns: int) -> None:
+    """Tally SQL statements by command and caller source (file and lineno), and log full
+    SQL text at the TRACE level.
+    """
+    caller, stacklevel = get_sql_caller()
+    log.trace(f"SQL: {sql}", stacklevel=(stacklevel or 2))
+
     sql_cmd = sql.split(' ', 1)[0].lower()
     if sql_cmd not in SQL_TALLY:
         SQL_TALLY[sql_cmd] = 0
         SQL_TIMING[sql_cmd] = 0
+    if caller not in SQL_TALLY:
+        SQL_TALLY[caller] = 0
+        SQL_TIMING[caller] = 0
+
     SQL_TALLY[sql_cmd] += 1
+    SQL_TALLY[caller] += 1
     SQL_TALLY[TOTAL] += 1
     SQL_TIMING[sql_cmd] += ns
+    SQL_TIMING[caller] += ns
     SQL_TIMING[TOTAL] += ns
 
 def get_sql_tally(baseline: Tally = None) -> Tally | tuple[Tally, Tally]:
@@ -107,6 +143,7 @@ db = CySqliteDatabase(None, pragmas=pragmas, **db_params)
 
 # expose useful attributes (discourage importing `db` directly)
 db_connection_context = db.connection_context
+db_connection = db.connection
 db_atomic = db.atomic
 
 def db_filepath(name: str, db_dir: str = None) -> str:
@@ -135,9 +172,10 @@ def db_init(name: str, force: bool = False, trace_sql: bool = False) -> SqliteDa
     okay to overwrite an existing database file.  Implicitly connects to the database
     (cleaner client call sequence).
 
-    The `trace_sql` flag enables logging of SQL statements (at level `debug`), as well as
-    tallying SQL statements by SQL command (see get_sql_tally, above).  REVISIT: should we
-    put this flag on db_connect() instead???
+    The `trace_sql` flag is passed on to the db_connect() call for the initial connection
+    of this database session.  This flag is not preserved for subsequent connections on
+    this session, so explicit calls to db_connect() must include their own `trace_sql`
+    specification (if desired).
 
     Note that we are NOT using autoconnect (for more disciplined state management), so we
     need to explcitly open and close connections (whether done on a per-request basis by
@@ -158,10 +196,8 @@ def db_init(name: str, force: bool = False, trace_sql: bool = False) -> SqliteDa
         db_close()
     db.init(db_file)
     setattr(db, 'db_name', name)  # little hack to remember name
-    db_connect(name)  # REVISIT: should we require this to be explicit???
-    if DEBUG and trace_sql:
-        db._state.conn.trace(trace_sql_cb, SQLITE_TRACE_PROFILE)
-    log.debug(f"db_init({name}, force={force})")
+    db_connect(name, trace_sql)
+    log.debug(f"db_init({name}, force={force}, trace_sql={trace_sql})", stacklevel=2)
     return db
 
 def db_name() -> str | None:
@@ -184,7 +220,7 @@ def db_reset(force: bool = False) -> bool:
         if hasattr(db, 'db_name'):
             delattr(db, 'db_name')
     db.init(None)
-    log.debug(f"db_reset(force={force})")
+    log.debug(f"db_reset(force={force})", stacklevel=2)
     return True
 
 def db_is_initialized() -> bool:
@@ -193,27 +229,32 @@ def db_is_initialized() -> bool:
     """
     return not db.deferred  # this is the flag peewee uses internally
 
-def db_connect(name: str | None = None) -> bool:
-    """Return `True` if connected to database (`False` if database is not initalized).
+def db_connect(name: str | None = None, trace_sql: bool = False) -> bool:
+    """Return `True` if connected to database on return (or `False` if database is not
+    initalized).  The `trace_sql` flag enables logging of SQL statements (at the TRACE
+    level), as well as tallying SQL statements by SQL command and source location (see
+    get_sql_tally(), above).
     """
     if name:
         cur_db = db_name()
         if not cur_db:
             db_init(name, force=True)  # FIX: ugly recursion here!!!
-            log.trace(f"db_connect({name}), cur_db empty, called db_init")
+            log.trace(f"db_connect({name}), cur_db empty, called db_init", stacklevel=2)
             return True
         elif cur_db != name:
             raise ConnectionError(f"name ('{name}') does not match db_name() ('{cur_db}')")
         else:
             # TODO: log this condition for better understanding (we get here as part of
             # the ugly recursion, mentioned above--but what else?)!!!
-            log.trace(f"db_connect({name}), cur_db = {cur_db}")
+            log.trace(f"db_connect({name}), cur_db = {cur_db}", stacklevel=2)
             pass
     elif not db_is_initialized():
-        log.trace(f"db_connect({name}), db not initialized")
+        log.trace(f"db_connect({name}), db not initialized", stacklevel=2)
         return False
     db.connect(reuse_if_open=shared_conn)
-    log.trace(f"db_connect({name}), db connected")
+    if DEBUG and trace_sql and cfg.get('trace_sql', False):
+        db_connection().trace(trace_sql_cb, SQLITE_TRACE_PROFILE)
+    log.trace(f"db_connect({name}, trace_sql={trace_sql}), db connected", stacklevel=2)
     return True
 
 def db_close() -> SqliteDatabase:
@@ -223,10 +264,10 @@ def db_close() -> SqliteDatabase:
     """
     if not db.is_closed():
         db.close()
-        log.trace("db_close()")
+        log.trace("db_close()", stacklevel=2)
     else:
         # TODO: log this condition (understand when/why it happens)!!!
-        log.trace("db_close(), already closed")
+        log.trace("db_close(), already closed", stacklevel=2)
     return db
 
 def db_is_closed() -> bool:

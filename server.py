@@ -20,8 +20,7 @@ from werkzeug.exceptions import HTTPException
 from core import config, profile, log, set_logger, ImplementationError, DEBUG
 from security import (current_user, EuchmgrUser, ADMIN_USER, ADMIN_ID, AdminUser, EuchmgrLogin,
                       AuthenticationError)
-from database import (db_is_initialized, db_connect, db_close, db_is_closed, get_sql_tally,
-                      proc_tally)
+from database import db_is_initialized, db_connect, db_close, db_is_closed, get_sql_tally
 from schema import TournInfo
 from ui_schema import Player
 from ui_common import (mobile_client, process_flashes, msg_join, render_response, redirect,
@@ -176,7 +175,7 @@ def create_app(config: object | Config = Config, proxied: bool = False) -> Flask
         log.trace(f"@app.teardown_request: {request.method} {request.path}")
         if getattr(g, 'sql_tally_base', None):
             _, sql_tally = get_sql_tally(g.sql_tally_base)
-            log.debug(f"SQL tally for '{request.method} {request.path}': {proc_tally(sql_tally)}")
+            log.debug(f"SQL tally for '{request.method} {request.path}': {sql_tally}")
         db_close()
 
     @app.errorhandler(HTTPException)

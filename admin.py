@@ -132,14 +132,14 @@ VIEW_DEFS = {
         "Players",
         pl_layout,
         "nick_name",
-        [0],  # id
+        [1],  # display_name
         3
     ),
     View.SEEDING: ViewInfo(
         "Seeding",
         sg_layout,
         "label",
-        [0],  # id
+        [1],  # label
         3
     ),
     View.PARTNERS: ViewInfo(
@@ -160,7 +160,7 @@ VIEW_DEFS = {
         "Round Robin",
         tg_layout,
         "label",
-        [0],  # id
+        [1],  # label
         2
     ),
     View.FINAL_FOUR: ViewInfo(
@@ -911,7 +911,7 @@ def render_admin(context: dict) -> str:
                 "Players",
                 pl_layout,
                 "nick_name",
-                [11],  # player_rank_eff
+                [13],  # player_rank_eff
                 3
             )
     elif view == View.TEAMS:

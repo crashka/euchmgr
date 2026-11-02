@@ -10,7 +10,7 @@ import sys
 from ckautils import parse_argv
 
 from core import DEBUG, set_logger
-from database import db_init, db_close, db_prepare, get_sql_tally
+from database import db_init, db_close, db_prepare, get_sql_tally, proc_tally
 from schema import Bracket
 from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_seed_bracket,
                      fake_seed_games, validate_seed_round, compute_player_ranks,
@@ -177,7 +177,7 @@ def main() -> int:
         func_call(**(func_args | kwargs))  # will throw exceptions on error
         if trace_sql:
             sql_tally_base, sql_tally = get_sql_tally(sql_tally_base)
-            print(f"SQL tally for '{func}': {sql_tally}")
+            print(f"SQL tally for '{func}': {proc_tally(sql_tally)}")
     if PROFILE:
         profiler.stop()
         profiler.print()

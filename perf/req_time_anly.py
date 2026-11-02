@@ -124,12 +124,12 @@ with open(hist_file, 'w') as f:
 
 # report by request target
 print("\nOverview of Data by Aggregate Time (seconds, descending)\n")
-print(f"{'Request':40}\t{'Count':>6}\t{'Agg Tim'}\t{'Max':>6}\t{'Mean':>6}\t"
+print(f"{'Request':40}\t{'Count':>6}\t{'Agg Time':>8}\t{'Max':>6}\t{'Mean':>6}\t"
       f"{'Median':>6}\t{'Stdev':>6}")
-print(f"{'-' * 40}\t{'-' * 6}\t{'-' * 7}\t{'-' * 6}\t{'-' * 6}\t{'-' * 6}\t{'-' * 6}")
+print(f"{'-' * 40}\t{'-' * 6}\t{'-' * 8}\t{'-' * 6}\t{'-' * 6}\t{'-' * 6}\t{'-' * 6}")
 for req in sorted(REQ_STATS.keys(), key=lambda x: -REQ_STATS[x][1]):
     stats = REQ_STATS[req]
-    print(f"{req:40}\t{stats[0]:6d}\t{stats[1]:7.1f}\t{stats[2]:6.1f}\t"
+    print(f"{req:40}\t{stats[0]:6d}\t{stats[1]:8.1f}\t{stats[2]:6.1f}\t"
           f"{stats[3]:6.1f}\t{stats[4]:6.1f}\t{stats[5]:6.1f}")
 
 sys.exit(0)

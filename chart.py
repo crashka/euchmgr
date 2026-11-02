@@ -174,7 +174,6 @@ def sd_bracket(tourn: TournInfo) -> str:
         labels[rnd][tbl] = sg.label
         complete[rnd][tbl] = False
         if tbl:
-
             if sg.winner:
                 tm1_str = f"{sg.team_tags[0]}{SPC(3)}<u class='u2'>{PTS(sg.team1_pts)}</u>"
                 tm2_str = f"{sg.team_tags[1]}{SPC(3)}<u class='u2'>{PTS(sg.team2_pts)}</u>"

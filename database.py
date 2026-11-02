@@ -1,4 +1,4 @@
-#d -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 import re
 from collections.abc import Callable
@@ -8,7 +8,6 @@ import os.path
 from os import stat, stat_result, makedirs
 import shutil
 import sys
-from types import CodeType
 
 from peewee import SqliteDatabase, Model, DateTimeField
 from playhouse.cysqlite_ext import CySqliteDatabase
@@ -36,25 +35,33 @@ def now_str() -> str:
 # return unixtime as an int (i.e. to the second)
 unixtime = lambda: int(datetime.now().timestamp())
 
+# return current connection id (used for connection-local storage)
+get_conn_id = lambda: id(db.connection())
+
 # count and timing of SQL statements, by SQL command
-Tally = dict[str, int]
+Tally  = dict[str, int]
 Timing = dict[str, float]  # rounded to tenths of milliseconds
-TOTAL = 'total'
-SQL_TALLY: Tally = {TOTAL : 0}
-SQL_TIMING: Tally = {TOTAL : 0}  # "tally" of nanoseconds
+TOTAL  = 'total'
+# isolated connection-based storage for SQL tallies and timing (could do it this way, or
+# using threading.local [presumably?])
+SQL_TALLY:  dict[int, Tally] = {}  # sql cmd and caller tallies, indexed by conn_id
+SQL_TIMING: dict[int, Tally] = {}  # "tally" of nanoseconds, indexed by conn_id
 
 def _is_internal_frame(frame):
     """Signal whether the frame represents ORM or application schema code.
     """
     filename = os.path.normcase(frame.f_code.co_filename)
+    # FIX: hard-wiring these filename suffixes for now--should really make this better
+    # rationalized and declared!!!
     return (filename.endswith('peewee.py') or
             filename.endswith('schema.py') or
             filename.endswith('database.py'))
 
 def get_sql_caller() -> tuple[str, int]:
-    """Get source information (file and lineno), as, well as stacklevel, of first
+    """Get source information (file and lineno), as, well as stack level, of first
     non-internal frame.
     """
+    # note: frame traversal here taken directly from the standard logging module
     f = sys._getframe(1)
     assert(f)
     stacklevel = 2
@@ -72,29 +79,51 @@ def trace_sql_cb(event: int, sid: int, sql: str, ns: int) -> None:
     """Tally SQL statements by command and caller source (file and lineno), and log full
     SQL text at the TRACE level.
     """
+    conn_id = get_conn_id()
+    assert conn_id in SQL_TALLY
+    assert conn_id in SQL_TIMING
+    sql_tally = SQL_TALLY[conn_id]
+    sql_timing = SQL_TIMING[conn_id]
+
     caller, stacklevel = get_sql_caller()
     log.trace(f"SQL: {sql}", stacklevel=(stacklevel or 2))
 
     sql_cmd = sql.split(' ', 1)[0].lower()
-    if sql_cmd not in SQL_TALLY:
-        SQL_TALLY[sql_cmd] = 0
-        SQL_TIMING[sql_cmd] = 0
-    if caller not in SQL_TALLY:
-        SQL_TALLY[caller] = 0
-        SQL_TIMING[caller] = 0
+    if sql_cmd not in sql_tally:
+        assert sql_cmd not in sql_timing
+        sql_tally[sql_cmd] = 0
+        sql_timing[sql_cmd] = 0
+    if caller not in sql_tally:
+        assert caller not in sql_timing
+        sql_tally[caller] = 0
+        sql_timing[caller] = 0
 
-    SQL_TALLY[sql_cmd] += 1
-    SQL_TALLY[caller] += 1
-    SQL_TALLY[TOTAL] += 1
-    SQL_TIMING[sql_cmd] += ns
-    SQL_TIMING[caller] += ns
-    SQL_TIMING[TOTAL] += ns
+    sql_tally[sql_cmd] += 1
+    sql_tally[caller] += 1
+    sql_tally[TOTAL] += 1
+    sql_timing[sql_cmd] += ns
+    sql_timing[caller] += ns
+    sql_timing[TOTAL] += ns
+
+def init_sql_tally() -> None:
+    """Initialize the connection-specific SQL tally/timing storage.
+    """
+    conn_id = get_conn_id()
+    if conn_id in SQL_TALLY:
+        assert conn_id in SQL_TIMING
+        log.trace(f"Overwriting SQL_TALLY/_TIMING for conn_id {conn_id}")
+    SQL_TALLY[conn_id] = {TOTAL : 0}
+    SQL_TIMING[conn_id] = {TOTAL : 0}
 
 def get_sql_tally(baseline: Tally = None) -> Tally | tuple[Tally, Tally]:
     """Return tally of SQL statements, by SQL command.  If `baseline` is passed in, return
     a tuple of the aggregate as well as incremental counts.
     """
-    cur_tally = SQL_TALLY.copy()
+    conn_id = get_conn_id()
+    assert conn_id in SQL_TALLY
+    sql_tally = SQL_TALLY[conn_id]
+
+    cur_tally = sql_tally.copy()
     if not baseline:
         return cur_tally
 
@@ -109,8 +138,12 @@ def get_sql_timing(baseline: Timing = None) -> Timing | tuple[Timing, Timing]:
     timing is at (something like) a millisecond granularity, so aggregates are not
     reliable for mostly fast statements.
     """
+    conn_id = get_conn_id()
+    assert conn_id in SQL_TIMING
+    sql_timing = SQL_TIMING[conn_id]
+
     timing_ms = lambda tm: {k: round(v / 1000000, 1) for k, v in tm.items()}
-    cur_time = timing_ms(SQL_TIMING)  # makes a copy
+    cur_time = timing_ms(sql_timing)  # makes a copy
     if not baseline:
         return cur_time
 
@@ -143,7 +176,6 @@ db = CySqliteDatabase(None, pragmas=pragmas, **db_params)
 
 # expose useful attributes (discourage importing `db` directly)
 db_connection_context = db.connection_context
-db_connection = db.connection
 db_atomic = db.atomic
 
 def db_filepath(name: str, db_dir: str = None) -> str:
@@ -173,14 +205,14 @@ def db_init(name: str, force: bool = False, trace_sql: bool = False) -> SqliteDa
     (cleaner client call sequence).
 
     The `trace_sql` flag is passed on to the db_connect() call for the initial connection
-    of this database session.  This flag is not preserved for subsequent connections on
-    this session, so explicit calls to db_connect() must include their own `trace_sql`
-    specification (if desired).
+    of this database lifecycle.  This flag is not preserved for subsequent connections on
+    the database instantiation, so explicit calls to db_connect() must include their own
+    `trace_sql` specification (if desired).
 
     Note that we are NOT using autoconnect (for more disciplined state management), so we
     need to explcitly open and close connections (whether done on a per-request basis by
     the caller, or internally here to keep them open and reusable for the duration of the
-    database session).
+    database duration).
     """
     if not name:
         raise RuntimeError("Database name not specified")
@@ -253,7 +285,8 @@ def db_connect(name: str | None = None, trace_sql: bool = False) -> bool:
         return False
     db.connect(reuse_if_open=shared_conn)
     if DEBUG and trace_sql and cfg.get('trace_sql', False):
-        db_connection().trace(trace_sql_cb, SQLITE_TRACE_PROFILE)
+        init_sql_tally()
+        db.connection().trace(trace_sql_cb, SQLITE_TRACE_PROFILE)
     log.trace(f"db_connect({name}, trace_sql={trace_sql}), db connected", stacklevel=2)
     return True
 

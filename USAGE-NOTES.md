@@ -2,7 +2,7 @@
 
 [Overview](#overview)<br>
 [Mobile](#mobile)<br>
-&nbsp;&nbsp;\- [App Download](#app-download)<br>
+&nbsp;&nbsp;\- [App Install](#app-install)<br>
 &nbsp;&nbsp;\- [Login and Navigation](#login-and-navigation)<br>
 &nbsp;&nbsp;\- [Entering Game Scores](#entering-game-scores)<br>
 [Admin](#admin)<br>
@@ -16,7 +16,7 @@ straightforward (for non-exception scenarios).
 
 ## Mobile
 
-### App Download
+### App Install
 
 The application administrator will provide players with a URL for the "Euchmgr" mobile
 app.  When the link is clicked, the user should be taken to the Login page rendered in a

@@ -79,4 +79,4 @@ in order for it to be posted.
 
 For basic instructions, see [General Note on Application Data/Navigation](ADMIN-UI.html#general-note-on-application-datanavigation).
 
-For more advanced features and capabilities, see [Recent Updates](RECENT-UPDATES.md).
+For more advanced features and capabilities, see [Recent Updates](RECENT-UPDATES.html#admin-ui).

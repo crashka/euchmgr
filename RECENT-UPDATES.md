@@ -131,6 +131,20 @@ here suitably*
   - This is done similarly for playoff games as for seeding and round robin stages, except
     that game scores (for either playoff round) may not be adjusted after semifinals
     results have been tabulated
+- **Adjust final tournament team rankings** &ndash; "Final Four" admin view
+  - Tabulating the final playoff results using the "Tabulate Finals Results" button should
+    take the admin UI back to the "Final Four" view (from the "Playoffs" view)
+  - From there, click on the "Final Tournament Results" link to get a listing of the final
+    team standings for the overall tournament (along with game and points stats for round
+    robin play and playoff rounds)
+    - As with the division rank history (above), the final rank history for a team can be
+      viewed by clicking on the Final Rank number in the last column of the table
+  - Click the "Adjust rankings" button at the bottom to make corrections to the final team
+    rankings (across divisions)
+  - Adjustments are made and saved similarly to the process for adjusting team division
+    rankings (above)
+  - Any changes made will be used in the publication of the final tournament results, and
+    reflected in the teams' Final Rank History reports
 
 ### Hidden Features
 

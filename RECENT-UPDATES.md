@@ -66,7 +66,7 @@ here suitably*
   - Click the "Adjust score" button to make a correction
     - Note that a reason for the change must be entered
   - The change will be reflected in the Score Posting Report
-- **Adjust team divisional rankings** &ndash; "Seeding" admin view
+- **Adjust player seeding round rankings** &ndash; "Seeding" admin view
   - After tabulating results for the seeding round, navigate back to the "Seeding" view
     (from the "Partners" view)
   - Click on the "Seeding Round Results" link to get a listing of the player rankings

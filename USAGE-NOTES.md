@@ -1,34 +1,47 @@
 # Usage Notes
 
-Only brief notes for the usage of the Euchre Manager application are provided, since the
-intent is for the app&mdash;especially the mobile interface&mdash;to be generally simple
-and intuitive.  The admin interface has more intricacies, but the basic operation should
-also be relatively straightforward.
+[Overview](#overview)<br>
+[Mobile](#mobile)<br>
+&nbsp;&nbsp;\- [App Download](#app-download)<br>
+&nbsp;&nbsp;\- [Login and Navigation](#login-and-navigation)<br>
+&nbsp;&nbsp;\- [Entering Game Scores](#entering-game-scores)<br>
+[Admin](#admin)<br>
+
+## Overview
+
+Here are brief notes for the usage of the Euchre Manager application.  The intent is for
+the mobile interface, in particular, to be generally simple and intuitive.  The admin
+interface has more intricacies, but the basic operation should also be relatively
+straightforward (for non-exception scenarios).
 
 ## Mobile
 
 ### App Download
 
-A URL for the "Euchmgr" mobile app will be provided for all players.  When you open the
-link, you should see a login page, which you should install onto your phone, as follows:
+The application administrator will provide players with a URL for the "Euchmgr" mobile
+app.  When the link is clicked, the user should be taken to the Login page rendered in a
+mobile browser.  The web app can then be installed on the device, as follows:
 
-- **iPhone/iOS** &ndash; Tap the "Share" button on the browser (which may be under the
-  "..."  menu) and choose "Add to Home Screen"&mdash;note: you should select the "Open as
-  Web App" option, if it is displayed.
+- **iOS/Safari** &ndash; Tap the "Share" button on the browser (which may be under the
+  '&vellip;' icon/menu) and choose "Add to Home Screen".  Note: you should select the
+  "Open as Web App" option, if it is available.
+- **Android/Chrome** &ndash; Tap the '&vellip;' icon/menu on the browser and select
+  "Install and create shortcut", then from there, choose "Install".  Note that this may
+  not add the application icon to your home screen, so you may need/want to do that
+  separately.
+- **Android/Firefox** &ndash; Tap the '&vellip;' icon/menu on the browser and choose the
+  "More" option.  From there, tap on "Add app to Home screen", and then hit the "Add to
+  home screen" button.
 
-- **Android** &ndash; Tap the '...' menu on the browser and select "Install and create
-  shortcut"&mdash;then from there, choose "Install".  Note that this may not add the
-  application icon to your home screen, so you may need/want to do that separately.
+Now you can close the browser and open Euchmgr through the newly installed application
+icon.  You are also able to continue accessing Euchmgr through the mobile browser, but the
+browser framing will cut into the usable screen real estate.
 
-Now you can close the browser and open Euchmgr through the application icon instead.  You
-can also continue to access Euchmgr through the browser, but the browser framing will cut
-into the usable screen real estate.
+### Login and Navigation
 
-### Logging In and Navigation
-
-From the Login screen, sign in by choosing your name from the "User" select list, and
-enter the password provided by the application administrator.  By default, the app will
-take you to the screen for the current stage of the tournament, one of:
+From the Login screen, sign in by choosing your name from the User select list, and enter
+the password provided by the application administrator.  By default, the app will take you
+to the screen representing the current stage of the tournament&mdash;one of:
 
 - Registration
 - Seeding
@@ -39,8 +52,8 @@ take you to the screen for the current stage of the tournament, one of:
 
 *\* only for teams making it into those rounds*
 
-You can navigate to any stage using the "Stage" dropdown at the top of the screen, or
-return the current stage using the "Current" link.
+You can navigate to any stage using the "<u>Stage</u>" dropdown at the top of the screen,
+or return to the current stage using the "<u>Current</u>" link.
 
 The information shown for the current stage will be automatically updated on a periodic
 basis (unless you are in the middle of entering a score or pick).  You can get immediate
@@ -50,19 +63,20 @@ or tapping on the currently highlighted game (or pick).
 ### Entering Game Scores
 
 **Submitting** &ndash; at the end of a game, any of the players can enter the score
-through the mobile app by selecting the two team's points and hitting the "Submit Score"
-button.
+through the mobile app by selecting the points scored for each team, then hitting the
+"Submit Score" button.
 
-**Accepting** &ndash; a player from the opposing team must then acknowledge using the
-"Accept Score" button in order for it to be officially posted in the application.
+**Accepting** &ndash; a player from the opposing team must then acknowledge the submitted
+score using the "Accept Score" button, in order for it to be officially posted within the
+application.
 
-**Correcting** &ndash; players from either team are able to change an errant score by
-changing the team points displayed and hitting the "Correct Score" button.  As with the
+**Correcting** &ndash; players from either team are able to change an erroneous score by
+changing the team points displayed, then hitting the "Correct Score" button.  As with the
 original score submission, a player from the opposing team must accept a corrected score
 in order for it to be posted.
 
 ## Admin
 
-See [General Note on Application Data/Navigation](ADMIN-UI.html#general-note-on-application-datanavigation).
+For basic instructions, see [General Note on Application Data/Navigation](ADMIN-UI.html#general-note-on-application-datanavigation).
 
-Other admin UI features are also touched on in the [Recent Updates](RECENT-UPDATES.md) write-up.
+For more advanced features and capabilities, see [Recent Updates](RECENT-UPDATES.md).

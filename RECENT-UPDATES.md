@@ -1,5 +1,20 @@
 # Recent Updates
 
+[Overview](#overview)<br>
+[Mobile App](#mobile-app)<br>
+[Admin UI](#admin-ui)<br>
+&nbsp;&nbsp;\- [General](#general)<br>
+&nbsp;&nbsp;\- [Player Roster](#player-roster)<br>
+&nbsp;&nbsp;\- [Seeding Round](#seeding-round)<br>
+&nbsp;&nbsp;\- [Partner Picking](#partner-picking)<br>
+&nbsp;&nbsp;\- [Team Seeds](#team-seeds)<br>
+&nbsp;&nbsp;\- [Tournament Round Robin](#tournament-round-robin)<br>
+&nbsp;&nbsp;\- [Playoffs](#playoffs)<br>
+&nbsp;&nbsp;\- [Hidden Features](#hidden-features)<br>
+[To Do List](#to-do-list)<br>
+
+## Overview
+
 This is a summary of newer features and/or capabilities in the application (since a little
 before Danville), primarily on the admin side&mdash;provided here to help guide additional
 feedback and/or test coverage before New Orleans.  At some point, we will fold this back
@@ -122,7 +137,7 @@ here suitably*
 **Database checkpoints and recovery**
 
 **Admin "power actions"**
-- Reset player nums
+- Reset player numbers
 - Reset seeding round (game results)
 - Reset partner picking
 - Reset round robin (game results)

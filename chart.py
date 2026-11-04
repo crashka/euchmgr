@@ -160,7 +160,7 @@ def sd_bracket(tourn: TournInfo) -> str:
     matchups = {}  # key sequence: rnd, tbl -> matchup_html
     labels   = {}
     complete = {}
-    sg_iter = SeedGame.iter_games(include_byes=True)
+    sg_iter = SeedGame.iter_games(include_byes=True, join_players=True)
     for sg in sg_iter:
         rnd = sg.round_num
         tbl = sg.table_num
@@ -291,7 +291,7 @@ def rr_brackets(tourn: TournInfo) -> str:
     matchups = {div: {} for div in div_list}
     labels   = {div: {} for div in div_list}
     complete = {div: {} for div in div_list}
-    tg_iter = TournGame.iter_games(include_byes=True)
+    tg_iter = TournGame.iter_games(include_byes=True, join_teams=True)
     for tg in tg_iter:
         div = tg.div_num
         rnd = tg.round_num
@@ -358,7 +358,7 @@ def rr_scores(tourn: TournInfo) -> str:
     wins     = {tm.id: 0 for tm in tm_list}
     losses   = {tm.id: 0 for tm in tm_list}
 
-    tg_list = list(TeamGame.iter_games(include_byes=True))
+    tg_list = list(TeamGame.iter_games(include_byes=True, join_teams=True))
     not_bye = lambda g: not g.is_bye
     max_rnd = lambda ls: max(g.round_num for g in ls) if ls else 0
     cur_rnd = {div: max_rnd(list(filter(not_bye, tg_list))) for div in div_list}

@@ -774,7 +774,7 @@ class Player(BaseModel, EuchmgrUser):
         """For partner picking UI; returns 'y' or None.  Note that this return value
         evaluates correctly as a boolean.
         """
-        return 'y' if not (self.partner or self.picked_by or self.early_depart) else None
+        return 'y' if not (self.partner_num or self.picked_by_num or self.early_depart) else None
 
     @property
     def seed_ident(self) -> str:
@@ -955,11 +955,22 @@ class SeedGame(BaseModel):
         )
 
     @classmethod
-    def iter_games(cls, include_byes: bool = False, complete_only: bool = False) -> Iterator[Self]:
+    def iter_games(cls, include_byes: bool = False, complete_only: bool = False,
+                   join_players: bool = False) -> Iterator[Self]:
         """Iterator for seed_games (wrap ORM details).
         """
         assert not (include_byes and complete_only)  # contradictory
-        query = cls.select()
+        if join_players:
+            Player2 = Player.alias()
+            Player3 = Player.alias()
+            Player4 = Player.alias()
+            query = (cls.select(cls, Player, Player2, Player3, Player4)
+                     .join(Player, on=(Player.player_num == cls.player1_num))
+                     .left_outer_join(Player2, on=(Player2.player_num == cls.player2_num))
+                     .left_outer_join(Player3, on=(Player3.player_num == cls.player3_num))
+                     .left_outer_join(Player4, on=(Player4.player_num == cls.player4_num)))
+        else:
+            query = cls.select()
         if not include_byes:
             query = query.where(cls.table_num.is_null(False))
         if complete_only:
@@ -1655,11 +1666,18 @@ class TournGame(BaseModel):
         )
 
     @classmethod
-    def iter_games(cls, include_byes: bool = False, complete_only: bool = False) -> Iterator[Self]:
+    def iter_games(cls, include_byes: bool = False, complete_only: bool = False,
+                   join_teams: bool = False) -> Iterator[Self]:
         """Iterator for tourn_games (wrap ORM details).
         """
         assert not (include_byes and complete_only)  # contradictory
-        query = cls.select()
+        if join_teams:
+            Team2 = Team.alias()
+            query = (cls.select(cls, Team, Team2)
+                     .join(Team, on=(Team.id == cls.team1_id))
+                     .left_outer_join(Team2, on=(Team2.id == cls.team2_id)))
+        else:
+            query = cls.select()
         if not include_byes:
             query = query.where(cls.table_num.is_null(False))
         if complete_only:
@@ -2118,10 +2136,13 @@ class PlayerGame(BaseModel):
         )
 
     @classmethod
-    def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
+    def iter_games(cls, include_byes: bool = False, join_player: bool = False) -> Iterator[Self]:
         """Iterator for player_games (wrap ORM details).
         """
-        query = cls.select()
+        if join_player:
+            query = cls.select(cls, Player).join(Player)
+        else:
+            query = cls.select()
         if not include_byes:
             query = query.where(cls.is_bye == False)
         for t in query:
@@ -2184,10 +2205,16 @@ class TeamGame(BaseModel):
         )
 
     @classmethod
-    def iter_games(cls, include_byes: bool = False) -> Iterator[Self]:
+    def iter_games(cls, include_byes: bool = False, join_teams: bool = False) -> Iterator[Self]:
         """Iterator for tourn_games (wrap ORM details).
         """
-        query = cls.select()
+        if join_teams:
+            Opponent = Team.alias()
+            query = (cls.select(cls, Team, Opponent)
+                     .join(Team, on=(Team.id == cls.team_id))
+                     .left_outer_join(Opponent, on=(Opponent.id == cls.opp_id)))
+        else:
+            query = cls.select()
         if not include_byes:
             query = query.where(cls.is_bye == False)
         for t in query:

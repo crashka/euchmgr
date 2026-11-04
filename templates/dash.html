@@ -27,6 +27,7 @@
      h2:first-child {
        margin-top: 0.5rem;
      }
+     {% if not mobile %}
      .updated {
        display: block;
        float: right;
@@ -43,6 +44,7 @@
      .updated button[value="restart_upd"] {
        display: none;
      }
+     {% endif %}  {# not mobile #}
      table {
        margin-top: 1.0rem;
        border: 2px solid darkgrey;
@@ -150,6 +152,7 @@
   <body>
     <main>
       <h1>{{tourn.name}} &ndash; {{title}}</h1>
+      {% if not mobile %}
       <input class="start" type="hidden" name="start" value="">
       <span class="updated">
         Updated: {{updated}} (<span class="elapsed">0 secs ago</span>)
@@ -157,6 +160,7 @@
         <button value="resume_upd">Resume Updates</button>
         <button value="restart_upd">Restart Updates</button>
       </span>
+      {% endif %}  {# not mobile #}
 
       {% if dash_num == 0 %}
       <section class="sd_scores">
@@ -333,6 +337,7 @@
   </body>
 
   <script src="/static/jquery-3.7.1.min.js"></script>
+  {% if not mobile %}
   <script>
    $(function() {
      // document ready
@@ -395,16 +400,17 @@
      $("button[value='pause_upd']").css('display', 'none');
      $("button[value='restart_upd']").css('display', 'inline');
      $(".elapsed").text("done");
-     {% else %}
+     {% else %}  {# done #}
      startElapsed();
-     {% endif %}
+     {% endif %}  {# done #}
      {% if update_int > 1999 %}
      if (!paused && !done) {
        timeoutId = window.setTimeout(function() {
          window.location.reload();
        }, {{update_int}});
      }
-     {% endif %}
+     {% endif %}  {# update_int > 1999 #}
    });
   </script>
+  {% endif %}  {# not mobile #}
 </html>

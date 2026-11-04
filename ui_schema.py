@@ -514,9 +514,9 @@ class PartnerPick(UIMixin, BasePlayer):
         # code (should probably also do the same elsewhere!)
         pl_list = list(Player.select())
         if all_picks or cur_round == -1:
-            includer = lambda x: not (x.picked_by or x.early_depart)
+            includer = lambda x: not (x.picked_by_num or x.early_depart)
         else:
-            includer = lambda x: x.partner
+            includer = lambda x: x.partner_num
         picks = filter(includer, pl_list)
         return sorted(picks, key=lambda x: (-x.reigning_champ, x.player_rank_eff))
 

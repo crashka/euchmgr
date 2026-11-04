@@ -765,7 +765,8 @@ VIEW_RESOURCES = {
     View.ROUND_ROBIN: [('/chart/rr_brackets',  "Round Robin Brackets"),
                        ('/chart/rr_scores',    "Round Robin Scores"),
                        ('/chart/div_results',  "Round Robin Results"),
-                       ('/report/rr_tbreak',   "Tie-Breaker Report")]
+                       ('/report/rr_tbreak',   "Tie-Breaker Report"),
+                       ('/dash/ff_dash',       "Playoff Bracket")]
 }
 
 # informational data fields, by view

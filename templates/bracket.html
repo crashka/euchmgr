@@ -20,6 +20,7 @@
        margin-top: 0.5rem;
        margin-bottom: 0.0rem;
      }
+     {% if not mobile %}
      .updated {
        display: block;
        float: right;
@@ -36,6 +37,7 @@
      .updated button[value="restart_upd"] {
        display: none;
      }
+     {% endif %}  {# not mobile #}
      .bracket {
        --top-gp: 5rem;
        --base-ht: 12rem;
@@ -139,6 +141,7 @@
   <body>
     <main>
       <h1>{{tourn.name}} &ndash; {{title}}</h1>
+      {% if not mobile %}
       <input class="start" type="hidden" name="start" value="">
       <span class="updated">
         Updated: {{updated}} (<span class="elapsed">0 secs ago</span>)
@@ -146,6 +149,7 @@
         <button value="resume_upd">Resume Updates</button>
         <button value="restart_upd">Restart Updates</button>
       </span>
+      {% endif %}  {# not mobile #}
 
       <section class="bracket">
         {% if "sf-1" in brckt %}
@@ -200,6 +204,7 @@
   </body>
 
   <script src="/static/jquery-3.7.1.min.js"></script>
+  {% if not mobile %}
   <script>
    $(function() {
      // document ready
@@ -274,4 +279,5 @@
      {% endif %}
    });
   </script>
+  {% endif %}  {# not mobile #}
 </html>

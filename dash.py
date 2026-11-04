@@ -6,7 +6,7 @@
 from enum import StrEnum
 from itertools import groupby
 
-from flask import Blueprint, session, render_template, abort
+from flask import Blueprint, g, session, render_template, abort
 
 from core import config, profile
 from database import now_str
@@ -176,7 +176,6 @@ def sd_dash(tourn: TournInfo) -> str:
     cur_rnd = max_rnd(list(filter(not_bye, pg_list)))
     for pg in pg_list:
         pl_num = pg.player_num
-        assert pl_num == pg.player.player_num
         rnd = pg.round_num
         assert rnd not in team_pts[pl_num]
         assert rnd not in opp_pts[pl_num]
@@ -318,6 +317,7 @@ def sd_dash(tourn: TournInfo) -> str:
     context = {
         'dash_num'    : 0,
         'title'       : SD_DASH,
+        'mobile'      : g.mobile,
         'updated'     : updated,
         'update_int'  : upd_int('sd_dash'),
         'done'        : done,
@@ -354,7 +354,7 @@ def rr_dash(tourn: TournInfo) -> str:
     tot_gms  = 0
     tot_pts  = 0
 
-    tg_list = list(TeamGame.iter_games(include_byes=True))
+    tg_list = list(TeamGame.iter_games(include_byes=True, join_teams=True))
     not_bye = lambda g: not g.is_bye
     max_rnd = lambda ls: max(g.round_num for g in ls) if ls else 0
     cur_rnd = {div: max_rnd(list(filter(not_bye, tg_list))) for div in div_list}
@@ -514,6 +514,7 @@ def rr_dash(tourn: TournInfo) -> str:
     context = {
         'dash_num'    : 1,
         'title'       : RR_DASH,
+        'mobile'      : g.mobile,
         'updated'     : updated,
         'update_int'  : upd_int('rr_dash'),
         'done'        : done,
@@ -564,6 +565,7 @@ def pt_dash(tourn: TournInfo) -> str:
     context = {
         'dash_num'    : 2,
         'title'       : PT_DASH,
+        'mobile'      : g.mobile,
         'updated'     : updated,
         'update_int'  : upd_int('pt_dash'),
         'done'        : done,
@@ -600,9 +602,9 @@ def ff_dash(tourn: TournInfo) -> str:
     prev_count  = 0
 
     by_matchup = PlayoffGame.iter_games(by_matchup=True)
-    for k, g in groupby(by_matchup, key=lambda x: x.matchup_ident):
+    for k, grp in groupby(by_matchup, key=lambda x: x.matchup_ident):
         matchup = k
-        games = list(g)
+        games = list(grp)
         team1 = games[0].team1
         team2 = games[0].team2
         winner = games[0].matchup_winner
@@ -626,6 +628,7 @@ def ff_dash(tourn: TournInfo) -> str:
     context = {
         'dash_num'  : 3,
         'title'     : FF_DASH,
+        'mobile'    : g.mobile,
         'updated'   : updated,
         'update_int': upd_int('ff_dash'),
         'done'      : done,

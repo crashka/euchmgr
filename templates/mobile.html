@@ -219,8 +219,9 @@
      .games > span,
      .leaderboard > span {
        display: inline-block;
-       font-style: italic;
-       margin-left: 0.6rem;
+       color: blue;
+       text-decoration: solid underline 1px;
+       margin-left: 0.7rem;
        cursor: pointer;
      }
      .games article {
@@ -428,7 +429,7 @@
     <section class="games">
       {% if stage_games %}
       {% set view_active = true %}
-      <h3>Games</h3><span>(tap here for Leaderboard)</span>
+      <h3>Games</h3><span>[See Leaderboard]</span>
       <form action="{{view}}" method="post">
         <input type="hidden" name="game_label" value="{{cur_game.label}}">
         <input type="hidden" name="posted_by_num" value="{{user.player_num}}">
@@ -513,7 +514,7 @@
 
     {% if leaderboard %}
     <section class="leaderboard">
-      <h3>Leaderboard</h3><span>(tap here for Games)</span>
+      <h3>Leaderboard</h3><span>[See Games]</span>
       {% set lb_hdr, lb_data = leaderboard  %}
       <p class="lb_hdr">
         <span>{{lb_hdr[1]}}</span>
@@ -606,13 +607,6 @@
   <script>
    $(function() {
      let timeoutId;
-
-     $('body').on('click', function() {
-       if (timeoutId) {
-         clearTimeout(timeoutId);
-         timeoutId = null;
-       }
-     });
 
      function assert(condition, message) {
        if (!condition) {
@@ -785,6 +779,10 @@
 
      {% if stage_games %}
      $('.games h3, .games > span').on('click', function() {
+       if (timeoutId) {
+         clearTimeout(timeoutId);
+         timeoutId = null;
+       }
        setTimeout(function() {
          $('.games').css('display', 'none');
        }, 0);
@@ -795,6 +793,9 @@
          $('.leaderboard').css('display', 'none');
        }, 0);
        $('.games').css('display', 'block');
+       {% if cur_game %}
+       setTimeout(chkGameScore, 0);
+       {% endif %}
      });
      {% endif %}
 

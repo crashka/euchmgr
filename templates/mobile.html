@@ -298,6 +298,12 @@
      u {
        text-decoration: none;
      }
+     a:link {
+       color: blue;
+     }
+     a:visited {
+       color: blue;
+     }
      .resources {
        margin-top: 1.0rem;
        font-size: normal;
@@ -328,10 +334,9 @@
       <button autofocus>Close</button>
     </dialog>
     <div class="header">
-      <span class="goto">Go to:</span>
-      <a class="nav" href="./">Current</a>
+      <a class="nav" href="./">Latest</a>
       <div class="wrapper">
-        <a class="nav view_nav" href="javascript:void(0);">Stage</a>
+        <a class="nav view_nav" href="javascript:void(0);">Select Stage</a>
         <div class="view_menu">
           {% for href, label in view_menu %}
           <a class="nav2" href="{{href}}">{{label|safe}}</a>

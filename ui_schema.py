@@ -408,7 +408,7 @@ class PlayerRegister(UIMixin, BasePlayer):
         """Return current status of the registration phase (for mobile UI).
         """
         tourn = TournInfo.get()
-        if tourn.stage_compl >= TournStage.SEED_BRACKET:
+        if tourn.stage_compl >= TournStage.PLAYER_NUMS:
             return "Done"
 
         # can push this down to the database (if the method will be reused)

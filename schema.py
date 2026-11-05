@@ -455,6 +455,7 @@ class Player(BaseModel, EuchmgrUser):
     reigning_champ = BooleanField(default=False)
     late_arrive    = BooleanField(default=False)
     early_depart   = BooleanField(default=False)
+    registered     = BooleanField(default=False)
     player_num     = IntegerField(unique=True, null=True)  # 1-based, must be contiguous
     pw_hash        = TextField(null=True)    # default pw_hash (in TournInfo) is used, if null
     # seeding round
@@ -751,17 +752,39 @@ class Player(BaseModel, EuchmgrUser):
         """
         return 'y' if self.reigning_champ else None
 
+    @champ.setter
+    def champ(self, val: bool) -> None:
+        self.reigning_champ = val
+
     @property
     def late_arr(self) -> str | None:
         """For UI support ('y' or empty)
         """
         return 'y' if self.late_arrive else None
 
+    @late_arr.setter
+    def late_arr(self, val: bool) -> None:
+        self.late_arrive = val
+
     @property
     def early_dep(self) -> str | None:
         """For UI support ('y' or empty)
         """
         return 'y' if self.early_depart else None
+
+    @early_dep.setter
+    def early_dep(self, val: bool) -> None:
+        self.early_depart = val
+
+    @property
+    def is_regist(self) -> str | None:
+        """For UI support ('y' or empty)
+        """
+        return 'y' if self.registered else None
+
+    @is_regist.setter
+    def is_regist(self, val: bool) -> None:
+        self.registered = val
 
     @property
     def player_rank_eff(self) -> int:

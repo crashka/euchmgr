@@ -13,7 +13,7 @@ import re
 
 from ckautils import typecast
 from peewee import OperationalError
-from flask import Blueprint, g, request, session, abort, url_for, flash
+from flask import Blueprint, g, request, session, abort, url_for, flash, render_template
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash
 
@@ -80,6 +80,7 @@ admin = Blueprint('admin', __name__)
 APP_NAME = "Euchre Manager"
 ADMIN_TEMPLATE = "admin.html"
 TOURN_TEMPLATE = "tourn.html"
+POPUP_TEMPLATE = "admin_popup.html"
 
 ###############
 # tourn stuff #
@@ -139,7 +140,7 @@ VIEW_DEFS = {
         "Seeding",
         sg_layout,
         "label",
-        [1],  # label
+        [0],  # id
         3
     ),
     View.PARTNERS: ViewInfo(
@@ -333,7 +334,6 @@ COMPL_MAP = {
 }
 
 @admin.get("/check_compl/<view>")
-@admin_action
 def check_compl(view: str) -> str:
     """Return stage completion status for the specified view.  Uses API return data (json)
     protocol.  The `complete` data field value carries same semantics as the underlying
@@ -348,6 +348,37 @@ def check_compl(view: str) -> str:
                 tourn.complete_stage(stage)
                 break
     return api_succ(data={'complete': compl})
+
+@admin.get("/add_player")
+def add_player_popup() -> str:
+    """Render admin popup for adding new players.
+    """
+    tourn = TournInfo.get()
+    context = {
+        'popup_num': 0,
+        'title'    : "Add Player",
+        'user'     : current_user,
+        'tourn'    : tourn,
+        'player'   : Player(),  # empty record
+        'action'   : '/players/add_player'
+    }
+    return render_popup(context)
+
+@admin.get("/delete_player/<id>")
+def delete_player_popup(id: int) -> str:
+    """Render admin popup for deleting players.
+    """
+    tourn = TournInfo.get()
+    player = Player[id]
+    context = {
+        'popup_num': 1,
+        'title'    : "Delete Player",
+        'user'     : current_user,
+        'tourn'    : tourn,
+        'player'   : player,
+        'action'   : '/players/delete_player'
+    }
+    return render_popup(context)
 
 ################
 # POST actions #
@@ -911,7 +942,7 @@ def render_admin(context: dict) -> str:
                 "Players",
                 pl_layout,
                 "nick_name",
-                [13],  # player_rank_eff
+                [14],  # player_rank_eff
                 3
             )
     elif view == View.TEAMS:
@@ -959,6 +990,11 @@ def render_admin(context: dict) -> str:
         'info_msg'  : None   # ditto
     }
     return render_response(ADMIN_TEMPLATE, **(base_ctx | context))
+
+def render_popup(context: dict) -> str:
+    """Render admin popup.
+    """
+    return render_template(POPUP_TEMPLATE, **context)
 
 #########################
 # content / metacontent #

@@ -161,7 +161,7 @@
       <h2 title='{{tooltip}}'>{{view_info.name}}</h2>
       {% endwith %}
       <div class="tbl_wrapper">
-        <table id="view_tbl" class="display" spellcheck="false">
+        <table id="view_tbl" class="{{view_info.name}} display" spellcheck="false">
           <thead>
             <tr>
               {% for col in view_info.layout %}
@@ -346,6 +346,12 @@
          {target: {{loop.index0}}, className: 'click_winner'},
          {% elif col[2] == 'picks_info' %}
          {target: {{loop.index0}}, className: 'picks_info', createdCell: editable},
+         {% elif col[2] == 'person_ident' %}
+         {target: {{loop.index0}}, className: 'player_ident'},
+         {% elif col[2] == 'player_ident' %}
+         {target: {{loop.index0}}, className: 'player_ident', createdCell: editable},
+         {% elif col[2] == 'player_flag' %}
+         {target: {{loop.index0}}, className: 'dt-center', createdCell: editable},
          {% else %}
          {target: {{loop.index0}}},
          {% endif %}
@@ -393,6 +399,26 @@
        const specs = "popup,width=900,height=600,top=200,left=200";
        const url = '/report/pick_revert/' + encodeURI(rec.picks_info);
        popupWin = window.open(url, "_blank", specs);
+     });
+
+     $('table.Players').on('dblclick', 'td.player_ident', function(e) {
+       e.stopPropagation();
+       rec = table.row(this).data();
+       //console.log("delete_player:", rec);
+       if (popupWin && !popupWin.closed) {
+         popupWin.close();
+       }
+       const specs = "popup,width=900,height=600,top=200,left=200";
+       const url = '/delete_player/' + rec.id;
+       popupWin = window.open(url, "_blank", specs);
+     });
+
+     $('table.Players').on('dblclick', 'tr', function(e) {
+       if (popupWin && !popupWin.closed) {
+         popupWin.close();
+       }
+       const specs = "popup,width=900,height=600,top=200,left=200";
+       popupWin = window.open('/add_player', "_blank", specs);
      });
 
      // links for charts, dashboards, reports

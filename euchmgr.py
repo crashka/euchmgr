@@ -261,6 +261,49 @@ def upload_roster(csv_path: str) -> None:
     tourn.stage_compl = TournStage.PLAYER_ROSTER
     tourn.save()
 
+def update_tourn_config() -> None:
+    """
+    """
+    tourn = TournInfo.get()
+    if tourn.stage_compl != TournStage.PLAYER_ROSTER:
+        raise RuntimeError("Tourn reconfig not allowed after player numbers have been generated")
+
+    players    = list(Player.iter_players())
+    nchamps    = sum(1 for p in players if p.reigning_champ)
+    late_arrs  = sum(1 for p in players if p.late_arrive)
+    early_deps = sum(1 for p in players if p.early_depart)
+
+    # update tournament info (players, teams, etc.)
+    nplayers = len(players)
+    seed_players = nplayers - late_arrs
+    tourn_players = nplayers - early_deps
+
+    thm_teams = int(nchamps == 3)
+    non_champs = tourn_players - nchamps  # for tournament play
+    deps_omitted = 0
+    if non_champs & 0x01:
+        thm_teams += 1
+        deps_omitted += early_deps
+    elif early_deps:
+        thm_teams += 1
+        deps_omitted += (early_deps - 1)
+    nteams = non_champs // 2 + (1 if nchamps else 0)
+    assert nteams == (nplayers - deps_omitted - thm_teams) // 2
+
+    if not tourn.seed_rounds or not tourn.tourn_rounds:
+        if late_arrs or early_deps:
+            raise RuntimeError(f"Only fixed players supported for {tourn.tourn_fmt} tournament")
+        rounds = ROUNDS_MAP[tourn.tourn_fmt]
+        if nplayers not in rounds:
+            raise RuntimeError(f"No support for {tourn.tourn_fmt} tournament with {nplayers} players")
+        tourn.seed_rounds = rounds[nplayers][0]
+        tourn.tourn_rounds = rounds[nplayers][1]
+    tourn.players = nplayers
+    tourn.teams = nteams
+    tourn.thm_teams = thm_teams
+    tourn.has_champ = bool(nchamps)
+    tourn.save()
+
 def generate_player_nums(rand_seed: int = None, limit: int = None) -> None:
     """Generate random values for player_num, akin to picking numbered ping pong balls out
      of a bag.

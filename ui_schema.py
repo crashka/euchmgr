@@ -408,7 +408,8 @@ class PlayerRegister(UIMixin, BasePlayer):
         """Return current status of the registration phase (for mobile UI).
         """
         tourn = TournInfo.get()
-        nreg = len(list(cls.nums_used()))
+        # can push this down to the database (if the method will be reused)
+        nreg = sum(1 for p in cls.iter_players() if p.registered)
         if nreg < tourn.players:
             return f"{nreg} players registered"
         else:
@@ -419,7 +420,7 @@ class PlayerRegister(UIMixin, BasePlayer):
         """Have to do this as a class method, since we are not (currently) instantiating
         objects for this class.
         """
-        return "Registered" if player.player_num else "Pending"
+        return "Registered" if player.registered else "Pending"
 
 ###############
 # PartnerPick #

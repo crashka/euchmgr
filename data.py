@@ -16,7 +16,7 @@ from schema import (Bracket, BRACKET_NAME, TournStage, TournInfo, TournEvent, To
                     ScoreAction, RankType, PickAction)
 from euchmgr import (validate_seed_round, compute_player_ranks, compute_div_seeds,
                      validate_tourn, compute_tourn_ranks, compute_team_ranks,
-                     validate_playoffs, compute_playoff_ranks)
+                     validate_playoffs, compute_playoff_ranks, update_tourn_config)
 from ui_schema import (Player, PartnerPick, SeedGame, Team, TournGame, PlayoffGame,
                        PostScore, PostRank, PostPick)
 from ui_common import referrer_path, redirect, render_error
@@ -31,6 +31,9 @@ data = Blueprint('data', __name__)
 HIDDEN     = 'hidden'
 CENTERED   = 'centered'
 EDITABLE   = 'editable'
+PERS_IDENT = 'person_ident'
+PLYR_IDENT = 'player_ident'
+PLYR_FLAG  = 'player_flag'
 CLK_WINNER = 'click_winner'
 PICKS_INFO = 'picks_info'
 
@@ -90,6 +93,7 @@ pl_addl_props = [
     'champ',
     'late_arr',
     'early_dep',
+    'is_regist',
     'seed_win_pct_str',
     'seed_pts_pct_str',
     'player_rank_eff'
@@ -97,12 +101,13 @@ pl_addl_props = [
 
 pl_layout = [
     ('id',               "ID",          HIDDEN),
-    ('display_name',     "Person Name", None),
-    ('player_num',       "Player Num",  EDITABLE),
-    ('nick_name',        "Player Name", EDITABLE),
-    ('champ',            "Champ?",      CENTERED),
-    ('late_arr',         "Late Arr?",   CENTERED),
-    ('early_dep',        "Early Dep?",  CENTERED),
+    ('display_name',     "Person Name", PERS_IDENT),
+    ('player_num',       "Player Num",  PLYR_IDENT),
+    ('nick_name',        "Player Name", PLYR_IDENT),
+    ('champ',            "Champ?",      PLYR_FLAG),
+    ('late_arr',         "Late Arr?",   PLYR_FLAG),
+    ('early_dep',        "Early Dep?",  PLYR_FLAG),
+    ('is_regist',        "Regist?",     PLYR_FLAG),
     ('seed_wins',        "Wins",        None),
     ('seed_losses',      "Losses",      None),
     ('seed_win_pct_str', "Win Pct",     None),
@@ -135,7 +140,10 @@ def post_players() -> dict:
 
     try:
         player = Player[typecast(data.get('id'))]
-        upd_info = {x[0]: typecast(data.get(x[0])) for x in pl_layout if x[2] == EDITABLE}
+        upd_info = {x[0]: typecast(data.get(x[0]))
+                    for x in pl_layout if x[2] in (EDITABLE, PLYR_IDENT)}
+        upd_info |= {x[0]: typecast(data.get(x[0])) or False
+                     for x in pl_layout if x[2] == PLYR_FLAG}
         for col, val in upd_info.items():
             setattr(player, col, val)
         mod = player.save()
@@ -154,6 +162,59 @@ def post_players() -> dict:
         return ajax_error(str(e))
 
     return ajax_data(pl_data)
+
+@data.post("/players/add_player")
+@admin_required
+def add_player() -> str:
+    """Add a new player based on form data.
+    """
+    data = request.form
+    with db_atomic() as txn:
+        try:
+            info = {
+                'last_name'     : data.get('last_name'),
+                'first_name'    : data.get('first_name'),
+                'nick_name'     : data.get('nick_name'),
+                'reigning_champ': typecast(data.get('reigning_champ')) or False,
+                'late_arrive'   : typecast(data.get('late_arrive')) or False,
+                'early_depart'  : typecast(data.get('early_depart')) or False
+            }
+            player = Player.create(**info)
+            update_tourn_config()
+        except IntegrityError as e:
+            txn.rollback()
+            if "UNIQUE constraint failed: player.last_name, player.first_name" in str(e):
+                return ajax_error("Player with same name (first + last) already exists")
+            return ajax_error(str(e))
+        except RuntimeError as e:
+            txn.rollback()
+            return ajax_error(str(e))
+
+    return ajax_succ(f"Player '{player.name}' added to roster")
+
+@data.post("/players/delete_player")
+@admin_required
+def delete_player() -> str:
+    """Delete existing player identified by form data.
+    """
+    data = request.form
+    player_id = typecast(data.get('player_id'))
+    with db_atomic() as txn:
+        try:
+            player = Player[player_id]
+            player_name = player.display_name
+            player.delete_instance()
+            update_tourn_config()
+        except IntegrityError as e:
+            txn.rollback()
+            if "FOREIGN KEY constraint failed" in str(e):
+                return ajax_error("Players cannot be deleted after the seeding round has started")
+            return ajax_error(str(e))
+        except RuntimeError as e:
+            txn.rollback();
+            return ajax_error(str(e))
+
+    return ajax_succ(f"Player '{player_name}' deleted from tournament")
 
 @data.post("/players/rank_adj/<rank_type>")
 @admin_required

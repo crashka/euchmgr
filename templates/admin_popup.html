@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <title>{{title}}</title>
+
+    <style>
+     h1 {
+       font-size: 1.25rem;
+     }
+     h2 {
+       font-size: 1.125rem;
+       margin-bottom: 0.5rem;
+     }
+     .err_dlg {
+       padding: 1.1rem 1.4rem;
+     }
+     .err_dlg div {
+       width: 22rem;
+       color: #D10000;
+       overflow: auto;
+     }
+     .err_dlg button {
+       margin-top: 1.2rem;
+     }
+     .player label {
+       display: inline-block;
+       text-align: right;
+       min-width: 7.5rem;
+     }
+     .player input {
+       padding: 0.15rem 0.3rem;
+     }
+     .player input[readonly] {
+       border: thin solid grey;
+       background-color: #F0F0F0;
+     }
+     .player input[type="text"] {
+       width: 13rem;
+     }
+     .player input[type="checkbox"] {
+       margin: 0.0rem;
+       vertical-align: middle;
+     }
+     .actions {
+       margin-top: 2.0rem;
+     }
+     .actions button {
+       margin-right: 0.8rem;
+       padding: 0.0rem 0.2rem;
+     }
+     button.close {
+       display: none;
+     }
+    </style>
+  </head>
+
+  <body>
+    <dialog class="err_dlg">
+      <div></div>
+      <button autofocus>Close</button>
+    </dialog>
+    <main>
+      <h1>{{tourn.name}} &ndash; {{title}}</h1>
+      <section class="player">
+        <h2>Player Info</h2>
+        <form action="{{action}}" method="post">
+          <input name="player_id" type="hidden" value="{{player.id or ''}}">
+          {% set attrs = " readonly" if popup_num == 1 else "" %}
+          <p>
+            <label>Last Name:</label>
+            <input name="last_name" type="text" value="{{player.last_name or ''}}" required{{attrs}}>
+          </p>
+          <p>
+            <label>First Name:</label>
+            <input name="first_name" type="text" value="{{player.first_name or ''}}"{{attrs}}>
+          </p>
+          <p>
+            <label>Nick Name:</label>
+            <input name="nick_name" type="text" value="{{player.nick_name or ''}}"{{attrs}}>
+          </p>
+          {% if popup_num == 0 %}
+          <p>
+            <label class="inline">Reigning Champ:</label>
+            <input type="checkbox" name="reigning_champ" value="yes">
+          </p>
+          <p>
+            <label class="inline">Late Arrival:</label>
+            <input type="checkbox" name="late_arrive" value="yes">
+          </p>
+          <p>
+            <label class="inline">Early Departure:</label>
+            <input type="checkbox" name="early_depart" value="yes">
+          </p>
+          <div class="actions">
+            <button class="add_player" type="submit">Add player</button>
+            <a class="cancel" href="javascript:void(0);">[cancel]</a>
+            <button class="close" type="button" onclick="window.close();">Close window</button>
+          </div>
+          {% elif popup_num == 1 %}
+          <div class="actions">
+            <button class="del_player" type="submit">Delete player</button>
+            <a class="cancel" href="javascript:void(0);">[cancel]</a>
+            <button class="close" type="button" onclick="window.close();">Close window</button>
+          </div>
+          {% endif %}  {# popup_num == 0 #}
+        </form>
+      </section>
+    </main>
+  </body>
+  
+  <script src="/static/jquery-3.7.1.min.js"></script>
+  <script>
+   $(function() {
+     // error dialog stuff
+     $('.err_dlg button').on('click', function() {
+       $('.err_dlg')[0].close();
+     });
+     const showError = function(err_text) {
+       $('.err_dlg div').html(err_text);
+       $('.err_dlg')[0].showModal();
+     };
+
+     // add_/del_player is done using ajax (hijack the submit action)
+     $('form').on("submit", function(e) {
+       e.preventDefault();
+       const $form = $(this);
+       const actionUrl = $form.attr('action');
+
+       $.ajax({
+         type: "POST",
+         url: actionUrl,
+         data: $form.serialize(),
+         success: function(data, status) {
+           console.log("Ajax success: " + status, data);
+           if (data.succ) {
+             showError(data.info);
+             window.opener.location.reload();
+           }
+           else {
+             showError(data.err);
+           }
+           // no second chances, the only option now is to close the window
+           $('form input').prop('disabled', true);
+           $('button.add_player').css('display', 'none');
+           $('button.del_player').css('display', 'none');
+           $('a.cancel').css('display', 'none');
+           $('button.close').css('display', 'inline-block');
+         },
+         error: function(req, status) {
+           data = req.responseJSON;
+           if (data) {
+             console.log("add_/del_player error (" + req.status + "): " + data.err, data);
+             showError(data.err + " (" + data.info + ")");
+           }
+           else {
+             console.log("add_/del_player error (" + req.status + "):\n" + req.responseText);
+             showError(req.statusText + " (" + req.status + ")");
+           }
+         }
+       });
+     });
+
+     // cancel link
+     $('a.cancel').on('click', function() {
+       window.close();
+     });
+   });
+  </script>
+</html>

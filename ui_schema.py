@@ -408,12 +408,15 @@ class PlayerRegister(UIMixin, BasePlayer):
         """Return current status of the registration phase (for mobile UI).
         """
         tourn = TournInfo.get()
+        if tourn.stage_compl >= TournStage.SEED_BRACKET:
+            return "Done"
+
         # can push this down to the database (if the method will be reused)
         nreg = sum(1 for p in cls.iter_players() if p.registered)
         if nreg < tourn.players:
             return f"{nreg} players registered"
         else:
-            return "Done"
+            return "All players registered"
 
     @classmethod
     def reg_status(cls, player: Player) -> str:

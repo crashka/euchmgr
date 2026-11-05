@@ -420,14 +420,14 @@ def register_player(form: dict) -> str:
     nick_name  = typecast(form['nick_name'])
     player     = Player.get(player_id)
 
-    if not player_num:
+    tourn = TournInfo.get()
+    if tourn.config.get('ping_pong_balls') and not player_num:
         assert not player.player_num  # player can't clear out player_num
-        tourn = TournInfo.get()
-        if tourn.config.get('ping_pong_balls'):
-            # show message, but store the record anyway
-            flash("err=Player Num must be specified")
+        # show message, but store the record anyway (sans registration)
+        flash("err=Player Num must be specified")
     else:
         player.player_num = player_num
+        player.registered = True
     player.nick_name = nick_name  # allow nick_name to be nulled out
     try:
         player.save()
@@ -766,7 +766,8 @@ VIEW_RESOURCES = {
                        ('/chart/rr_scores',    "Round Robin Scores"),
                        ('/chart/div_results',  "Round Robin Results"),
                        ('/report/rr_tbreak',   "Tie-Breaker Report"),
-                       ('/dash/ff_dash',       "Playoff Bracket")]
+                       ('/dash/ff_dash',       "Playoff Bracket"),
+                       ('/chart/fnl_results',  "Final Tourn Results")]
 }
 
 # informational data fields, by view

@@ -83,6 +83,11 @@ default:
     time_variance:             [0.5, 1.5]
 
 corellia:
+  tourn:
+    production_mode:           true
+    ping_pong_balls:           false
+    use_cohort_stats:          true
+
   server:
     trace_sql_paths:
       - /chart/sd_bracket

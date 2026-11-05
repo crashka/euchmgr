@@ -385,7 +385,8 @@
         <p>
           <label>Nick Name</label>:
           {% set nick_name =  user.nick_name if user.nick_name != user.last_name else "" %}
-          <input type="text" name="nick_name" value="{{nick_name}}"{{disabled}}>
+          {% set hint = "Optional..." %}
+          <input type="text" name="nick_name" value="{{nick_name}}" placeholder="{{hint}}"{{disabled}}>
         </p>
         <p>
           {% set sel_disabled = "{{disabled}}" if ping_pong_balls else " disabled" %}
@@ -402,13 +403,13 @@
             {% endif %}
           </select>
         </p>
-        {% if not locked %}
+        {# if not locked #}
         <p class="actions">
-          {% set reg_verb = "Complete" if ping_pong_balls else "Update" %}
-          <button value="register_player" disabled>{{reg_verb}} Registration</button>
+          {% set reg_verb = "Complete" if not user.registered else "Update" %}
+          <button value="register_player"{{disabled}}>{{reg_verb}} Registration</button>
           <a class="reset">[reset]</a>
         </p>
-        {% endif %}
+        {# endif #}
       </form>
       <p>
         {% set dag_txt = "ping pong ball number" if ping_pong_balls else "randomly generated" %}

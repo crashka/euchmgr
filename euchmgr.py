@@ -208,9 +208,6 @@ def upload_roster(csv_path: str) -> None:
     must specify the required info field names for the model object.
     """
     players = []
-    nchamps = 0
-    late_arrs = 0   # non-seeding players
-    early_deps = 0  # compulsory-THM (or omitted from round robin play)
     with open(csv_path, newline='') as f:
         reader = csv.reader(f)
         header = next(reader)  # TODO: check for required fields!!!
@@ -220,58 +217,32 @@ def upload_roster(csv_path: str) -> None:
             # do type casting (at some level) if uploading any non-string columns (e.g.
             # player_num)!!!
             player = Player.create(**player_info)
-            if player.reigning_champ:
-                nchamps += 1
-            if player.late_arrive:
-                late_arrs += 1
-            if player.early_dep:
-                early_deps += 1
             players.append(player)
 
-    # update tournament info (players, teams, etc.)
-    nplayers = len(players)
-    seed_players = nplayers - late_arrs
-    tourn_players = nplayers - early_deps
+    TournInfo.mark_stage_complete(TournStage.PLAYER_ROSTER)
+    update_tourn_config(players)
 
-    thm_teams = int(nchamps == 3)
-    non_champs = tourn_players - nchamps  # for tournament play
-    deps_omitted = 0
-    if non_champs & 0x01:
-        thm_teams += 1
-        deps_omitted += early_deps
-    elif early_deps:
-        thm_teams += 1
-        deps_omitted += (early_deps - 1)
-    nteams = non_champs // 2 + (1 if nchamps else 0)
-    assert nteams == (nplayers - deps_omitted - thm_teams) // 2
-
-    tourn = TournInfo.get()
-    if not tourn.seed_rounds or not tourn.tourn_rounds:
-        if late_arrs or early_deps:
-            raise RuntimeError(f"Only fixed players supported for {tourn.tourn_fmt} tournament")
-        rounds = ROUNDS_MAP[tourn.tourn_fmt]
-        if nplayers not in rounds:
-            raise RuntimeError(f"No support for {tourn.tourn_fmt} tournament with {nplayers} players")
-        tourn.seed_rounds = rounds[nplayers][0]
-        tourn.tourn_rounds = rounds[nplayers][1]
-    tourn.players = nplayers
-    tourn.teams = nteams
-    tourn.thm_teams = thm_teams
-    tourn.has_champ = bool(nchamps)
-    tourn.stage_compl = TournStage.PLAYER_ROSTER
-    tourn.save()
-
-def update_tourn_config() -> None:
-    """
+def update_tourn_config(players: list[Player] = None) -> None:
+    """After the roster is initially uploaded, or any of the "structural" details change
+    (e.g. number of players, player flags, etc.), we need to check, and possibly adjust,
+    the tournament configuration appropriately.
     """
     tourn = TournInfo.get()
     if tourn.stage_compl != TournStage.PLAYER_ROSTER:
         raise RuntimeError("Tourn reconfig not allowed after player numbers have been generated")
 
-    players    = list(Player.iter_players())
-    nchamps    = sum(1 for p in players if p.reigning_champ)
-    late_arrs  = sum(1 for p in players if p.late_arrive)
-    early_deps = sum(1 for p in players if p.early_depart)
+    if not players:
+        players = list(Player.iter_players())
+    nchamps = 0
+    late_arrs = 0   # non-seeding players
+    early_deps = 0  # compulsory-THM (or omitted from round robin play)
+    for player in players:
+        if player.reigning_champ:
+            nchamps += 1
+        if player.late_arrive:
+            late_arrs += 1
+        if player.early_dep:
+            early_deps += 1
 
     # update tournament info (players, teams, etc.)
     nplayers = len(players)

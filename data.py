@@ -148,6 +148,9 @@ def post_players() -> dict:
             setattr(player, col, val)
         mod = player.save()
         if mod:
+            # always do this, since we can't really tell what changed--TODO: need to
+            # update the `tourn_info` section of the admin view, as well!!!
+            update_tourn_config()
             pl_props = {prop: getattr(player, prop) for prop in pl_addl_props}
             pl_data = player.player_data | pl_props
     except TypeError as e:

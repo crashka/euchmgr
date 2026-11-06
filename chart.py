@@ -365,6 +365,11 @@ def rr_scores(tourn: TournInfo) -> str:
     for tg in tg_list:
         div = tg.team.div_num
         tm_id = tg.team.id
+        # INVESTIGATE: for some reason, the foreign key field (`tg.team_id`) is populated
+        # with the sub-object (same as `tg.team`), as opposed to a key value--don't know
+        # if this is due to multiple foreign keys to the same table (in the schema, not
+        # the query), or the `ui_schema` subclassing!!!  Note, we see the same thing in
+        # `rr_dash` (dash.py).
         #assert tm_id == tg.team_id
         rnd = tg.round_num
         assert rnd not in team_pts[tm_id]

@@ -361,6 +361,7 @@ def rr_dash(tourn: TournInfo) -> str:
     for tg in tg_list:
         div = tg.team.div_num
         tm_id = tg.team.id
+        # see INVESTIGATE comment in `rr_scores` (chart.py)!!!
         #assert tm_id == tg.team_id
         rnd = tg.round_num
         assert rnd not in team_pts[tm_id]

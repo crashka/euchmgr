@@ -52,8 +52,9 @@ to the screen representing the current stage of the tournament&mdash;one of:
 
 *\* only for teams making it into those rounds*
 
-You can navigate to any stage using the "<u>Stage</u>" dropdown at the top of the screen,
-or return to the current stage using the "<u>Current</u>" link.
+You can navigate to any stage using the "<u>Select Stage</u>" dropdown at the top of the
+screen, or see the latest activity/updates for the stage that is currenty active using the
+"<u>Latest</u>" link.
 
 The information shown for the current stage will be automatically updated on a periodic
 basis (unless you are in the middle of entering a score or pick).  You can get immediate

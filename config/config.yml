@@ -84,7 +84,7 @@ default:
 
 corellia:
   tourn:
-    production_mode:           true
+    production_mode:           false
     ping_pong_balls:           false
     use_cohort_stats:          true
 

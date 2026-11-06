@@ -384,7 +384,7 @@ def fake_seed_games(limit: int = None, rand_seed: int = None) -> None:
     """Generates random team points and determines winner for each seed game.
     """
     my_rand = random.Random()
-    if isinstance(rand_seed, int):
+    if isinstance(rand_seed, int) and not limit:
         my_rand.seed(rand_seed)  # for reproducible debugging only
 
     nfake = 0
@@ -660,7 +660,7 @@ def fake_pick_partners(limit: int = None, rand_seed: int = None) -> None:
     for keeping the champ team together)
     """
     my_rand = random.Random()
-    if isinstance(rand_seed, int):
+    if isinstance(rand_seed, int) and not limit:
         my_rand.seed(rand_seed)  # for reproducible debugging only
 
     tourn = TournInfo.get()
@@ -882,7 +882,7 @@ def fake_tourn_games(limit: int = None, rand_seed: int = None) -> None:
     semis/finals).
     """
     my_rand = random.Random()
-    if isinstance(rand_seed, int):
+    if isinstance(rand_seed, int) and not limit:
         my_rand.seed(rand_seed)  # for reproducible debugging only
 
     nfake = 0
@@ -1407,7 +1407,7 @@ def fake_playoff_games(bracket: Bracket, limit: int = None, rand_seed: int = Non
     specified bracket (semis or finals).
     """
     my_rand = random.Random()
-    if isinstance(rand_seed, int):
+    if isinstance(rand_seed, int) and not limit:
         my_rand.seed(rand_seed)  # for reproducible debugging only
 
     nfake = 0

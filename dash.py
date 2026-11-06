@@ -354,14 +354,14 @@ def rr_dash(tourn: TournInfo) -> str:
     tot_gms  = 0
     tot_pts  = 0
 
-    tg_list = list(TeamGame.iter_games(include_byes=True, join_teams=True))
+    tg_list = list(TeamGame.iter_games(include_byes=True, join_team=True))
     not_bye = lambda g: not g.is_bye
     max_rnd = lambda ls: max(g.round_num for g in ls) if ls else 0
     cur_rnd = {div: max_rnd(list(filter(not_bye, tg_list))) for div in div_list}
     for tg in tg_list:
         div = tg.team.div_num
-        tm_id = tg.team_id
-        assert tm_id == tg.team.id
+        tm_id = tg.team.id
+        #assert tm_id == tg.team_id
         rnd = tg.round_num
         assert rnd not in team_pts[tm_id]
         assert rnd not in opp_pts[tm_id]

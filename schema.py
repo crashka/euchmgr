@@ -2228,14 +2228,12 @@ class TeamGame(BaseModel):
         )
 
     @classmethod
-    def iter_games(cls, include_byes: bool = False, join_teams: bool = False) -> Iterator[Self]:
+    def iter_games(cls, include_byes: bool = False, join_team: bool = False) -> Iterator[Self]:
         """Iterator for tourn_games (wrap ORM details).
         """
-        if join_teams:
-            Opponent = Team.alias()
-            query = (cls.select(cls, Team, Opponent)
-                     .join(Team, on=(Team.id == cls.team_id))
-                     .left_outer_join(Opponent, on=(Opponent.id == cls.opp_id)))
+        if join_team:
+            query = (cls.select(cls, Team)
+                     .join(Team, on=(Team.id == cls.team_id)))
         else:
             query = cls.select()
         if not include_byes:

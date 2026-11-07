@@ -1259,7 +1259,9 @@ class PlayoffGame(UIMixin, BasePlayoffGame):
 
     def team_idx(self, team: Team) -> int:
         """Return the team index for the specified team.  This is used to map into
-        `team_tags`.
+        `team_tags`.  PRECARIOUS: this behavior was not intended, but `fmt_matchup` (in
+        mobile.py) now depends on this call returning `0` if the specified team is not in
+        the game matchup (e.g. an "observer"), so need to be careful with changes here!!!
         """
         return int(team == self.team2)
 

@@ -19,7 +19,7 @@ from schema import (GAME_PTS, Bracket, get_bracket, TournStage, TournInfo, Score
 from euchmgr import compute_player_ranks, compute_team_ranks, compute_playoff_ranks
 from ui_schema import (fmt_pct, PTS_PCT_NA, get_game_by_label, Player, PlayerRegister,
                        PartnerPick, SeedGame, Team, TournGame, PlayoffGame, PostScore,
-                       PostPick)
+                       PostPick, StageGame)
 from ui_common import (process_flashes, msg_join, render_response, redirect, api_succ,
                        api_error)
 
@@ -58,12 +58,12 @@ def same_score(s1: PostScore | tuple[int, int], s2: PostScore) -> bool:
 # just downcase the first character and leave the rest alone
 lc_first = lambda x: x[0].lower() + x[1:]
 
-def fmt_matchup(game: SeedGame | TournGame, ref: Player | Team, observer: bool = False) \
+def fmt_matchup(game: StageGame, ref: Player | Team, observer: bool = False) \
         -> tuple[str, str, str]:
     """Return formatted matchup representation (teams and scores) as HTML blocks to be
     rendered side-by-side (same look as bracket charts).  The `observer` flag indicates
     that the caller is a disinterested party, otherwise the decoration is from the point
-    of view of team 1.
+    of view of team 1 (valid for playoff games only).
     """
     team_idx = game.team_idx(ref)
     if team_idx == -1:
@@ -80,7 +80,11 @@ def fmt_matchup(game: SeedGame | TournGame, ref: Player | Team, observer: bool =
     assert team_idx in (0, 1)
     opp_idx = team_idx ^ 0x01
     if observer:
-        # note that `team_idx` will always be 0
+        # PRECARIOUS: the logic here assumes that `team_idx` is always 0 (which depends on
+        # the specific implementation for `PlayoffGame.team_idx`), so we need to be careful
+        # with any changes either here or there!!!
+        assert isinstance(game, PlayoffGame)
+        assert team_idx == 0
         if game.winner:
             pts_arr = [game.team1_pts, game.team2_pts]
             cls_arr = ['winner', ''] if game.team1_pts == GAME_PTS else ['', 'winner']
@@ -106,7 +110,6 @@ def fmt_matchup(game: SeedGame | TournGame, ref: Player | Team, observer: bool =
                   f"<br><br><span>{pts_arr[opp_idx]}</span>")
     units = "<label>pts</label><br><br><label>pts</label>"
     return matchup, scores, units
-
 
 def fmt_rec(x: int, y: int, team_idx: int = 0) -> str:
     """Format a record string given two input values (e.g. wins and losses, or points for

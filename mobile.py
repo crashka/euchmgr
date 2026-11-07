@@ -58,9 +58,12 @@ def same_score(s1: PostScore | tuple[int, int], s2: PostScore) -> bool:
 # just downcase the first character and leave the rest alone
 lc_first = lambda x: x[0].lower() + x[1:]
 
-def fmt_matchup(game: SeedGame | TournGame, ref: Player | Team) -> tuple[str, str, str]:
+def fmt_matchup(game: SeedGame | TournGame, ref: Player | Team, observer: bool = False) \
+        -> tuple[str, str, str]:
     """Return formatted matchup representation (teams and scores) as HTML blocks to be
-    rendered side-by-side (same look as bracket charts).
+    rendered side-by-side (same look as bracket charts).  The `observer` flag indicates
+    that the caller is a disinterested party, otherwise the decoration is from the point
+    of view of team 1.
     """
     team_idx = game.team_idx(ref)
     if team_idx == -1:
@@ -76,16 +79,31 @@ def fmt_matchup(game: SeedGame | TournGame, ref: Player | Team) -> tuple[str, st
 
     assert team_idx in (0, 1)
     opp_idx = team_idx ^ 0x01
-    if game.winner:
-        pts_arr = [game.team1_pts, game.team2_pts]
-        cls_arr = ['winner', 'loser'] if game.team1_pts == GAME_PTS else ['loser', 'winner']
+    if observer:
+        # note that `team_idx` will always be 0
+        if game.winner:
+            pts_arr = [game.team1_pts, game.team2_pts]
+            cls_arr = ['winner', ''] if game.team1_pts == GAME_PTS else ['', 'winner']
+        else:
+            pts_arr = ['&nbsp;', '&nbsp;']
+            cls_arr = ['', '']
+        matchup = (f"<span class=\"{cls_arr[team_idx]}\">{game.team_tags[team_idx]}</span>"
+                   f"<br>vs.<br>"
+                   f"<span class=\"{cls_arr[opp_idx]}\">{game.team_tags[opp_idx]}</span>")
+        scores = (f"<span class=\"{cls_arr[team_idx]}\">{pts_arr[team_idx]}</span>"
+                  f"<br><br>"
+                  f"<span class=\"{cls_arr[opp_idx]}\">{pts_arr[opp_idx]}</span>")
     else:
-        pts_arr = ['&nbsp;', '&nbsp;']
-        cls_arr = ['', '']
-    matchup = (f"<span class=\"{cls_arr[team_idx]}\">{game.team_tags[team_idx]}</span><br>vs.<br>"
-               f"<span>{game.team_tags[opp_idx]}</span>")
-    scores = (f"<span class=\"{cls_arr[team_idx]}\">{pts_arr[team_idx]}</span><br><br>"
-              f"<span>{pts_arr[opp_idx]}</span>")
+        if game.winner:
+            pts_arr = [game.team1_pts, game.team2_pts]
+            cls_arr = ['winner', 'loser'] if game.team1_pts == GAME_PTS else ['loser', 'winner']
+        else:
+            pts_arr = ['&nbsp;', '&nbsp;']
+            cls_arr = ['', '']
+        matchup = (f"<span class=\"{cls_arr[team_idx]}\">{game.team_tags[team_idx]}</span>"
+                   f"<br>vs.<br><span>{game.team_tags[opp_idx]}</span>")
+        scores = (f"<span class=\"{cls_arr[team_idx]}\">{pts_arr[team_idx]}</span>"
+                  f"<br><br><span>{pts_arr[opp_idx]}</span>")
     units = "<label>pts</label><br><br><label>pts</label>"
     return matchup, scores, units
 
@@ -142,7 +160,7 @@ def get_leaderboard(bracket: str, div: int = None) -> tuple[LBHeader, LBData]:
         hdr = ("id", "Team (rank)", "W-L", "Pts %", "Pos")
     else:
         raise LogicError(f"unknown bracket '{bracket}'")
-    assert hdr and data
+    assert hdr and data is not None
     return hdr, data
 
 def update_rankings(bracket: str) -> bool:
@@ -228,26 +246,13 @@ STAGE_VIEW = [
     (TournStage.PLAYER_NUMS,  View.REGISTER)
 ]
 
-def remap_view(view: str, player: Player) -> str:
-    """Remap playoff views back to main tournament (or earlier playoff round) for players
-    with no games in the specified view.
-    """
-    team = player.team  # may be `None` if teams not yet picked
-    if view == View.FINALS and not (team and team.finals_team):
-        if team and team.playoff_team:
-            return View.SEMIFINALS
-        return View.ROUND_ROBIN
-    elif view == View.SEMIFINALS and not (team and team.playoff_team):
-        return View.ROUND_ROBIN
-    return view
-
 def active_view(tourn: TournInfo, player: Player) -> str:
     """Return active view for the current stage of the tournament.
     """
     assert tourn.stage_start
     for stage, view in STAGE_VIEW:
         if tourn.stage_start >= stage:
-            return remap_view(view, player)
+            return view
     raise LogicError(f"unexpected stage_start '{tourn.stage_start}'")
 
 CUR_ROUND_FUNC = {
@@ -737,38 +742,27 @@ VIEW_NAME = {
     View.FINALS     : "Finals"
 }
 
-VIEW_MENU = [(view, label) for view, label in VIEW_NAME.items()]
-
-def view_menu(player: Player) -> dict[str, str]:
-    """Return dict of view name (URL) to menu label for the specified player.
+def view_menu() -> tuple[str, str]:
+    """Return tuple of view name (URL) to menu label.
     """
-    tourn = TournInfo.get()
-    team = player.team  # may be `None` if teams not yet picked
-    if not team:
-        return VIEW_MENU[:-2]
-    elif not team.playoff_team:
-        return VIEW_MENU[:-2]
-    elif not team.finals_team:
-        assert tourn.playoff_teams == 4
-        return VIEW_MENU[:-1]
-    if tourn.playoff_teams == 2:
-        # HACK: really need to fix this--this is related to the overall topic of
-        # declarative views and navigation (both mobile or admin) for the various
-        # tournament configurations!!!
-        return VIEW_MENU[:-2] + VIEW_MENU[-1:]
-    return VIEW_MENU
+    return [(view, label) for view, label in VIEW_NAME.items()]
 
 VIEW_RESOURCES = {
     View.SEEDING    : [('/chart/sd_bracket',   "Seeding Bracket"),
-                       ('/chart/sd_scores',    "Seeding Scores"),
+                       ('/dash/sd_dash',       "Seeding Scores"),
                        ('/chart/sd_results',   "Seeding Results")],
     View.ROUND_ROBIN: [('/chart/rr_brackets',  "Round Robin Brackets"),
-                       ('/chart/rr_scores',    "Round Robin Scores"),
+                       ('/dash/rr_dash',       "Round Robin Scores"),
                        ('/chart/div_results',  "Round Robin Results"),
-                       ('/report/rr_tbreak',   "Tie-Breaker Report"),
-                       ('/dash/ff_dash',       "Playoff Bracket"),
-                       ('/chart/fnl_results',  "Final Tourn Results")]
+                       ('/report/rr_tbreak',   "Tie-Breaker Report")],
+    View.SEMIFINALS:  [('/dash/ff_dash',       "Playoff Bracket")],
+    View.FINALS:      [('/dash/ff_dash',       "Playoff Bracket"),
+                       ('/chart/fnl_results',  "Final Tourn Results"),
+                       ('/report/fnl_tbreak',  "Tie-Breaker Report")]
 }
+
+SEMIS_OBSRV = '(semis observer)'
+FINALS_OBSRV = '(finals observer)'
 
 # informational data fields, by view
 # field defintion: tuple(name, CSS class, label, min stage_compl for display)
@@ -821,6 +815,14 @@ INFO_FIELDS = {
         ("win_rec_pl",   "",     "W-L",         TournStage.FINALS_BRACKET),
         ("pts_pct_pl",   "",     "Pts %",       TournStage.FINALS_BRACKET),
         ("playoff_rank", "",     "Finals Rank", TournStage.FINALS_BRACKET)
+    ],
+    SEMIS_OBSRV: [
+        ("status",       "",     "Status",      TournStage.TOURN_CREATE),
+        ("obs_role",     "wide", "Role (you)",  TournStage.SEMIS_BRACKET)
+    ],
+    FINALS_OBSRV: [
+        ("status",       "",     "Status",      TournStage.TOURN_CREATE),
+        ("obs_role",     "wide", "Role (you)",  TournStage.FINALS_BRACKET)
     ]
 }
 
@@ -876,6 +878,7 @@ def render_mobile(context: dict, view: str) -> str:
     leaderboard = None
     partner_picks = None
     picks_avail = None
+    observer    = False
 
     fld_data = {
         VIEW_HEADER: [
@@ -933,34 +936,50 @@ def render_mobile(context: dict, view: str) -> str:
         else:
             fld_data[view] += [None] * 7
     elif view == View.SEMIFINALS:
-        assert team and team.playoff_team
-        cur_game   = team.current_playoff_game
-        team_idx   = cur_game.team_idx(team) if cur_game else None
-        win_rec_pl = fmt_rec(team.playoff_wins, team.playoff_losses)
-        pts_pct_pl = fmt_pct(team.playoff_pts_pct)
-        fld_data[view] = [
-            PlayoffGame.phase_status(Bracket.SEMIS),
-            team.team_name,
-            team.tourn_rank_eff,
-            win_rec_pl,
-            pts_pct_pl,
-            team.playoff_rank
-        ]
+        if team and team.playoff_team:
+            cur_game   = team.current_playoff_game
+            team_idx   = cur_game.team_idx(team) if cur_game else None
+            win_rec_pl = fmt_rec(team.playoff_wins, team.playoff_losses)
+            pts_pct_pl = fmt_pct(team.playoff_pts_pct)
+            fld_data[view] = [
+                PlayoffGame.phase_status(Bracket.SEMIS),
+                team.team_name,
+                team.tourn_rank_eff,
+                win_rec_pl,
+                pts_pct_pl,
+                team.playoff_rank
+            ]
+        else:
+            observer = True
+            cur_game = None
+            team_idx = None
+            fld_data[SEMIS_OBSRV] = [
+                PlayoffGame.phase_status(Bracket.SEMIS),
+                "(observer)"
+            ]
     elif view == View.FINALS:
-        assert team and team.playoff_team
-        assert team.finals_team
-        cur_game   = team.current_playoff_game
-        team_idx   = cur_game.team_idx(team) if cur_game else None
-        win_rec_pl = fmt_rec(team.playoff_wins, team.playoff_losses)
-        pts_pct_pl = fmt_pct(team.playoff_pts_pct)
-        fld_data[view] = [
-            PlayoffGame.phase_status(Bracket.FINALS),
-            team.team_name,
-            team.tourn_rank_eff,
-            win_rec_pl,
-            pts_pct_pl,
-            team.playoff_rank
-        ]
+        if team and team.finals_team:
+            assert team.playoff_team
+            cur_game   = team.current_playoff_game
+            team_idx   = cur_game.team_idx(team) if cur_game else None
+            win_rec_pl = fmt_rec(team.playoff_wins, team.playoff_losses)
+            pts_pct_pl = fmt_pct(team.playoff_pts_pct)
+            fld_data[view] = [
+                PlayoffGame.phase_status(Bracket.FINALS),
+                team.team_name,
+                team.tourn_rank_eff,
+                win_rec_pl,
+                pts_pct_pl,
+                team.playoff_rank
+            ]
+        else:
+            observer = True
+            cur_game = None
+            team_idx = None
+            fld_data[FINALS_OBSRV] = [
+                PlayoffGame.phase_status(Bracket.FINALS),
+                "(observer)"
+            ]
     else:
         assert False, f"bad view '{view}'"
 
@@ -1015,10 +1034,16 @@ def render_mobile(context: dict, view: str) -> str:
         stage_games = team.get_games(all_games=True) if team else None
         leaderboard = get_leaderboard(Bracket.TOURN, team.div_num) if team else None
     elif view == View.SEMIFINALS:
-        stage_games = team.get_playoff_games(Bracket.SEMIS, all_games=True)
+        if not observer:
+            stage_games = team.get_playoff_games(Bracket.SEMIS, all_games=True)
+        else:
+            stage_games = Team.all_playoff_games(Bracket.SEMIS, all_games=True)
         leaderboard = get_leaderboard(Bracket.SEMIS)
     elif view == View.FINALS:
-        stage_games = team.get_playoff_games(Bracket.FINALS, all_games=True)
+        if not observer:
+            stage_games = team.get_playoff_games(Bracket.FINALS, all_games=True)
+        else:
+            stage_games = Team.all_playoff_games(Bracket.FINALS, all_games=True)
         leaderboard = get_leaderboard(Bracket.FINALS)
 
     update_int = -1
@@ -1037,7 +1062,7 @@ def render_mobile(context: dict, view: str) -> str:
         'View'         : View,
         'view'         : view,  # also represents relative path name
         'view_name'    : VIEW_NAME[view],
-        'view_menu'    : view_menu(player),
+        'view_menu'    : view_menu(),
         'team'         : team,
         'team_idx'     : team_idx,
         'info_data'    : info_data,
@@ -1055,7 +1080,7 @@ def render_mobile(context: dict, view: str) -> str:
         'leaderboard'  : leaderboard,
         'partner_picks': partner_picks,
         'picks_avail'  : picks_avail,
-        'fmt_matchup'  : fmt_matchup,
+        'fmt_matchup'  : partial(fmt_matchup, observer=observer),
         'resources'    : VIEW_RESOURCES.get(view),
         'update_int'   : update_int,
         'err_msg'      : None,

@@ -694,6 +694,30 @@ class Team(UIMixin, BaseTeam):
     class Meta:
         table_name = BaseTeam._meta.table_name
 
+    @classmethod
+    def all_playoff_games(cls, bracket: Bracket, all_games: bool = False) -> list[BaseModel]:
+        """Get all PlayoffGame records for the specified bracket, across all teams.  This
+        is almost exactly the same as the `get_playoff_games` instance method, but without
+        team-based filtering and an amended order_by).
+
+        """
+        if not all_games:
+            raise ImplementationError("`all_games=False` not yet implemented")
+        tourn = TournInfo.get()
+        if bracket == Bracket.SEMIS:
+            if tourn.stage_compl < TournStage.SEMIS_BRACKET:
+                return None
+        else:
+            assert bracket == Bracket.FINALS
+            if tourn.stage_compl < TournStage.FINALS_BRACKET:
+                return None
+
+        query = (PlayoffGame
+                 .select()
+                 .where(PlayoffGame.bracket == bracket)
+                 .order_by(PlayoffGame.matchup_num, PlayoffGame.round_num))
+        return list(query)
+
     @property
     def team_data(self) -> dict:
         """Return team data as a dict, removing distracting default values if not relevant

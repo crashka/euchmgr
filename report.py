@@ -88,6 +88,9 @@ def rr_tbreak(tourn: TournInfo) -> str:
     ranking adjustments (if any), since it is intended to elucidate the logic underlying
     the system's computed rankings.
     """
+    if not tourn.round_robin_done():
+        abort(400, "Round robin tie-breaker report not yet available")
+
     # BAD: this has the same name as a different format function in ui_schema.py--we
     # really need to refactor/consolidate all of this!!!
     team_tag = lambda x: f"{x.team_name} [{x.div_seed}]"
@@ -278,6 +281,8 @@ def trn_tbreak(tourn: TournInfo, final_rpt: bool = False) -> str:
 def fnl_tbreak(tourn: TournInfo) -> str:
     """Render overall tournament tie-breaker report
     """
+    if not tourn.tournament_done():
+        abort(400, "Final tournament tie-breaker report not yet available")
     return trn_tbreak(tourn, final_rpt=True)
 
 #################

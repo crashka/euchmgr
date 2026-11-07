@@ -595,10 +595,11 @@ def fmt_scores(games: list[PlayoffGame]) -> str:
 def ff_dash(tourn: TournInfo) -> str:
     """Render final four live bracket
     """
-    done = tourn.playoffs_done()
+    if not tourn.playoffs_started():
+        abort(400, "Playoff bracket not yet available")
 
-    # match_ident: (team1, team2, winner, [games])
-    brckt_info = {}
+    done = tourn.playoffs_done()
+    brckt_info = {}  # match_ident: (team1, team2, winner, [games])
     ncomplete = 0
     prev_count  = 0
 

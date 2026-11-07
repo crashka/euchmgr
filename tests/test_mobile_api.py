@@ -20,8 +20,8 @@ from test_api import OUT_OF_TURN, PICKER_TAKEN, PICK_TAKEN
 from database import db_is_initialized, db_reset, db_connection_context
 from schema import Bracket, TournStage, TournInfo, clear_schema_cache
 from euchmgr import prepick_champ_partners
-from ui_schema import (SeedGame, TournGame, PlayoffGame, PlayerGame, TeamGame, PostScore,
-                       StageGame, get_bracket, get_game_by_label)
+from ui_schema import (clear_ui_schema_cache, SeedGame, TournGame, PlayoffGame, PlayerGame,
+                       TeamGame, PostScore, StageGame, get_bracket, get_game_by_label)
 from server import create_app
 
 #####################
@@ -189,6 +189,7 @@ def register_db() -> Generator[SqliteDatabase]:
     yield db
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 @pytest.fixture(scope="class")
 def seeding_db() -> Generator[SqliteDatabase]:
@@ -198,6 +199,7 @@ def seeding_db() -> Generator[SqliteDatabase]:
     yield db
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 @pytest.fixture(scope="class")
 def partners_db() -> Generator[SqliteDatabase]:
@@ -208,6 +210,7 @@ def partners_db() -> Generator[SqliteDatabase]:
     yield db
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 @pytest.fixture(scope="class")
 def round_robin_db() -> Generator[SqliteDatabase]:
@@ -217,6 +220,7 @@ def round_robin_db() -> Generator[SqliteDatabase]:
     yield db
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 ################
 # test classes #

@@ -14,6 +14,7 @@ from flask.testing import FlaskClient
 from core import TEST_DIR, DataFile, set_logger
 from database import db_filepath, db_init, db_reset, db_close
 from schema import TournStage, clear_schema_cache
+from ui_schema import clear_ui_schema_cache
 from server import Config
 
 ######################
@@ -48,6 +49,7 @@ def restore_stage_db(stage: TournStage) -> SqliteDatabase:
     """
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
     # REVISIT: it might be better (i.e. more robust if open connections on TEST_DB) to use
     # `db.backup` here!!!
     shutil.copy2(stage_db_path(stage), db_filepath(TEST_DB))
@@ -65,6 +67,7 @@ def stage_1_db() -> Generator[SqliteDatabase]:
     yield db
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 @pytest.fixture
 def stage_2_db() -> Generator[SqliteDatabase]:
@@ -73,6 +76,7 @@ def stage_2_db() -> Generator[SqliteDatabase]:
     yield db
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 @pytest.fixture
 def stage_3_db() -> Generator[SqliteDatabase]:
@@ -81,6 +85,7 @@ def stage_3_db() -> Generator[SqliteDatabase]:
     yield db
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 @pytest.fixture
 def stage_4_db() -> Generator[SqliteDatabase]:
@@ -89,6 +94,7 @@ def stage_4_db() -> Generator[SqliteDatabase]:
     yield db
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 @pytest.fixture
 def stage_5_db() -> Generator[SqliteDatabase]:
@@ -97,6 +103,7 @@ def stage_5_db() -> Generator[SqliteDatabase]:
     yield db
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 @pytest.fixture
 def stage_6_db() -> Generator[SqliteDatabase]:
@@ -105,6 +112,7 @@ def stage_6_db() -> Generator[SqliteDatabase]:
     yield db
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 @pytest.fixture
 def stage_7_db() -> Generator[SqliteDatabase]:
@@ -113,6 +121,7 @@ def stage_7_db() -> Generator[SqliteDatabase]:
     yield db
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 @pytest.fixture
 def stage_8_db() -> Generator[SqliteDatabase]:
@@ -121,6 +130,7 @@ def stage_8_db() -> Generator[SqliteDatabase]:
     yield db
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 @pytest.fixture
 def stage_9_db() -> Generator[SqliteDatabase]:
@@ -129,6 +139,7 @@ def stage_9_db() -> Generator[SqliteDatabase]:
     yield db
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 @pytest.fixture
 def stage_10_db() -> Generator[SqliteDatabase]:
@@ -137,6 +148,7 @@ def stage_10_db() -> Generator[SqliteDatabase]:
     yield db
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 @pytest.fixture
 def stage_11_db() -> Generator[SqliteDatabase]:
@@ -145,6 +157,7 @@ def stage_11_db() -> Generator[SqliteDatabase]:
     yield db
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 @pytest.fixture
 def stage_12_db() -> Generator[SqliteDatabase]:
@@ -153,6 +166,7 @@ def stage_12_db() -> Generator[SqliteDatabase]:
     yield db
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 @pytest.fixture
 def stage_13_db() -> Generator[SqliteDatabase]:
@@ -161,6 +175,7 @@ def stage_13_db() -> Generator[SqliteDatabase]:
     yield db
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 @pytest.fixture
 def stage_14_db() -> Generator[SqliteDatabase]:
@@ -169,6 +184,7 @@ def stage_14_db() -> Generator[SqliteDatabase]:
     yield db
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 ###################
 # common UI stuff #

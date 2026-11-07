@@ -17,6 +17,7 @@ from flask.testing import FlaskClient
 from conftest import TestConfig, APIAppProxy, APIClient, TEST_DB, ROSTER_FILE
 from database import db_reset
 from schema import TournStage, TournInfo, clear_schema_cache
+from ui_schema import clear_ui_schema_cache
 from server import create_app
 
 #################
@@ -41,6 +42,7 @@ def api_app() -> Generator[Flask]:
     # we do this because the run_auto sequence creates its own db
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 @pytest.fixture(scope="module")
 def api_client(api_app) -> Generator[FlaskClient]:

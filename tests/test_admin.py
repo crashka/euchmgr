@@ -19,6 +19,7 @@ from bs4 import BeautifulSoup, Tag
 from conftest import TestConfig, AdminAppProxy, TEST_DB, ROSTER_FILE
 from database import db_reset
 from schema import TournStage, TournInfo, clear_schema_cache
+from ui_schema import clear_ui_schema_cache
 from admin import View, VIEW_DEFS, SEL_NEW
 from server import create_app
 
@@ -75,6 +76,7 @@ def admin_app() -> Generator[Flask]:
     yield app
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 @pytest.fixture(scope="module")
 def admin_client(admin_app) -> Generator[FlaskClient]:

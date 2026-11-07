@@ -15,6 +15,7 @@ from bs4 import BeautifulSoup
 from conftest import TestConfig, MobileAppProxy, restore_stage_db
 from database import db_reset
 from schema import TournInfo, TournStage, clear_schema_cache
+from ui_schema import clear_ui_schema_cache
 from server import create_app
 
 ############
@@ -28,6 +29,7 @@ def seed_bracket_db() -> Generator[SqliteDatabase]:
     yield db
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 @pytest.fixture(scope="module")
 def tourn_bracket_db() -> Generator[SqliteDatabase]:
@@ -36,6 +38,7 @@ def tourn_bracket_db() -> Generator[SqliteDatabase]:
     yield db
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 @pytest.fixture(scope="module")
 def seed_bracket_app(seed_bracket_db) -> Generator[Flask]:

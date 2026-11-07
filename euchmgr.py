@@ -19,10 +19,10 @@ from ckautils import rankdata
 
 from core import BASE_DIR, BracketsFile, config, profile, log
 from database import db_init, db_close, db_name, db_atomic
-from schema import (rnd_pct, rnd_avg, clear_schema_cache, Bracket, TournStage, TournInfo,
-                    Player, SeedGame, Team, TournGame, PlayoffGame, PlayerGame, TeamGame,
-                    ScoreAction, RankType, RankAction, PickAction, PostScore, PostRank,
-                    PostPick, TournEvent, TournLog, schema_create)
+from schema import (rnd_pct, rnd_avg, Bracket, TournStage, TournInfo, Player, SeedGame,
+                    Team, TournGame, PlayoffGame, PlayerGame, TeamGame, ScoreAction,
+                    RankType, RankAction, PickAction, PostScore, PostRank, PostPick,
+                    TournEvent, TournLog, schema_create)
 
 #####################
 # utility functions #

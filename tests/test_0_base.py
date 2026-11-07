@@ -18,6 +18,7 @@ from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_se
                      prepick_champ_partners, fake_pick_partners, build_tourn_teams,
                      compute_team_seeds, build_tourn_bracket, fake_tourn_games,
                      validate_tourn, compute_team_ranks, build_playoff_bracket)
+from ui_schema import clear_ui_schema_cache
 
 ############
 # fixtures #
@@ -31,6 +32,7 @@ def test_db() -> Generator[SqliteDatabase]:
     yield db
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
 
 #####################
 # run_auto sequence #

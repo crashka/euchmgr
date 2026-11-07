@@ -33,6 +33,7 @@ from euchmgr import (tourn_create, upload_roster, generate_player_nums, build_se
                      compute_final_ranks)
 from ui_common import (process_flashes, msg_join, cap_first, render_response, redirect,
                        render_error, api_succ, api_error)
+from ui_schema import clear_ui_schema_cache
 from data import (Layout, pl_layout, sg_layout, pt_layout, tm_layout, tg_layout, ff_layout,
                   pg_layout)
 from dash import clear_dash_storage
@@ -667,6 +668,7 @@ def pause_tourn(form: dict) -> str:
     assert db_name() == tourn_name
     db_reset(force=True)
     clear_schema_cache()
+    clear_ui_schema_cache()
     clear_dash_storage()
     popped = session.pop('tourn', None)
     assert popped == tourn_name

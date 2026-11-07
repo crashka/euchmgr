@@ -4,7 +4,7 @@
 as formatting and display-related utilities.
 """
 
-from typing import Self, Iterator
+from typing import ClassVar, Self, Iterator
 
 from peewee import ForeignKeyField, DeferredForeignKey, fn
 from flask import g
@@ -66,6 +66,12 @@ def fmt_tally(pts: int) -> str:
     tally_file = f"{TALLY_FILE_PFX}{pts}{TALLY_FILE_SFX}"
     return f'src="{tally_file}" height="{TALLY_HEIGHT}" width="{TALLY_WIDTH}"'
 
+def clear_ui_schema_cache() -> None:
+    """This needs to be called every time we switch (or reset) databases.
+    """
+    Player.clear_cache()
+    Team.clear_cache()
+
 ###########
 # UIMixin #
 ###########
@@ -101,6 +107,8 @@ EMPTY_PLYR_STATS = {
     'seed_pts_against': None
 }
 
+PlayerTagMap = dict[int, str]  # player_num: player_tag
+
 class Player(UIMixin, BasePlayer):
     """Represents a player in the tournament, as well as a mobile (i.e. non-admin) user of
     the app.
@@ -110,8 +118,34 @@ class Player(UIMixin, BasePlayer):
     picked_by = ForeignKeyField('self', field='player_num', column_name='picked_by_num', null=True)
     team      = DeferredForeignKey('Team', null=True)
 
+    # class variables
+    tag_maps: ClassVar[list[PlayerTagMap]] = [None, None]  # [non-api, api]
+
     class Meta:
         table_name = BasePlayer._meta.table_name
+
+    @classmethod
+    def clear_cache(cls) -> None:
+        """See `clear_ui_schema_cache` (above).
+        """
+        cls.tag_maps = [None, None]  # [non-api, api]
+
+    @classmethod
+    def get_tag_map(cls) -> PlayerTagMap:
+        """Get (or build) cached map of player_num to player_tag (never changes after
+        player_nums are assigned).
+        """
+        idx = int(g.api_call)
+        if cls.tag_maps[idx] is not None:
+            return cls.tag_maps[idx]
+
+        tourn = TournInfo.get()
+        assert tourn.stage_compl >= TournStage.PLAYER_NUMS
+        tag_map = {}
+        for p in cls.iter_players():
+            tag_map[p.player_num] = p.player_tag
+        cls.tag_maps[idx] = tag_map
+        return tag_map
 
     @classmethod
     def find_by_name_pfx(cls, name_pfx: str) -> Iterator[Self]:
@@ -577,13 +611,14 @@ class SeedGame(UIMixin, BaseSeedGame):
         bracket and scores/results displays)--currently, can only be called for actual
         matchup, and not bye records
         """
-        p1 = self.player1
-        p2 = self.player2
-        p3 = self.player3
-        p4 = self.player4
-        assert p1 and p2 and p3 and p4
-        team1_tag = f"{p1.player_tag}&nbsp;&nbsp;/&nbsp;&nbsp;{p2.player_tag}"
-        team2_tag = f"{p3.player_tag}&nbsp;&nbsp;/&nbsp;&nbsp;{p4.player_tag}"
+        p1_num = self.player1_num
+        p2_num = self.player2_num
+        p3_num = self.player3_num
+        p4_num = self.player4_num
+        assert p1_num and p2_num and p3_num and p4_num
+        tag_map = Player.get_tag_map()
+        team1_tag = f"{tag_map[p1_num]}&nbsp;&nbsp;/&nbsp;&nbsp;{tag_map[p2_num]}"
+        team2_tag = f"{tag_map[p3_num]}&nbsp;&nbsp;/&nbsp;&nbsp;{tag_map[p4_num]}"
         return team1_tag, team2_tag
 
     @property
@@ -592,12 +627,13 @@ class SeedGame(UIMixin, BaseSeedGame):
         bracket and scores/results displays)--currently, can only be called for bye
         records
         """
-        pl_list = list(filter(bool, (self.player1,
-                                     self.player2,
-                                     self.player3,
-                                     self.player4)))
-        assert len(pl_list) < 4  # ...or return None?
-        return [pl.player_tag for pl in pl_list]
+        pl_nums = list(filter(bool, (self.player1_num,
+                                     self.player2_num,
+                                     self.player3_num,
+                                     self.player4_num)))
+        assert len(pl_nums) < 4  # ...or return None?
+        tag_map = Player.get_tag_map()
+        return [tag_map[pl_num] for pl_num in pl_nums]
 
     @property
     def winner_info(self) -> tuple[str, int, int]:
@@ -684,6 +720,8 @@ EMPTY_FINAL_FOUR_STATS = {
     'playoff_pts_against' : None
 }
 
+TeamTagMap = dict[int, str]  # id: team_tag
+
 class Team(UIMixin, BaseTeam):
     """
     """
@@ -691,8 +729,34 @@ class Team(UIMixin, BaseTeam):
     player2 = ForeignKeyField(Player, field='player_num', column_name='player2_num')
     player3 = ForeignKeyField(Player, field='player_num', column_name='player3_num', null=True)
 
+    # class variables
+    tag_maps: ClassVar[list[TeamTagMap]] = [None, None]  # [non-api, api]
+
     class Meta:
         table_name = BaseTeam._meta.table_name
+
+    @classmethod
+    def clear_cache(cls) -> None:
+        """See `clear_ui_schema_cache` (above).
+        """
+        cls.tag_maps = [None, None]  # [non-api, api]
+
+    @classmethod
+    def get_tag_map(cls) -> TeamTagMap:
+        """Get (or build) cached map of team id to team_tag (never changes after round robin
+        brackets are create).
+        """
+        idx = int(g.api_call)
+        if cls.tag_maps[idx] is not None:
+            return cls.tag_maps[idx]
+
+        tourn = TournInfo.get()
+        assert tourn.stage_compl >= TournStage.TOURN_BRACKET
+        tag_map = {}
+        for t in cls.iter_teams():
+            tag_map[t.id] = t.team_tag
+        cls.tag_maps[idx] = tag_map
+        return tag_map
 
     @property
     def team_data(self) -> dict:
@@ -1119,8 +1183,9 @@ class TournGame(UIMixin, BaseTournGame):
         """Team tags with embedded HTML annotation (used for bracket and scores/results
         displays)--currently, can only be called for actual matchup, and not bye records
         """
-        assert self.team1 and self.team2
-        return self.team1.team_tag, self.team2.team_tag
+        assert self.team1_id and self.team2_id
+        tag_map = Team.get_tag_map()
+        return tag_map[self.team1_id], tag_map[self.team2_id]
 
     @property
     def bye_tag(self) -> str:
@@ -1128,8 +1193,9 @@ class TournGame(UIMixin, BaseTournGame):
         bracket and scores/results displays)--currently, can only be called for bye
         records
         """
-        assert self.team1 and self.team2 is None  # ...or return None?
-        return self.team1.team_tag
+        assert self.team1_id and not self.team2_id  # ...or return None?
+        tag_map = Team.get_tag_map()
+        return tag_map[self.team1_id]
 
     @property
     def winner_info(self) -> tuple[str, int, int]:

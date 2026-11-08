@@ -984,11 +984,13 @@ class SeedGame(BaseModel):
         """
         assert not (include_byes and complete_only)  # contradictory
         if join_players:
+            Player1 = Player.alias()
             Player2 = Player.alias()
             Player3 = Player.alias()
             Player4 = Player.alias()
-            query = (cls.select(cls, Player, Player2, Player3, Player4)
-                     .join(Player, on=(Player.player_num == cls.player1_num))
+            query = (cls
+                     .select(cls, Player1, Player2, Player3, Player4)
+                     .join(Player1, on=(Player1.player_num == cls.player1_num))
                      .left_outer_join(Player2, on=(Player2.player_num == cls.player2_num))
                      .left_outer_join(Player3, on=(Player3.player_num == cls.player3_num))
                      .left_outer_join(Player4, on=(Player4.player_num == cls.player4_num)))
@@ -1695,9 +1697,11 @@ class TournGame(BaseModel):
         """
         assert not (include_byes and complete_only)  # contradictory
         if join_teams:
+            Team1 = Team.alias()
             Team2 = Team.alias()
-            query = (cls.select(cls, Team, Team2)
-                     .join(Team, on=(Team.id == cls.team1_id))
+            query = (cls
+                     .select(cls, Team1, Team2)
+                     .join(Team1, on=(Team1.id == cls.team1_id))
                      .left_outer_join(Team2, on=(Team2.id == cls.team2_id)))
         else:
             query = cls.select()
@@ -2163,7 +2167,9 @@ class PlayerGame(BaseModel):
         """Iterator for player_games (wrap ORM details).
         """
         if join_player:
-            query = cls.select(cls, Player).join(Player)
+            query = (cls
+                     .select(cls, Player)
+                     .join(Player))
         else:
             query = cls.select()
         if not include_byes:
@@ -2232,7 +2238,13 @@ class TeamGame(BaseModel):
         """Iterator for tourn_games (wrap ORM details).
         """
         if join_team:
-            query = (cls.select(cls, Team)
+            # ATTENTION: in order to avoid requerying when accessing fields on the joined
+            # `team` table, the caller needs to go through the `team_id` field (which is
+            # actually populated with the team object data, and not the actual foreign key
+            # value)--this appears to be a bug in the ORM (unless we're missing something
+            # essential in the interface), which we should really follow up on!!!
+            query = (cls
+                     .select(cls, Team)
                      .join(Team, on=(Team.id == cls.team_id)))
         else:
             query = cls.select()

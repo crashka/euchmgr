@@ -359,10 +359,12 @@ def rr_dash(tourn: TournInfo) -> str:
     max_rnd = lambda ls: max(g.round_num for g in ls) if ls else 0
     cur_rnd = {div: max_rnd(list(filter(not_bye, tg_list))) for div in div_list}
     for tg in tg_list:
-        div = tg.team.div_num
-        tm_id = tg.team.id
-        # see INVESTIGATE comment in `rr_scores` (chart.py)!!!
-        #assert tm_id == tg.team_id
+        # see INVESTIGATE comment in `rr_scores` (chart.py) for an explanation of what is
+        # happening here!!!
+        #div = tg.team.div_num
+        #tm_id = tg.team_id
+        div = tg.team_id.div_num  # <-- this is wrong, but happens to work!
+        tm_id = tg.team_id.id     # <-- ditto
         rnd = tg.round_num
         assert rnd not in team_pts[tm_id]
         assert rnd not in opp_pts[tm_id]

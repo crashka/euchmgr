@@ -160,7 +160,7 @@ def sd_bracket(tourn: TournInfo) -> str:
     matchups = {}  # key sequence: rnd, tbl -> matchup_html
     labels   = {}
     complete = {}
-    sg_iter = SeedGame.iter_games(include_byes=True, join_players=True)
+    sg_iter = SeedGame.iter_games(include_byes=True, join_players=False)
     for sg in sg_iter:
         rnd = sg.round_num
         tbl = sg.table_num
@@ -291,7 +291,7 @@ def rr_brackets(tourn: TournInfo) -> str:
     matchups = {div: {} for div in div_list}
     labels   = {div: {} for div in div_list}
     complete = {div: {} for div in div_list}
-    tg_iter = TournGame.iter_games(include_byes=True, join_teams=True)
+    tg_iter = TournGame.iter_games(include_byes=True, join_teams=False)
     for tg in tg_iter:
         div = tg.div_num
         rnd = tg.round_num
@@ -363,14 +363,17 @@ def rr_scores(tourn: TournInfo) -> str:
     max_rnd = lambda ls: max(g.round_num for g in ls) if ls else 0
     cur_rnd = {div: max_rnd(list(filter(not_bye, tg_list))) for div in div_list}
     for tg in tg_list:
-        div = tg.team.div_num
-        tm_id = tg.team.id
-        # INVESTIGATE: for some reason, the foreign key field (`tg.team_id`) is populated
-        # with the sub-object (same as `tg.team`), as opposed to a key value--don't know
-        # if this is due to multiple foreign keys to the same table (in the schema, not
-        # the query), or the `ui_schema` subclassing!!!  Note, we see the same thing in
-        # `rr_dash` (dash.py).
-        #assert tm_id == tg.team_id
+        # INVESTIGATE: for some reason, the `tg.team_id` foreign key field is populated
+        # with the team object data (same as `tg.team`), as opposed to the actual foreign
+        # key value--the difference being that access through `tg.team` causes spurious
+        # queries to obtain the data that is already there.  It is not clear if this is
+        # due to multiple foreign keys to the same table (in the schema, not the query),
+        # or the `ui_schema` subclassing!!!  Note, we see this same thing in `rr_dash`
+        # (dash.py).
+        #div = tg.team.div_num
+        #tm_id = tg.team_id
+        div = tg.team_id.div_num  # <-- this is wrong, but happens to work!
+        tm_id = tg.team_id.id     # <-- ditto
         rnd = tg.round_num
         assert rnd not in team_pts[tm_id]
         assert rnd not in opp_pts[tm_id]

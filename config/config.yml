@@ -82,6 +82,12 @@ default:
     correct_score_freq:        0.15
     time_variance:             [0.5, 1.5]
 
+euchmgr:
+  tourn:
+    production_mode:           true
+    ping_pong_balls:           false
+    use_cohort_stats:          true
+
 corellia:
   tourn:
     production_mode:           false

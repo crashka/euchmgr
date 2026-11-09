@@ -463,6 +463,8 @@ def trn_results(tourn: TournInfo) -> str:
 def fnl_results(tourn: TournInfo) -> str:
     """Render final tournament results as a chart
     """
+    if not tourn.tournament_done():
+        abort(400, "Final tournament results not yet available")
     rank_type = RankType.FINAL
     tm_iter  = Team.iter_teams(div=0, by_rank=True)  # sorted by final_rank_eff
     tm_list = list(filter(lambda x: x.tourn_wins + x.tourn_losses, tm_iter))
@@ -537,6 +539,8 @@ DIV_DFLT = 1
 def div_results(tourn: TournInfo) -> str:
     """Render tournament round robin results as a chart (for the specified division)
     """
+    if not tourn.round_robin_done():
+        abort(400, "Round robin results not yet available")
     rank_type = RankType.DIV
     div_num = typecast(request.args.get('div')) or DIV_DFLT
     assert div_num in (1, 2)

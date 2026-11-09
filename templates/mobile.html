@@ -872,6 +872,23 @@
      });
      {% endif %}  {# nums_avail #}
 
+     let resourceWin;
+     $('section.resources a').on('click', function(e) {
+       e.preventDefault();
+       if (resourceWin && !resourceWin.closed) {
+         resourceWin.close();
+       }
+       const url = $(e.target).attr('href');
+       // NOTE: we have to open the resource (i.e. link) explicitly using window.open()
+       // (as opposed to in pure HTML), otherwise the parent page appears to be replaced
+       // and the "back" button/swipe does not work, when accessing as a web app (at least
+       // on Android)--we will still need to validate the same behavior on iOS!!!  Opening
+       // as a popup also works (on Android), but does not appear necessary, so we'll keep
+       // things this way (simpler) while we can.
+       //resourceWin = window.open(url, "_blank", "popup");
+       resourceWin = window.open(url, "_blank");
+     });
+
      {% if err_msg %}
      showError("{{err_msg|safe}}");
      {% endif %}

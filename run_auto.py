@@ -106,7 +106,7 @@ def main() -> int:
       - generate_player_nums
       - build_seed_bracket
       - fake_seed_games
-      - tabulate_seed_round
+      - validate_seed_round
       - compute_player_ranks
       - prepick_champ_partners
       - fake_pick_partners
@@ -114,13 +114,17 @@ def main() -> int:
       - compute_team_seeds
       - build_tourn_bracket
       - fake_tourn_games
-      - tabulate_tourn
+      - validate_tourn
       - compute_team_ranks
-      - build_playoff_bracket
-      - validate_playoffs*
-      - compute_playoff_ranks*
-
-    * not included in ``all``
+      - build_semis_bracket
+      - fake_semis_games
+      - validate_semis
+      - compute_semis_ranks
+      - build_finals_bracket
+      - fake_finals_games
+      - validate_finals
+      - compute_finals_ranks
+      - compute_final_ranks
 
     Note that a roster file of ``<tourn_name>_roster.csv`` will be used by default, and
     ``addl_args`` represents keyword args that will be passed into the specified function

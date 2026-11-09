@@ -119,7 +119,7 @@ def resp_error(resp: Response) -> str:
 # agent funcs #
 ###############
 
-def login(user: str, pw: str = "") -> tuple[str, BeautifulSoup]:
+def login(user: str, pw: str = None) -> tuple[str, BeautifulSoup]:
     """Log in the user, and render the active view.
     """
     resp = agent_get('/')
@@ -129,7 +129,7 @@ def login(user: str, pw: str = "") -> tuple[str, BeautifulSoup]:
     assert len(resp.history) == 1
     assert resp.request.path_url == '/login'
 
-    data = {'username': user, 'password': pw}
+    data = {'username': user, 'password': pw or ""}
     resp = agent_post("/login", data=data)
     assert resp.status_code == 200
     assert len(resp.history) == 2
@@ -394,10 +394,10 @@ VIEW_AGENTS = {
     '/mobile/finals'     : partial(game_view_agent, view=View.FINALS)
 }
 
-def mobile_agent(player_name: str) -> str:
+def mobile_agent(player_name: str, password = None) -> str:
     """Setup and main loop for the mobile agent.
     """
-    view, soup = login(player_name)
+    view, soup = login(player_name, password)
     assert view in VIEW_AGENTS, f"No agent for view '{view}'"
     log.debug(f"view {view}, status '{get_view_status(soup)}'")
     user = soup.select_one('span.login_info span[title]').string
@@ -415,8 +415,11 @@ def mobile_agent(player_name: str) -> str:
 ########
 
 import sys
+from os import environ
 
 from ckautils import parse_argv
+
+AGENT_PW = environ.get('EUCHMGR_AGENT_PW')
 
 def main() -> int:
     """Mobile client agent.
@@ -437,7 +440,7 @@ def main() -> int:
     log_name = f"agent-{player_tag}"
     set_logger(log_name)
     set_server(server_url)
-    mobile_agent(player_name)
+    mobile_agent(player_name, AGENT_PW)
     return 0
 
 if __name__ == '__main__':

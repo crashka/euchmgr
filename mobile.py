@@ -65,7 +65,7 @@ def fmt_matchup(game: StageGame, ref: Player | Team, observer: bool = False) \
     that the caller is a disinterested party, otherwise the decoration is from the point
     of view of team 1 (valid for playoff games only).
     """
-    team_idx = game.team_idx(ref)
+    team_idx = game.team_idx(ref)  # <-- see PRECARIOUS below
     if team_idx == -1:
         # player or team has a bye
         if isinstance(ref, Player):

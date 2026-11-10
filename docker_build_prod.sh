@@ -2,4 +2,4 @@
 
 set -x
 
-docker build -t euchmgr -f Dockerfile.prod --progress plain .
+docker build -t euchmgr:prod -f Dockerfile.prod --progress plain .

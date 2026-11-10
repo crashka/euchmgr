@@ -48,7 +48,7 @@ after logging in*
 
 ## Login and Registration
 
-1. From the Login page, **sign in** by choosing your name in the "User" field and entering
+1. From the Login page, **log in** by choosing your name in the "User" field and entering
    the password provided by the application administrator.
 
    - Contact the application administrator if you do not see your name in the select list.

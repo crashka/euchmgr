@@ -2,7 +2,8 @@
 
 [Overview](#overview)<br>
 [App Install (optional)](#app-install-optional)<br>
-[Login and Navigation](#login-and-navigation)<br>
+[Login and Registration](#login-and-registration)<br>
+[App Navigation](#app-navigation)<br>
 [Game Scores](#game-scores)<br>
 [Miscellaneous](#miscellaneous)<br>
 &nbsp;&nbsp;\- [Partner Picks](#partner-picks)<br>
@@ -45,15 +46,29 @@ as with direct browser access.
 <sup>&dagger;</sup> *Note: you can also install later from any of the application pages
 after logging in*
 
-## Login and Navigation
+## Login and Registration
 
 1. From the Login page, **sign in** by choosing your name in the "User" field and entering
    the password provided by the application administrator.
 
    - Contact the application administrator if you do not see your name in the select list.
 
-2. After logging in, you will see the page representing the **current stage of the
-   tournament**, one of:
+2. You will now be able to **register for the tournament** using the Registration page.
+
+   - **Enter the nick name** you want for the tournament (optional)&mdash;it should be
+     familiar, unique, and consistent with the name used in previous tournaments.
+
+     - Your last name will be used if nick name is not entered (or is cleared out).
+
+   - Hit the **"Complete Registration"** button.
+
+## App Navigation
+
+1. After registering, you can always go to the **current active stage** of the tournament
+   using the "Latest" link (in the top lefthand corner).
+
+2. You can also **navigate directly** to any tournament stage (past, present, or future)
+   using the "Select Stage" link at the top of the screen, one of:
 
    - Registration
    - Seeding
@@ -62,18 +77,13 @@ after logging in*
    - Semifinals
    - Finals
 
-3. You can **navigate directly** to any tournament stage (past, present, or future) using
-   the "Select Stage" link at the top of the screen.
-
-4. You can **return to the current active stage**, with the lastest information, using the
-   "Latest" link (top lefthand corner).
-
-5. The current stage information will be **automatically updated** as it changes (with a
+3. The current stage information will be **automatically updated** as it changes (with a
    few second delay)&mdash;updates are paused if you are in the middle of entering a score
    or pick.
 
-6. You can get **immediate updates** by tapping the background of the top section of the
-   screen (next to Stage Info), or tapping on the currently highlighted game (or pick).
+4. You can get **immediate updates** for the active stage by tapping the background of the
+   top section of the screen (next to Stage Info), or tapping on the currently highlighted
+   game (or pick).
 
 ## Game Scores
 

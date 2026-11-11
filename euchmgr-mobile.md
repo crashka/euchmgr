@@ -7,7 +7,7 @@
 &nbsp;&nbsp;\- [Game Scores](#game-scores)<br>
 [Additional Features](#additional-features)<br>
 &nbsp;&nbsp;\- [App Install (Optional)](#app-install-optional)<br>
-&nbsp;&nbsp;\- [Playoff Tracking](#playoff-tracking)<br>
+&nbsp;&nbsp;\- [Tournament/Playoff Tracking](#tournamentplayoff-tracking)<br>
 &nbsp;&nbsp;\- [(Hidden) UI Gestures](#hidden-ui-gestures)<br>
 
 ## Overview
@@ -103,23 +103,28 @@ things should work exactly the same as with the native browser interface.
 2. **Close the browser**, then open the newly installed application by tapping the Euchmgr
    icon on your home screen (or in the installed applications list).
 
-### Playoff Tracking
+### Tournament/Playoff Tracking
 
+- **Toggle between the "Games" view and "Leaderboard" view** for any of the card-playing
+  stages using the link next to the section header.
+- **Tournament brackets, scores, and results** for all players/teams and games (beyond
+  yours) may be viewed by clicking on the applicable link at the bottom of the Seeding
+  and/or Round Robin page.
+  - Note that these tables/charts are not very mobile-friendly (they actually belong to
+    the admin interface).
+  - Return to the page you were on by swiping backward (as indicated below).
 - **Playoff games may be tracked** by non-playoff players through the Semifinals or
   Finals page.
 - **The final four playoff bracket** may be viewed by clicking on the link at the bottom
   of either playoff round page.
-- **Note: there is no auto-update** for either of the playoff round pages, or the final
-  four playoff bracket.
-  - You can get updates for those views by dragging down on the screen (same as the "Drag
-    down" item, below).
+- **Note: there is no auto-update** for any of the tracking charts/pages mentioned above.
+  - You can get updates for these views by dragging down on the screen (same as the "Drag
+    down..." item, below).
 
 ### (Hidden) UI Gestures
 
 - **Tap on the "Stage Info" section** of the active stage to immediately update the
   information for the stage (without having to wait for the auto-update cycle).
-- **Toggle between the "Games" view and "Leaderboard" view** for any of the card-playing
-  stages using the link next to the section header.
 - **Drag down on any screen** to get a page refresh (generic browser behavior).
 - **Swipe right on any screen** (from the left edge) to go back to the previous page
   (generic browser behavior).

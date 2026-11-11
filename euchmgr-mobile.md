@@ -47,40 +47,37 @@ capabilities.
 
 ### Navigation and Stage Information
 
-1. **The "Latest" link** (top lefthand corner of every page) will always take you to the
-   current active stage for the tournament.
-
-2. **The "Select Stage" link** (next to "Latest") will allow you to navigate directly to
-   the page for any of the tournament stages:
-
-   - Registration
-   - Seeding
-   - Partner Picks
-   - Round Robin
-   - Semifinals
-   - Finals
-
-3. **Information for the current stage** will be automatically updated as it changes
-   (possibly with a few seconds of delay).
-   - Note that automatic updates are paused if you are in the middle of entering a score
-     or pick.
+- **The "Latest" link** (top lefthand corner of every page) will always take you to the
+  current active stage for the tournament.
+- **The "Select Stage" link** (next to "Latest") will allow you to navigate directly to
+  the page for any of the tournament stages:
+  - Registration
+  - Seeding
+  - Partner Picks
+  - Round Robin
+  - Semifinals
+  - Finals
+- **Information for the current stage** will be automatically updated as it changes
+  (possibly with a few seconds of delay).
+  - Note that automatic updates are paused if you are in the middle of entering a score
+    or pick.
 
 ### Game Scores
 
 A game score entered (or updated) by a player must be accepted by a member of the opposing
 team before it is posted as a completed game result.
 
-1. **Submitting** &ndash; at the end of a game, any of the players can enter the score by
-   selecting the points for each team, then hitting the "Submit Score" button.
+- **Submitting** &ndash; at the end of a game, any of the players can enter the score by
+  selecting the points for each team, then hitting the "Submit Score" button.
 
-2. **Accepting** &ndash; a player from the opposing team must then acknowledge the
-   submitted score using the "Accept Score" button in order for it to be officially
-   posted.
+- **Accepting** &ndash; a player from the opposing team must then acknowledge the
+  submitted score using the "Accept Score" button in order for it to be officially
+  posted.
 
-3. **Correcting** &ndash; players from either team are able to rectify an erroneous score
-   by changing the team points displayed, then hitting the "Correct Score" button.
-   - As with the original score submission, a player from the opposing team must accept a
-     corrected score in order for it to be officially posted.
+- **Correcting** &ndash; players from either team are able to rectify an erroneous score
+  by changing the team points displayed, then hitting the "Correct Score" button.
+  - As with the original score submission, a player from the opposing team must accept a
+    corrected score in order for it to be officially posted.
 
 ## Additional Features
 
@@ -124,26 +121,26 @@ things should work exactly the same as with the native browser interface.
 
 ### Playoff Tracking
 
-1. **Playoff games may be tracked** by non-playoff players through the Semifinals or
-   Finals page.
+- **Playoff games may be tracked** by non-playoff players through the Semifinals or
+  Finals page.
 
-2. **The final four playoff bracket** may be viewed by clicking on the link at the bottom
-   of either playoff round page.
+- **The final four playoff bracket** may be viewed by clicking on the link at the bottom
+  of either playoff round page.
 
-3. **Note: there is no auto-update** for either of the playoff round pages, or the final
-   four playoff bracket.
-   - You can get updates for those views by dragging down on the screen (same as item 3,
-     below).
+- **Note: there is no auto-update** for either of the playoff round pages, or the final
+  four playoff bracket.
+  - You can get updates for those views by dragging down on the screen (same as the "Drag
+    down" item, below).
 
 ### (Hidden) UI Gestures
 
-1. **Tap on the "Stage Info" section** of the active stage to immediately update the
-   information for the stage (without having to wait for the auto-update cycle).
+- **Tap on the "Stage Info" section** of the active stage to immediately update the
+  information for the stage (without having to wait for the auto-update cycle).
 
-2. **Toggle between the "Games" view and "Leaderboard" view** for any of the card-playing
-   stages using the link next to the section header.
+- **Toggle between the "Games" view and "Leaderboard" view** for any of the card-playing
+  stages using the link next to the section header.
 
-3. **Drag down on any screen** to get a page refresh (generic browser behavior).
+- **Drag down on any screen** to get a page refresh (generic browser behavior).
 
-4. **Swipe right on any screen** (from the left edge) to go back to the previous page
-   (generic browser behavior).
+- **Swipe right on any screen** (from the left edge) to go back to the previous page
+  (generic browser behavior).

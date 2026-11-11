@@ -36,13 +36,13 @@ capabilities.
 
 3. **Register for the tournament** from the Registration page.
 
-   i. **\[Optional\] Enter your nick name** for the tournament&mdash;it should be familiar,
+   a. **\[Optional\] Enter your nick name** for the tournament&mdash;it should be familiar,
       unique, and consistent with the name used in previous tournaments.
       - Note: your last name will be used if nick name is not provided (or is cleared out).
 
-   ii. **Hit the "Complete Registration" button**.  Your player number for the seed round
-       bracket will be generated automatically when all players have registered (no more
-       ping pong balls).
+   b. **Hit the "Complete Registration" button**.  Your player number for the seed round
+      bracket will be generated automatically when all players have registered (no more
+      ping pong balls).
 
 ### Navigation and Stage Information
 
@@ -96,27 +96,27 @@ things should work exactly the same as with the native browser interface.
    logging in) using one of the following directions, depending on your O/S and browser:
    - **iOS/Safari**
 
-     i. Tap the "Share" button on the browser (which may be under the ' &vellip; ' menu),
+     a. Tap the "Share" button on the browser (which may be under the ' &vellip; ' menu),
         then scroll down and choose "Add to Home Screen".
 
-     ii. Note: you should select the "Open as Web App" option, if it is available.
+     b. Note: you should select the "Open as Web App" option, if it is available.
 
    - **Android/Chrome**
 
-     i. Tap the ' &vellip; ' menu on the browser and select "Install and create shortcut".
+     a. Tap the ' &vellip; ' menu on the browser and select "Install and create shortcut".
 
-     ii. From there, choose "Install".
+     b. From there, choose "Install".
 
-     iii. Note that this may not add the application icon to your home screen, so you may
-          need and/or want to do that separately (from the phone's installed applications
-          list).
+     c. Note that this may not add the application icon to your home screen, so you may
+        need and/or want to do that separately (from the phone's installed applications
+        list).
 
    - **Android/Firefox**
 
-     i. Tap the ' &vellip; ' menu on the browser and choose the "More" option.
+     a. Tap the ' &vellip; ' menu on the browser and choose the "More" option.
 
-     ii. From there, tap on "Add app to Home screen", and then hit the "Add to home screen"
-         button.
+     b. From there, tap on "Add app to Home screen", and then hit the "Add to home screen"
+        button.
 
 2. **Close the browser**, then open the newly installed application by tapping the Euchmgr
    icon on your home screen (or in the installed applications list).

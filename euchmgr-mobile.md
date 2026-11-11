@@ -79,8 +79,8 @@ application usage, but that players may find useful.
 
 ### App Install (Optional)
 
-When installing as a web app, the browser "chrome" elements (address bar, bookmark bar,
-tabs, etc.) go away, and there is a little more usable screen real estate.  Otherwise,
+When installing as a web app, the browser "chrome" elements (address bar, icons, tab
+stuff, etc.) go away, and there is a little more usable screen real estate.  Otherwise,
 things should work exactly the same as with the native browser interface.
 
 1. **Install as a web app** from the Login page (or any of the application screens after

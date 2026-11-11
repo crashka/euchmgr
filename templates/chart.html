@@ -422,11 +422,12 @@
           <table class="ranks">
             <thead>
               <tr>
-                <th class="team_lbl hor_sect" rowspan="2">Team (by Overall Seed)</th>
                 {% if chart_num in (5, 6) %}
+                <th class="team_lbl hor_sect" rowspan="2">Team (by Overall Seed)</th>
                 <th class="pos_lbl hor_sect vert_sect" rowspan="2">Final<br>Pos</th>
                 <th class="vert_sect" colspan="3">Playoffs</th>
                 {% elif chart_num in (7, 8) %}
+                <th class="team_lbl hor_sect" rowspan="2">Team (by Div Seed)</th>
                 <th class="pos_lbl hor_sect vert_sect" rowspan="2">Div<br>Pos</th>
                 {% endif %}
                 <th class="vert_sect" colspan="3">Round Robin</th>
@@ -460,13 +461,14 @@
               {% if teams %}
               {% for tm in teams %}
               <tr class="cmpt">
-                <td class="team_lbl">{{tm.team_tag_fn|safe}}</td>
                 {% if chart_num in (5, 6) %}
+                <td class="team_lbl">{{tm.team_tag_fn|safe}}</td>
                 <td class="vert_sect" title="{{tb_crit[tm.id]}}">{{tm.final_pos_str}}</td>
                 <td class="vert_sect">{{fmt_stat(tm.playoff_match_rec)}}</td>
                 <td>{{fmt_stat(tm.playoff_win_rec)}}</td>
                 <td>{{fmt_stat(tm.playoff_pts_pct)|safe}}</td>
                 {% elif chart_num in (7, 8) %}
+                <td class="team_lbl">{{tm.team_tag|safe}}</td>
                 <td class="vert_sect" title="{{tb_crit[tm.id]}}">{{tm.div_pos_str}}</td>
                 {% endif %}
                 <td class="vert_sect">{{fmt_stat(tm.tourn_win_rec)}}</td>

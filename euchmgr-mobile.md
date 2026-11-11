@@ -77,7 +77,7 @@ team before it is posted as a completed game result.
    submitted score using the "Accept Score" button in order for it to be officially
    posted.
 
-3. **Correcting** &ndash; players from either team are able to change an erroneous score
+3. **Correcting** &ndash; players from either team are able to rectify an erroneous score
    by changing the team points displayed, then hitting the "Correct Score" button.
    - As with the original score submission, a player from the opposing team must accept a
      corrected score in order for it to be officially posted.

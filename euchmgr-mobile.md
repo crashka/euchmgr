@@ -29,18 +29,14 @@ capabilities.
 
 1. **Click on the URL** provided by the application administrator in order to access the
    login page (or you may enter the web address into your browser of choice).
-
 2. **Log in to the application** by selecting your name in the "User" field, and entering
    the password provided by the application administrator.
    - Contact the application administrator if you do not see your name in the list.
-
 3. **Register for the tournament** from the Registration page.
-
    1. **\[Optional\] Enter your nick name** for the tournament; it should be familiar,
       unique, and consistent with the name used in previous tournaments.
       - Your last name will be used as your tournament identifier if nick name is not
         provided (or is cleared out).
-
    2. **Hit the "Complete Registration" button**.
       - Your player number for the seeding round bracket will be generated automatically
         when all players have registered (no more ping pong balls).
@@ -65,6 +61,7 @@ capabilities.
 
 A game score entered (or updated) by a player must be accepted by a member of the opposing
 team before it is posted as a completed game result.
+
 - **Submitting** &ndash; at the end of a game, any of the players can enter the score by
   selecting the points for each team, then hitting the "Submit Score" button.
 - **Accepting** &ndash; a player from the opposing team must then acknowledge the
@@ -89,29 +86,19 @@ things should work exactly the same as with the native browser interface.
 1. **Install as a web app** from the Login page (or any of the application screens after
    logging in) using one of the following directions, depending on your O/S and browser:
    - **iOS/Safari**
-
      1. Tap the "Share" button on the browser (which may be under the ' &vellip; ' menu),
         then scroll down and choose "Add to Home Screen".
-
      2. Note: you should select the "Open as Web App" option, if it is available.
-
    - **Android/Chrome**
-
      1. Tap the ' &vellip; ' menu on the browser and select "Install and create shortcut".
-
      2. From there, choose "Install".
-
      3. Note that this may not add the application icon to your home screen, so you may
         need and/or want to do that separately (from the phone's installed applications
         list).
-
    - **Android/Firefox**
-
      1. Tap the ' &vellip; ' menu on the browser and choose the "More" option.
-
      2. From there, tap on "Add app to Home screen", and then hit the "Add to home screen"
         button.
-
 2. **Close the browser**, then open the newly installed application by tapping the Euchmgr
    icon on your home screen (or in the installed applications list).
 

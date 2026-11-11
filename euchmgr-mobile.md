@@ -35,14 +35,13 @@ capabilities.
    - Contact the application administrator if you do not see your name in the list.
 
 3. **Register for the tournament** from the Registration page.
-
-   a. **\[Optional\] Enter your nick name** for the tournament&mdash;it should be familiar,
-      unique, and consistent with the name used in previous tournaments.
-      - Note: your last name will be used if nick name is not provided (or is cleared out).
-
-   b. **Hit the "Complete Registration" button**.  Your player number for the seed round
-      bracket will be generated automatically when all players have registered (no more
-      ping pong balls).
+   - **\[Optional\] Enter your nick name** for the tournament; it should be familiar,
+     unique, and consistent with the name used in previous tournaments.
+     - Your last name will be used as your tournament identifier if nick name is not
+       provided (or is cleared out).
+   - **Hit the "Complete Registration" button**.
+     - Your player number for the seeding round bracket will be generated automatically
+       when all players have registered (no more ping pong balls).
 
 ### Navigation and Stage Information
 
@@ -92,34 +91,34 @@ When installing as a web app, the browser "chrome" elements (address bar, bookma
 tabs, etc.) go away, and there is a little more usable screen real estate.  Otherwise,
 things should work exactly the same as with the native browser interface.
 
-1. **Install as a web app** from the Login page (or any of the application screens after
-   logging in) using one of the following directions, depending on your O/S and browser:
-   - **iOS/Safari**
+- **Install as a web app** from the Login page (or any of the application screens after
+  logging in) using one of the following directions, depending on your O/S and browser:
+  - **iOS/Safari**
 
-     a. Tap the "Share" button on the browser (which may be under the ' &vellip; ' menu),
-        then scroll down and choose "Add to Home Screen".
+    1. Tap the "Share" button on the browser (which may be under the ' &vellip; ' menu),
+       then scroll down and choose "Add to Home Screen".
 
-     b. Note: you should select the "Open as Web App" option, if it is available.
+    2. Note: you should select the "Open as Web App" option, if it is available.
 
-   - **Android/Chrome**
+  - **Android/Chrome**
 
-     a. Tap the ' &vellip; ' menu on the browser and select "Install and create shortcut".
+    1. Tap the ' &vellip; ' menu on the browser and select "Install and create shortcut".
 
-     b. From there, choose "Install".
+    2. From there, choose "Install".
 
-     c. Note that this may not add the application icon to your home screen, so you may
-        need and/or want to do that separately (from the phone's installed applications
-        list).
+    3. Note that this may not add the application icon to your home screen, so you may
+       need and/or want to do that separately (from the phone's installed applications
+       list).
 
-   - **Android/Firefox**
+  - **Android/Firefox**
 
-     a. Tap the ' &vellip; ' menu on the browser and choose the "More" option.
+    1. Tap the ' &vellip; ' menu on the browser and choose the "More" option.
 
-     b. From there, tap on "Add app to Home screen", and then hit the "Add to home screen"
-        button.
+    2. From there, tap on "Add app to Home screen", and then hit the "Add to home screen"
+       button.
 
-2. **Close the browser**, then open the newly installed application by tapping the Euchmgr
-   icon on your home screen (or in the installed applications list).
+- **Close the browser**, then open the newly installed application by tapping the Euchmgr
+  icon on your home screen (or in the installed applications list).
 
 ### Playoff Tracking
 

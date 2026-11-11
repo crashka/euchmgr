@@ -59,8 +59,7 @@ capabilities.
   - Finals
 - **Information for the current stage** will be automatically updated as it changes
   (possibly with a few seconds of delay).
-  - Note that automatic updates are paused if you are in the middle of entering a score
-    or pick.
+  - Note that automatic updates are paused if you are in the middle of entering a score.
 
 ### Game Scores
 

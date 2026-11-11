@@ -28,7 +28,8 @@ capabilities.
 ### Login Page and Registration
 
 1. **Click on the URL link** provided by the application administrator in order to access
-   the Login page (or you may enter the address directly into your browser of choice).
+   the Login page (or you may enter the address directly into your mobile browser of
+   choice).
 2. **Log in to the application** by selecting your name in the "User" field, and entering
    the password provided by the application administrator.
    - Contact the application administrator if you do not see your name in the list.

@@ -30,18 +30,14 @@ capabilities.
 1. **Click on the URL** provided by the application administrator in order to access the
    login page (or you may enter the web address into your browser of choice).
 
-1. **Log in to the application** by selecting your name in the "User" field, and entering
+2. **Log in to the application** by selecting your name in the "User" field, and entering
    the password provided by the application administrator.
-
    - Contact the application administrator if you do not see your name in the list.
 
-2. **Register for the tournament** from the Registration page.
-
+3. **Register for the tournament** from the Registration page.
    - **\[Optional\] Enter your nick name** for the tournament&mdash;it should be familiar,
      unique, and consistent with the name used in previous tournaments.
-
      - Note: your last name will be used if nick name is not provided (or is cleared out).
-
    - **Hit the "Complete Registration" button**.  Your player number for the seed round
      bracket will be generated automatically when all players have registered (no more
      ping pong balls).
@@ -63,7 +59,6 @@ capabilities.
 
 3. **Information for the current stage** will be automatically updated as it changes
    (possibly with a few seconds of delay).
-
    - Note that automatic updates are paused if you are in the middle of entering a score
      or pick.
 
@@ -81,7 +76,6 @@ team before it is posted as a completed game result.
 
 3. **Correcting** &ndash; players from either team are able to change an erroneous score
    by changing the team points displayed, then hitting the "Correct Score" button.
-
    - As with the original score submission, a player from the opposing team must accept a
      corrected score in order for it to be officially posted.
 
@@ -98,19 +92,16 @@ things should work exactly the same as with the native browser interface.
 
 1. **Install as a web app** from the Login page (or any of the application screens after
    logging in) using one of the following directions, depending on your O/S and browser:
-
    - **iOS/Safari**
      - Tap the "Share" button on the browser (which may be under the ' &vellip; ' menu),
        then scroll down and choose "Add to Home Screen".
      - Note: you should select the "Open as Web App" option, if it is available.
-
    - **Android/Chrome**
      - Tap the ' &vellip; ' menu on the browser and select "Install and create shortcut".
      - From there, choose "Install".
      - Note that this may not add the application icon to your home screen, so you may
        need and/or want to do that separately (from the phone's installed applications
        list).
-
    - **Android/Firefox**
      - Tap the ' &vellip; ' menu on the browser and choose the "More" option.
      - From there, tap on "Add app to Home screen", and then hit the "Add to home screen"
@@ -129,7 +120,6 @@ things should work exactly the same as with the native browser interface.
 
 3. **Note: there is no auto-update** for either of the playoff round pages, or the final
    four playoff bracket.
-
    - You can get updates for those views by dragging down on the screen (same as item 3,
      below).
 

@@ -1,74 +1,58 @@
 # Euchmgr Mobile
 
 [Overview](#overview)<br>
-[App Install (optional)](#app-install-optional)<br>
-[Login and Registration](#login-and-registration)<br>
-[App Navigation](#app-navigation)<br>
-[Game Scores](#game-scores)<br>
-[Miscellaneous](#miscellaneous)<br>
-&nbsp;&nbsp;\- [Partner Picks](#partner-picks)<br>
+[Basics](#basics)<br>
+&nbsp;&nbsp;\- [Login Page and Registration](#login-page-and-registration)<br>
+&nbsp;&nbsp;\- [Navigation and Stage Information](#navigation-and-stage-information)<br>
+&nbsp;&nbsp;\- [Game Scores](#game-scores)<br>
+[Additional Features](#additional-features)<br>
+&nbsp;&nbsp;\- [App Install (Optional)](#app-install-optional)<br>
 &nbsp;&nbsp;\- [Playoff Tracking](#playoff-tracking)<br>
+&nbsp;&nbsp;\- [(Hidden) UI Gestures](#hidden-ui-gestures)<br>
 
 ## Overview
 
-Here are brief notes about the Euchre Manager mobile interface.  This is the bare minimum
-for installation (or not) and basic usage.
+The mobile application has a web-based interface, with individual pages representing each
+stage of the tournament.  The application may (optionally) be installed on your phone as a
+web app (see [below](#app-install-optional)).
 
-The application itself is a small set of web pages&mdash;one for each stage of the
-tournament&mdash;suited to a mobile browser, which **may** (optionally) **be installed on
-your phone** as a web app.  If installed, the browser framing ("chrome") goes away, and
-there is a little more usable screen real estate, but things should work exactly the same
-as with direct browser access.
+The primary functions within the application are: tournament registration, game score
+entry and confirmation, and partner picking.
 
-## App Install (optional)
+## Basics
 
-1. **Click on** (or type in) **the URL** provided by the application administrator.
+This section represents the bare essentials for application access and basic usage.  See
+[Additional Features](#additional-features) below for some more detail on features and
+capabilities.
 
-2. **Install as a web app** from the Login page<sup>&dagger;</sup> using the following
-   instructions (depending on your O/S and browser):
+### Login Page and Registration
 
-   - **iOS/Safari** &ndash; Tap the "Share" button on the browser (which may be under the
-     '&vellip;' icon/menu) and choose "Add to Home Screen".
+1. **Click on the URL** provided by the application administrator in order to access the
+   login page (or you may enter the web address into your browser of choice).
 
-     - Note: you should select the "Open as Web App" option, if it is available.
-
-   - **Android/Chrome** &ndash; Tap the '&vellip;' icon/menu on the browser and select
-     "Install and create shortcut"; then from there, choose "Install".  Note that this may
-     not add the application icon to your home screen, so you may need/want to do that
-     separately (from the phone's installed applications list).
-   - **Android/Firefox** &ndash; Tap the '&vellip;' icon/menu on the browser and choose the
-     "More" option.  From there, tap on "Add app to Home screen", and then hit the "Add to
-     home screen" button.
-
-3. **Close the browser** and open Euchmgr through the newly installed application by
-   tapping the icon on your home screen (or the phone's applications list).
-
-<sup>&dagger;</sup> *Note: you can also install later from any of the application pages
-after logging in*
-
-## Login and Registration
-
-1. From the Login page, **log in** by choosing your name in the "User" field and entering
+1. **Log in to the application** by selecting your name in the "User" field, and entering
    the password provided by the application administrator.
 
-   - Contact the application administrator if you do not see your name in the select list.
+   - Contact the application administrator if you do not see your name in the list.
 
-2. You will now be able to **register for the tournament** using the Registration page.
+2. **Register for the tournament** from the Registration page.
 
-   - **Enter the nick name** you want for the tournament (optional)&mdash;it should be
-     familiar, unique, and consistent with the name used in previous tournaments.
+   - **\[Optional\] Enter your nick name** for the tournament&mdash;it should be familiar,
+     unique, and consistent with the name used in previous tournaments.
 
-     - Your last name will be used if nick name is not entered (or is cleared out).
+     - Note: your last name will be used if nick name is not provided (or is cleared out).
 
-   - Hit the **"Complete Registration"** button.
+   - **Hit the "Complete Registration" button**.  Your player number for the seed round
+     bracket will be generated automatically when all players have registered (no more
+     ping pong balls).
 
-## App Navigation
+### Navigation and Stage Information
 
-1. After registering, you can always go to the **current active stage** of the tournament
-   using the "Latest" link (in the top lefthand corner).
+1. **The "Latest" link** (top lefthand corner of every page) will always take you to the
+   current active stage for the tournament.
 
-2. You can also **navigate directly** to any tournament stage (past, present, or future)
-   using the "Select Stage" link at the top of the screen, one of:
+2. **The "Select Stage" link** (next to "Latest") will allow you to navigate directly to
+   the page for any of the tournament stages:
 
    - Registration
    - Seeding
@@ -77,19 +61,16 @@ after logging in*
    - Semifinals
    - Finals
 
-3. The current stage information will be **automatically updated** as it changes (with a
-   few second delay)&mdash;updates are paused if you are in the middle of entering a score
-   or pick.
+3. **Information for the current stage** will be automatically updated as it changes
+   (possibly with a few seconds of delay).
 
-4. You can get **immediate updates** for the active stage by tapping the background of the
-   top section of the screen (next to Stage Info), or tapping on the currently highlighted
-   game (or pick).
+   - Note that automatic updates are paused if you are in the middle of entering a score
+     or pick.
 
-## Game Scores
+### Game Scores
 
-Any game score that is entered (or updated) by a player must be accepted by a member of
-the opposing team before it is officially posted as a completed game result&mdash;here are
-the steps:
+A game score entered (or updated) by a player must be accepted by a member of the opposing
+team before it is posted as a completed game result.
 
 1. **Submitting** &ndash; at the end of a game, any of the players can enter the score by
    selecting the points for each team, then hitting the "Submit Score" button.
@@ -104,20 +85,63 @@ the steps:
    - As with the original score submission, a player from the opposing team must accept a
      corrected score in order for it to be officially posted.
 
-## Miscellaneous
+## Additional Features
 
-### Partner Picks
+This section covers application features and capabilities that are not essential for
+application usage, but that players may find useful.
 
-The process should be self-evident from the Partner Picks page (when active).
+### App Install (Optional)
+
+When installing as a web app, the browser "chrome" elements (address bar, bookmark bar,
+tabs, etc.) go away, and there is a little more usable screen real estate.  Otherwise,
+things should work exactly the same as with the native browser interface.
+
+1. **Install as a web app** from the Login page (or any of the application screens after
+   logging in) using one of the following directions, depending on your O/S and browser:
+
+   - **iOS/Safari**
+     - Tap the "Share" button on the browser (which may be under the ' &vellip; ' menu),
+       then scroll down and choose "Add to Home Screen".
+     - Note: you should select the "Open as Web App" option, if it is available.
+
+   - **Android/Chrome**
+     - Tap the ' &vellip; ' menu on the browser and select "Install and create shortcut".
+     - From there, choose "Install".
+     - Note that this may not add the application icon to your home screen, so you may
+       need and/or want to do that separately (from the phone's installed applications
+       list).
+
+   - **Android/Firefox**
+     - Tap the ' &vellip; ' menu on the browser and choose the "More" option.
+     - From there, tap on "Add app to Home screen", and then hit the "Add to home screen"
+       button.
+
+2. **Close the browser**, then open the newly installed application by tapping the Euchmgr
+   icon on your home screen (or in the installed applications list).
 
 ### Playoff Tracking
 
-Playoff games may be tracked by non-playoff players through the Semifinals or Finals pages.
+1. **Playoff games may be tracked** by non-playoff players through the Semifinals or
+   Finals page.
 
-- You can also **click on the "Playoff Bracket" link** at the bottom of either page.
+2. **The final four playoff bracket** may be viewed by clicking on the link at the bottom
+   of either playoff round page.
 
-- Note that there is **no auto-update** for either the application playoff pages or the
-  playoff bracket chart.
+3. **Note: there is no auto-update** for either of the playoff round pages, or the final
+   four playoff bracket.
 
-  - You can get updates by swiping down on the screen (or hitting the Refresh button, if
-    using the browser interface).
+   - You can get updates for those views by dragging down on the screen (same as item 3,
+     below).
+
+### (Hidden) UI Gestures
+
+1. **Tap on the "Stage Info" section** of the active stage to immediately update the
+   information for the stage (without having to wait for the auto-update cycle).
+
+2. **Toggle between the "Games" view and "Leaderboard" view** for any of the card-playing
+   stages using the link next to the section header.
+
+3. **Drag down on any screen** to get a page refresh (generic browser behavior).
+
+4. **Swipe right on any screen** (from the left edge) to go back to the previous page
+   (generic browser behavior).

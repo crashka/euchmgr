@@ -25,7 +25,7 @@ RUN pip install -r requirements_prod.txt
 
 FROM python:3.12-slim
 ENV PYTHONUNBUFFERED=1
-ENV TZ=America/Los_Angeles
+ENV TZ=America/Chicago
 
 WORKDIR /app/
 COPY --from=build /app/venv /app/venv
